@@ -1,0 +1,2515 @@
+{
+  "scene": "Assets/Scenes/DaldongneWarmMap.unity",
+  "timestampUtc": "2026-09-18T05:15:37.7265624Z",
+  "radius": 0.35,
+  "height": 1.8,
+  "stepOffset": 0.23,
+  "skinWidth": 0.02,
+  "slopeLimit": 45,
+  "test": "Actual CharacterController.Move, all supplied routes in both directions; only initial placement is teleported.",
+  "coordinateOrder": "Blender [x,y,z]",
+  "traversals": 74,
+  "failureCount": 0,
+  "passed": true,
+  "mapDirtyBefore": false,
+  "mapDirtyAfter": false,
+  "results": [
+    {
+      "route": "ShopWest",
+      "kind": "stair",
+      "direction": "a_to_b",
+      "passed": true,
+      "moves": 61,
+      "start": [
+        -21.0,
+        -6.0,
+        1.13
+      ],
+      "end": [
+        -21.0,
+        -1.4,
+        3.0
+      ],
+      "actualEnd": [
+        -21.0,
+        -1.42499983,
+        3.01967835
+      ],
+      "remainingHorizontal": 0.0249998569,
+      "endHeightError": 0.0196783543,
+      "maxVerticalDeviation": 0.04980755,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_ShopWest",
+        "Walk_Path_WestFoot"
+      ]
+    },
+    {
+      "route": "ShopWest",
+      "kind": "stair",
+      "direction": "b_to_a",
+      "passed": true,
+      "moves": 61,
+      "start": [
+        -21.0,
+        -1.4,
+        3.0
+      ],
+      "end": [
+        -21.0,
+        -6.0,
+        1.13
+      ],
+      "actualEnd": [
+        -21.0,
+        -5.97500038,
+        1.187978
+      ],
+      "remainingHorizontal": 0.0249996185,
+      "endHeightError": 0.057978034,
+      "maxVerticalDeviation": 0.0517585278,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_ShopWest"
+      ]
+    },
+    {
+      "route": "ShopCenter",
+      "kind": "stair",
+      "direction": "a_to_b",
+      "passed": true,
+      "moves": 62,
+      "start": [
+        2.3,
+        -6.0,
+        1.13
+      ],
+      "end": [
+        2.3,
+        -1.3,
+        3.0
+      ],
+      "actualEnd": [
+        2.3,
+        -1.34999979,
+        3.01641035
+      ],
+      "remainingHorizontal": 0.0499998331,
+      "endHeightError": 0.01641035,
+      "maxVerticalDeviation": 0.0466859341,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_ShopCenter",
+        "Walk_Path_CentralFoot"
+      ]
+    },
+    {
+      "route": "ShopCenter",
+      "kind": "stair",
+      "direction": "b_to_a",
+      "passed": true,
+      "moves": 62,
+      "start": [
+        2.3,
+        -1.3,
+        3.0
+      ],
+      "end": [
+        2.3,
+        -6.0,
+        1.13
+      ],
+      "actualEnd": [
+        2.3,
+        -5.95000029,
+        1.19657922
+      ],
+      "remainingHorizontal": 0.0499997139,
+      "endHeightError": 0.06657922,
+      "maxVerticalDeviation": 0.0466859341,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_ShopCenter"
+      ]
+    },
+    {
+      "route": "CentralLower",
+      "kind": "stair",
+      "direction": "a_to_b",
+      "passed": true,
+      "moves": 93,
+      "start": [
+        -1.3,
+        -0.05,
+        3.0
+      ],
+      "end": [
+        -1.3,
+        7.0,
+        6.0
+      ],
+      "actualEnd": [
+        -1.3,
+        6.925,
+        6.01391125
+      ],
+      "remainingHorizontal": 0.07499981,
+      "endHeightError": 0.0139112473,
+      "maxVerticalDeviation": 0.0546097755,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_CentralLower",
+        "Walk_Path_CentralLanding"
+      ]
+    },
+    {
+      "route": "CentralLower",
+      "kind": "stair",
+      "direction": "b_to_a",
+      "passed": true,
+      "moves": 93,
+      "start": [
+        -1.3,
+        7.0,
+        6.0
+      ],
+      "end": [
+        -1.3,
+        -0.05,
+        3.0
+      ],
+      "actualEnd": [
+        -1.3,
+        0.0249997228,
+        3.08228564
+      ],
+      "remainingHorizontal": 0.07499972,
+      "endHeightError": 0.08228564,
+      "maxVerticalDeviation": 0.0546097755,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_CentralLower"
+      ]
+    },
+    {
+      "route": "CentralMiddle",
+      "kind": "stair",
+      "direction": "a_to_b",
+      "passed": true,
+      "moves": 93,
+      "start": [
+        -1.3,
+        11.8,
+        6.0
+      ],
+      "end": [
+        -1.3,
+        18.8,
+        9.0
+      ],
+      "actualEnd": [
+        -1.3,
+        18.775,
+        9.019679
+      ],
+      "remainingHorizontal": 0.0249996185,
+      "endHeightError": 0.01967907,
+      "maxVerticalDeviation": 0.05366707,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_CentralMiddle",
+        "Walk_Path_CentralUpperLanding"
+      ]
+    },
+    {
+      "route": "CentralMiddle",
+      "kind": "stair",
+      "direction": "b_to_a",
+      "passed": true,
+      "moves": 93,
+      "start": [
+        -1.3,
+        18.8,
+        9.0
+      ],
+      "end": [
+        -1.3,
+        11.8,
+        6.0
+      ],
+      "actualEnd": [
+        -1.3,
+        11.8249989,
+        6.06150246
+      ],
+      "remainingHorizontal": 0.0249986649,
+      "endHeightError": 0.0615024567,
+      "maxVerticalDeviation": 0.055065155,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_CentralMiddle"
+      ]
+    },
+    {
+      "route": "CentralCrest",
+      "kind": "stair",
+      "direction": "a_to_b",
+      "passed": true,
+      "moves": 93,
+      "start": [
+        -1.3,
+        21.4,
+        9.0
+      ],
+      "end": [
+        -1.3,
+        28.4,
+        12.0
+      ],
+      "actualEnd": [
+        -1.3,
+        28.375,
+        12.0196781
+      ],
+      "remainingHorizontal": 0.0249996185,
+      "endHeightError": 0.0196781158,
+      "maxVerticalDeviation": 0.05533886,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_CentralCrest",
+        "Walk_Path_CentralCrestTop",
+        "Walk_Path_CrestSquare"
+      ]
+    },
+    {
+      "route": "CentralCrest",
+      "kind": "stair",
+      "direction": "b_to_a",
+      "passed": true,
+      "moves": 93,
+      "start": [
+        -1.3,
+        28.4,
+        12.0
+      ],
+      "end": [
+        -1.3,
+        21.4,
+        9.0
+      ],
+      "actualEnd": [
+        -1.3,
+        21.425,
+        9.061503
+      ],
+      "remainingHorizontal": 0.0249996185,
+      "endHeightError": 0.06150341,
+      "maxVerticalDeviation": 0.0552883148,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_CentralCrest"
+      ]
+    },
+    {
+      "route": "WestLower",
+      "kind": "stair",
+      "direction": "a_to_b",
+      "passed": true,
+      "moves": 93,
+      "start": [
+        -21.0,
+        1.4,
+        3.0
+      ],
+      "end": [
+        -21.0,
+        8.4,
+        6.0
+      ],
+      "actualEnd": [
+        -21.0,
+        8.375,
+        6.01967859
+      ],
+      "remainingHorizontal": 0.0249996185,
+      "endHeightError": 0.0196785927,
+      "maxVerticalDeviation": 0.05366659,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_WestLower",
+        "Walk_Path_WestLanding"
+      ]
+    },
+    {
+      "route": "WestLower",
+      "kind": "stair",
+      "direction": "b_to_a",
+      "passed": true,
+      "moves": 93,
+      "start": [
+        -21.0,
+        8.4,
+        6.0
+      ],
+      "end": [
+        -21.0,
+        1.4,
+        3.0
+      ],
+      "actualEnd": [
+        -21.0,
+        1.42499936,
+        3.06150246
+      ],
+      "remainingHorizontal": 0.02499938,
+      "endHeightError": 0.0615024567,
+      "maxVerticalDeviation": 0.05506611,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_WestLower"
+      ]
+    },
+    {
+      "route": "WestMiddle",
+      "kind": "stair",
+      "direction": "a_to_b",
+      "passed": true,
+      "moves": 101,
+      "start": [
+        -21.0,
+        11.0,
+        6.0
+      ],
+      "end": [
+        -24.0,
+        18.0,
+        9.0
+      ],
+      "actualEnd": [
+        -23.9839382,
+        17.9625244,
+        9.01892
+      ],
+      "remainingHorizontal": 0.0407725461,
+      "endHeightError": 0.0189199448,
+      "maxVerticalDeviation": 0.05362892,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_WestMiddle",
+        "Walk_Path_WestMiddleTop"
+      ]
+    },
+    {
+      "route": "WestMiddle",
+      "kind": "stair",
+      "direction": "b_to_a",
+      "passed": true,
+      "moves": 101,
+      "start": [
+        -24.0,
+        18.0,
+        9.0
+      ],
+      "end": [
+        -21.0,
+        11.0,
+        6.0
+      ],
+      "actualEnd": [
+        -21.0160618,
+        11.0374765,
+        6.06223726
+      ],
+      "remainingHorizontal": 0.04077342,
+      "endHeightError": 0.0622372627,
+      "maxVerticalDeviation": 0.05489254,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_WestMiddle"
+      ]
+    },
+    {
+      "route": "WestCrest",
+      "kind": "stair",
+      "direction": "a_to_b",
+      "passed": true,
+      "moves": 81,
+      "start": [
+        -17.5,
+        19.5,
+        9.0
+      ],
+      "end": [
+        -17.5,
+        25.6,
+        12.0
+      ],
+      "actualEnd": [
+        -17.5,
+        25.575,
+        12.0196781
+      ],
+      "remainingHorizontal": 0.0249996185,
+      "endHeightError": 0.0196781158,
+      "maxVerticalDeviation": 0.0647316,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_WestCrest",
+        "Walk_Path_WestTop"
+      ]
+    },
+    {
+      "route": "WestCrest",
+      "kind": "stair",
+      "direction": "b_to_a",
+      "passed": true,
+      "moves": 81,
+      "start": [
+        -17.5,
+        25.6,
+        12.0
+      ],
+      "end": [
+        -17.5,
+        19.5,
+        9.0
+      ],
+      "actualEnd": [
+        -17.5,
+        19.525,
+        9.072333
+      ],
+      "remainingHorizontal": 0.0249996185,
+      "endHeightError": 0.0723333359,
+      "maxVerticalDeviation": 0.0645504,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_WestCrest"
+      ]
+    },
+    {
+      "route": "CityHall",
+      "kind": "stair",
+      "direction": "a_to_b",
+      "passed": true,
+      "moves": 86,
+      "start": [
+        7.0,
+        -3.8,
+        3.0
+      ],
+      "end": [
+        7.0,
+        2.7,
+        6.0
+      ],
+      "actualEnd": [
+        7.0,
+        2.65000033,
+        6.01770639
+      ],
+      "remainingHorizontal": 0.0499997139,
+      "endHeightError": 0.0177063942,
+      "maxVerticalDeviation": 0.05826044,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_CityHall",
+        "Walk_Path_CityHallPlaza"
+      ]
+    },
+    {
+      "route": "CityHall",
+      "kind": "stair",
+      "direction": "b_to_a",
+      "passed": true,
+      "moves": 86,
+      "start": [
+        7.0,
+        2.7,
+        6.0
+      ],
+      "end": [
+        7.0,
+        -3.8,
+        3.0
+      ],
+      "actualEnd": [
+        7.0,
+        -3.75000024,
+        3.07855654
+      ],
+      "remainingHorizontal": 0.0499997139,
+      "endHeightError": 0.07855654,
+      "maxVerticalDeviation": 0.0600113869,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_CityHall"
+      ]
+    },
+    {
+      "route": "East",
+      "kind": "stair",
+      "direction": "a_to_b",
+      "passed": true,
+      "moves": 93,
+      "start": [
+        18.1,
+        9.8,
+        6.0
+      ],
+      "end": [
+        18.1,
+        16.8,
+        9.0
+      ],
+      "actualEnd": [
+        18.1,
+        16.775,
+        9.019621
+      ],
+      "remainingHorizontal": 0.0249996185,
+      "endHeightError": 0.0196208954,
+      "maxVerticalDeviation": 0.0553379059,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_East",
+        "Walk_Path_EastUpper"
+      ]
+    },
+    {
+      "route": "East",
+      "kind": "stair",
+      "direction": "b_to_a",
+      "passed": true,
+      "moves": 93,
+      "start": [
+        18.1,
+        16.8,
+        9.0
+      ],
+      "end": [
+        18.1,
+        9.8,
+        6.0
+      ],
+      "actualEnd": [
+        18.1,
+        9.824999,
+        6.061502
+      ],
+      "remainingHorizontal": 0.0249986649,
+      "endHeightError": 0.06150198,
+      "maxVerticalDeviation": 0.05528736,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_East"
+      ]
+    },
+    {
+      "route": "BridgeSouth",
+      "kind": "stair",
+      "direction": "a_to_b",
+      "passed": true,
+      "moves": 108,
+      "start": [
+        -17.5,
+        -18.5,
+        1.0
+      ],
+      "end": [
+        -12.0,
+        -12.5,
+        5.2
+      ],
+      "actualEnd": [
+        -12.02663,
+        -12.5290508,
+        5.21847057
+      ],
+      "remainingHorizontal": 0.0394097567,
+      "endHeightError": 0.0184707642,
+      "maxVerticalDeviation": 0.06814957,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_BridgeSouth",
+        "Walk_Path_BridgeDeck"
+      ]
+    },
+    {
+      "route": "BridgeSouth",
+      "kind": "stair",
+      "direction": "b_to_a",
+      "passed": true,
+      "moves": 108,
+      "start": [
+        -12.0,
+        -12.5,
+        5.2
+      ],
+      "end": [
+        -17.5,
+        -18.5,
+        1.0
+      ],
+      "actualEnd": [
+        -17.47337,
+        -18.47095,
+        1.0841856
+      ],
+      "remainingHorizontal": 0.0394097567,
+      "endHeightError": 0.0841856,
+      "maxVerticalDeviation": 0.06740618,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_BridgeSouth"
+      ]
+    },
+    {
+      "route": "BridgeNorth",
+      "kind": "stair",
+      "direction": "a_to_b",
+      "passed": true,
+      "moves": 84,
+      "start": [
+        -3.8,
+        -6.8,
+        5.2
+      ],
+      "end": [
+        -0.7,
+        -1.3,
+        3.0
+      ],
+      "actualEnd": [
+        -0.706617653,
+        -1.31174088,
+        3.04533672
+      ],
+      "remainingHorizontal": 0.0134774912,
+      "endHeightError": 0.0453367233,
+      "maxVerticalDeviation": 0.04064107,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_BridgeNorth"
+      ]
+    },
+    {
+      "route": "BridgeNorth",
+      "kind": "stair",
+      "direction": "b_to_a",
+      "passed": true,
+      "moves": 84,
+      "start": [
+        -0.7,
+        -1.3,
+        3.0
+      ],
+      "end": [
+        -3.8,
+        -6.8,
+        5.2
+      ],
+      "actualEnd": [
+        -3.79338241,
+        -6.788259,
+        5.21974
+      ],
+      "remainingHorizontal": 0.01347764,
+      "endHeightError": 0.0197401047,
+      "maxVerticalDeviation": 0.04064083,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_BridgeNorth",
+        "Walk_Path_BridgeDeck"
+      ]
+    },
+    {
+      "route": "Subway",
+      "kind": "stair",
+      "direction": "a_to_b",
+      "passed": true,
+      "moves": 54,
+      "start": [
+        -17.5,
+        -25.72,
+        1.01
+      ],
+      "end": [
+        -17.5,
+        -21.65,
+        -1.85
+      ],
+      "actualEnd": [
+        -17.5,
+        -21.67,
+        -1.73817372
+      ],
+      "remainingHorizontal": 0.0200004578,
+      "endHeightError": 0.1118263,
+      "maxVerticalDeviation": 0.09777355,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_Subway"
+      ]
+    },
+    {
+      "route": "Subway",
+      "kind": "stair",
+      "direction": "b_to_a",
+      "passed": true,
+      "moves": 54,
+      "start": [
+        -17.5,
+        -21.65,
+        -1.85
+      ],
+      "end": [
+        -17.5,
+        -25.72,
+        1.01
+      ],
+      "actualEnd": [
+        -17.5,
+        -25.6999989,
+        1.029428
+      ],
+      "remainingHorizontal": 0.0200004578,
+      "endHeightError": 0.0194280148,
+      "maxVerticalDeviation": 0.09777331,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_Subway"
+      ]
+    },
+    {
+      "route": "BridgeDeck",
+      "kind": "flat",
+      "direction": "a_to_b",
+      "passed": true,
+      "moves": 133,
+      "start": [
+        -12.0,
+        -12.5,
+        5.2
+      ],
+      "end": [
+        -3.8,
+        -6.8,
+        5.2
+      ],
+      "actualEnd": [
+        -3.809435,
+        -6.80655861,
+        5.21996069
+      ],
+      "remainingHorizontal": 0.0114904707,
+      "endHeightError": 0.01996088,
+      "maxVerticalDeviation": 0.01999998,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_BridgeNorth",
+        "Walk_Path_BridgeDeck"
+      ]
+    },
+    {
+      "route": "BridgeDeck",
+      "kind": "flat",
+      "direction": "b_to_a",
+      "passed": true,
+      "moves": 133,
+      "start": [
+        -3.8,
+        -6.8,
+        5.2
+      ],
+      "end": [
+        -12.0,
+        -12.5,
+        5.2
+      ],
+      "actualEnd": [
+        -11.9905653,
+        -12.4934416,
+        5.22
+      ],
+      "remainingHorizontal": 0.0114902752,
+      "endHeightError": 0.01999998,
+      "maxVerticalDeviation": 0.01999998,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_BridgeSouth",
+        "Walk_Path_BridgeDeck"
+      ]
+    },
+    {
+      "route": "CentralFoot",
+      "kind": "flat",
+      "direction": "a_to_b",
+      "passed": true,
+      "moves": 47,
+      "start": [
+        -1.3,
+        -0.65,
+        3.0
+      ],
+      "end": [
+        2.3,
+        -0.65,
+        3.0
+      ],
+      "actualEnd": [
+        2.22500014,
+        -0.65,
+        3.02
+      ],
+      "remainingHorizontal": 0.07499981,
+      "endHeightError": 0.01999998,
+      "maxVerticalDeviation": 0.01999998,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Walk_Path_CentralFoot"
+      ]
+    },
+    {
+      "route": "CentralFoot",
+      "kind": "flat",
+      "direction": "b_to_a",
+      "passed": true,
+      "moves": 47,
+      "start": [
+        2.3,
+        -0.65,
+        3.0
+      ],
+      "end": [
+        -1.3,
+        -0.65,
+        3.0
+      ],
+      "actualEnd": [
+        -1.22500014,
+        -0.65,
+        3.01999974
+      ],
+      "remainingHorizontal": 0.07499981,
+      "endHeightError": 0.0199997425,
+      "maxVerticalDeviation": 0.01999998,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Walk_Path_CentralFoot"
+      ]
+    },
+    {
+      "route": "CentralLanding",
+      "kind": "flat",
+      "direction": "a_to_b",
+      "passed": true,
+      "moves": 63,
+      "start": [
+        -1.3,
+        7.0,
+        6.0
+      ],
+      "end": [
+        -1.3,
+        11.8,
+        6.0
+      ],
+      "actualEnd": [
+        -1.3,
+        11.725,
+        6.02
+      ],
+      "remainingHorizontal": 0.07499981,
+      "endHeightError": 0.01999998,
+      "maxVerticalDeviation": 0.01999998,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_CentralMiddle",
+        "Walk_Path_CentralLanding"
+      ]
+    },
+    {
+      "route": "CentralLanding",
+      "kind": "flat",
+      "direction": "b_to_a",
+      "passed": true,
+      "moves": 63,
+      "start": [
+        -1.3,
+        11.8,
+        6.0
+      ],
+      "end": [
+        -1.3,
+        7.0,
+        6.0
+      ],
+      "actualEnd": [
+        -1.3,
+        7.075,
+        6.02
+      ],
+      "remainingHorizontal": 0.07499981,
+      "endHeightError": 0.01999998,
+      "maxVerticalDeviation": 0.01999998,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_CentralLower",
+        "Walk_Path_CentralLanding"
+      ]
+    },
+    {
+      "route": "CentralUpperLanding",
+      "kind": "flat",
+      "direction": "a_to_b",
+      "passed": true,
+      "moves": 34,
+      "start": [
+        -1.3,
+        18.8,
+        9.0
+      ],
+      "end": [
+        -1.3,
+        21.4,
+        9.0
+      ],
+      "actualEnd": [
+        -1.3,
+        21.3499985,
+        9.029361
+      ],
+      "remainingHorizontal": 0.0500011444,
+      "endHeightError": 0.0293607712,
+      "maxVerticalDeviation": 0.0293607712,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_CentralCrest",
+        "Walk_Path_CentralUpperLanding"
+      ]
+    },
+    {
+      "route": "CentralUpperLanding",
+      "kind": "flat",
+      "direction": "b_to_a",
+      "passed": true,
+      "moves": 34,
+      "start": [
+        -1.3,
+        21.4,
+        9.0
+      ],
+      "end": [
+        -1.3,
+        18.8,
+        9.0
+      ],
+      "actualEnd": [
+        -1.3,
+        18.85,
+        9.02
+      ],
+      "remainingHorizontal": 0.0500011444,
+      "endHeightError": 0.0200004578,
+      "maxVerticalDeviation": 0.0200004578,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_CentralMiddle",
+        "Walk_Path_CentralUpperLanding"
+      ]
+    },
+    {
+      "route": "WestFoot",
+      "kind": "flat",
+      "direction": "a_to_b",
+      "passed": true,
+      "moves": 37,
+      "start": [
+        -21.0,
+        -1.4,
+        3.0
+      ],
+      "end": [
+        -21.0,
+        1.4,
+        3.0
+      ],
+      "actualEnd": [
+        -21.0,
+        1.37500012,
+        3.040074
+      ],
+      "remainingHorizontal": 0.0249998569,
+      "endHeightError": 0.04007411,
+      "maxVerticalDeviation": 0.04007411,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_WestLower"
+      ]
+    },
+    {
+      "route": "WestFoot",
+      "kind": "flat",
+      "direction": "b_to_a",
+      "passed": true,
+      "moves": 37,
+      "start": [
+        -21.0,
+        1.4,
+        3.0
+      ],
+      "end": [
+        -21.0,
+        -1.4,
+        3.0
+      ],
+      "actualEnd": [
+        -21.0,
+        -1.37500012,
+        3.02
+      ],
+      "remainingHorizontal": 0.0249998569,
+      "endHeightError": 0.01999998,
+      "maxVerticalDeviation": 0.01999998,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_ShopWest",
+        "Walk_Path_WestFoot"
+      ]
+    },
+    {
+      "route": "WestLanding",
+      "kind": "flat",
+      "direction": "a_to_b",
+      "passed": true,
+      "moves": 34,
+      "start": [
+        -21.0,
+        8.4,
+        6.0
+      ],
+      "end": [
+        -21.0,
+        11.0,
+        6.0
+      ],
+      "actualEnd": [
+        -21.0,
+        10.95,
+        6.028073
+      ],
+      "remainingHorizontal": 0.05000019,
+      "endHeightError": 0.028072834,
+      "maxVerticalDeviation": 0.028072834,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_WestMiddle",
+        "Walk_Path_WestLanding"
+      ]
+    },
+    {
+      "route": "WestLanding",
+      "kind": "flat",
+      "direction": "b_to_a",
+      "passed": true,
+      "moves": 34,
+      "start": [
+        -21.0,
+        11.0,
+        6.0
+      ],
+      "end": [
+        -21.0,
+        8.4,
+        6.0
+      ],
+      "actualEnd": [
+        -21.0,
+        8.45,
+        6.02
+      ],
+      "remainingHorizontal": 0.05000019,
+      "endHeightError": 0.01999998,
+      "maxVerticalDeviation": 0.01999998,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_WestLower",
+        "Walk_Path_Laundry",
+        "Walk_Path_WestLanding"
+      ]
+    },
+    {
+      "route": "Laundry",
+      "kind": "flat",
+      "direction": "a_to_b",
+      "passed": true,
+      "moves": 130,
+      "start": [
+        -21.0,
+        9.5,
+        6.0
+      ],
+      "end": [
+        -11.2,
+        9.5,
+        6.0
+      ],
+      "actualEnd": [
+        -11.25,
+        9.5,
+        6.02
+      ],
+      "remainingHorizontal": 0.05000019,
+      "endHeightError": 0.01999998,
+      "maxVerticalDeviation": 0.01999998,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Walk_Path_Laundry"
+      ]
+    },
+    {
+      "route": "Laundry",
+      "kind": "flat",
+      "direction": "b_to_a",
+      "passed": true,
+      "moves": 130,
+      "start": [
+        -11.2,
+        9.5,
+        6.0
+      ],
+      "end": [
+        -21.0,
+        9.5,
+        6.0
+      ],
+      "actualEnd": [
+        -20.95,
+        9.5,
+        6.02
+      ],
+      "remainingHorizontal": 0.0499992371,
+      "endHeightError": 0.01999998,
+      "maxVerticalDeviation": 0.01999998,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Walk_Path_Laundry",
+        "Walk_Path_WestLanding"
+      ]
+    },
+    {
+      "route": "RestPlaza",
+      "kind": "flat",
+      "direction": "a_to_b",
+      "passed": true,
+      "moves": 86,
+      "start": [
+        -24.0,
+        18.9,
+        9.0
+      ],
+      "end": [
+        -17.5,
+        18.9,
+        9.0
+      ],
+      "actualEnd": [
+        -17.55,
+        18.9,
+        9.02
+      ],
+      "remainingHorizontal": 0.0499992371,
+      "endHeightError": 0.0200004578,
+      "maxVerticalDeviation": 0.0200004578,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Walk_Path_RestPlaza",
+        "Walk_Path_WestCrestFoot"
+      ]
+    },
+    {
+      "route": "RestPlaza",
+      "kind": "flat",
+      "direction": "b_to_a",
+      "passed": true,
+      "moves": 86,
+      "start": [
+        -17.5,
+        18.9,
+        9.0
+      ],
+      "end": [
+        -24.0,
+        18.9,
+        9.0
+      ],
+      "actualEnd": [
+        -23.95,
+        18.9,
+        9.0199995
+      ],
+      "remainingHorizontal": 0.0499992371,
+      "endHeightError": 0.0199995041,
+      "maxVerticalDeviation": 0.0200004578,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Walk_Path_RestPlaza",
+        "Walk_Path_WestMiddleTop"
+      ]
+    },
+    {
+      "route": "WestMiddleTop",
+      "kind": "flat",
+      "direction": "a_to_b",
+      "passed": true,
+      "moves": 11,
+      "start": [
+        -24.0,
+        18.0,
+        9.0
+      ],
+      "end": [
+        -24.0,
+        18.9,
+        9.0
+      ],
+      "actualEnd": [
+        -24.0,
+        18.825,
+        9.02
+      ],
+      "remainingHorizontal": 0.0749988556,
+      "endHeightError": 0.0200004578,
+      "maxVerticalDeviation": 0.0200004578,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Walk_Path_RestPlaza",
+        "Walk_Path_WestMiddleTop"
+      ]
+    },
+    {
+      "route": "WestMiddleTop",
+      "kind": "flat",
+      "direction": "b_to_a",
+      "passed": true,
+      "moves": 11,
+      "start": [
+        -24.0,
+        18.9,
+        9.0
+      ],
+      "end": [
+        -24.0,
+        18.0,
+        9.0
+      ],
+      "actualEnd": [
+        -24.0,
+        18.0749989,
+        9.02
+      ],
+      "remainingHorizontal": 0.0749988556,
+      "endHeightError": 0.0200004578,
+      "maxVerticalDeviation": 0.0200004578,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_WestMiddle",
+        "Walk_Path_RestPlaza",
+        "Walk_Path_WestMiddleTop"
+      ]
+    },
+    {
+      "route": "WestCrestFoot",
+      "kind": "flat",
+      "direction": "a_to_b",
+      "passed": true,
+      "moves": 8,
+      "start": [
+        -17.5,
+        18.9,
+        9.0
+      ],
+      "end": [
+        -17.5,
+        19.5,
+        9.0
+      ],
+      "actualEnd": [
+        -17.5,
+        19.5,
+        9.060037
+      ],
+      "remainingHorizontal": 0.0,
+      "endHeightError": 0.06003666,
+      "maxVerticalDeviation": 0.06003666,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_WestCrest"
+      ]
+    },
+    {
+      "route": "WestCrestFoot",
+      "kind": "flat",
+      "direction": "b_to_a",
+      "passed": true,
+      "moves": 8,
+      "start": [
+        -17.5,
+        19.5,
+        9.0
+      ],
+      "end": [
+        -17.5,
+        18.9,
+        9.0
+      ],
+      "actualEnd": [
+        -17.5,
+        18.9,
+        9.02
+      ],
+      "remainingHorizontal": 0.0,
+      "endHeightError": 0.0200004578,
+      "maxVerticalDeviation": 0.0231523514,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Walk_Path_RestPlaza",
+        "Walk_Path_WestCrestFoot"
+      ]
+    },
+    {
+      "route": "WestTop",
+      "kind": "flat",
+      "direction": "a_to_b",
+      "passed": true,
+      "moves": 45,
+      "start": [
+        -17.5,
+        25.6,
+        12.0
+      ],
+      "end": [
+        -17.5,
+        29.0,
+        12.0
+      ],
+      "actualEnd": [
+        -17.5,
+        28.975,
+        12.02
+      ],
+      "remainingHorizontal": 0.0249996185,
+      "endHeightError": 0.0200004578,
+      "maxVerticalDeviation": 0.0200004578,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Walk_Path_CrestSquare",
+        "Walk_Path_WestTop"
+      ]
+    },
+    {
+      "route": "WestTop",
+      "kind": "flat",
+      "direction": "b_to_a",
+      "passed": true,
+      "moves": 45,
+      "start": [
+        -17.5,
+        29.0,
+        12.0
+      ],
+      "end": [
+        -17.5,
+        25.6,
+        12.0
+      ],
+      "actualEnd": [
+        -17.5,
+        25.625,
+        12.02
+      ],
+      "remainingHorizontal": 0.0249996185,
+      "endHeightError": 0.0200004578,
+      "maxVerticalDeviation": 0.0200004578,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_WestCrest",
+        "Walk_Path_WestTop"
+      ]
+    },
+    {
+      "route": "CrestSquare",
+      "kind": "flat",
+      "direction": "a_to_b",
+      "passed": true,
+      "moves": 215,
+      "start": [
+        -17.5,
+        29.0,
+        12.0
+      ],
+      "end": [
+        -1.3,
+        29.0,
+        12.0
+      ],
+      "actualEnd": [
+        -1.3749994,
+        29.0,
+        12.02
+      ],
+      "remainingHorizontal": 0.07499945,
+      "endHeightError": 0.0200004578,
+      "maxVerticalDeviation": 0.0200004578,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Walk_Path_CentralCrestTop",
+        "Walk_Path_CrestSquare"
+      ]
+    },
+    {
+      "route": "CrestSquare",
+      "kind": "flat",
+      "direction": "b_to_a",
+      "passed": true,
+      "moves": 215,
+      "start": [
+        -1.3,
+        29.0,
+        12.0
+      ],
+      "end": [
+        -17.5,
+        29.0,
+        12.0
+      ],
+      "actualEnd": [
+        -17.4250011,
+        29.0,
+        12.02
+      ],
+      "remainingHorizontal": 0.0749988556,
+      "endHeightError": 0.0200004578,
+      "maxVerticalDeviation": 0.0200004578,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Walk_Path_CrestSquare",
+        "Walk_Path_WestTop"
+      ]
+    },
+    {
+      "route": "CentralCrestTop",
+      "kind": "flat",
+      "direction": "a_to_b",
+      "passed": true,
+      "moves": 8,
+      "start": [
+        -1.3,
+        28.4,
+        12.0
+      ],
+      "end": [
+        -1.3,
+        29.0,
+        12.0
+      ],
+      "actualEnd": [
+        -1.3,
+        29.0,
+        12.02
+      ],
+      "remainingHorizontal": 0.0,
+      "endHeightError": 0.0200004578,
+      "maxVerticalDeviation": 0.0200004578,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Walk_Path_CentralCrestTop",
+        "Walk_Path_CrestSquare"
+      ]
+    },
+    {
+      "route": "CentralCrestTop",
+      "kind": "flat",
+      "direction": "b_to_a",
+      "passed": true,
+      "moves": 8,
+      "start": [
+        -1.3,
+        29.0,
+        12.0
+      ],
+      "end": [
+        -1.3,
+        28.4,
+        12.0
+      ],
+      "actualEnd": [
+        -1.3,
+        28.4,
+        12.02
+      ],
+      "remainingHorizontal": 0.0,
+      "endHeightError": 0.0200004578,
+      "maxVerticalDeviation": 0.0200004578,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_CentralCrest",
+        "Walk_Path_CentralCrestTop",
+        "Walk_Path_CrestSquare"
+      ]
+    },
+    {
+      "route": "CityHallPlaza",
+      "kind": "flat",
+      "direction": "a_to_b",
+      "passed": true,
+      "moves": 22,
+      "start": [
+        7.0,
+        2.7,
+        6.0
+      ],
+      "end": [
+        7.0,
+        4.4,
+        6.0
+      ],
+      "actualEnd": [
+        7.0,
+        4.35,
+        6.02
+      ],
+      "remainingHorizontal": 0.05000019,
+      "endHeightError": 0.01999998,
+      "maxVerticalDeviation": 0.01999998,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Walk_Path_CityHallPlaza"
+      ]
+    },
+    {
+      "route": "CityHallPlaza",
+      "kind": "flat",
+      "direction": "b_to_a",
+      "passed": true,
+      "moves": 22,
+      "start": [
+        7.0,
+        4.4,
+        6.0
+      ],
+      "end": [
+        7.0,
+        2.7,
+        6.0
+      ],
+      "actualEnd": [
+        7.0,
+        2.75,
+        6.02
+      ],
+      "remainingHorizontal": 0.0499999523,
+      "endHeightError": 0.01999998,
+      "maxVerticalDeviation": 0.01999998,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_CityHall",
+        "Walk_Path_CityHallPlaza"
+      ]
+    },
+    {
+      "route": "CivicEast",
+      "kind": "flat",
+      "direction": "a_to_b",
+      "passed": true,
+      "moves": 35,
+      "start": [
+        11.8,
+        3.7,
+        6.0
+      ],
+      "end": [
+        14.5,
+        3.7,
+        6.0
+      ],
+      "actualEnd": [
+        14.425,
+        3.7,
+        6.02
+      ],
+      "remainingHorizontal": 0.07499981,
+      "endHeightError": 0.01999998,
+      "maxVerticalDeviation": 0.01999998,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Walk_Path_CivicEast",
+        "Walk_Path_EastLower"
+      ]
+    },
+    {
+      "route": "CivicEast",
+      "kind": "flat",
+      "direction": "b_to_a",
+      "passed": true,
+      "moves": 35,
+      "start": [
+        14.5,
+        3.7,
+        6.0
+      ],
+      "end": [
+        11.8,
+        3.7,
+        6.0
+      ],
+      "actualEnd": [
+        11.875,
+        3.7,
+        6.02
+      ],
+      "remainingHorizontal": 0.07499981,
+      "endHeightError": 0.01999998,
+      "maxVerticalDeviation": 0.01999998,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Walk_Path_CityHallPlaza",
+        "Walk_Path_CivicEast"
+      ]
+    },
+    {
+      "route": "EastLower",
+      "kind": "flat",
+      "direction": "a_to_b",
+      "passed": true,
+      "moves": 73,
+      "start": [
+        14.5,
+        3.7,
+        6.0
+      ],
+      "end": [
+        14.5,
+        9.2,
+        6.0
+      ],
+      "actualEnd": [
+        14.5,
+        9.175,
+        6.02
+      ],
+      "remainingHorizontal": 0.0249996185,
+      "endHeightError": 0.01999998,
+      "maxVerticalDeviation": 0.01999998,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Walk_Path_EastApproach",
+        "Walk_Path_EastLower"
+      ]
+    },
+    {
+      "route": "EastLower",
+      "kind": "flat",
+      "direction": "b_to_a",
+      "passed": true,
+      "moves": 73,
+      "start": [
+        14.5,
+        9.2,
+        6.0
+      ],
+      "end": [
+        14.5,
+        3.7,
+        6.0
+      ],
+      "actualEnd": [
+        14.5,
+        3.72499967,
+        6.02
+      ],
+      "remainingHorizontal": 0.0249996185,
+      "endHeightError": 0.01999998,
+      "maxVerticalDeviation": 0.01999998,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Walk_Path_CivicEast",
+        "Walk_Path_EastLower"
+      ]
+    },
+    {
+      "route": "EastApproach",
+      "kind": "flat",
+      "direction": "a_to_b",
+      "passed": true,
+      "moves": 48,
+      "start": [
+        14.5,
+        9.2,
+        6.0
+      ],
+      "end": [
+        18.1,
+        9.2,
+        6.0
+      ],
+      "actualEnd": [
+        18.1,
+        9.2,
+        6.02
+      ],
+      "remainingHorizontal": 0.0,
+      "endHeightError": 0.01999998,
+      "maxVerticalDeviation": 0.01999998,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Walk_Path_EastApproach",
+        "Walk_Path_EastFoot"
+      ]
+    },
+    {
+      "route": "EastApproach",
+      "kind": "flat",
+      "direction": "b_to_a",
+      "passed": true,
+      "moves": 47,
+      "start": [
+        18.1,
+        9.2,
+        6.0
+      ],
+      "end": [
+        14.5,
+        9.2,
+        6.0
+      ],
+      "actualEnd": [
+        14.575,
+        9.2,
+        6.02
+      ],
+      "remainingHorizontal": 0.07499981,
+      "endHeightError": 0.01999998,
+      "maxVerticalDeviation": 0.01999998,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Walk_Path_EastApproach",
+        "Walk_Path_EastLower"
+      ]
+    },
+    {
+      "route": "EastFoot",
+      "kind": "flat",
+      "direction": "a_to_b",
+      "passed": true,
+      "moves": 8,
+      "start": [
+        18.1,
+        9.2,
+        6.0
+      ],
+      "end": [
+        18.1,
+        9.8,
+        6.0
+      ],
+      "actualEnd": [
+        18.1,
+        9.8,
+        6.050789
+      ],
+      "remainingHorizontal": 0.0,
+      "endHeightError": 0.05078888,
+      "maxVerticalDeviation": 0.05078888,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_East"
+      ]
+    },
+    {
+      "route": "EastFoot",
+      "kind": "flat",
+      "direction": "b_to_a",
+      "passed": true,
+      "moves": 8,
+      "start": [
+        18.1,
+        9.8,
+        6.0
+      ],
+      "end": [
+        18.1,
+        9.2,
+        6.0
+      ],
+      "actualEnd": [
+        18.1,
+        9.2,
+        6.02
+      ],
+      "remainingHorizontal": 0.0,
+      "endHeightError": 0.01999998,
+      "maxVerticalDeviation": 0.01999998,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Walk_Path_EastApproach",
+        "Walk_Path_EastFoot"
+      ]
+    },
+    {
+      "route": "EastUpper",
+      "kind": "flat",
+      "direction": "a_to_b",
+      "passed": true,
+      "moves": 73,
+      "start": [
+        18.1,
+        16.8,
+        9.0
+      ],
+      "end": [
+        12.6,
+        16.8,
+        9.0
+      ],
+      "actualEnd": [
+        12.625,
+        16.8,
+        9.02
+      ],
+      "remainingHorizontal": 0.0249996185,
+      "endHeightError": 0.0200004578,
+      "maxVerticalDeviation": 0.0200004578,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Walk_Path_EastUpper",
+        "Walk_Path_HomeAFront"
+      ]
+    },
+    {
+      "route": "EastUpper",
+      "kind": "flat",
+      "direction": "b_to_a",
+      "passed": true,
+      "moves": 73,
+      "start": [
+        12.6,
+        16.8,
+        9.0
+      ],
+      "end": [
+        18.1,
+        16.8,
+        9.0
+      ],
+      "actualEnd": [
+        18.075,
+        16.8,
+        9.02
+      ],
+      "remainingHorizontal": 0.0249996185,
+      "endHeightError": 0.0200004578,
+      "maxVerticalDeviation": 0.0200004578,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_East",
+        "Walk_Path_EastUpper"
+      ]
+    },
+    {
+      "route": "HomeAFront",
+      "kind": "flat",
+      "direction": "a_to_b",
+      "passed": true,
+      "moves": 122,
+      "start": [
+        12.6,
+        16.0,
+        9.0
+      ],
+      "end": [
+        3.4,
+        16.0,
+        9.0
+      ],
+      "actualEnd": [
+        3.45,
+        16.0,
+        9.02
+      ],
+      "remainingHorizontal": 0.0499999523,
+      "endHeightError": 0.0200004578,
+      "maxVerticalDeviation": 0.0200004578,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Walk_Path_CentralEast",
+        "Walk_Path_HomeAFront"
+      ]
+    },
+    {
+      "route": "HomeAFront",
+      "kind": "flat",
+      "direction": "b_to_a",
+      "passed": true,
+      "moves": 122,
+      "start": [
+        3.4,
+        16.0,
+        9.0
+      ],
+      "end": [
+        12.6,
+        16.0,
+        9.0
+      ],
+      "actualEnd": [
+        12.55,
+        16.0,
+        9.02
+      ],
+      "remainingHorizontal": 0.05000019,
+      "endHeightError": 0.0200004578,
+      "maxVerticalDeviation": 0.0200004578,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Walk_Path_EastUpper",
+        "Walk_Path_HomeAFront"
+      ]
+    },
+    {
+      "route": "CentralEast",
+      "kind": "flat",
+      "direction": "a_to_b",
+      "passed": true,
+      "moves": 53,
+      "start": [
+        3.4,
+        16.0,
+        9.0
+      ],
+      "end": [
+        3.4,
+        20.0,
+        9.0
+      ],
+      "actualEnd": [
+        3.4,
+        19.975,
+        9.02
+      ],
+      "remainingHorizontal": 0.0249996185,
+      "endHeightError": 0.0200004578,
+      "maxVerticalDeviation": 0.0200004578,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Walk_Path_CentralEast",
+        "Walk_Path_UpperCross"
+      ]
+    },
+    {
+      "route": "CentralEast",
+      "kind": "flat",
+      "direction": "b_to_a",
+      "passed": true,
+      "moves": 53,
+      "start": [
+        3.4,
+        20.0,
+        9.0
+      ],
+      "end": [
+        3.4,
+        16.0,
+        9.0
+      ],
+      "actualEnd": [
+        3.4,
+        16.025,
+        9.02
+      ],
+      "remainingHorizontal": 0.0249996185,
+      "endHeightError": 0.0200004578,
+      "maxVerticalDeviation": 0.0200004578,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Walk_Path_CentralEast",
+        "Walk_Path_HomeAFront"
+      ]
+    },
+    {
+      "route": "UpperCross",
+      "kind": "flat",
+      "direction": "a_to_b",
+      "passed": true,
+      "moves": 62,
+      "start": [
+        -1.3,
+        20.0,
+        9.0
+      ],
+      "end": [
+        3.4,
+        20.0,
+        9.0
+      ],
+      "actualEnd": [
+        3.35000014,
+        20.0,
+        9.02
+      ],
+      "remainingHorizontal": 0.0499999523,
+      "endHeightError": 0.0200004578,
+      "maxVerticalDeviation": 0.0200004578,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Walk_Path_CentralEast",
+        "Walk_Path_UpperCross"
+      ]
+    },
+    {
+      "route": "UpperCross",
+      "kind": "flat",
+      "direction": "b_to_a",
+      "passed": true,
+      "moves": 62,
+      "start": [
+        3.4,
+        20.0,
+        9.0
+      ],
+      "end": [
+        -1.3,
+        20.0,
+        9.0
+      ],
+      "actualEnd": [
+        -1.25000012,
+        20.0,
+        9.02
+      ],
+      "remainingHorizontal": 0.0499998331,
+      "endHeightError": 0.0200004578,
+      "maxVerticalDeviation": 0.0200004578,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Walk_Path_CentralUpperLanding",
+        "Walk_Path_UpperCross"
+      ]
+    },
+    {
+      "route": "SubwayLanding",
+      "kind": "flat",
+      "direction": "a_to_b",
+      "passed": true,
+      "moves": 20,
+      "start": [
+        -17.5,
+        -21.65,
+        -1.85
+      ],
+      "end": [
+        -17.5,
+        -20.1,
+        -1.85
+      ],
+      "actualEnd": [
+        -17.5,
+        -20.15,
+        -1.83000016
+      ],
+      "remainingHorizontal": 0.0499992371,
+      "endHeightError": 0.0199998617,
+      "maxVerticalDeviation": 0.0450700521,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Walk_Path_SubwayLanding"
+      ]
+    },
+    {
+      "route": "SubwayLanding",
+      "kind": "flat",
+      "direction": "b_to_a",
+      "passed": true,
+      "moves": 20,
+      "start": [
+        -17.5,
+        -20.1,
+        -1.85
+      ],
+      "end": [
+        -17.5,
+        -21.65,
+        -1.85
+      ],
+      "actualEnd": [
+        -17.5,
+        -21.6,
+        -1.78736138
+      ],
+      "remainingHorizontal": 0.0499992371,
+      "endHeightError": 0.06263864,
+      "maxVerticalDeviation": 0.06263864,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_Subway"
+      ]
+    },
+    {
+      "route": "StationApproach",
+      "kind": "flat",
+      "direction": "a_to_b",
+      "passed": true,
+      "moves": 9,
+      "start": [
+        -18.0,
+        -19.04545,
+        1.0
+      ],
+      "end": [
+        -17.5,
+        -18.5,
+        1.0
+      ],
+      "actualEnd": [
+        -17.5438843,
+        -18.5478725,
+        1.03033781
+      ],
+      "remainingHorizontal": 0.06494313,
+      "endHeightError": 0.03033781,
+      "maxVerticalDeviation": 0.03033781,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Collider_Ramp_BridgeSouth",
+        "Walk_Path_StationApproach"
+      ]
+    },
+    {
+      "route": "StationApproach",
+      "kind": "flat",
+      "direction": "b_to_a",
+      "passed": true,
+      "moves": 9,
+      "start": [
+        -17.5,
+        -18.5,
+        1.0
+      ],
+      "end": [
+        -18.0,
+        -19.04545,
+        1.0
+      ],
+      "actualEnd": [
+        -17.9561157,
+        -18.9975777,
+        1.02
+      ],
+      "remainingHorizontal": 0.06494313,
+      "endHeightError": 0.01999998,
+      "maxVerticalDeviation": 0.02514875,
+      "initialSupportPlausible": true,
+      "fell": false,
+      "stalledMoves": 0,
+      "sideContacts": 0,
+      "headContacts": 0,
+      "nearbyAtEnd": [
+        "Walk_Path_StationApproach",
+        "Walk_Path_StationSquare"
+      ]
+    }
+  ]
+}

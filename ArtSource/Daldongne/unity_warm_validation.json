@@ -1,0 +1,39 @@
+{
+  "scene": "Assets/Scenes/DaldongneWarmMap.unity",
+  "prefab": "Assets/Art/Daldongne/WarmVillage/DaldongneWarmTown.prefab",
+  "nodes": 5112,
+  "meshes": 370,
+  "materials": 39,
+  "colliders": 1557,
+  "rampKeys": [
+    "BridgeNorth",
+    "BridgeSouth",
+    "CentralCrest",
+    "CentralLower",
+    "CentralMiddle",
+    "CityHall",
+    "East",
+    "ShopCenter",
+    "ShopWest",
+    "Subway",
+    "WestCrest",
+    "WestLower",
+    "WestMiddle"
+  ],
+  "hiddenCollisionMeshes": 13,
+  "transparentMaterials": 1,
+  "triangles": 128151,
+  "preservedDirtyScene": false,
+  "postprocess": {
+    "profile": "Assets/Art/Daldongne/WarmVillage/WarmVillageVolume.asset",
+    "bloomIntensity": 0.2,
+    "bloomThreshold": 1.12,
+    "tonemapping": "Neutral",
+    "temperature": 6.0,
+    "pointLights": 10,
+    "camera": "Daldongne Warm Map Camera",
+    "postProcessing": true,
+    "volumeLayer": 31,
+    "pipelineChanged": false
+  }
+}
