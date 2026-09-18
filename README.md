@@ -23,6 +23,10 @@ Server/                      서버 개발을 위한 위치와 안내
 
 ## 팀원이 처음 실행하기
 
+아래 clone 명령은 아직 저장소가 없는 팀원을 위한 절차입니다. 이미 작업하던 프로젝트가 있는 PC에서는 다시 clone하거나 새 Unity 프로젝트를 만들지 않고, 기존 프로젝트를 Hub에 추가합니다.
+선택할 폴더 바로 아래에 `Assets`, `Packages`, `ProjectSettings`가 있어야 하며, `Assets/Scenes/DaldongneWarmMap.unity`가 있는지도 확인하세요.
+현재 작업 PC에서는 `C:\서현\프로젝트\companyGame\CompanyGame`이 올바른 Unity 프로젝트 위치입니다. 여기서 `CompanyGame` 폴더를 한 단계 더 들어가지 않습니다.
+
 1. Git, Git LFS, Unity Hub를 설치합니다.
 2. Git LFS를 활성화하고 저장소를 내려받습니다. 아래 명령은 프로젝트를 둘 상위 폴더에서 실행합니다.
 
