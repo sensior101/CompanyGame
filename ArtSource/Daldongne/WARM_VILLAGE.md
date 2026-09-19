@@ -1,6 +1,19 @@
 # 달동네: 서울 외곽의 따뜻한 마을
 
-Unity 프로젝트의 `Assets/Scenes/DaldongneWarmMap.unity`를 열어 사용합니다.
+## 2026-09-19 슈퍼·베이커리 업데이트
+
+빨래방 자리를 초록 줄무늬 차양의 동네 슈퍼로 교체하고, 빵집을 노랑 차양의 목조 2층 건물로 수정했습니다.
+현재 Unity 편집 원본·미리보기·검증 결과는 `ShopRemodel/README.md`에 정리했습니다.
+
+## 2026-09-19 건물 및 고시원 접근로 업데이트
+
+고시원·편의점·Home_A~D를 사진 기반 Unity 네이티브 메시로 다시 제작했습니다.
+폭 1.8m 고시원 접근로와 정문 앞 테라스, 담장 진입 틈을 반영했습니다.
+남녀 캐릭터 걷기·달리기 왕복을 포함한 Play Mode 검사 324개 통과.
+최신 편집 원본·미리보기·검증 결과는 `ReferenceBuildings/README.md`를 참고하세요.
+아래 Blender/GLB/Unitypackage 파일은 초기 맵 스냅샷이며 이번 리모델링을 포함하지 않습니다.
+
+Unity 프로젝트의 `Assets/Scenes/daldongnaemap.unity`를 열어 사용합니다.
 기존 `DaldongneMap.unity`와 SampleScene은 이전 버전으로 남겨두었습니다.
 
 ## 반영한 외형

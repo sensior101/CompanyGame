@@ -24,7 +24,7 @@ Server/                      서버 개발을 위한 위치와 안내
 ## 팀원이 처음 실행하기
 
 아래 clone 명령은 아직 저장소가 없는 팀원을 위한 절차입니다. 이미 작업하던 프로젝트가 있는 PC에서는 다시 clone하거나 새 Unity 프로젝트를 만들지 않고, 기존 프로젝트를 Hub에 추가합니다.
-선택할 폴더 바로 아래에 `Assets`, `Packages`, `ProjectSettings`가 있어야 하며, `Assets/Scenes/DaldongneWarmMap.unity`가 있는지도 확인하세요.
+선택할 폴더 바로 아래에 `Assets`, `Packages`, `ProjectSettings`가 있어야 하며, `Assets/Scenes/daldongnaemap.unity`가 있는지도 확인하세요.
 현재 작업 PC에서는 `C:\서현\프로젝트\companyGame\CompanyGame`이 올바른 Unity 프로젝트 위치입니다. 여기서 `CompanyGame` 폴더를 한 단계 더 들어가지 않습니다.
 
 1. Git, Git LFS, Unity Hub를 설치합니다.
@@ -39,14 +39,15 @@ Server/                      서버 개발을 위한 위치와 안내
 
 3. Unity Hub에서 **6000.4.5f1**을 설치합니다. 정확한 버전 기준은 `CompanyGame/ProjectSettings/ProjectVersion.txt`입니다.
 4. Unity Hub의 프로젝트 추가 기능으로 내려받은 저장소 안의 **`CompanyGame` 하위 폴더**를 선택합니다.
-5. 패키지 다운로드와 에셋 임포트가 끝나면 `Assets/Scenes/DaldongneWarmMap.unity`를 열고 Play를 누릅니다.
+5. 패키지 다운로드와 에셋 임포트가 끝나면 `Assets/Scenes/daldongnaemap.unity`를 열고 Play를 누릅니다.
 
-`WASD` 이동, `Shift` 달리기, `F` 걷기/전체 시점 전환, `1`/`2` 캐릭터 선택을 사용할 수 있습니다.
+`WASD` 이동, `Shift` 달리기, `F` 걷기/전체 시점 전환, `1`/`2` 캐릭터 선택, 포털 근처에서 `E` 맵 이동을 사용할 수 있습니다.
 조작과 맵 구성은 [마을 안내](CompanyGame/Assets/Art/Daldongne/WarmVillage/README.md)와 [플레이어 안내](CompanyGame/Assets/Art/Daldongne/Players/README.md)를 참고하세요.
 
-현재 기본 빌드 씬 목록에는 `SampleScene`만 등록되어 있습니다.
-실행 파일을 만들 때는 Unity의 활성 Build Profile에서 원하는 맵 씬을 Scene List에 추가하고 시작 순서를 확인하세요.
-Git 설정 과정에서는 씬, 프리팹, 빌드 설정을 변경하지 않았습니다.
+기본 빌드 씬 목록은 `daldongnaemap`에서 시작하며, `SampleScene`과 작은 예제 맵 `DaldongnePocketGarden`을 포함합니다.
+마을 역 앞의 청록색 포털과 정원 입구의 포털로 두 맵을 왕복합니다. 새 맵은 **Tools → Company Game → Maps → Create Small Map**으로 만드세요.
+공통 Hierarchy, 건물·나무 프리팹, 씬 템플릿과 포털 설정은 [작은 맵 제작 안내](Docs/Small_Map_Workflow.md)를 참고하세요.
+활성 Build Profile에서 별도 Scene List를 사용하는 경우에는 해당 목록에도 새 맵을 추가하세요.
 
 ## Git과 LFS
 

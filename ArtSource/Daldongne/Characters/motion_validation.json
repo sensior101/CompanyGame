@@ -1,0 +1,85 @@
+{
+  "passed": true,
+  "utc": "2026-09-18T18:46:14.0288514Z",
+  "samples": 4800,
+  "speeds": [
+    0.4,
+    3,
+    3.6,
+    4.5
+  ],
+  "variants": [
+    {
+      "variant": "FemaleVisual",
+      "worstSolePenetration": -1.84178352E-05,
+      "minKneeDegrees": 4.72353935,
+      "maxKneeDegrees": 89.96574,
+      "maxSwingClearance": 0.13624543,
+      "maxPelvisDisplacement": 0.0471236035,
+      "restoredAfterStopAndTeleportSpeed": true,
+      "restoredAfterExplicitLifecycleCallsInEditMode": true,
+      "gaits": [
+        {
+          "speed": 0.4,
+          "flightSamples": 0,
+          "groundedSamples": 479,
+          "maxFlightClearance": 0.0
+        },
+        {
+          "speed": 3.0,
+          "flightSamples": 0,
+          "groundedSamples": 479,
+          "maxFlightClearance": 0.0
+        },
+        {
+          "speed": 3.6,
+          "flightSamples": 0,
+          "groundedSamples": 479,
+          "maxFlightClearance": 0.0
+        },
+        {
+          "speed": 4.5,
+          "flightSamples": 66,
+          "groundedSamples": 413,
+          "maxFlightClearance": 0.0179999471
+        }
+      ]
+    },
+    {
+      "variant": "MaleVisual",
+      "worstSolePenetration": -1.1920929E-07,
+      "minKneeDegrees": 4.565923,
+      "maxKneeDegrees": 89.88131,
+      "maxSwingClearance": 0.118346274,
+      "maxPelvisDisplacement": 0.04580807,
+      "restoredAfterStopAndTeleportSpeed": true,
+      "restoredAfterExplicitLifecycleCallsInEditMode": true,
+      "gaits": [
+        {
+          "speed": 0.4,
+          "flightSamples": 0,
+          "groundedSamples": 479,
+          "maxFlightClearance": 0.0
+        },
+        {
+          "speed": 3.0,
+          "flightSamples": 0,
+          "groundedSamples": 479,
+          "maxFlightClearance": 5.96046448E-08
+        },
+        {
+          "speed": 3.6,
+          "flightSamples": 0,
+          "groundedSamples": 479,
+          "maxFlightClearance": 5.96046448E-08
+        },
+        {
+          "speed": 4.5,
+          "flightSamples": 66,
+          "groundedSamples": 413,
+          "maxFlightClearance": 0.0179998875
+        }
+      ]
+    }
+  ]
+}

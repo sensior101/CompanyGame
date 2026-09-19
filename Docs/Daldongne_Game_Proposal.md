@@ -3,7 +3,7 @@
 **작업명:** 달동네, 오늘도 영업 중  
 **장르 제안:** 3D 마을 탐험 + 작은 가게 운영 시뮬레이션  
 **시점/분위기:** 로우폴리 사선 시점, 서울 외곽의 따뜻하고 조금 낡은 동네  
-**기준 에셋:** Unity `Assets/Scenes/DaldongneWarmMap.unity` 및 `Assets/Art/Daldongne/Players/`  
+**기준 에셋:** Unity `Assets/Scenes/daldongnaemap.unity` 및 `Assets/Art/Daldongne/Players/`\
 **문서 상태:** 기획 초안. 장르와 스토리는 결정안이 아니라 현재 에셋에 맞춘 제안이다.
 
 ## 1. 한 문장 기획
@@ -71,7 +71,7 @@
 
 | 항목 | 확인한 상태 | 기획 시 해석 |
 |---|---|---|
-| `DaldongneWarmMap.unity` | 열 수 있는 3D 마을 씬 | 첫 플레이 장소 |
+| `daldongnaemap.unity` | 열 수 있는 3D 마을 씬 | 첫 플레이 장소 |
 | `WarmVillage/DaldongneWarmTown.prefab` | 건물·도로·계단 등 맵 모델 | 탐색 공간의 기반 |
 | `Players/PlayerFemale.prefab`, `PlayerMale.prefab` | 외형·이동·충돌 구성 | 플레이어 외형 선택 기반 |
 | `DaldongneVillageWalker.cs` | 걷기·달리기·카메라 전환·복귀 | 탐색 프로토타입 |

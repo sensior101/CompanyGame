@@ -1,7 +1,7 @@
 # CompanyGame Unity 스크립트 기능 구현 총정리
 
 **대상:** `CompanyGame/Assets/Scripts`의 C# 파일 49개  
-**기준 씬:** `CompanyGame/Assets/Scenes/DaldongneWarmMap.unity`  
+**기준 씬:** `CompanyGame/Assets/Scenes/daldongnaemap.unity`\
 **목적:** 기존 파일 틀마다 책임을 하나씩 정하고, 구현 순서와 완료 조건을 제시한다.  
 **기획 전제:** [달동네 게임 기획안](Daldongne_Game_Proposal.md)의 ‘골목 탐색 → 주민 부탁 → 가게 변화’를 첫 플레이 범위로 삼는다. 회사·은행·주식 등은 프로젝트의 파일명에서 추정한 후속 확장 후보이며 게임 규칙이 확정된 것은 아니다.
 
