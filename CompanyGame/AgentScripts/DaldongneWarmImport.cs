@@ -18,7 +18,7 @@ public static class DaldongneWarmImport
     public const string Source = Folder + "/DaldongneWarmTown.glb";
     public const string Bundle = Folder + "/DaldongneWarmMeshes.asset";
     public const string Prefab = Folder + "/DaldongneWarmTown.prefab";
-    public const string ScenePath = "Assets/Scenes/DaldongneWarmMap.unity";
+    public const string ScenePath = "Assets/Scenes/daldongnaemap.unity";
     static JObject doc;
     static byte[] binary;
     static int colliderCount;
@@ -27,6 +27,9 @@ public static class DaldongneWarmImport
     public static object Build()
     {
         if (EditorApplication.isPlayingOrWillChangePlaymode) throw new InvalidOperationException("Stop Play mode before importing the map.");
+        var existingPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(Prefab);
+        if (existingPrefab != null && existingPrefab.transform.Find("10_Buildings") != null)
+            throw new InvalidOperationException("This warm-map prefab has an organized hierarchy. Rebuilding from the source GLB requires a deliberate migration that preserves its building/tree prefabs and scene structure; this legacy importer cannot overwrite it.");
         // Never overwrite an earlier revision or save an unrelated dirty scene.
         foreach (string asset in new [] {Prefab, Bundle, ScenePath})
             if (File.Exists(asset) || AssetDatabase.LoadMainAssetAtPath(asset) != null)

@@ -12,7 +12,7 @@ public static class DaldongnePlayersQA
     public static object Verify()
     {
         if(!EditorApplication.isPlaying)throw new Exception("Run in Play mode.");
-        var walker=UnityEngine.Object.FindAnyObjectByType<DaldongneVillageWalker>();
+        var walker=UnityEngine.Object.FindAnyObjectByType<PlayerMovement>();
         var cc=walker.GetComponent<CharacterController>();var look=walker.GetComponent<DaldongnePlayerAppearance>();
         if(!walker.walking || walker.overview.enabled)throw new Exception("Expected automatic player camera on Play.");
         if(walker.GetComponentsInChildren<Collider>(true).Length!=1)throw new Exception("Unexpected visual colliders.");

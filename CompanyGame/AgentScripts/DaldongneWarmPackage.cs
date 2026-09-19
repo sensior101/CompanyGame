@@ -6,7 +6,7 @@ public static class DaldongneWarmPackage
 {
     public static object Export()
     {
-        string[] files={"Assets/Scenes/DaldongneWarmMap.unity",
+        string[] files={"Assets/Scenes/daldongnaemap.unity",
           "Assets/Art/Daldongne/WarmVillage/DaldongneWarmTown.prefab",
           "Assets/Art/Daldongne/WarmVillage/DaldongneWarmMeshes.asset",
           "Assets/Art/Daldongne/WarmVillage/DaldongneWarmTown.glb",
@@ -14,7 +14,7 @@ public static class DaldongneWarmPackage
           "Assets/Art/Daldongne/WarmVillage/README.md",
           "Assets/Art/Daldongne/Daldongne_RenderPipeline.asset",
           "Assets/Scripts/World/DaldongneMapCamera.cs",
-          "Assets/Scripts/World/DaldongneVillageWalker.cs"};
+          "Assets/Scripts/Player/PlayerMovement.cs"};
         var deps=AssetDatabase.GetDependencies("Assets/Art/Daldongne/Daldongne_RenderPipeline.asset",true).Where(p=>p.StartsWith("Assets/"));
         string[] paths=files.Concat(deps).Distinct().ToArray();
         AssetDatabase.Refresh();

@@ -35,10 +35,11 @@ public static class DaldongneWarmPolish
     {
         if(EditorApplication.isPlayingOrWillChangePlaymode)throw new InvalidOperationException("Stop Play mode before polishing the warm map.");
         var scene=SceneManager.GetActiveScene();
-        if(scene.path!="Assets/Scenes/DaldongneWarmMap.unity")
-            throw new InvalidOperationException("Open DaldongneWarmMap.unity before applying its polish.");
+        if(scene.path!="Assets/Scenes/daldongnaemap.unity")
+            throw new InvalidOperationException("Open daldongnaemap.unity before applying its polish.");
         var roots=scene.GetRootGameObjects();
-        var root=roots.FirstOrDefault(go=>go.name=="Daldongne Warm Village");
+        var root=roots.SelectMany(go=>go.GetComponentsInChildren<Transform>(true))
+            .Select(t=>t.gameObject).FirstOrDefault(go=>go.name=="Daldongne Warm Village");
         var camera=roots.SelectMany(go=>go.GetComponentsInChildren<Camera>(true))
             .FirstOrDefault(c=>c.name=="Daldongne Warm Map Camera");
         if(root==null || camera==null)throw new InvalidOperationException("The warm-map root or camera is missing.");
@@ -73,7 +74,8 @@ public static class DaldongneWarmPolish
         whiteBalance.temperature.Override(6f);whiteBalance.tint.Override(1f);
         EditorUtility.SetDirty(profile);AssetDatabase.SaveAssetIfDirty(profile);
 
-        var volumeObject=scene.GetRootGameObjects().FirstOrDefault(go=>go.name==VolumeName);
+        var volumeObject=scene.GetRootGameObjects().SelectMany(go=>go.GetComponentsInChildren<Transform>(true))
+            .Select(t=>t.gameObject).FirstOrDefault(go=>go.name==VolumeName);
         if(volumeObject==null)
         {
             volumeObject=new GameObject(VolumeName);
@@ -104,7 +106,8 @@ public static class DaldongneWarmPolish
             sun.transform.rotation=Quaternion.Euler(42,-35,0);RenderSettings.sun=sun;
         }
 
-        var lightRoot=scene.GetRootGameObjects().FirstOrDefault(go=>go.name==LightsName);
+        var lightRoot=scene.GetRootGameObjects().SelectMany(go=>go.GetComponentsInChildren<Transform>(true))
+            .Select(t=>t.gameObject).FirstOrDefault(go=>go.name==LightsName);
         if(lightRoot==null)
         {
             lightRoot=new GameObject(LightsName);SceneManager.MoveGameObjectToScene(lightRoot,scene);

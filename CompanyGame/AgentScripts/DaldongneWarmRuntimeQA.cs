@@ -7,7 +7,7 @@ public static class DaldongneWarmRuntimeQA
     public static object Verify()
     {
         if(!EditorApplication.isPlaying)throw new InvalidOperationException("Runtime check requires Play mode.");
-        var w=UnityEngine.Object.FindAnyObjectByType<DaldongneVillageWalker>();
+        var w=UnityEngine.Object.FindAnyObjectByType<PlayerMovement>();
         if(!w)throw new InvalidOperationException("Walker missing.");
         var cc=w.GetComponent<CharacterController>();
         w.SetWalking(true);

@@ -12,6 +12,11 @@ namespace CompanyGame.Daldongne
         public float zoom = 42f;
         public float yaw = -33f;
         public float pitch = 36f;
+        [Header("This map's overview (Home / leave walking mode)")]
+        public Vector3 homeFocus = new Vector3(0, 6, 2);
+        public float homeZoom = 42f;
+        public float homeYaw = -33f;
+        public float homePitch = 36f;
         Camera mapCamera;
 
         void OnEnable() { mapCamera = GetComponent<Camera>(); Apply(); }
@@ -48,11 +53,11 @@ namespace CompanyGame.Daldongne
         }
         public void ResetView()
         {
-            focus = new Vector3(0, 6, 2); zoom = 42; yaw = -33; pitch = 36; Apply();
+            focus = homeFocus; zoom = homeZoom; yaw = homeYaw; pitch = homePitch; Apply();
         }
         public void SetTopDown(bool enabled)
         {
-            pitch = enabled ? 89.8f : 36; yaw = enabled ? 0 : -33; Apply();
+            pitch = enabled ? 89.8f : homePitch; yaw = enabled ? 0 : homeYaw; Apply();
         }
         void Apply()
         {

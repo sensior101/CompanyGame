@@ -132,26 +132,45 @@ public static class DaldongnePlayersBuild
         selector.Select(selectedFemale?DaldongnePlayerAppearance.Variant.Female:DaldongnePlayerAppearance.Variant.Male);
         var cc=go.GetComponent<CharacterController>();if(!cc)cc=go.AddComponent<CharacterController>();
         cc.radius=.35f;cc.height=1.8f;cc.center=Vector3.up*.9f;cc.stepOffset=.23f;cc.slopeLimit=45;cc.skinWidth=.02f;cc.minMoveDistance=0;
-        var walker=go.GetComponent<DaldongneVillageWalker>();if(!walker)walker=go.AddComponent<DaldongneVillageWalker>();walker.walking=true;
+        var walker=go.GetComponent<PlayerMovement>();if(!walker)walker=go.AddComponent<PlayerMovement>();walker.walking=true;
     }
     public static object Build()
     {
         if(EditorApplication.isPlayingOrWillChangePlaymode)throw new Exception("Stop play mode first.");
-        var scene=SceneManager.GetActiveScene();if(scene.path!="Assets/Scenes/DaldongneWarmMap.unity")throw new Exception("Open warm map first.");
+        var scene=SceneManager.GetActiveScene();if(scene.path!="Assets/Scenes/daldongnaemap.unity")throw new Exception("Open warm map first.");
         Directory.CreateDirectory(Dir+"/Materials");AssetDatabase.Refresh();
         rounded=MakeMesh("Beveled octagonal mesh",false);ball=MakeMesh("Faceted portrait mesh",true);
         mats=new Dictionary<string,Material>();
         string[] names={"Warm skin","Chestnut hair","Sage cardigan","Ochre jacket","Oatmeal cotton","Terracotta trousers","Indigo denim","Canvas shoe","Leather","Brass","Ink","Rose"};
         string[] colors={"#DDA783","#3C302C","#638B7D","#C99752","#F0DFC0","#915F4F","#465B6C","#61554D","#78513B","#D7B878","#252A2A","#A15F53"};
         for(int i=0;i<names.Length;i++)mats[names[i]]=Mat(names[i],colors[i]);
-        var f=Visual(true);var female=PrefabUtility.SaveAsPrefabAsset(f,Dir+"/FemaleVisual.prefab");UnityEngine.Object.DestroyImmediate(f);
-        var m=Visual(false);var male=PrefabUtility.SaveAsPrefabAsset(m,Dir+"/MaleVisual.prefab");UnityEngine.Object.DestroyImmediate(m);
+        // Keep the reference-model upgrade when rebuilding player controllers.
+        GameObject female;
+        if(File.Exists(Dir+"/ReferenceGirl/ReferenceGirl.meshdata.json"))
+        {
+            female=AssetDatabase.LoadAssetAtPath<GameObject>(Dir+"/FemaleVisual.prefab");
+            if(!female || !female.transform.Find("Hips/Head/Hair"))throw new Exception("Rebuild Reference Girl from Tools > Company Game > Characters first.");
+        }
+        else
+        {
+            var f=Visual(true);female=PrefabUtility.SaveAsPrefabAsset(f,Dir+"/FemaleVisual.prefab");UnityEngine.Object.DestroyImmediate(f);
+        }
+        GameObject male;
+        if(File.Exists(Dir+"/ReferenceBoy/ReferenceBoy.meshdata.json"))
+        {
+            male=AssetDatabase.LoadAssetAtPath<GameObject>(Dir+"/MaleVisual.prefab");
+            if(!male || !male.transform.Find("Hips/Head/Hair"))throw new Exception("Rebuild Reference Boy from Tools > Company Game > Characters first.");
+        }
+        else
+        {
+            var m=Visual(false);male=PrefabUtility.SaveAsPrefabAsset(m,Dir+"/MaleVisual.prefab");UnityEngine.Object.DestroyImmediate(m);
+        }
         foreach(bool sex in new[]{true,false})
         {
             var p=new GameObject(sex?"PlayerFemale":"PlayerMale");Attach(p,female,male,sex);
             PrefabUtility.SaveAsPrefabAsset(p,Dir+"/"+p.name+".prefab");UnityEngine.Object.DestroyImmediate(p);
         }
-        var w=UnityEngine.Object.FindAnyObjectByType<DaldongneVillageWalker>();if(!w)throw new Exception("Existing map walker missing.");
+        var w=UnityEngine.Object.FindAnyObjectByType<PlayerMovement>();if(!w)throw new Exception("Existing map walker missing.");
         var children=w.transform.Cast<Transform>().ToArray();
         foreach(var child in children)if(new[]{"Coat","Head","Trouser","FemaleVisual","MaleVisual"}.Contains(child.name))UnityEngine.Object.DestroyImmediate(child.gameObject);
         Attach(w.gameObject,female,male,true);

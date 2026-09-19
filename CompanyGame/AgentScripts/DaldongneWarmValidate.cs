@@ -26,8 +26,8 @@ public static class DaldongneWarmValidate
     public static object Run()
     {
         var scene=SceneManager.GetActiveScene();
-        if(scene.path!="Assets/Scenes/DaldongneWarmMap.unity")
-            throw new InvalidOperationException("Open DaldongneWarmMap.unity before the navigation audit.");
+        if(scene.path!="Assets/Scenes/daldongnaemap.unity")
+            throw new InvalidOperationException("Open daldongnaemap.unity before the navigation audit.");
         string folder=Path.GetFullPath(Path.Combine(Application.dataPath,"../../ArtSource/Daldongne"));
         var input=JObject.Parse(File.ReadAllText(Path.Combine(folder,"warm_routes.json")));
         var routes=input["routes"] as JArray;
@@ -153,7 +153,7 @@ public static class DaldongneWarmValidate
     public static object Traverse()
     {
         var scene=SceneManager.GetActiveScene();
-        if(scene.path!="Assets/Scenes/DaldongneWarmMap.unity")
+        if(scene.path!="Assets/Scenes/daldongnaemap.unity")
             throw new InvalidOperationException("Open the warm map before the controller traversal audit.");
         string folder=Path.GetFullPath(Path.Combine(Application.dataPath,"../../ArtSource/Daldongne"));
         var routes=(JArray)JObject.Parse(File.ReadAllText(Path.Combine(folder,"warm_routes.json")))["routes"];
