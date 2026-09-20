@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class ReportSystem : MonoBehaviour
+public class BankApplication : MonoBehaviour
 {
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
