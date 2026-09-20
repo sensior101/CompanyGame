@@ -45,7 +45,7 @@ namespace CompanyGame.World.Maps
                 nextPlayerLookup = Time.unscaledTime + .5f;
                 SceneLoadManager.TryGetScenePlayer(gameObject.scene, out player, out _);
             }
-            if (!player || !player.isActiveAndEnabled || !player.walking) return;
+            if (!player || !player.isActiveAndEnabled) return;
             float distance = (player.transform.position - transform.position).sqrMagnitude;
             if (distance > interactionRadius * interactionRadius || distance >= closestDistance) return;
             closestDistance = distance;

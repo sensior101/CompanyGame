@@ -17,7 +17,6 @@ public sealed class SceneLoadManager : MonoBehaviour
     static SceneLoadManager runner;
     PlayerMovement sourcePlayer;
     bool sourceWasEnabled;
-    bool savedWalking;
     bool hasAppearance;
     DaldongnePlayerAppearance.Variant savedAppearance;
     string destinationPath;
@@ -62,7 +61,6 @@ public sealed class SceneLoadManager : MonoBehaviour
         IsLoading = true;
         runner.sourcePlayer = player;
         runner.sourceWasEnabled = player.enabled;
-        runner.savedWalking = player.walking;
         var appearance = player.GetComponent<DaldongnePlayerAppearance>();
         runner.hasAppearance = appearance != null;
         if (appearance) runner.savedAppearance = appearance.selected;
@@ -178,16 +176,12 @@ public sealed class SceneLoadManager : MonoBehaviour
         player.transform.rotation = Quaternion.Euler(0f, spawnPoint.transform.eulerAngles.y, 0f);
         var appearance = player.GetComponent<DaldongnePlayerAppearance>();
         if (hasAppearance && appearance) appearance.Select(savedAppearance);
-        // sceneLoaded runs after Awake/OnEnable and before Start. The existing
-        // walker Start() performs the camera handoff for this serialized flag.
-        player.walking = savedWalking;
     }
 
     void RestoreSourceIfPresent()
     {
         if (!sourcePlayer) return;
         sourcePlayer.enabled = sourceWasEnabled;
-        sourcePlayer.SetWalking(savedWalking);
         sourcePlayer = null;
     }
 

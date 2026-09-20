@@ -299,11 +299,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1959b7d3aa9b64242a3f510a1a342fb6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CompanyGame.Daldongne.DaldongneVillageWalker
-  viewCamera: {fileID: 1226056396}
-  overview: {fileID: 1226056395}
-  spawn: {x: -17.5, y: 1.08, z: -27}
   moveSpeed: 3
-  walking: 1
+  sprintMultiplier: 1.5
+  viewCamera: {fileID: 1226056396}
+  spawn: {x: -17.5, y: 1.08, z: -27}
 --- !u!143 &286031482
 CharacterController:
   m_ObjectHideFlags: 0
@@ -2067,10 +2066,10 @@ GameObject:
   m_Component:
   - component: {fileID: 1226056397}
   - component: {fileID: 1226056396}
-  - component: {fileID: 1226056395}
   - component: {fileID: 1226056394}
+  - component: {fileID: 1226056398}
   m_Layer: 0
-  m_Name: Daldongne Warm Map Camera
+  m_Name: Daldongne Map Camera
   m_TagString: MainCamera
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2083,7 +2082,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1226056393}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a79441f348de89743a2939f4d699eac1, type: 3}
   m_Name: 
@@ -2120,26 +2119,6 @@ MonoBehaviour:
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
   m_Version: 2
---- !u!114 &1226056395
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1226056393}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 37e8ca26106c3e549b733c2d3826da91, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CompanyGame.Daldongne.DaldongneMapCamera
-  focus: {x: 0, y: 6, z: 2}
-  zoom: 42
-  yaw: -33
-  pitch: 36
-  homeFocus: {x: 0, y: 6, z: 2}
-  homeZoom: 42
-  homeYaw: -33
-  homePitch: 36
 --- !u!20 &1226056396
 Camera:
   m_ObjectHideFlags: 0
@@ -2174,7 +2153,7 @@ Camera:
   near clip plane: 0.1
   far clip plane: 500
   field of view: 60
-  orthographic: 1
+  orthographic: 0
   orthographic size: 42
   m_Depth: 0
   m_CullingMask:
@@ -2206,6 +2185,40 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1738107338}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1226056398
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1226056393}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 824418626fc830640a0d86d1f600d2e3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerCameraController
+  target: {fileID: 286031483}
+  femaleVisuals: {fileID: 2010202601}
+  maleVisuals: {fileID: 1051258095}
+  firstPerson: 0
+  firstPersonEyeHeight: 1.6
+  distance: 5
+  minDistance: 2
+  maxDistance: 15
+  targetHeight: 1.2
+  mouseSensitivity: 0.22
+  minPitch: -80
+  maxPitch: 80
+  zoomSpeed: 0.12
+  enableHeadBob: 1
+  walkBobSpeed: 11
+  walkBobAmount: 0.1
+  runBobSpeed: 17
+  runBobAmount: 0.16
+  thirdPersonBobMultiplier: 0.8
+  movementThreshold: 0.1
+  runSpeedThreshold: 5
+  bobSmoothSpeed: 15
 --- !u!1 &1428491474
 GameObject:
   m_ObjectHideFlags: 0

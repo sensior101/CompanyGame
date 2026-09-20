@@ -158,21 +158,55 @@ namespace CompanyGame.Editor.WorldMaps
                 Box(terrain, "Boundary_West", new Vector3(-13.7f, .45f, 0), new Vector3(.6f, .9f, 26), stone, true);
                 Box(terrain, "Boundary_East", new Vector3(13.7f, .45f, 0), new Vector3(.6f, .9f, 26), stone, true);
 
-                var camera = Clone(sourceCamera.gameObject, layout.cameras, "Map Camera").GetComponent<Camera>();
-                var overview = camera.GetComponent<DaldongneMapCamera>() ?? camera.gameObject.AddComponent<DaldongneMapCamera>();
-                overview.enabled = true;
-                overview.homeFocus = overview.focus = new Vector3(0, 1, 0);
-                overview.homeZoom = overview.zoom = 18;
-                overview.homeYaw = overview.yaw = -25;
-                overview.homePitch = overview.pitch = 42;
-                overview.ResetView();
-                var player = Clone(sourcePlayer.gameObject, layout.player, "Map Player").GetComponent<PlayerMovement>();
-                player.spawn = new Vector3(0, .12f, -8);
-                player.transform.SetPositionAndRotation(player.spawn, Quaternion.identity);
+                // 기존 카메라 복제
+                var camera = Clone(
+                    sourceCamera.gameObject,
+                    layout.cameras,
+                    "Map Camera"
+                ).GetComponent<Camera>();
+
+                // 새로운 3인칭 카메라 컴포넌트 추가
+                var cameraController =
+                    camera.GetComponent<PlayerCameraController>();
+
+                if (!cameraController)
+                {
+                    cameraController =
+                        camera.gameObject.AddComponent<PlayerCameraController>();
+                }
+
+                // 3인칭 카메라 설정
+                cameraController.enabled = true;
+
+                cameraController.distance = 5f;
+
+                cameraController.targetHeight = 0.9f;
+
+                camera.orthographic = false;
+                camera.fieldOfView = 60f;
+
+                // 플레이어 복제
+                var player = Clone(
+                    sourcePlayer.gameObject,
+                    layout.player,
+                    "Map Player"
+                ).GetComponent<PlayerMovement>();
+
+                // 플레이어 시작 위치 설정
+                player.spawn = new Vector3(0f, 0.12f, -8f);
+
+                player.transform.SetPositionAndRotation(
+                    player.spawn,
+                    Quaternion.identity
+                );
+
+                // 플레이어와 카메라 연결
                 player.viewCamera = camera;
-                player.overview = overview;
+
+                cameraController.target = player.transform;
+
+                // 플레이어 이동 활성화
                 player.enabled = true;
-                player.walking = true;
                 var spawn = Child(layout.spawns, "Spawn_Default").gameObject.AddComponent<MapSpawnPoint>();
                 spawn.spawnId = "default";
                 spawn.transform.position = player.spawn;

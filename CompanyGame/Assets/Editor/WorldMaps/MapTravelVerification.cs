@@ -136,18 +136,34 @@ namespace CompanyGame.Editor.WorldMaps
                         StartTravel(run);
                         break;
                     case Phase.WaitingGarden:
-                        if (!DestinationReady(Garden, run)) return;
+
+                        if (!DestinationReady(Garden, run))
+                            return;
+
                         VerifyArrival(run, Garden, "default");
-                        VerifyOverview(run, "garden");
-                        var gardenWalker = GetPlayer(SceneManager.GetActiveScene());
-                        gardenWalker.SetWalking(true);
-                        Require(SceneLoadManager.TryLoadMap(Village, "station", gardenWalker), "The return transition was rejected.");
-                        Next(run, Phase.WaitingVillage, "Waiting for return to village");
+
+                        var gardenWalker =
+                            GetPlayer(SceneManager.GetActiveScene());
+
+                        Require(
+                            SceneLoadManager.TryLoadMap(
+                                Village,
+                                "station",
+                                gardenWalker
+                            ),
+                            "The return transition was rejected."
+                        );
+
+                        Next(
+                            run,
+                            Phase.WaitingVillage,
+                            "Waiting for return to village"
+                        );
+
                         break;
                     case Phase.WaitingVillage:
                         if (!DestinationReady(Village, run)) return;
                         VerifyArrival(run, Village, "station");
-                        VerifyOverview(run, "village");
                         run.success = true;
                         run.status = "Checks passed; restoring editor scenes";
                         run.phase = Phase.RestoringEditor;
@@ -167,9 +183,9 @@ namespace CompanyGame.Editor.WorldMaps
             VerifySingleSceneObjects(scene);
             var appearance = player.GetComponent<DaldongnePlayerAppearance>();
             Require(appearance, "The map player is missing DaldongnePlayerAppearance.");
-            appearance.Select(DaldongnePlayerAppearance.Variant.Male);
-            player.SetWalking(true);
-            Require(player.walking, "Walking mode could not be enabled.");
+            appearance.Select(
+    DaldongnePlayerAppearance.Variant.Male
+);
 
             // This intentionally emits one explanatory runtime error. It must
             // return false and leave the valid current scene/player untouched.
@@ -194,42 +210,100 @@ namespace CompanyGame.Editor.WorldMaps
             return true;
         }
 
-        static void VerifyArrival(Run run, string scenePath, string spawnId)
+        static void VerifyArrival(
+    Run run,
+    string scenePath,
+    string spawnId
+)
         {
             var scene = SceneManager.GetActiveScene();
-            Require(scene.path == scenePath, "Unexpected arrival scene.");
-            VerifySingleSceneObjects(scene);
-            var player = GetPlayer(scene);
-            Require(player.walking, "Walking mode was not retained at arrival.");
-            Require(player.viewCamera && player.viewCamera.gameObject.scene == scene, "The player camera is not scene-local.");
-            Require(player.overview && !player.overview.enabled, "The overview camera is still processing input while walking.");
-            var appearance = player.GetComponent<DaldongnePlayerAppearance>();
-            Require(appearance && appearance.selected == DaldongnePlayerAppearance.Variant.Male, "The selected male avatar was not retained.");
-            Require(MapSpawnPoint.TryFind(scene, spawnId, out var spawn, out var error), error);
-            Near(player.spawn, spawn.transform.position, "Arrival/reset spawn was not updated.");
-            player.ResetToSpawn();
-            Near(player.transform.position, spawn.transform.position, "ResetToSpawn did not use the destination spawn.");
-            Require(player.GetComponent<CharacterController>().enabled, "ResetToSpawn left the CharacterController disabled.");
-            run.checks.Add(scene.name + ": single scene/player/camera, male avatar, walking, spawn and reset preserved (" + spawnId + ")");
-        }
 
-        static void VerifyOverview(Run run, string mapName)
-        {
-            var player = GetPlayer(SceneManager.GetActiveScene());
-            var overview = player.overview;
-            Require(overview, "The map player is missing its overview controller.");
-            overview.focus += Vector3.one * 5f;
-            overview.zoom += 3f;
-            overview.yaw += 12f;
-            overview.pitch += 9f;
-            player.SetWalking(false);
-            Require(!player.walking && overview.enabled, "Leaving walking mode did not restore overview control.");
-            Near(overview.focus, overview.homeFocus, "Overview focus did not return to this map's home.");
-            Near(overview.zoom, overview.homeZoom, "Overview zoom did not return home.");
-            Near(overview.yaw, overview.homeYaw, "Overview yaw did not return home.");
-            Near(overview.pitch, overview.homePitch, "Overview pitch did not return home.");
-            Near(player.viewCamera.orthographicSize, overview.homeZoom, "Camera projection did not return to the map overview.");
-            run.checks.Add(mapName + ": leaving walking restores its own home overview");
+            Require(
+                scene.path == scenePath,
+                "Unexpected arrival scene."
+            );
+
+            VerifySingleSceneObjects(scene);
+
+            var player = GetPlayer(scene);
+
+            // 플레이어 이동 컴포넌트 확인
+            Require(
+                player.isActiveAndEnabled,
+                "PlayerMovement is disabled after map travel."
+            );
+
+            // 카메라가 현재 씬에 속해 있는지 확인
+            Require(
+                player.viewCamera &&
+                player.viewCamera.gameObject.scene == scene,
+                "The player camera is not scene-local."
+            );
+
+            // 3인칭 카메라 확인
+            var cameraController =
+                player.viewCamera.GetComponent<PlayerCameraController>();
+
+            Require(
+                cameraController &&
+                cameraController.isActiveAndEnabled,
+                "The third-person camera controller is missing or disabled."
+            );
+
+            // 카메라가 현재 플레이어를 따라가는지 확인
+            Require(
+                cameraController.target == player.transform,
+                "The third-person camera target is incorrect."
+            );
+
+            // 캐릭터 외형 유지 확인
+            var appearance =
+                player.GetComponent<DaldongnePlayerAppearance>();
+
+            Require(
+                appearance &&
+                appearance.selected ==
+                DaldongnePlayerAppearance.Variant.Male,
+                "The selected male avatar was not retained."
+            );
+
+            // 목적지 스폰 위치 확인
+            Require(
+                MapSpawnPoint.TryFind(
+                    scene,
+                    spawnId,
+                    out var spawn,
+                    out var error
+                ),
+                error
+            );
+
+            Near(
+                player.spawn,
+                spawn.transform.position,
+                "Arrival/reset spawn was not updated."
+            );
+
+            // R키 리스폰 기능 확인
+            player.ResetToSpawn();
+
+            Near(
+                player.transform.position,
+                spawn.transform.position,
+                "ResetToSpawn did not use the destination spawn."
+            );
+
+            Require(
+                player.GetComponent<CharacterController>().enabled,
+                "ResetToSpawn left the CharacterController disabled."
+            );
+
+            run.checks.Add(
+                scene.name +
+                ": player, third-person camera, male avatar, spawn and reset preserved (" +
+                spawnId +
+                ")"
+            );
         }
 
         static void VerifySingleSceneObjects(Scene scene)
