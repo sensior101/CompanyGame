@@ -2098,8 +2098,8 @@ MonoBehaviour:
     m_Bits: 2147483648
   m_VolumeTrigger: {fileID: 1226056397}
   m_VolumeFrameworkUpdateModeOption: 2
-  m_RenderPostProcessing: 1
-  m_Antialiasing: 2
+  m_RenderPostProcessing: 0
+  m_Antialiasing: 0
   m_AntialiasingQuality: 2
   m_StopNaN: 0
   m_Dithering: 0
@@ -2152,7 +2152,7 @@ Camera:
     height: 1
   near clip plane: 0.1
   far clip plane: 500
-  field of view: 60
+  field of view: 75
   orthographic: 0
   orthographic size: 42
   m_Depth: 0
@@ -2178,13 +2178,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1226056393}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.27298293, y: -0.26764908, z: 0.07936329, w: 0.92062247}
-  m_LocalPosition: {x: 47, y: 63, z: -72}
+  m_LocalRotation: {x: 0.31262434, y: -0.26395762, z: 0.09088787, w: 0.9079273}
+  m_LocalPosition: {x: 47, y: 68, z: -72}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1738107338}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 38, y: -32.421, z: 0}
 --- !u!114 &1226056398
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2202,19 +2202,21 @@ MonoBehaviour:
   maleVisuals: {fileID: 1051258095}
   firstPerson: 0
   firstPersonEyeHeight: 1.6
-  distance: 5
-  minDistance: 2
-  maxDistance: 15
-  targetHeight: 1.2
+  firstPersonFOV: 85
+  thirdPersonFOV: 75
+  distance: 8
+  minDistance: 3
+  maxDistance: 20
+  targetHeight: 2.2
   mouseSensitivity: 0.22
   minPitch: -80
   maxPitch: 80
-  zoomSpeed: 0.12
+  zoomSpeed: 0.3
   enableHeadBob: 1
-  walkBobSpeed: 11
+  walkBobSpeed: 10
   walkBobAmount: 0.1
   runBobSpeed: 17
-  runBobAmount: 0.16
+  runBobAmount: 0.2
   thirdPersonBobMultiplier: 0.8
   movementThreshold: 0.1
   runSpeedThreshold: 5
