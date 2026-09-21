@@ -1,27 +1,29 @@
+using System;
 using UnityEngine;
 
 public class BankApplication : PhoneAppBase
 {
     [SerializeField]
+    private BankManager bankManager;
+
+    [SerializeField]
     private EconomyManager economyManager;
+
+    public event Action Refreshed;
 
     private void Awake()
     {
+        if (bankManager == null) bankManager = FindAnyObjectByType<BankManager>();
         if (economyManager == null) economyManager = FindAnyObjectByType<EconomyManager>();
     }
 
-    public bool Deposit(long amount)
-    {
-        return economyManager != null && economyManager.AddMoney(amount, MoneyChangeReason.Earned);
-    }
+    protected override void OnOpened() => Refreshed?.Invoke();
 
-    public bool Withdraw(long amount)
-    {
-        return economyManager != null && economyManager.TrySpend(amount, MoneyChangeReason.Spent);
-    }
+    public bool Deposit(long amount) => bankManager != null && bankManager.Account.Deposit(amount);
 
-    public long GetBalance()
-    {
-        return economyManager != null ? economyManager.money : 0L;
-    }
+    public bool Withdraw(long amount) => bankManager != null && bankManager.Account.Withdraw(amount);
+
+    public long GetBankBalance() => bankManager != null ? bankManager.Account.Balance : 0L;
+
+    public long GetCash() => economyManager != null ? economyManager.money : 0L;
 }

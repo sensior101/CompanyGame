@@ -1,16 +1,49 @@
+using System;
 using UnityEngine;
 
-public class Bank : MonoBehaviour
+public class BankManager : MonoBehaviour
 {
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
-    void Start()
+    public static BankManager Instance { get; private set; }
+
+    [SerializeField]
+    private EconomyManager economyManager;
+
+    private BankAccount account;
+
+    public event Action<long> BalanceChanged;
+
+    public BankAccount Account
     {
-        
+        get
+        {
+            EnsureInitialized();
+            return account;
+        }
     }
 
-    // Update is called once per frame
-    void Update()
+    private void Awake()
     {
-        
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+        Instance = this;
+        if (transform.parent == null) DontDestroyOnLoad(gameObject);
+        EnsureInitialized();
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this) Instance = null;
+    }
+
+    private void EnsureInitialized()
+    {
+        if (account != null) return;
+
+        if (economyManager == null) economyManager = FindAnyObjectByType<EconomyManager>();
+        account = new BankAccount(new EconomyWallet(economyManager));
+        account.BalanceChanged += balance => BalanceChanged?.Invoke(balance);
     }
 }
