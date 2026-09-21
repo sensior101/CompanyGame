@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -10,10 +11,15 @@ public class PhoneManager : MonoBehaviour
     private GameObject phoneRoot;
 
     [SerializeField]
+    private GameObject homeScreen;
+
+    [SerializeField]
     private PhoneAppBase[] apps;
 
     private readonly Dictionary<string, PhoneAppBase> appsById = new Dictionary<string, PhoneAppBase>();
     private PhoneAppBase currentApp;
+
+    public event Action<bool> OpenStateChanged;
 
     public bool IsPhoneOpen => phoneRoot != null && phoneRoot.activeSelf;
 
@@ -35,6 +41,7 @@ public class PhoneManager : MonoBehaviour
             app.Close();
         }
 
+        if (homeScreen != null) homeScreen.SetActive(false);
         if (phoneRoot != null) phoneRoot.SetActive(false);
     }
 
@@ -51,14 +58,27 @@ public class PhoneManager : MonoBehaviour
 
     public void OpenPhone()
     {
+        bool wasOpen = IsPhoneOpen;
         if (phoneRoot != null) phoneRoot.SetActive(true);
+        RefreshHome();
+        if (!wasOpen && IsPhoneOpen) OpenStateChanged?.Invoke(true);
     }
 
     public void ClosePhone()
     {
+        bool wasOpen = IsPhoneOpen;
         currentApp?.Close();
         currentApp = null;
         if (phoneRoot != null) phoneRoot.SetActive(false);
+        RefreshHome();
+        if (wasOpen) OpenStateChanged?.Invoke(false);
+    }
+
+    public void GoHome()
+    {
+        currentApp?.Close();
+        currentApp = null;
+        RefreshHome();
     }
 
     public void OpenApp(string appId)
@@ -76,5 +96,11 @@ public class PhoneManager : MonoBehaviour
         currentApp?.Close();
         currentApp = app;
         app.Open();
+        RefreshHome();
+    }
+
+    private void RefreshHome()
+    {
+        if (homeScreen != null) homeScreen.SetActive(IsPhoneOpen && currentApp == null);
     }
 }
