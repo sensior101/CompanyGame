@@ -1,16 +1,27 @@
 using UnityEngine;
 
-public class BankApplication : MonoBehaviour
+public class BankApplication : PhoneAppBase
 {
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
-    void Start()
+    [SerializeField]
+    private EconomyManager economyManager;
+
+    private void Awake()
     {
-        
+        if (economyManager == null) economyManager = FindAnyObjectByType<EconomyManager>();
     }
 
-    // Update is called once per frame
-    void Update()
+    public bool Deposit(long amount)
     {
-        
+        return economyManager != null && economyManager.AddMoney(amount, MoneyChangeReason.Earned);
+    }
+
+    public bool Withdraw(long amount)
+    {
+        return economyManager != null && economyManager.TrySpend(amount, MoneyChangeReason.Spent);
+    }
+
+    public long GetBalance()
+    {
+        return economyManager != null ? economyManager.money : 0L;
     }
 }

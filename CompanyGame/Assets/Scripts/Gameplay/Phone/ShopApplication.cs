@@ -1,16 +1,22 @@
 using UnityEngine;
 
-public class ShopApplication : MonoBehaviour
+public class ShopApplication : PhoneAppBase
 {
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
-    void Start()
+    [SerializeField]
+    private EconomyManager economyManager;
+
+    private void Awake()
     {
-        
+        if (economyManager == null) economyManager = FindAnyObjectByType<EconomyManager>();
     }
 
-    // Update is called once per frame
-    void Update()
+    public bool CanAfford(long price)
     {
-        
+        return economyManager != null && economyManager.CanAfford(price);
+    }
+
+    public bool Purchase(long price)
+    {
+        return economyManager != null && economyManager.TrySpend(price, MoneyChangeReason.Purchase);
     }
 }
