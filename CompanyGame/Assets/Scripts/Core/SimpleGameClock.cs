@@ -32,8 +32,16 @@ public class SimpleGameClock : MonoBehaviour, IGameClock
 
     private void Awake()
     {
+        if (GameClock.Current != null && !ReferenceEquals(GameClock.Current, this))
+        {
+            enabled = false;
+            Destroy(this);
+            return;
+        }
+
         now = new GameTime(startDay, startHour);
         GameClock.Current = this;
+        if (transform.parent == null) DontDestroyOnLoad(gameObject);
     }
 
     private void OnDestroy()

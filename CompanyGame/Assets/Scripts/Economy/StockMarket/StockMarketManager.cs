@@ -10,9 +10,6 @@ public class StockMarketManager : MonoBehaviour
     private StockMarketSettings settings = new StockMarketSettings();
 
     [SerializeField]
-    private EconomyManager economyManager;
-
-    [SerializeField]
     private CompanyManager companyManager;
 
     private StockExchange exchange;
@@ -83,7 +80,6 @@ public class StockMarketManager : MonoBehaviour
     {
         if (exchange != null) return;
 
-        if (economyManager == null) economyManager = FindAnyObjectByType<EconomyManager>();
         if (companyManager == null) companyManager = FindAnyObjectByType<CompanyManager>();
 
         IMarketEnvironment environment = companyManager != null
@@ -91,7 +87,7 @@ public class StockMarketManager : MonoBehaviour
             : new NullMarketEnvironment();
         var rng = settings.randomSeed != 0 ? new System.Random(settings.randomSeed) : new System.Random();
 
-        exchange = new StockExchange(settings, new EconomyWallet(economyManager), environment, rng);
+        exchange = new StockExchange(settings, new PropertyWallet(), environment, rng);
         exchange.PricesUpdated += () => PricesUpdated?.Invoke();
         exchange.NewsPublished += news => NewsPublished?.Invoke(news);
     }

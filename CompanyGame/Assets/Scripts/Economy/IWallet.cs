@@ -7,22 +7,17 @@ public interface IWallet
     bool AddMoney(long amount, MoneyChangeReason reason);
 }
 
-public class EconomyWallet : IWallet
+/// <summary>Wallet backed by PropertyManager, which owns the player's cash. Resolved lazily so scene load order does not matter.</summary>
+public class PropertyWallet : IWallet
 {
-    private readonly EconomyManager economy;
+    public long Balance => PropertyManager.Instance != null ? PropertyManager.Instance.Money : 0L;
 
-    public EconomyWallet(EconomyManager economy)
-    {
-        this.economy = economy;
-    }
-
-    public long Balance => economy != null ? economy.money : 0L;
-
-    public bool CanAfford(long amount) => economy != null && economy.CanAfford(amount);
+    public bool CanAfford(long amount) =>
+        PropertyManager.Instance != null && PropertyManager.Instance.CanAfford(amount);
 
     public bool TrySpend(long amount, MoneyChangeReason reason) =>
-        economy != null && economy.TrySpend(amount, reason);
+        PropertyManager.Instance != null && PropertyManager.Instance.TrySpend(amount, reason);
 
     public bool AddMoney(long amount, MoneyChangeReason reason) =>
-        economy != null && economy.AddMoney(amount, reason);
+        PropertyManager.Instance != null && PropertyManager.Instance.AddMoney(amount, reason);
 }

@@ -6,15 +6,11 @@ public class BankApplication : PhoneAppBase
     [SerializeField]
     private BankManager bankManager;
 
-    [SerializeField]
-    private EconomyManager economyManager;
-
     public event Action Refreshed;
 
     private void Awake()
     {
         if (bankManager == null) bankManager = FindAnyObjectByType<BankManager>();
-        if (economyManager == null) economyManager = FindAnyObjectByType<EconomyManager>();
     }
 
     protected override void OnOpened() => Refreshed?.Invoke();
@@ -25,5 +21,5 @@ public class BankApplication : PhoneAppBase
 
     public long GetBankBalance() => bankManager != null ? bankManager.Account.Balance : 0L;
 
-    public long GetCash() => economyManager != null ? economyManager.money : 0L;
+    public long GetCash() => PropertyManager.Instance != null ? PropertyManager.Instance.Money : 0L;
 }

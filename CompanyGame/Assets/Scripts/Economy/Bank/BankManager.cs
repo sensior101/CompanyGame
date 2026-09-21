@@ -5,9 +5,6 @@ public class BankManager : MonoBehaviour
 {
     public static BankManager Instance { get; private set; }
 
-    [SerializeField]
-    private EconomyManager economyManager;
-
     private BankAccount account;
 
     public event Action<long> BalanceChanged;
@@ -42,8 +39,7 @@ public class BankManager : MonoBehaviour
     {
         if (account != null) return;
 
-        if (economyManager == null) economyManager = FindAnyObjectByType<EconomyManager>();
-        account = new BankAccount(new EconomyWallet(economyManager));
+        account = new BankAccount(new PropertyWallet());
         account.BalanceChanged += balance => BalanceChanged?.Invoke(balance);
     }
 }
