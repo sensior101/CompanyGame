@@ -66,7 +66,7 @@ public class PlayerMovement : MonoBehaviour
 
             sprint = keys.leftShiftKey.isPressed;
 
-            reset = keys.rKey.wasPressedThisFrame;
+            reset = keys.homeKey.wasPressedThisFrame;
         }
 
 #elif ENABLE_LEGACY_INPUT_MANAGER
@@ -78,11 +78,11 @@ public class PlayerMovement : MonoBehaviour
 
         sprint = Input.GetKey(KeyCode.LeftShift);
 
-        reset = Input.GetKeyDown(KeyCode.R);
+        reset = Input.GetKeyDown(KeyCode.Home);
 
 #endif
 
-        // R키: 플레이어 위치 초기화
+        // Home 키: 플레이어 위치 초기화
         if (reset)
         {
             ResetToSpawn();
