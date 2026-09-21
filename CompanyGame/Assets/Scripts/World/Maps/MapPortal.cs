@@ -6,7 +6,7 @@ using UnityEngine.InputSystem;
 
 namespace CompanyGame.World.Maps
 {
-    /// <summary>Walk within range and press M to enter another map scene.</summary>
+    /// <summary>Walk within range and press Space to enter another map scene.</summary>
     [DisallowMultipleComponent]
     public sealed class MapPortal : MonoBehaviour
     {
@@ -59,9 +59,9 @@ namespace CompanyGame.World.Maps
             if (focused != this || SceneLoadManager.IsLoading) return;
             bool pressed = false;
 #if ENABLE_INPUT_SYSTEM
-            pressed = Keyboard.current != null && Keyboard.current.mKey.wasPressedThisFrame;
+            pressed = Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame;
 #elif ENABLE_LEGACY_INPUT_MANAGER
-            pressed = Input.GetKeyDown(KeyCode.M);
+            pressed = Input.GetKeyDown(KeyCode.Space);
 #endif
             if (pressed) SceneLoadManager.TryLoadMap(targetScenePath, targetSpawnId, player);
         }
@@ -81,7 +81,7 @@ namespace CompanyGame.World.Maps
             float width = Mathf.Min(480f, Screen.width - 32f);
             var style = new GUIStyle(GUI.skin.box) { fontSize = 20, alignment = TextAnchor.MiddleCenter };
             GUI.Box(new Rect((Screen.width - width) * .5f, Screen.height - 100f, width, 58f),
-                "[M]  " + displayName, style);
+                "[Space]  " + displayName, style);
         }
 
         void OnDrawGizmos()
@@ -89,7 +89,7 @@ namespace CompanyGame.World.Maps
             Gizmos.color = new Color(.3f, .8f, 1f, .9f);
             Gizmos.DrawWireCube(transform.position + Vector3.up, new Vector3(1.4f, 2f, .2f));
 #if UNITY_EDITOR
-            UnityEditor.Handles.Label(transform.position + Vector3.up * 2.2f, "[M] " + displayName);
+            UnityEditor.Handles.Label(transform.position + Vector3.up * 2.2f, "[Space] " + displayName);
 #endif
         }
 
