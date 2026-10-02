@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -28,7 +29,8 @@ public class ChatUIManager : MonoBehaviour
     [SerializeField] private string playerName = "Player";
 
     [Header("Settings")]
-    [SerializeField] private float popupDuration = 5f;
+    [SerializeField] private float popupDuration = 3f;
+    [SerializeField] private int maxPopupMessages = 6;
 
     // 다른 게임 스크립트에서 채팅 상태 확인
     public static bool IsChatting { get; private set; }
@@ -36,6 +38,8 @@ public class ChatUIManager : MonoBehaviour
     private bool isChatOpen = false;
 
     private Coroutine popupCoroutine;
+
+    private readonly Queue<string> popupMessages = new Queue<string>();
 
     private void Awake()
     {
@@ -114,10 +118,6 @@ public class ChatUIManager : MonoBehaviour
         }
     }
 
-    // =========================
-    // 채팅창 열기
-    // =========================
-
     private void OpenChat()
     {
         if (isChatOpen)
@@ -125,10 +125,8 @@ public class ChatUIManager : MonoBehaviour
 
         isChatOpen = true;
 
-        // 게임 조작 차단
         IsChatting = true;
 
-        // 채팅 중 플레이어 이동 스크립트 비활성화
         if (playerMovement != null)
         {
             wasMovementEnabled = playerMovement.enabled;
@@ -165,17 +163,12 @@ public class ChatUIManager : MonoBehaviour
 
         isSending = true;
 
-        // 한글 조합 중인 마지막 글자가 입력창에 반영될 시간을 줌
         yield return null;
 
         SendChatMessage();
 
         isSending = false;
     }
-
-    // =========================
-    // 메시지 전송
-    // =========================
 
     private void SendChatMessage()
     {
@@ -199,10 +192,6 @@ public class ChatUIManager : MonoBehaviour
         // 팝업 표시
         ShowPopup(playerName, message);
     }
-
-    // =========================
-    // 채팅창 닫기
-    // =========================
 
     private void CloseChat()
     {
@@ -238,25 +227,42 @@ public class ChatUIManager : MonoBehaviour
         }
     }
 
-    // =========================
-    // 채팅 메시지 팝업
-    // =========================
-
     public void ShowPopup(string senderName, string message)
     {
-        if (popupCoroutine != null)
-        {
-            StopCoroutine(popupCoroutine);
+        string newMessage = $"[{senderName}] {message}";
+        popupMessages.Enqueue(newMessage);
 
-            popupCoroutine = null;
+        while (popupMessages.Count > maxPopupMessages)
+        {
+            popupMessages.Dequeue();
         }
 
         if (popupText != null)
         {
-            popupText.text = $"[{senderName}] {message}";
+            popupText.text = string.Join("\n", popupMessages);
+
+            Canvas.ForceUpdateCanvases();
+
+            float textHeight = popupText.preferredHeight;
+
+            RectTransform textRect = popupText.rectTransform;
+            textRect.SetSizeWithCurrentAnchors(
+                RectTransform.Axis.Vertical,
+                textHeight
+            );
+
+            if (chatPopupPanel != null)
+            {
+                RectTransform panelRect =
+                    chatPopupPanel.GetComponent<RectTransform>();
+
+                panelRect.SetSizeWithCurrentAnchors(
+                    RectTransform.Axis.Vertical,
+                    textHeight + 20f
+                );
+            }
         }
 
-        // 채팅창이 열려 있으면 팝업 숨기기
         if (isChatOpen)
             return;
 
@@ -265,12 +271,14 @@ public class ChatUIManager : MonoBehaviour
             chatPopupPanel.SetActive(true);
         }
 
+        if (popupCoroutine != null)
+        {
+            StopCoroutine(popupCoroutine);
+        }
+
         popupCoroutine = StartCoroutine(HidePopupAfterDelay());
     }
 
-    // =========================
-    // 팝업 자동 숨김
-    // =========================
 
     private IEnumerator HidePopupAfterDelay()
     {
@@ -279,6 +287,13 @@ public class ChatUIManager : MonoBehaviour
         if (chatPopupPanel != null)
         {
             chatPopupPanel.SetActive(false);
+        }
+
+        popupMessages.Clear();
+
+        if (popupText != null)
+        {
+            popupText.text = "";
         }
 
         popupCoroutine = null;

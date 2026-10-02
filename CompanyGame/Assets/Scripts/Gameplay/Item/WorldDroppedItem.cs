@@ -23,7 +23,8 @@ public sealed class WorldDroppedItem : MonoBehaviour
     static readonly Dictionary<string, DropRecord> records = new Dictionary<string, DropRecord>();
     DropRecord record;
     Transform billboard;
-    Material baseMaterial;
+    RectTransform pickupPopup;
+    TMP_Text pickupText;
 
     public ItemData Item => record?.contents.GetSlot(0)?.Item;
     public int Count => record?.contents.GetSlot(0)?.Count ?? 0;
@@ -185,57 +186,112 @@ public sealed class WorldDroppedItem : MonoBehaviour
         collider.center = new Vector3(0, .24f, 0);
         collider.size = new Vector3(.62f, .62f, .62f);
         collider.isTrigger = true;
-        var baseHost = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        baseHost.name = "ItemOnGround";
-        baseHost.transform.SetParent(transform, false);
-        baseHost.transform.localScale = new Vector3(.42f, .075f, .27f);
-        var baseCollider = baseHost.GetComponent<Collider>();
-        baseCollider.enabled = false;
-        Destroy(baseCollider);
-        var shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
-        if (shader)
-        {
-            baseMaterial = new Material(shader) { name = "DroppedItemPaper", hideFlags = HideFlags.DontSave };
-            baseMaterial.color = Item && Item.IsCurrency ? new Color(.72f, .8f, .64f) : new Color(.87f, .75f, .54f);
-            baseHost.GetComponent<Renderer>().sharedMaterial = baseMaterial;
-        }
         billboard = new GameObject("ItemBillboard").transform;
         billboard.SetParent(transform, false);
         billboard.localPosition = Vector3.up * .33f;
-        if (Item && Item.icon)
-        {
-            var icon = new GameObject("ItemIcon", typeof(SpriteRenderer));
-            icon.transform.SetParent(billboard, false);
-            var sprite = icon.GetComponent<SpriteRenderer>();
-            sprite.sprite = Item.icon;
-            float width = Mathf.Max(.001f, Item.icon.bounds.size.x);
-            icon.transform.localScale = Vector3.one * (.52f / width);
-        }
-        var labelHost = new GameObject("ItemLabel", typeof(TextMeshPro));
-        labelHost.transform.SetParent(billboard, false);
-        labelHost.transform.localPosition = new Vector3(0, .36f, 0);
-        var label = labelHost.GetComponent<TextMeshPro>();
-        if (record.font) label.font = record.font;
-        string itemName = Item && Item.IsCurrency
-            ? Item.CurrencyValue.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) + "원"
-            : Item ? Item.DisplayName : "아이템";
-        label.text = itemName + (Count > 1 ? " × " + Count : "") + "\n<size=85%>[F] 줍기</size>";
-        label.fontSize = 1.7f;
-        label.color = new Color(1f, .97f, .85f);
-        label.alignment = TextAlignmentOptions.Center;
-        label.textWrappingMode = TextWrappingModes.NoWrap;
-        label.rectTransform.sizeDelta = new Vector2(3f, .65f);
+        BuildItemIcon();
+        BuildPickupPopup();
     }
 
     void LateUpdate()
     {
         var camera = Camera.main;
         if (billboard && camera) billboard.rotation = Quaternion.LookRotation(camera.transform.forward, camera.transform.up);
+        UpdatePickupPopup(camera);
+    }
+
+    void BuildPickupPopup()
+    {
+        var canvasObject = new GameObject("PickupPopup", typeof(RectTransform), typeof(Canvas));
+        canvasObject.transform.SetParent(billboard, false);
+        var canvas = canvasObject.GetComponent<Canvas>();
+        canvas.renderMode = RenderMode.WorldSpace;
+        canvas.overrideSorting = true;
+        canvas.sortingOrder = 25;
+        pickupPopup = canvasObject.GetComponent<RectTransform>();
+        pickupPopup.sizeDelta = new Vector2(240f, 42f);
+        pickupPopup.localScale = Vector3.one * .009f;
+
+        var panelObject = new GameObject("Panel", typeof(RectTransform), typeof(InventoryRoundedGraphic));
+        var panel = panelObject.GetComponent<RectTransform>();
+        panel.SetParent(pickupPopup, false);
+        panel.anchorMin = Vector2.zero;
+        panel.anchorMax = Vector2.one;
+        panel.offsetMin = Vector2.zero;
+        panel.offsetMax = Vector2.zero;
+        var graphic = panelObject.GetComponent<InventoryRoundedGraphic>();
+        graphic.color = new Color(.08f, .07f, .065f, .70f);
+        graphic.borderColor = new Color(1f, .96f, .88f, .42f);
+        graphic.largeRadius = 18f;
+        graphic.smallRadius = 9f;
+        graphic.borderWidth = 1.5f;
+        graphic.raycastTarget = false;
+
+        var textObject = new GameObject("Text", typeof(RectTransform), typeof(TextMeshProUGUI));
+        var textRect = textObject.GetComponent<RectTransform>();
+        textRect.SetParent(panel, false);
+        textRect.anchorMin = Vector2.zero;
+        textRect.anchorMax = Vector2.one;
+        textRect.offsetMin = new Vector2(8f, 3f);
+        textRect.offsetMax = new Vector2(-8f, -3f);
+        pickupText = textObject.GetComponent<TextMeshProUGUI>();
+        if (record.font) pickupText.font = record.font;
+        pickupText.fontSize = 19f;
+        pickupText.color = new Color(1f, .98f, .93f, .98f);
+        pickupText.alignment = TextAlignmentOptions.Center;
+        pickupText.textWrappingMode = TextWrappingModes.NoWrap;
+        pickupText.overflowMode = TextOverflowModes.Ellipsis;
+        pickupText.raycastTarget = false;
+        pickupText.text = PickupPromptText();
+        pickupPopup.gameObject.SetActive(false);
+    }
+
+    void UpdatePickupPopup(Camera camera)
+    {
+        if (!pickupPopup || record == null || Count <= 0)
+        {
+            if (pickupPopup) pickupPopup.gameObject.SetActive(false);
+            return;
+        }
+        if (camera)
+        {
+            var canvas = pickupPopup.GetComponent<Canvas>();
+            if (canvas) canvas.worldCamera = camera;
+        }
+        bool visible = false;
+        foreach (var player in FindObjectsByType<PlayerInventory>(FindObjectsSortMode.None))
+        {
+            if (!player || player.gameObject.scene != gameObject.scene || !player.CanPickUpWorldItems) continue;
+            if (!IsReachableFrom(player, 3f)) continue;
+            visible = true;
+            break;
+        }
+        if (pickupText && visible) pickupText.text = PickupPromptText();
+        if (pickupPopup.gameObject.activeSelf != visible) pickupPopup.gameObject.SetActive(visible);
+    }
+
+    string PickupPromptText()
+    {
+        return (Item ? Item.DisplayName : "아이템") + "   [줍기 F]";
+    }
+
+    void BuildItemIcon()
+    {
+        if (!Item || !Item.icon) return;
+        var iconHost = new GameObject("DroppedItemIcon", typeof(SpriteRenderer));
+        iconHost.transform.SetParent(billboard, false);
+        iconHost.transform.localPosition = new Vector3(0f, -.28f, 0f);
+        var renderer = iconHost.GetComponent<SpriteRenderer>();
+        renderer.sprite = Item.icon;
+        renderer.color = Color.white;
+        renderer.sortingOrder = 24;
+        renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        float width = Mathf.Max(.001f, Item.icon.bounds.size.x);
+        iconHost.transform.localScale = Vector3.one * (.42f / width);
     }
 
     void OnDestroy()
     {
-        if (baseMaterial) Destroy(baseMaterial);
         if (record != null && record.instance == this) record.instance = null;
     }
 }

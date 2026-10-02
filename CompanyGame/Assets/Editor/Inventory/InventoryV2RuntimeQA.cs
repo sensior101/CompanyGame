@@ -183,7 +183,7 @@ public static class InventoryV2RuntimeQA
                     var tooltipPointer = new PointerEventData(EventSystem.current) { position = Centre((RectTransform)Storage(ui, 0).transform) };
                     ExecuteEvents.Execute(Storage(ui, 0).gameObject, tooltipPointer, ExecuteEvents.pointerEnterHandler);
                     Check(report, ui.GetComponentsInChildren<TMP_Text>(true).Any(t => t.transform.parent &&
-                        t.transform.parent.name == "ItemTooltip" && t.text == "1,800원 동전"), "Hover shows the item name in a popup");
+                        t.transform.parent.name == "ItemTooltip" && t.text == "1,800원"), "Hover shows the currency amount in a popup");
                     ExecuteEvents.Execute(Storage(ui, 0).gameObject, tooltipPointer, ExecuteEvents.pointerExitHandler);
                     Press(); ui.CloseWithdrawal(); break;
                 case 4:

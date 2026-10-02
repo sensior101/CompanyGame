@@ -31,10 +31,12 @@ public sealed class PlayerInventory : MonoBehaviour
     public static bool IsAnyOpen => activeInventory && (activeInventory.IsOpen || activeInventory.restorePending);
     public static bool SpaceConsumedThisFrame => spaceConsumedFrame == Time.frameCount;
     public static bool CurrencyScrollCapturedThisFrame => currencyScrollCapturedFrame == Time.frameCount;
+    public static bool HotbarScrollCapturedThisFrame => hotbarScrollCapturedFrame == Time.frameCount;
 
     static PlayerInventory activeInventory;
     static int spaceConsumedFrame = -1;
     static int currencyScrollCapturedFrame = -1;
+    static int hotbarScrollCapturedFrame = -1;
     bool currencyDepositGesture;
     int currencyDepositSlot = -1;
     ItemData currencyDepositItem;
@@ -62,7 +64,11 @@ public sealed class PlayerInventory : MonoBehaviour
     readonly List<RaycastResult> pointerHits = new List<RaycastResult>();
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-    static void ResetStatics() { activeInventory = null; spaceConsumedFrame = currencyScrollCapturedFrame = -1; }
+    static void ResetStatics()
+    {
+        activeInventory = null;
+        spaceConsumedFrame = currencyScrollCapturedFrame = hotbarScrollCapturedFrame = -1;
+    }
 
     void Awake()
     {
@@ -82,6 +88,14 @@ public sealed class PlayerInventory : MonoBehaviour
 
     void Update()
     {
+        // Unity can omit uGUI OnEndDrag when the pointer leaves the Canvas.
+        // Finish the same drag from the actual mouse-release frame so dragging
+        // outside the inventory still reaches EndDragAt/DropIntoWorld.
+        if (IsDragging && LeftReleased())
+        {
+            EndDragAt(PointerPosition());
+            return;
+        }
         // Reserve the held-key gesture even after its last coin, so later wheel
         // input cannot unexpectedly zoom the camera or board public transport.
         if (!SpaceHeld() || SpacePressed()) ResetCurrencyDepositGesture();
@@ -111,6 +125,7 @@ public sealed class PlayerInventory : MonoBehaviour
         if (PickupPressed()) { TryPickUpNearest(); return; }
         int hotbar = HotbarPressed();
         if (hotbar >= 0) SelectHotbar(hotbar);
+        if (!SpaceHeld()) HandleHotbarScrollInput();
         HandleCurrencyDepositInput();
     }
 
@@ -162,6 +177,23 @@ public sealed class PlayerInventory : MonoBehaviour
         Inventory.SelectHotbar(index);
     }
 
+    bool HandleHotbarScrollInput()
+    {
+        float wheel = WheelNotches();
+        if (Mathf.Approximately(wheel, 0f) || IsDragging || IsEditingText() ||
+            (ui && ui.IsWithdrawalOpen) || SceneLoadManager.IsLoading || ChatUIManager.IsChatting ||
+            (interaction && interaction.IsDestinationMenuOpen)) return false;
+
+        int direction = wheel < 0f ? 1 : -1; // wheel down: right, wheel up: left
+        int steps = Mathf.Max(1, Mathf.RoundToInt(Mathf.Abs(wheel)));
+        int next = Inventory.SelectedHotbarIndex;
+        for (int i = 0; i < steps; i++)
+            next = (next + direction + InventoryState.HotbarSize) % InventoryState.HotbarSize;
+        SelectHotbar(next);
+        hotbarScrollCapturedFrame = Time.frameCount;
+        return true;
+    }
+
     bool CanDepositCurrency() => Application.isPlaying && isActiveAndEnabled && Inventory != null && !restorePending &&
         closedFrame != Time.frameCount && !IsDragging && !SceneLoadManager.IsLoading && !ChatUIManager.IsChatting &&
         !IsEditingText() && !(ui && ui.IsWithdrawalOpen) && !(interaction && interaction.IsDestinationMenuOpen) &&
@@ -180,14 +212,28 @@ public sealed class PlayerInventory : MonoBehaviour
     {
         ItemStack stack = Inventory.GetSlot(index);
         if (stack == null || stack.IsEmpty || !stack.Item.IsCurrency) return false;
+        ItemData currency = stack.Item;
 
         // Inventory input runs before transit input. Even a rejected deposit owns
         // this press so the same Space cannot also board public transport.
         spaceConsumedFrame = Time.frameCount;
         bool deposited = CashService.TryDeposit(Inventory, index, quantity, out string error);
         if (deposited && EventSystem.current) EventSystem.current.SetSelectedGameObject(null);
+        if (deposited)
+        {
+            long amount = checked(currency.CurrencyValue * (long)quantity);
+            ShowWalletDepositMessage(amount);
+        }
         SetStatus(error);
         return deposited;
+    }
+
+    static void ShowWalletDepositMessage(long amount)
+    {
+        string message = amount.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) + "원을 지갑에 도로 넣었다.";
+        Debug.Log("[시스템] " + message);
+        foreach (var chat in FindObjectsByType<ChatUIManager>(FindObjectsSortMode.None))
+            if (chat) chat.ShowPopup("시스템", message);
     }
 
     bool HandleCurrencyDepositInput()
@@ -389,10 +435,24 @@ public sealed class PlayerInventory : MonoBehaviour
         RaycastUI(screenPosition);
         if (pointerHits.Count > 0)
         {
-            // Only the frontmost UI target may accept a drop. A covered slot must not.
+            // A slot (or one of its icon/text children) accepts an inventory drop.
             var slot = pointerHits[0].gameObject.GetComponentInParent<InventorySlotPointer>();
-            if (slot && slot.Owner == this) slot.AcceptDrop();
-            else CancelDrag();
+            if (slot && slot.Owner == this)
+            {
+                slot.AcceptDrop();
+                return;
+            }
+
+            // The inventory window has a raycastable surface so buttons and slots
+            // remain reliable. That surface must not swallow a release outside
+            // the window: release anywhere beyond its bounds means world drop.
+            if (ui && ui.IsInsideWindow(screenPosition))
+            {
+                CancelDrag();
+                return;
+            }
+
+            DropIntoWorld();
             return;
         }
         if (ui && ui.IsInsideWindow(screenPosition)) CancelDrag();
@@ -539,11 +599,48 @@ public sealed class PlayerInventory : MonoBehaviour
     static float WheelNotches()
     {
 #if ENABLE_INPUT_SYSTEM
-        return Mouse.current != null ? Mouse.current.scroll.ReadValue().y / 120f : 0f;
+        if (Mouse.current == null)
+            return 0f;
+
+        float raw = Mouse.current.scroll.ReadValue().y;
+
+        if (Mathf.Approximately(raw, 0f))
+            return 0f;
+
+        return Mathf.Sign(raw);
+
 #elif ENABLE_LEGACY_INPUT_MANAGER
-        return Input.mouseScrollDelta.y;
-#else
+    float raw = Input.mouseScrollDelta.y;
+
+    if (Mathf.Approximately(raw, 0f))
         return 0f;
+
+    return Mathf.Sign(raw);
+
+#else
+    return 0f;
+#endif
+    }
+
+    static bool LeftReleased()
+    {
+#if ENABLE_INPUT_SYSTEM
+        return Mouse.current != null && Mouse.current.leftButton.wasReleasedThisFrame;
+#elif ENABLE_LEGACY_INPUT_MANAGER
+        return Input.GetMouseButtonUp(0);
+#else
+        return false;
+#endif
+    }
+
+    static Vector2 PointerPosition()
+    {
+#if ENABLE_INPUT_SYSTEM
+        return Mouse.current != null ? Mouse.current.position.ReadValue() : Vector2.zero;
+#elif ENABLE_LEGACY_INPUT_MANAGER
+        return Input.mousePosition;
+#else
+        return Vector2.zero;
 #endif
     }
 

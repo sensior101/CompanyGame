@@ -12,9 +12,9 @@ using UnityEngine.InputSystem.UI;
 /// <summary>Square inventory slots, separated outfit/pet equipment, and account withdrawals.</summary>
 public sealed class InventoryUI : MonoBehaviour
 {
-    static readonly Color WindowColor = new Color(.985f, .98f, .96f, .94f);
-    static readonly Color SurfaceColor = new Color(1f, .985f, .96f, .61f);
-    static readonly Color SlotColor = new Color(.96f, .935f, .895f, .74f);
+    static readonly Color WindowColor = new Color(.985f, .98f, .96f, .78f);
+    static readonly Color SurfaceColor = new Color(1f, .985f, .96f, .44f);
+    static readonly Color SlotColor = new Color(.96f, .935f, .895f, .56f);
     static readonly Color Ink = new Color(.29f, .205f, .19f);
     static readonly Color Muted = new Color(.54f, .46f, .425f);
     static readonly Color Accent = new Color(.73f, .47f, .28f);
@@ -88,7 +88,7 @@ public sealed class InventoryUI : MonoBehaviour
         scaler.matchWidthOrHeight = .5f;
         EnsureEventSystem();
         BuildHotbar();
-        var shade = Panel("InventoryModal", transform, Vector2.zero, new Color(.16f, .13f, .13f, .30f), 0f, 0f);
+        var shade = Panel("InventoryModal", transform, Vector2.zero, new Color(.16f, .13f, .13f, .12f), 0f, 0f);
         Stretch(shade);
         modal = shade.gameObject;
         window = Panel("InventoryWindow", shade, new Vector2(1100f, windowHeight), WindowColor, 64f, 27f);
@@ -98,22 +98,22 @@ public sealed class InventoryUI : MonoBehaviour
         title.alignment = TextAlignmentOptions.MidlineLeft;
         AtTop(title.rectTransform, -331f, -44f);
         AtTop(Icon("BagIcon", window, InventoryGlyphGraphic.Glyph.Bag, new Vector2(43f, 48f), Accent), -504f, -44f);
-        var bank = Panel("BankBalanceButton", window, new Vector2(285f, 51f), new Color(1f, .99f, .96f, .85f), 24f, 12f);
+        var bank = Panel("BankBalanceButton", window, new Vector2(285f, 51f), new Color(1f, .99f, .96f, .66f), 24f, 12f);
         bankButton = bank;
         AtTop(bank, 218f, -38f);
         MakeButton(bank, OpenWithdrawal);
         var coin = Icon("BankCoin", bank, InventoryGlyphGraphic.Glyph.Coin, new Vector2(30f, 30f), new Color(.94f, .65f, .18f));
         coin.anchoredPosition = new Vector2(-113f, 0f);
-        bankLabel = Label("BankBalance", bank, "통장  0원", 23f, Ink, new Vector2(218f, 43f));
+        bankLabel = Label("BankBalance", bank, "지갑  0원", 23f, Ink, new Vector2(218f, 43f));
         bankLabel.fontStyle = FontStyles.Bold;
         AutoSize(bankLabel, 12f, 23f);
         bankLabel.rectTransform.anchoredPosition = new Vector2(20f, 0f);
-        var close = Panel("CloseInventory", window, new Vector2(127f, 51f), new Color(1f, .99f, .96f, .85f), 22f, 10f);
+        var close = Panel("CloseInventory", window, new Vector2(127f, 51f), new Color(1f, .99f, .96f, .66f), 22f, 10f);
         AtTop(close, 448f, -38f);
         MakeButton(close, owner.CloseInventory);
         Label("CloseLabel", close, "×  닫기", 24f, Ink, new Vector2(117f, 42f));
         BuildPortrait(); BuildEquipment(); BuildPet();
-        storageCard = Panel("Storage", window, new Vector2(1036f, 274f), new Color(1f, 1f, 1f, .37f), 34f, 17f);
+        storageCard = Panel("Storage", window, new Vector2(1036f, 274f), new Color(1f, 1f, 1f, .25f), 34f, 17f);
         storageCard.anchorMin = storageCard.anchorMax = new Vector2(.5f, 1f);
         storageCard.pivot = new Vector2(.5f, 1f);
         storageCard.anchoredPosition = new Vector2(0f, -438f);
@@ -229,7 +229,7 @@ public sealed class InventoryUI : MonoBehaviour
         var view = new SlotView { background = rect.GetComponent<InventoryRoundedGraphic>() };
         view.button = MakeButton(rect, onClick);
         var iconRect = Rect("Icon", rect, Vector2.one * size * .68f);
-        iconRect.anchoredPosition = new Vector2(0f, size * .04f);
+        iconRect.anchoredPosition = Vector2.zero;
         view.icon = iconRect.gameObject.AddComponent<UnityEngine.UI.Image>();
         view.icon.preserveAspect = true;
         view.icon.raycastTarget = false;
@@ -314,7 +314,7 @@ public sealed class InventoryUI : MonoBehaviour
         if (bank != lastBank)
         {
             lastBank = bank;
-            bankLabel.text = "통장  " + bank.ToString("N0") + "원";
+            bankLabel.text = "지갑  " + bank.ToString("N0") + "원";
             if (IsWithdrawalOpen) ValidateWithdrawal();
         }
     }
@@ -460,7 +460,7 @@ public sealed class InventoryUI : MonoBehaviour
         {
             long total = amount * quantity;
             withdrawButton.interactable = total <= CashService.BankBalance;
-            withdrawalError.text = total > CashService.BankBalance ? "통장 잔액이 부족합니다." : "";
+            withdrawalError.text = total > CashService.BankBalance ? "지갑 잔액이 부족합니다." : "";
         }
         else
         {

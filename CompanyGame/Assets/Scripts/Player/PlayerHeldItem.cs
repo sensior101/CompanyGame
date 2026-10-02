@@ -235,7 +235,10 @@ public sealed class PlayerHeldItem : MonoBehaviour
     void BuildIcon(Transform parent, int layer)
     {
         bool coin = heldItem.IsCurrency && heldItem.CurrencyValue < 10000;
-        float width = coin ? .19f : .30f;
+        // Silver coins are intentionally smaller than gold coins in the held 3D model.
+        float width = coin
+            ? (heldItem.CurrencyValue < 1000 ? .14f : .19f)
+            : .30f;
         var sprite = heldItem.icon;
         float height = width * sprite.bounds.size.y / Mathf.Max(.001f, sprite.bounds.size.x);
         var edge = Material(coin ? (heldItem.CurrencyValue < 1000 ? new Color(.62f, .66f, .7f) : new Color(.85f, .56f, .12f)) : new Color(.92f, .9f, .79f));

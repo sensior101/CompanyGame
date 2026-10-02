@@ -42,7 +42,7 @@ public class ItemData : ScriptableObject
         maxStack = 99;
         itemId = "cash:" + value.ToString(System.Globalization.CultureInfo.InvariantCulture);
         name = itemId;
-        displayName = value.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) + (value < 10000 ? "원 동전" : "원 지폐");
+        displayName = value.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) + "원";
     }
 
     public bool Fits(EquipmentSlot slot)

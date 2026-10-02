@@ -39,8 +39,8 @@ public static class CashModelQA
             }
             ItemData note = CashService.GetCurrency(1800);
             Check(report, note.IsCurrency && note.CurrencyValue == 1800 && note.StackLimit == 99 && note == CashService.GetCurrency(1800), "Arbitrary currency value / reusable definition / stacking");
-            Check(report, note.DisplayName == "1,800원 동전" && CashService.DesignFor(1800) == CurrencyDesign.GoldCoin &&
-                CashService.GetCurrency(9999).DisplayName == "9,999원 동전" && CashService.GetCurrency(10000).DisplayName == "10,000원 지폐", "1800 is a gold coin; names switch at 10000 won");
+            Check(report, note.DisplayName == "1,800원" && CashService.DesignFor(1800) == CurrencyDesign.GoldCoin &&
+                CashService.GetCurrency(9999).DisplayName == "9,999원" && CashService.GetCurrency(10000).DisplayName == "10,000원", "1800 is a gold coin; names switch at 10000 won");
             Check(report, note.icon && CashService.GetCurrency(100).icon && CashService.GetCurrency(10000).icon &&
                 CashService.GetCurrency(100000).icon && CashService.GetCurrency(1000000).icon && CashService.GetCurrency(10000000).icon, "All six coin and note sprites exist");
             bool rejectedDefinition = false;
@@ -212,7 +212,7 @@ public static class CashModelQA
         {
             ItemData fake = CashService.GetCurrency(0);
             Check(report, fake.IsCurrency && fake.CurrencyValue == 0 && fake.StackLimit == 99 &&
-                fake.DisplayName == "0원 동전" && fake.icon && fake.icon == CashService.GetCurrency(100).icon &&
+                fake.DisplayName == "0원" && fake.icon && fake.icon == CashService.GetCurrency(100).icon &&
                 CashService.DesignFor(0) == CurrencyDesign.SilverCoin,
                 "Zero-won fake currency uses the silver coin artwork and normal stack limit");
 

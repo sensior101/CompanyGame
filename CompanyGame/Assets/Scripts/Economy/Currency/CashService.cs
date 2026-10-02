@@ -138,7 +138,7 @@ public static class CashService
     }
 
 
-    // 통장 → 인벤토리 출금
+    // 지갑 → 인벤토리 출금
     public static bool TryWithdraw(
         InventoryState inventory,
         long faceValue,
@@ -178,7 +178,7 @@ public static class CashService
         if (!bank || inventory == null)
         {
             return Fail(
-                "통장 또는 인벤토리를 찾을 수 없습니다.",
+                "지갑 또는 인벤토리를 찾을 수 없습니다.",
                 out error);
         }
 
@@ -209,7 +209,7 @@ public static class CashService
         if (total > 0 && !bank.CanAfford(total))
         {
             return Fail(
-                "통장 잔액이 부족합니다.",
+                "지갑 잔액이 부족합니다.",
                 out error);
         }
 
@@ -233,7 +233,7 @@ public static class CashService
             if (total > 0 && !bank.TryDebitSilently(total))
             {
                 return Fail(
-                    "통장 잔액이 부족합니다.",
+                    "지갑 잔액이 부족합니다.",
                     out error);
             }
 
@@ -252,7 +252,7 @@ public static class CashService
     }
 
 
-    // 인벤토리 → 통장 입금
+    // 인벤토리 → 지갑 입금
     public static bool TryDeposit(
         InventoryState inventory,
         int sourceIndex,
@@ -317,7 +317,7 @@ public static class CashService
         if (!bank || inventory == null)
         {
             return Fail(
-                "통장 또는 인벤토리를 찾을 수 없습니다.",
+                "지갑 또는 인벤토리를 찾을 수 없습니다.",
                 out error);
         }
 
@@ -376,7 +376,7 @@ public static class CashService
             if (total > 0 && !bank.TryCreditSilently(total))
             {
                 return Fail(
-                    "통장에 입금할 수 있는 금액을 초과합니다.",
+                "지갑에 입금할 수 있는 금액을 초과합니다.",
                     out error);
             }
 
@@ -591,7 +591,7 @@ public static class CashService
         if (available < amount)
         {
             return Fail(
-                "소지 화폐가 부족합니다. 통장에서 먼저 출금해 주세요.",
+                "소지 화폐가 부족합니다. 지갑에서 먼저 출금해 주세요.",
                 out error);
         }
 
