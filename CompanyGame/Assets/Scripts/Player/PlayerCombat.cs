@@ -43,7 +43,7 @@ public sealed class PlayerCombat : MonoBehaviour
         Time.timeScale > 0f && Time.time >= nextAttackTime && !SceneLoadManager.IsLoading &&
         !PlayerInventory.IsAnyOpen && !PlayerInventory.SpaceConsumedThisFrame && !ChatUIManager.IsChatting &&
         !(inventory && (inventory.IsOpen || inventory.IsDragging || (inventory.UserInterface && inventory.UserInterface.IsWithdrawalOpen))) &&
-        !(interaction && interaction.IsDestinationMenuOpen) && !IsEditingText() && !IsPointerOverUI();
+        !(interaction && interaction.IsInteractionMenuOpen) && !IsEditingText() && !IsPointerOverUI();
 
     PlayerMovement movement;
     PlayerInventory inventory;

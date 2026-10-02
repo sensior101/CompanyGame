@@ -22,11 +22,18 @@ public class PlayerInteraction : MonoBehaviour
     public TransitDestination[] destinations = Array.Empty<TransitDestination>();
 
     public bool IsDestinationMenuOpen { get; private set; }
+    public bool IsStoreOpen => storeUI;
+    public bool IsInteractionMenuOpen => IsDestinationMenuOpen || IsStoreOpen;
+    public StoreInteractionPoint FocusedStore { get; private set; }
+    public bool HasNearbyStoreAction => !IsInteractionMenuOpen && StoreInteractionPoint.FindNearest(transform);
+    public StoreTradeUI StoreUI => storeUI;
     public TransitStop FocusedStop { get; private set; }
     public bool IsMenuReady => IsDestinationMenuOpen && menuArmed;
 
     PlayerMovement movement;
     TransitUI ui;
+    StoreTradeUI storeUI;
+    StoreInteractionPoint tradingWith;
     TransitStop boardingStop;
     readonly List<TransitDestination> availableDestinations = new List<TransitDestination>();
     readonly List<Behaviour> suspendedControls = new List<Behaviour>();
@@ -59,6 +66,11 @@ public class PlayerInteraction : MonoBehaviour
             if (OpenDestinationMenu()) ui.ShowStatus("이동하지 못했습니다. 목적지를 다시 선택해 주세요.");
             return;
         }
+        if (IsStoreOpen)
+        {
+            if (!tradingWith || !tradingWith.IsInRange(transform) || EscapePressed()) CloseStore();
+            return;
+        }
         if (IsDestinationMenuOpen)
         {
             // Do not let the key that opened the window submit its first button.
@@ -82,7 +94,17 @@ public class PlayerInteraction : MonoBehaviour
             ChatUIManager.IsChatting || IsEditingText())
         {
             FocusedStop = null;
+            FocusedStore = null;
             if (ui) ui.HidePrompt();
+            return;
+        }
+        FocusedStore = StoreInteractionPoint.FindNearest(transform);
+        if (FocusedStore)
+        {
+            FocusedStop = null;
+            EnsureUI();
+            ui.ShowPrompt(FocusedStore.prompt, true);
+            if (SpacePressed()) TryUseStore();
             return;
         }
         FocusedStop = TransitStop.FindNearest(transform);
@@ -106,7 +128,7 @@ public class PlayerInteraction : MonoBehaviour
 
     public bool OpenDestinationMenu()
     {
-        if (!Application.isPlaying || !isActiveAndEnabled || IsDestinationMenuOpen || restorePending || PlayerInventory.IsAnyOpen ||
+        if (!Application.isPlaying || !isActiveAndEnabled || IsInteractionMenuOpen || restorePending || PlayerInventory.IsAnyOpen ||
             PlayerInventory.SpaceConsumedThisFrame || SceneLoadManager.IsLoading ||
             !movement || !movement.isActiveAndEnabled || ChatUIManager.IsChatting || IsEditingText()) return false;
         FocusedStop = TransitStop.FindNearest(transform);
@@ -171,6 +193,37 @@ public class PlayerInteraction : MonoBehaviour
         }
     }
 
+    public bool TryUseStore()
+    {
+        if (!Application.isPlaying || !isActiveAndEnabled || IsInteractionMenuOpen || restorePending ||
+            SceneLoadManager.IsLoading || PlayerInventory.IsAnyOpen || PlayerInventory.SpaceConsumedThisFrame ||
+            !movement || !movement.isActiveAndEnabled || ChatUIManager.IsChatting || IsEditingText()) return false;
+        FocusedStore=StoreInteractionPoint.FindNearest(transform);
+        if(!FocusedStore)return false;
+        EnsureUI();
+        if(FocusedStore.action==StoreAction.Door)
+        {
+            bool loaded=SceneLoadManager.TryLoadMap(FocusedStore.targetScenePath,FocusedStore.targetSpawnId,movement);
+            if(loaded){waitForSpaceRelease=true;ui.HidePrompt();}
+            return loaded;
+        }
+        var inventory=GetComponent<PlayerInventory>();
+        if(!inventory || inventory.Inventory==null)return false;
+        tradingWith=FocusedStore;
+        SuspendControls();ui.HidePrompt();
+        storeUI=StoreTradeUI.Create(new StoreTradeSession(inventory.Inventory,tradingWith.offers),uiFont,CloseStore);
+        SceneManager.MoveGameObjectToScene(storeUI.gameObject,gameObject.scene);
+        return true;
+    }
+
+    public void CloseStore()
+    {
+        if(!storeUI)return;
+        storeUI.gameObject.SetActive(false);
+        Destroy(storeUI.gameObject);storeUI=null;tradingWith=null;
+        waitForSpaceRelease=true;restorePending=true;
+    }
+
     string CurrentDistrictName()
     {
         foreach (var destination in destinations ?? Array.Empty<TransitDestination>())
@@ -229,6 +282,8 @@ public class PlayerInteraction : MonoBehaviour
     void OnDisable()
     {
         IsDestinationMenuOpen = false;
+        if(storeUI){Destroy(storeUI.gameObject);storeUI=null;}
+        tradingWith=null;FocusedStore=null;
         FocusedStop = null;
         boardingStop = null;
         restorePending = false;

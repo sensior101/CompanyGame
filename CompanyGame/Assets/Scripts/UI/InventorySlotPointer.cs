@@ -50,9 +50,10 @@ public sealed class InventorySlotPointer : MonoBehaviour, IBeginDragHandler, IDr
 
     public void OnBeginDrag(PointerEventData data)
     {
-        if (!Owner || IsDropZone || data.button != PointerEventData.InputButton.Left) return;
+        if (!Owner || IsDropZone || data.button == PointerEventData.InputButton.Middle) return;
         if (Owner.UserInterface) Owner.UserInterface.HideItemTooltip();
-        ownsDrag = IsEquipment ? Owner.BeginDragEquipment(Equipment) : Owner.BeginDragInventory(InventoryIndex);
+        bool single=data.button==PointerEventData.InputButton.Right;
+        ownsDrag = IsEquipment ? Owner.BeginDragEquipment(Equipment,single) : Owner.BeginDragInventory(InventoryIndex,single);
         if (!ownsDrag) return;
         data.eligibleForClick = false;
         Owner.UpdateDrag(data.position);
@@ -60,12 +61,12 @@ public sealed class InventorySlotPointer : MonoBehaviour, IBeginDragHandler, IDr
 
     public void OnDrag(PointerEventData data)
     {
-        if (ownsDrag && Owner && data.button == PointerEventData.InputButton.Left) Owner.UpdateDrag(data.position);
+        if (ownsDrag && Owner && data.button != PointerEventData.InputButton.Middle) Owner.UpdateDrag(data.position);
     }
 
     public void OnEndDrag(PointerEventData data)
     {
-        if (!ownsDrag || !Owner || data.button != PointerEventData.InputButton.Left) return;
+        if (!ownsDrag || !Owner || data.button == PointerEventData.InputButton.Middle) return;
         data.eligibleForClick = false;
         ownsDrag = false;
         Owner.EndDragAt(data.position);
@@ -73,7 +74,7 @@ public sealed class InventorySlotPointer : MonoBehaviour, IBeginDragHandler, IDr
 
     public void OnDrop(PointerEventData data)
     {
-        if (data.button != PointerEventData.InputButton.Left || !Owner) return;
+        if (data.button == PointerEventData.InputButton.Middle || !Owner) return;
         var source = data.pointerDrag ? data.pointerDrag.GetComponent<InventorySlotPointer>() : null;
         if (!source || source.Owner != Owner) return;
         data.eligibleForClick = false;

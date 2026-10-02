@@ -25,7 +25,7 @@ public sealed class PlayerInventory : MonoBehaviour
     public InventoryUI UserInterface => ui;
     public bool CanPickUpWorldItems => isActiveAndEnabled && !restorePending && !IsDragging &&
         !SceneLoadManager.IsLoading && !ChatUIManager.IsChatting && !IsEditingText() &&
-        !(ui && ui.IsWithdrawalOpen) && !(interaction && interaction.IsDestinationMenuOpen) &&
+        !(ui && ui.IsWithdrawalOpen) && !(interaction && interaction.IsInteractionMenuOpen) &&
         (IsOpen || (movement && movement.isActiveAndEnabled));
     public event Action UiChanged;
     public static bool IsAnyOpen => activeInventory && (activeInventory.IsOpen || activeInventory.restorePending);
@@ -60,6 +60,8 @@ public sealed class PlayerInventory : MonoBehaviour
     bool dragFromEquipment;
     ItemData draggedItem;
     int draggedCount;
+    int draggedSourceCount;
+    bool dragRightButton;
     InventoryHandCursor handCursor;
     readonly List<RaycastResult> pointerHits = new List<RaycastResult>();
 
@@ -91,7 +93,7 @@ public sealed class PlayerInventory : MonoBehaviour
         // Unity can omit uGUI OnEndDrag when the pointer leaves the Canvas.
         // Finish the same drag from the actual mouse-release frame so dragging
         // outside the inventory still reaches EndDragAt/DropIntoWorld.
-        if (IsDragging && LeftReleased())
+        if (IsDragging && DragButtonReleased())
         {
             EndDragAt(PointerPosition());
             return;
@@ -120,7 +122,7 @@ public sealed class PlayerInventory : MonoBehaviour
             return;
         }
         if (restorePending || closedFrame == Time.frameCount || !movement || !movement.isActiveAndEnabled ||
-            ChatUIManager.IsChatting || IsEditingText() || (interaction && interaction.IsDestinationMenuOpen)) return;
+            ChatUIManager.IsChatting || IsEditingText() || (interaction && interaction.IsInteractionMenuOpen)) return;
         if (TogglePressed()) { OpenInventory(); return; }
         if (PickupPressed()) { TryPickUpNearest(); return; }
         int hotbar = HotbarPressed();
@@ -141,7 +143,7 @@ public sealed class PlayerInventory : MonoBehaviour
     {
         if (!Application.isPlaying || !isActiveAndEnabled || IsOpen || IsAnyOpen || restorePending ||
             SceneLoadManager.IsLoading || !movement || !movement.isActiveAndEnabled || ChatUIManager.IsChatting ||
-            IsEditingText() || (interaction && interaction.IsDestinationMenuOpen)) return false;
+            IsEditingText() || (interaction && interaction.IsInteractionMenuOpen)) return false;
         EnsureUI();
         activeInventory = this;
         IsOpen = true;
@@ -173,7 +175,7 @@ public sealed class PlayerInventory : MonoBehaviour
     {
         if (IsDragging || Time.frameCount <= suppressClickThroughFrame || IsEditingText() ||
             (ui && ui.IsWithdrawalOpen) || SceneLoadManager.IsLoading || ChatUIManager.IsChatting ||
-            (interaction && interaction.IsDestinationMenuOpen)) return;
+            (interaction && interaction.IsInteractionMenuOpen)) return;
         Inventory.SelectHotbar(index);
     }
 
@@ -182,7 +184,7 @@ public sealed class PlayerInventory : MonoBehaviour
         float wheel = WheelNotches();
         if (Mathf.Approximately(wheel, 0f) || IsDragging || IsEditingText() ||
             (ui && ui.IsWithdrawalOpen) || SceneLoadManager.IsLoading || ChatUIManager.IsChatting ||
-            (interaction && interaction.IsDestinationMenuOpen)) return false;
+            (interaction && interaction.IsInteractionMenuOpen)) return false;
 
         int direction = wheel < 0f ? 1 : -1; // wheel down: right, wheel up: left
         int steps = Mathf.Max(1, Mathf.RoundToInt(Mathf.Abs(wheel)));
@@ -196,7 +198,7 @@ public sealed class PlayerInventory : MonoBehaviour
 
     bool CanDepositCurrency() => Application.isPlaying && isActiveAndEnabled && Inventory != null && !restorePending &&
         closedFrame != Time.frameCount && !IsDragging && !SceneLoadManager.IsLoading && !ChatUIManager.IsChatting &&
-        !IsEditingText() && !(ui && ui.IsWithdrawalOpen) && !(interaction && interaction.IsDestinationMenuOpen) &&
+        !IsEditingText() && !(ui && ui.IsWithdrawalOpen) && !(interaction && interaction.IsInteractionMenuOpen) &&
         (IsOpen || (movement && movement.isActiveAndEnabled));
 
     int SelectedCurrencySlot => IsOpen && SelectedInventorySlot >= 0 ? SelectedInventorySlot : Inventory.SelectedHotbarIndex;
@@ -238,6 +240,12 @@ public sealed class PlayerInventory : MonoBehaviour
 
     bool HandleCurrencyDepositInput()
     {
+        // Door/clerk prompts own Space in their range, even with cash selected.
+        if (!IsOpen && interaction && interaction.HasNearbyStoreAction)
+        {
+            ResetCurrencyDepositGesture();
+            return false;
+        }
         bool pressed = SpacePressed();
         if (pressed)
         {
@@ -332,22 +340,24 @@ public sealed class PlayerInventory : MonoBehaviour
         UiChanged?.Invoke();
     }
 
-    public bool BeginDragInventory(int index) => BeginDrag(Inventory.GetSlot(index), index, false, default);
-    public bool BeginDragEquipment(EquipmentSlot slot) => BeginDrag(Inventory.GetEquipment(slot), -1, true, slot);
+    public bool BeginDragInventory(int index,bool single=false) => BeginDrag(Inventory.GetSlot(index), index, false, default,single);
+    public bool BeginDragEquipment(EquipmentSlot slot,bool single=false) => BeginDrag(Inventory.GetEquipment(slot), -1, true, slot,single);
 
-    bool BeginDrag(ItemStack stack, int index, bool fromEquipment, EquipmentSlot equipmentSlot)
+    bool BeginDrag(ItemStack stack, int index, bool fromEquipment, EquipmentSlot equipmentSlot,bool single)
     {
         if (!IsOpen || SceneLoadManager.IsLoading || (ui && ui.IsWithdrawalOpen) || stack == null || stack.IsEmpty) return false;
         CancelDrag();
         draggedItem = stack.Item;
-        draggedCount = stack.Count;
+        draggedSourceCount = stack.Count;
+        draggedCount = single ? 1 : stack.Count;
+        dragRightButton = single;
         dragIndex = index;
         dragFromEquipment = fromEquipment;
         dragEquipment = equipmentSlot;
         dragRevision = inventoryRevision;
         SelectedInventorySlot = index;
         StatusMessage = string.Empty;
-        if (ui) ui.BeginDragVisual(stack);
+        if (ui) ui.BeginDragVisual(stack,draggedCount);
         if (handCursor) handCursor.SetDragging(true);
         UiChanged?.Invoke();
         return true;
@@ -362,7 +372,7 @@ public sealed class PlayerInventory : MonoBehaviour
     {
         var source = dragFromEquipment ? Inventory.GetEquipment(dragEquipment) : Inventory.GetSlot(dragIndex);
         return IsOpen && !(ui && ui.IsWithdrawalOpen) && !SceneLoadManager.IsLoading && IsDragging &&
-            dragRevision == inventoryRevision && source != null && source.Item == draggedItem && source.Count == draggedCount;
+            dragRevision == inventoryRevision && source != null && source.Item == draggedItem && source.Count == draggedSourceCount;
     }
 
     public bool DropOnInventory(int targetIndex)
@@ -371,10 +381,11 @@ public sealed class PlayerInventory : MonoBehaviour
         int sourceIndex = dragIndex;
         bool equipped = dragFromEquipment;
         var equipmentSlot = dragEquipment;
+        int amount = draggedCount;
         CancelDrag();
         string error;
         bool success = equipped ? Inventory.TryUnequipTo(equipmentSlot, targetIndex, out error)
-            : Inventory.TryMove(sourceIndex, targetIndex, out error);
+            : Inventory.TryMoveAmount(sourceIndex, targetIndex, amount, out error);
         SetStatus(error);
         return success;
     }
@@ -402,10 +413,11 @@ public sealed class PlayerInventory : MonoBehaviour
         int sourceIndex = dragIndex;
         bool equipped = dragFromEquipment;
         var equipmentSlot = dragEquipment;
+        int amount = draggedCount;
         CancelDrag();
         string error;
         bool success = equipped ? WorldDroppedItem.TryDropEquipment(this, equipmentSlot, out error)
-            : WorldDroppedItem.TryDropStorage(this, sourceIndex, out error);
+            : WorldDroppedItem.TryDropStorage(this, sourceIndex, out error, amount);
         SetStatus(success ? "앞에 내려놓았습니다. 가까이에서 F 키로 주울 수 있습니다." : error);
         return success;
     }
@@ -622,12 +634,12 @@ public sealed class PlayerInventory : MonoBehaviour
 #endif
     }
 
-    static bool LeftReleased()
+    bool DragButtonReleased()
     {
 #if ENABLE_INPUT_SYSTEM
-        return Mouse.current != null && Mouse.current.leftButton.wasReleasedThisFrame;
+        return Mouse.current != null && (dragRightButton?Mouse.current.rightButton:Mouse.current.leftButton).wasReleasedThisFrame;
 #elif ENABLE_LEGACY_INPUT_MANAGER
-        return Input.GetMouseButtonUp(0);
+        return Input.GetMouseButtonUp(dragRightButton?1:0);
 #else
         return false;
 #endif

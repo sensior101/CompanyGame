@@ -19,6 +19,7 @@ public class PlayerCameraController : MonoBehaviour
 
     [Header("View Mode")]
     public bool firstPerson = false;
+    public float initialPitch = 25f;
     public float firstPersonEyeHeight = 1.6f;
     // 1인칭 시야각
     public float firstPersonFOV = 85f;
@@ -94,6 +95,7 @@ public class PlayerCameraController : MonoBehaviour
     {
         playerCamera.orthographic = false;
         yaw = transform.eulerAngles.y;
+        pitch = initialPitch;
 
         // 게임 시작 시 선택된 시점의 FOV 적용
         playerCamera.fieldOfView = firstPerson

@@ -100,8 +100,14 @@ public sealed class TransitUI : MonoBehaviour
         modal.SetActive(false);
     }
 
-    public void ShowPrompt(string label)
+    public void ShowPrompt(string label, bool compact = false)
     {
+        var rect=(RectTransform)prompt.transform;
+        rect.sizeDelta=compact ? new Vector2(258,52) : new Vector2(342,62);
+        var accent=(RectTransform)rect.Find("Accent");accent.anchoredPosition=new Vector2(compact?-120:-164,0);
+        promptLabel.rectTransform.sizeDelta=new Vector2(compact?134:214,52);
+        promptLabel.rectTransform.anchoredPosition=new Vector2(-44,0);
+        ((RectTransform)rect.Find("SpaceKeycap")).anchoredPosition=new Vector2(compact?72:110,0);
         promptLabel.text = label;
         prompt.SetActive(true);
     }

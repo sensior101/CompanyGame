@@ -46,13 +46,13 @@ public sealed class WorldDroppedItem : MonoBehaviour
             if (entry.scenePath == scene.path && !entry.instance) CreateVisual(entry, scene);
     }
 
-    public static bool TryDropStorage(PlayerInventory owner, int index, out string error)
+    public static bool TryDropStorage(PlayerInventory owner, int index, out string error,int count=-1)
     {
         error = null;
         var source = owner ? owner.Inventory.GetSlot(index) : null;
         if (source == null || source.IsEmpty) { error = "내려놓을 아이템이 없습니다."; return false; }
         if (!Prepare(owner, out var drop, out error)) return false;
-        if (!owner.Inventory.TryTransferTo(drop.contents, index, source.Count, out error)) return false;
+        if (!owner.Inventory.TryTransferTo(drop.contents, index, count<0?source.Count:count, out error)) return false;
         Commit(drop, owner.gameObject.scene);
         return true;
     }
@@ -278,6 +278,15 @@ public sealed class WorldDroppedItem : MonoBehaviour
     void BuildItemIcon()
     {
         if (!Item || !Item.icon) return;
+        if (Item.heldPrefab && Item.icon.texture.name == "StoreFoods")
+        {
+            var model = Instantiate(Item.heldPrefab, billboard, false);
+            model.name = "DroppedFoodModel";
+            model.transform.localPosition = new Vector3(0f, -.1f, 0f);
+            model.transform.localRotation = Quaternion.Euler(0, 18, 0);
+            model.transform.localScale = Vector3.one * 1.4f;
+            return;
+        }
         var iconHost = new GameObject("DroppedItemIcon", typeof(SpriteRenderer));
         iconHost.transform.SetParent(billboard, false);
         iconHost.transform.localPosition = new Vector3(0f, -.28f, 0f);

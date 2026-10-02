@@ -120,6 +120,20 @@ public sealed class InventoryState
         return true;
     }
 
+    public bool TryMoveAmount(int fromIndex,int toIndex,int count,out string error)
+    {
+        error=null;
+        if(!IsSlot(fromIndex)||!IsSlot(toIndex)||count<=0||slots[fromIndex].IsEmpty||slots[fromIndex].Count<count)
+            return Fail("이동할 아이템과 수량을 확인해 주세요.",out error);
+        if(count==slots[fromIndex].Count)return TryMove(fromIndex,toIndex,out error);
+        if(fromIndex==toIndex)return true;
+        var source=slots[fromIndex];var target=slots[toIndex];
+        if(!target.IsEmpty && (target.Item!=source.Item || target.Count+count>target.Item.StackLimit))
+            return Fail("빈 칸이나 같은 아이템 칸에 놓아 주세요.",out error);
+        if(target.IsEmpty){target.Item=source.Item;target.Count=0;}
+        target.Count+=count;source.Count-=count;NotifyChanged();return true;
+    }
+
     /// <summary>Replaced equipment returns to the source slot, even when storage is full.</summary>
     public bool TryEquip(int inventoryIndex, EquipmentSlot slot, out string error)
     {
@@ -191,6 +205,25 @@ public sealed class InventoryState
         NotifyChanged();
         destination.NotifyChanged();
         return true;
+    }
+
+    /// <summary>Exchange one exact-face-value cash item for one owned product atomically.</summary>
+    public bool TryExchangeCurrency(int sourceIndex, long price, ItemData product, out int resultSlot, out string error)
+    {
+        resultSlot=-1; error=null;
+        if(!IsSlot(sourceIndex) || !product || product.IsCurrency || price<=0)
+            return Fail("거래할 화폐와 상품을 확인해 주세요.",out error);
+        var payment=slots[sourceIndex];
+        if(payment.IsEmpty || !payment.Item.IsCurrency || payment.Item.CurrencyValue!=price)
+            return Fail(price.ToString("N0")+"원 화폐 1개를 놓아 주세요.",out error);
+        int destination=payment.Count==1 ? sourceIndex : -1;
+        if(destination<0)
+            for(int i=0;i<Capacity;i++)if(slots[i].IsEmpty){destination=i;break;}
+        if(destination<0)return Fail("상품을 받을 인벤토리 한 칸을 비워 주세요.",out error);
+        var draft=Copy();
+        if(!draft.TryRemove(sourceIndex,1,out error))return false;
+        draft.slots[destination]=new ItemStack(product,1);
+        ReplaceWith(draft);resultSlot=destination;NotifyChanged();return true;
     }
 
     // Transactions work on detached copies and publish only after every check succeeds.

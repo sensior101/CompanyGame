@@ -24,6 +24,8 @@ public sealed class InventoryUI : MonoBehaviour
     readonly List<SlotView> hotbar = new List<SlotView>();
     readonly Dictionary<EquipmentSlot, SlotView> equipment = new Dictionary<EquipmentSlot, SlotView>();
     PlayerInventory owner;
+    PlayerInteraction interaction;
+    RectTransform quickSlots;
     TMP_FontAsset font;
     GameObject modal;
     RectTransform window, grid, storageCard, withdrawalWindow, bankButton;
@@ -141,6 +143,8 @@ public sealed class InventoryUI : MonoBehaviour
     void BuildHotbar()
     {
         var bar = Panel("QuickSlots", transform, new Vector2(618f, 78f), new Color(.985f, .976f, .945f, .82f), 25f, 11f);
+        quickSlots = bar;
+        interaction = owner.GetComponent<PlayerInteraction>();
         bar.GetComponent<InventoryRoundedGraphic>().raycastTarget = true;
         bar.anchorMin = bar.anchorMax = new Vector2(.5f, 0f);
         bar.pivot = new Vector2(.5f, 0f);
@@ -232,6 +236,7 @@ public sealed class InventoryUI : MonoBehaviour
         iconRect.anchoredPosition = Vector2.zero;
         view.icon = iconRect.gameObject.AddComponent<UnityEngine.UI.Image>();
         view.icon.preserveAspect = true;
+        view.icon.useSpriteMesh = true;
         view.icon.raycastTarget = false;
         view.count = Label("Quantity", rect, "", size < 80 ? 12f : 16f, Ink, new Vector2(size - 16f, size < 80 ? 29f : 36f));
         view.count.alignment = TextAlignmentOptions.TopRight;
@@ -256,6 +261,11 @@ public sealed class InventoryUI : MonoBehaviour
     }
     void Update()
     {
+        if (quickSlots)
+        {
+            bool visible = !interaction || !interaction.IsStoreOpen;
+            if (quickSlots.gameObject.activeSelf != visible) quickSlots.gameObject.SetActive(visible);
+        }
         if (!IsOpen) return;
         FitWindow(); RefreshBalances();
         if (IsWithdrawalOpen && TabPressed())
@@ -502,7 +512,7 @@ public sealed class InventoryUI : MonoBehaviour
         var iconRect = Rect("Icon", dragVisual, Vector2.one * 58f);
         iconRect.anchoredPosition = new Vector2(0f, 3f);
         dragIcon = iconRect.gameObject.AddComponent<UnityEngine.UI.Image>();
-        dragIcon.preserveAspect = true; dragIcon.raycastTarget = false;
+        dragIcon.preserveAspect = true; dragIcon.useSpriteMesh = true; dragIcon.raycastTarget = false;
         dragCount = Label("Count", dragVisual, "", 14f, Ink, new Vector2(70f, 22f));
         dragCount.alignment = TextAlignmentOptions.TopRight;
         AtTop(dragCount.rectTransform, 0f, -4f); dragVisual.gameObject.SetActive(false);
@@ -559,13 +569,14 @@ public sealed class InventoryUI : MonoBehaviour
         if (tooltipPanel) tooltipPanel.gameObject.SetActive(false);
     }
 
-    public void BeginDragVisual(ItemStack stack)
+    public void BeginDragVisual(ItemStack stack,int count=-1)
     {
         if (!dragVisual || stack == null || stack.IsEmpty) return;
         HideItemTooltip();
         dragVisual.gameObject.SetActive(true); dragVisual.SetAsLastSibling();
         dragIcon.sprite = stack.Item.icon; dragIcon.enabled = dragIcon.sprite;
-        dragCount.text = stack.Count > 1 ? stack.Count.ToString() : "";
+        int quantity=count<0?stack.Count:count;
+        dragCount.text = quantity > 1 ? quantity.ToString() : "";
     }
     public void UpdateDragVisual(Vector2 screenPosition)
     {
