@@ -26,18 +26,13 @@ public class PlayerCameraController : MonoBehaviour
     public float thirdPersonFOV = 75f;
 
     [Header("Third-Person Camera")]
-    public float distance = 5f;
-    public float minDistance = 2f;
-    public float maxDistance = 15f;
+    public float distance = 4f;
     public float targetHeight = 2.2f;
 
     [Header("Mouse Rotation")]
     public float mouseSensitivity = 0.22f;
     public float minPitch = -80f;
     public float maxPitch = 80f;
-
-    [Header("Mouse Zoom")]
-    public float zoomSpeed = 10f;
 
     [Header("Walking Camera Bob")]
     public bool enableHeadBob = true;
@@ -184,13 +179,6 @@ public class PlayerCameraController : MonoBehaviour
                 firstPerson ? -85f : minPitch,
                 firstPerson ? 85f : maxPitch
             );
-        }
-
-        // 3인칭에서만 휠로 카메라 거리 조절
-        if (!firstPerson)
-        {
-            distance *= Mathf.Exp(-wheel * zoomSpeed);
-            distance = Mathf.Clamp(distance, minDistance, maxDistance);
         }
 
         float targetBobOffset = 0f;

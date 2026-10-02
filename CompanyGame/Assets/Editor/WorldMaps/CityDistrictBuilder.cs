@@ -44,7 +44,19 @@ namespace CompanyGame.Editor.WorldMaps
                 var presentation=Group(root,"30_Presentation");var cameraRoot=Group(presentation,"Cameras");var lightRoot=Group(presentation,"Lighting");
                 var player=Object.Instantiate(sourcePlayer.gameObject,Group(play,"Player")).GetComponent<PlayerMovement>();player.name="Map Player";player.spawn=V(-5,.16f,-38);if(kind==3)player.spawn=V(-5,.16f,-30);player.transform.SetPositionAndRotation(player.spawn,Quaternion.identity);player.enabled=true;
                 var camera=Object.Instantiate(sourceCamera.gameObject,cameraRoot).GetComponent<Camera>();camera.name="Map Camera";camera.farClipPlane=500;player.viewCamera=camera;
-                var controller=camera.GetComponent<PlayerCameraController>();controller.target=player.transform;var appearance=player.GetComponent<DaldongnePlayerAppearance>();if(appearance){controller.femaleVisuals=appearance.female;controller.maleVisuals=appearance.male;}controller.firstPerson=false;controller.distance=6;controller.maxDistance=22;
+                var controller = camera.GetComponent<PlayerCameraController>();
+                controller.target = player.transform;
+
+                var appearance = player.GetComponent<DaldongnePlayerAppearance>();
+
+                if (appearance)
+                {
+                    controller.femaleVisuals = appearance.female;
+                    controller.maleVisuals = appearance.male;
+                }
+
+                controller.firstPerson = false;
+                controller.distance = 4f;
                 camera.transform.position=player.spawn+V(0,4,-7);camera.transform.LookAt(player.spawn+Vector3.up);
                 var sun=Object.Instantiate(sourceSun.gameObject,lightRoot).GetComponent<Light>();sun.name="District Sun";sun.transform.rotation=Quaternion.Euler(48,-32,0);sun.intensity=kind==0?.55f:1.5f;sun.color=kind==0?new Color(.55f,.66f,1):new Color(1,.91f,.76f);
                 RenderSettings.sun=sun;RenderSettings.ambientMode=AmbientMode.Trilight;RenderSettings.ambientSkyColor=kind==0?new Color(.23f,.30f,.46f):new Color(.50f,.60f,.66f);RenderSettings.ambientEquatorColor=kind==0?new Color(.22f,.23f,.33f):new Color(.48f,.49f,.45f);RenderSettings.ambientGroundColor=new Color(.23f,.24f,.23f);RenderSettings.fog=false;RenderSettings.skybox=null;camera.clearFlags=CameraClearFlags.SolidColor;camera.backgroundColor=kind==0?new Color(.045f,.067f,.13f):new Color(.54f,.67f,.73f);
