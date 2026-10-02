@@ -6,9 +6,10 @@ public class EconomyManager : MonoBehaviour
     private PropertyManager propertyManager;
 
     /// <summary>Compatibility facade for systems that already use EconomyManager.</summary>
-    public long money => propertyManager != null ? propertyManager.Money : 0L;
+    public long money => MoneySource != null ? MoneySource.Money : 0L;
 
-    public PropertyManager MoneySource => propertyManager;
+    public PropertyManager MoneySource => PropertyManager.Instance ? PropertyManager.Instance : propertyManager;
+    public long CarriedMoney => InventoryManager.Instance ? CashService.CarriedTotal(InventoryManager.Instance.State) : 0;
 
     private void Awake()
     {
@@ -17,16 +18,17 @@ public class EconomyManager : MonoBehaviour
 
     public bool AddMoney(long amount, MoneyChangeReason reason = MoneyChangeReason.Earned)
     {
-        return propertyManager != null && propertyManager.AddMoney(amount, reason);
+        PropertyManager bank = MoneySource ? MoneySource : PropertyManager.EnsureInstance();
+        return bank != null && bank.AddMoney(amount, reason);
     }
 
     public bool TrySpend(long amount, MoneyChangeReason reason = MoneyChangeReason.Spent)
     {
-        return propertyManager != null && propertyManager.TrySpend(amount, reason);
+        return InventoryManager.Instance && CashService.TryPayNpc(InventoryManager.Instance.State, amount, out _);
     }
 
     public bool CanAfford(long amount)
     {
-        return propertyManager != null && propertyManager.CanAfford(amount);
+        return amount > 0 && CarriedMoney >= amount;
     }
 }

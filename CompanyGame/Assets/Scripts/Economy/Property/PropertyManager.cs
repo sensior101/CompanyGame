@@ -13,7 +13,9 @@ public enum MoneyChangeReason
     Purchase = 6,
     Tax = 7,
     PropertyUpgrade = 8,
-    ManualAdjustment = 9
+    ManualAdjustment = 9,
+    Withdrawal = 10,
+    Deposit = 11
 }
 
 [Serializable]
@@ -65,7 +67,8 @@ public struct CurrencyBreakdown
     }
 }
 
-/// <summary>Owns the player's cash balance and applies every money change.</summary>
+/// <summary>Owns the player's bank balance. Carried coins and notes live in InventoryState.</summary>
+[DefaultExecutionOrder(-600)]
 public class PropertyManager : MonoBehaviour
 {
     public const int OneHundredWon = 100;
@@ -85,6 +88,7 @@ public class PropertyManager : MonoBehaviour
     public event Action<long, long, MoneyChangeReason> MoneyChanged;
 
     public long Money => currentMoney;
+    public long BankBalance => currentMoney;
 
     /// <summary>Lowercase alias for existing economy/UI code conventions.</summary>
     public long money
@@ -95,16 +99,36 @@ public class PropertyManager : MonoBehaviour
 
     public CurrencyBreakdown CurrentCurrency => CurrencyBreakdown.FromAmount(currentMoney);
 
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    static void ResetStatics() { Instance = null; }
+
+    public static PropertyManager EnsureInstance()
+    {
+        if (!Instance && Application.isPlaying)
+            new GameObject("Bank Session").AddComponent<PropertyManager>();
+        return Instance;
+    }
+
     private void Awake()
     {
         if (Instance != null && Instance != this)
         {
-            Destroy(gameObject);
+            // The legacy component can share its host with an entire map or systems root.
+            Destroy(this);
             return;
         }
         Instance = this;
         currentMoney = Math.Max(0L, startingMoney);
-        DontDestroyOnLoad(gameObject);
+        if (Application.isPlaying && (transform.parent || transform.childCount > 0 || GetComponents<Component>().Length > 2))
+        {
+            long initialBalance = currentMoney;
+            Instance = null;
+            PropertyManager host = EnsureInstance();
+            host.currentMoney = initialBalance;
+            Destroy(this);
+            return;
+        }
+        if (Application.isPlaying) DontDestroyOnLoad(gameObject);
     }
 
     private void OnDestroy()
@@ -141,9 +165,37 @@ public class PropertyManager : MonoBehaviour
 
     public CurrencyBreakdown GetCurrencyBreakdown() => CurrentCurrency;
 
+    internal bool TryDebitSilently(long amount)
+    {
+        if (!CanAfford(amount)) return false;
+        currentMoney -= amount;
+        return true;
+    }
+
+    internal void NotifyWithdrawal(long amount) { NotifyMoneyChanged(-amount, MoneyChangeReason.Withdrawal); }
+
+    internal bool TryCreditSilently(long amount)
+    {
+        if (amount <= 0 || currentMoney > long.MaxValue - amount) return false;
+        currentMoney += amount;
+        return true;
+    }
+
+    internal void NotifyDeposit(long amount) { NotifyMoneyChanged(amount, MoneyChangeReason.Deposit); }
+
     private void ApplyBalance(long newBalance, long delta, MoneyChangeReason reason)
     {
         currentMoney = newBalance;
-        MoneyChanged?.Invoke(currentMoney, delta, reason);
+        NotifyMoneyChanged(delta, reason);
+    }
+
+    void NotifyMoneyChanged(long delta, MoneyChangeReason reason)
+    {
+        if (MoneyChanged == null) return;
+        foreach (Action<long, long, MoneyChangeReason> listener in MoneyChanged.GetInvocationList())
+        {
+            try { listener(currentMoney, delta, reason); }
+            catch (Exception exception) { Debug.LogException(exception); }
+        }
     }
 }

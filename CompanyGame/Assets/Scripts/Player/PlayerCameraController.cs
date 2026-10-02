@@ -160,6 +160,8 @@ public class PlayerCameraController : MonoBehaviour
 
 #endif
 
+        if (PlayerInventory.CurrencyScrollCapturedThisFrame) wheel = 0f;
+
         if (switchView)
         {
             firstPerson = !firstPerson;

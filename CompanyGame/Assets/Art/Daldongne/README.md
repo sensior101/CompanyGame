@@ -1,6 +1,10 @@
 # 달동네 맵 사용 방법
 
-`Assets/Scenes/DaldongneMap.unity`를 열고 Play를 누르세요. 기존 SampleScene은 유지되어 있습니다.
+`Assets/Scenes/daldongnaemap.unity`를 열고 Play를 누르세요. `DaldongneMap.unity`와 `SampleScene`은 현재 실행 대상에서 제외합니다.
+
+현재 맵은 한국 도시 외곽 달동네의 기존 건물 양식과 다섯 높이의 지형을 유지하면서 가로·세로를 각각 1.5배 넓혔습니다. 기존 건물 13동을 보존하고 원룸 10동을 추가해 전체 23동입니다. 고시원은 원래의 1동만 남겼습니다. 높이는 1.2 / 3.6 / 7.2 / 10.8 / 14.4m이며, 계단 10개와 오르막길 3개로 연결합니다. 새 지구 5개는 `Assets/Scenes/Maps/`와 저장소의 `Docs/Small_Map_Workflow.md`를 참고하세요.
+
+`DaldongnePocketGarden.unity`와 제작용 `SmallMapTemplate.unity`는 유지합니다. 현재 맵 안내는 `WarmVillage/README.md`, 확장 도구와 검증 결과는 저장소 루트의 `ArtSource/Daldongne/TerracedExpansion/README.md`를 참고하세요. 아래 내용은 초기 맵의 조작·에셋·제작 기록입니다.
 
 | 입력 | 동작 |
 |---|---|
