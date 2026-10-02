@@ -3,11 +3,10 @@ using CompanyGame.Daldongne;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
+#endif
 
-/// <summary>
-/// A portrait of the current player's visual hierarchy. Only transforms and renderers
-/// are copied: the preview cannot run player scripts, collide, or change appearance.
-/// </summary>
 public sealed class InventoryCharacterPreview : MonoBehaviour
 {
     const int PreviewLayer = 30;
@@ -25,6 +24,12 @@ public sealed class InventoryCharacterPreview : MonoBehaviour
     int rendererCount;
     float previewYaw = -16f;
     Quaternion sourceFacing = Quaternion.identity;
+    Transform previewHead;
+    Transform previewHeadSource;
+    float currentLookX;
+    float currentLookY;
+    Transform previewBody;
+    Transform previewBodySource;
 
     sealed class RendererPair
     {
@@ -43,12 +48,9 @@ public sealed class InventoryCharacterPreview : MonoBehaviour
     {
         player = owner;
         image = target;
-        // The portrait is display-only. It must not consume gameplay mouse input
-        // or rotate on right-drag; the gameplay camera remains untouched.
         image.raycastTarget = false;
     }
 
-    /// <summary>Rotation was intentionally removed from the inventory portrait.</summary>
     public void RotatePreview(float horizontalPixels)
     {
         // Kept as a no-op compatibility method for older callers.
@@ -69,7 +71,148 @@ public sealed class InventoryCharacterPreview : MonoBehaviour
 
     void LateUpdate()
     {
-        if (visible) Synchronize(false);
+        if (!visible)
+            return;
+
+        Synchronize(false);
+
+        UpdatePreviewHeadLook();
+    }
+
+    void UpdatePreviewHeadLook()
+    {
+        if (!image || !portrait || !visualSource)
+            return;
+
+        EnsurePreviewBones();
+
+        if (!previewHead)
+            return;
+
+        Vector2 mousePosition;
+
+#if ENABLE_INPUT_SYSTEM
+        if (Mouse.current == null)
+            return;
+
+        mousePosition = Mouse.current.position.ReadValue();
+#else
+    mousePosition = Input.mousePosition;
+#endif
+
+        RectTransform rect = image.rectTransform;
+
+        Camera uiCamera = null;
+
+        if (image.canvas &&
+            image.canvas.renderMode != RenderMode.ScreenSpaceOverlay)
+        {
+            uiCamera = image.canvas.worldCamera;
+        }
+
+        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                rect,
+                mousePosition,
+                uiCamera,
+                out Vector2 localPoint))
+        {
+            return;
+        }
+
+        Rect area = rect.rect;
+
+        float halfWidth = Mathf.Max(1f, area.width * 0.5f);
+        float halfHeight = Mathf.Max(1f, area.height * 0.5f);
+
+        float targetX = Mathf.Clamp(localPoint.x / halfWidth, -1f, 1f);
+        float targetY = Mathf.Clamp(localPoint.y / halfHeight, -1f, 1f);
+
+        currentLookX = Mathf.Lerp(
+            currentLookX,
+            targetX,
+            Time.unscaledDeltaTime * 12f
+        );
+
+        currentLookY = Mathf.Lerp(
+            currentLookY,
+            targetY,
+            Time.unscaledDeltaTime * 12f
+        );
+        Quaternion headBaseRotation = previewHead.localRotation;
+
+        float headYaw = -currentLookX * 40f;
+        float headPitch = -currentLookY * 20f;
+
+        previewHead.localRotation =
+            headBaseRotation * Quaternion.Euler(headPitch, headYaw, 0f);
+
+        if (previewBody)
+        {
+            Quaternion bodyBaseRotation = previewBody.localRotation;
+
+            float bodyYaw = -currentLookX * 10f;
+            float bodyPitch = -currentLookY * 3f;
+
+            previewBody.localRotation =
+                bodyBaseRotation * Quaternion.Euler(bodyPitch, bodyYaw, 0f);
+        }
+    }
+
+    void EnsurePreviewBones()
+    {
+        if (previewHead && previewHeadSource && previewBody && previewBodySource)
+            return;
+
+        previewHead = null;
+        previewHeadSource = null;
+        previewBody = null;
+        previewBodySource = null;
+
+        if (!visualSource)
+            return;
+
+        Transform[] sourceTransforms =
+            visualSource.GetComponentsInChildren<Transform>(true);
+
+        Transform sourceHead = null;
+        Transform sourceBody = null;
+
+        foreach (Transform child in sourceTransforms)
+        {
+            string lowerName = child.name.ToLowerInvariant();
+
+            if (sourceHead == null &&
+                (lowerName == "head" ||
+                 lowerName.EndsWith(":head") ||
+                 lowerName.EndsWith("_head")))
+            {
+                sourceHead = child;
+            }
+
+            if (sourceBody == null &&
+    (lowerName == "hips" ||
+     lowerName.EndsWith(":hips") ||
+     lowerName.EndsWith("_hips")))
+            {
+                sourceBody = child;
+            }
+        }
+
+        if (sourceHead &&
+            transforms.TryGetValue(sourceHead, out Transform copiedHead) &&
+            copiedHead)
+        {
+            previewHeadSource = sourceHead;
+            previewHead = copiedHead;
+        }
+
+        if (sourceBody &&
+            transforms.TryGetValue(sourceBody, out Transform copiedBody) &&
+            copiedBody)
+        {
+            previewBodySource = sourceBody;
+            previewBody = copiedBody;
+        }
     }
 
     void EnsureStage()
