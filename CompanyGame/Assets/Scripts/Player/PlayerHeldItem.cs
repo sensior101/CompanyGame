@@ -3,16 +3,13 @@ using CompanyGame.Daldongne;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
-using UnityEngine.SceneManagement;
 
 /// <summary>Renders the selected quick-slot item at the avatar's right hand and in first person.</summary>
 [DefaultExecutionOrder(300)]
 [DisallowMultipleComponent]
-[RequireComponent(typeof(PlayerInventory))]
 public sealed class PlayerHeldItem : MonoBehaviour
 {
     const int HandLayer = 29;
-    PlayerInventory inventory;
     PlayerMovement movement;
     PlayerCombat combat;
     PlayerCameraController cameraController;
@@ -35,23 +32,8 @@ public sealed class PlayerHeldItem : MonoBehaviour
     public bool IsFirstPersonVisible => viewRig && viewRig.gameObject.activeInHierarchy;
     public Vector3 WorldGripPosition => arm ? arm.TransformPoint(handPoint) : transform.position + Vector3.up;
 
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-    static void ResetHooks()
-    {
-        SceneManager.sceneLoaded -= AttachScene;
-        SceneManager.sceneLoaded += AttachScene;
-    }
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    static void AttachLoadedPlayers()
-    {
-        foreach (var player in FindObjectsByType<PlayerInventory>())
-            if (!player.GetComponent<PlayerHeldItem>()) player.gameObject.AddComponent<PlayerHeldItem>();
-    }
-    static void AttachScene(Scene scene, LoadSceneMode mode) { AttachLoadedPlayers(); }
-
     void Awake()
     {
-        inventory = GetComponent<PlayerInventory>();
         movement = GetComponent<PlayerMovement>();
     }
     void Start()
@@ -129,7 +111,8 @@ public sealed class PlayerHeldItem : MonoBehaviour
     void LateUpdate()
     {
         EnsureCamera();
-        if (!inventory || inventory.Inventory == null || !viewRig) return;
+        var inventory = InventoryManager.Instance ? InventoryManager.Instance.State : null;
+        if (inventory == null || !viewRig) return;
         Transform currentArm = FindRightArm();
         bool changedArm = arm != currentArm;
         if (changedArm)
@@ -137,7 +120,7 @@ public sealed class PlayerHeldItem : MonoBehaviour
             arm = currentArm;
             if (arm) { armRest = arm.localRotation; BuildArm(); }
         }
-        var stack = inventory.Inventory.GetSlot(inventory.Inventory.SelectedHotbarIndex);
+        var stack = inventory.GetSlot(inventory.SelectedHotbarIndex);
         ItemData selected = stack != null && !stack.IsEmpty ? stack.Item : null;
         if (heldItem != selected || changedArm)
         {
@@ -146,7 +129,7 @@ public sealed class PlayerHeldItem : MonoBehaviour
         }
 
         bool firstPerson = cameraController && cameraController.firstPerson;
-        bool showHands = firstPerson && !PlayerInventory.IsAnyOpen && !ChatUIManager.IsChatting &&
+        bool showHands = firstPerson && !InputFocus.InventoryOpen() && !InputFocus.ChatOpen() &&
             !SceneLoadManager.IsLoading && movement.isActiveAndEnabled;
         viewRig.gameObject.SetActive(showHands && arm);
         handCamera.enabled = showHands && arm;
@@ -154,7 +137,7 @@ public sealed class PlayerHeldItem : MonoBehaviour
         handCamera.aspect = viewCamera.aspect;
         handCamera.rect = viewCamera.rect;
         float duration = attackWasShot ? .19f : .32f;
-        if (tracer) tracer.enabled = attackWasShot && Time.time - attackStarted < .07f && !PlayerInventory.IsAnyOpen;
+        if (tracer) tracer.enabled = attackWasShot && Time.time - attackStarted < .07f && !InputFocus.InventoryOpen();
         float phase = Mathf.Clamp01((Time.time - attackStarted) / duration);
         float swing = Mathf.Sin(phase * Mathf.PI);
         float recoil = attackWasShot ? swing : 0f;

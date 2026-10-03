@@ -167,23 +167,24 @@ public class BankManager : MonoBehaviour
 
     public CurrencyBreakdown GetCurrencyBreakdown() => CurrentCurrency;
 
-    internal bool TryDebitSilently(long amount)
+    // Used by CashService to debit/credit and publish in one transaction.
+    public bool TryDebitSilently(long amount)
     {
         if (!CanAfford(amount)) return false;
         currentMoney -= amount;
         return true;
     }
 
-    internal void NotifyWithdrawal(long amount) { NotifyMoneyChanged(-amount, MoneyChangeReason.Withdrawal); }
+    public void NotifyWithdrawal(long amount) { NotifyMoneyChanged(-amount, MoneyChangeReason.Withdrawal); }
 
-    internal bool TryCreditSilently(long amount)
+    public bool TryCreditSilently(long amount)
     {
         if (amount <= 0 || currentMoney > long.MaxValue - amount) return false;
         currentMoney += amount;
         return true;
     }
 
-    internal void NotifyDeposit(long amount) { NotifyMoneyChanged(amount, MoneyChangeReason.Deposit); }
+    public void NotifyDeposit(long amount) { NotifyMoneyChanged(amount, MoneyChangeReason.Deposit); }
 
     private void ApplyBalance(long newBalance, long delta, MoneyChangeReason reason)
     {

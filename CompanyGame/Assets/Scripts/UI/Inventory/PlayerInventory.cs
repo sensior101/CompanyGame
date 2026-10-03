@@ -31,6 +31,7 @@ public sealed class PlayerInventory : MonoBehaviour
     public static bool HotbarScrollCapturedThisFrame => hotbarScrollCapturedFrame == Time.frameCount;
 
     static PlayerInventory activeInventory;
+    static PlayerInventory local;
     static int spaceConsumedFrame = -1;
     static int currencyScrollCapturedFrame = -1;
     static int hotbarScrollCapturedFrame = -1;
@@ -60,12 +61,20 @@ public sealed class PlayerInventory : MonoBehaviour
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     static void ResetStatics()
     {
-        activeInventory = null;
+        activeInventory = local = null;
         spaceConsumedFrame = currencyScrollCapturedFrame = hotbarScrollCapturedFrame = -1;
+        // Player scripts sit below the UI layer and read menu state through InputFocus.
+        InputFocus.InventoryOpen = () => IsAnyOpen;
+        InputFocus.ChatOpen = () => ChatUIManager.IsChatting;
+        InputFocus.ScrollCaptured = () => CurrencyScrollCapturedThisFrame || HotbarScrollCapturedThisFrame;
+        InputFocus.GameplayBlocked = () => IsAnyOpen || SpaceConsumedThisFrame || ChatUIManager.IsChatting ||
+            (local && (local.IsOpen || local.IsDragging || (local.ui && local.ui.IsWithdrawalOpen))) ||
+            (local && local.interaction && local.interaction.IsInteractionMenuOpen);
     }
 
     void Awake()
     {
+        local = this;
         movement = GetComponent<PlayerMovement>();
         interaction = GetComponent<PlayerInteraction>();
         Inventory = InventoryManager.Instance.State;

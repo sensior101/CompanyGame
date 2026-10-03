@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
 /// <summary>Owns an empty, session-long inventory across single-scene map loads.</summary>
 [DefaultExecutionOrder(-400)]
@@ -20,27 +19,7 @@ public class InventoryManager : MonoBehaviour
     }
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-    static void ResetStatics()
-    {
-        SceneManager.sceneLoaded -= AttachScenePlayers;
-        instance = null;
-    }
-
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    static void Bootstrap()
-    {
-        SceneManager.sceneLoaded -= AttachScenePlayers;
-        SceneManager.sceneLoaded += AttachScenePlayers;
-        AttachScenePlayers(SceneManager.GetActiveScene(), LoadSceneMode.Single);
-    }
-
-    static void AttachScenePlayers(Scene scene, LoadSceneMode mode)
-    {
-        if (!scene.IsValid() || !scene.isLoaded) return;
-        foreach (var root in scene.GetRootGameObjects())
-        foreach (var player in root.GetComponentsInChildren<PlayerMovement>(true))
-            if (!player.GetComponent<PlayerInventory>()) player.gameObject.AddComponent<PlayerInventory>();
-    }
+    static void ResetStatics() { instance = null; }
 
     protected virtual void Awake()
     {

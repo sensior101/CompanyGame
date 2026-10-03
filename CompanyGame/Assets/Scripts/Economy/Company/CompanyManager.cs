@@ -24,6 +24,9 @@ public class CompanyManager : GameSystem<CompanyManager>
         }
     }
 
+    /// <summary>Penalty check for business registration. ReportManager installs it; Economy cannot reference Gameplay.</summary>
+    public static Func<string, bool> RegistrationAllowed = _ => true;
+
     protected override void OnSystemAwake() => EnsureInitialized();
 
     private void Start()
@@ -48,8 +51,7 @@ public class CompanyManager : GameSystem<CompanyManager>
     public bool TryCreatePlayerCompany(CompanyData data, string ownerId, out string failReason)
     {
         failReason = null;
-        var reports = ReportManager.Instance;
-        if (reports != null && !reports.CanRegisterBusiness(ownerId))
+        if (!RegistrationAllowed(ownerId))
         {
             failReason = "Too many penalty points to register a business.";
             return false;

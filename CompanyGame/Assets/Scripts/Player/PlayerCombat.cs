@@ -31,28 +31,24 @@ public sealed class PlayerCombat : MonoBehaviour
     {
         get
         {
-            var state = inventory ? inventory.Inventory : null;
+            var state = Inventory;
             var stack = state?.GetSlot(state.SelectedHotbarIndex);
             return stack != null && !stack.IsEmpty && stack.Item.IsWeapon ? stack.Item : null;
         }
     }
     public bool CanAttack => Application.isPlaying && isActiveAndEnabled && movement && movement.isActiveAndEnabled &&
         Time.timeScale > 0f && Time.time >= nextAttackTime && !SceneLoadManager.IsLoading &&
-        !PlayerInventory.IsAnyOpen && !PlayerInventory.SpaceConsumedThisFrame && !ChatUIManager.IsChatting &&
-        !(inventory && (inventory.IsOpen || inventory.IsDragging || (inventory.UserInterface && inventory.UserInterface.IsWithdrawalOpen))) &&
-        !(interaction && interaction.IsInteractionMenuOpen) && !UIEventSystem.IsEditingText() && !IsPointerOverUI();
+        !InputFocus.GameplayBlocked() && !UIEventSystem.IsEditingText() && !IsPointerOverUI();
+
+    static InventoryState Inventory => InventoryManager.Instance ? InventoryManager.Instance.State : null;
 
     PlayerMovement movement;
-    PlayerInventory inventory;
-    PlayerInteraction interaction;
     float nextAttackTime;
     readonly List<RaycastResult> pointerHits = new List<RaycastResult>();
 
     void Awake()
     {
         movement = GetComponent<PlayerMovement>();
-        inventory = GetComponent<PlayerInventory>();
-        interaction = GetComponent<PlayerInteraction>();
         if (GetComponent<IDamageable>() == null) gameObject.AddComponent<PlayerStats>();
     }
 
@@ -65,11 +61,12 @@ public sealed class PlayerCombat : MonoBehaviour
     public bool TryAttack()
     {
         if (!CanAttack) return false;
-        var selected = inventory ? inventory.Inventory.GetSlot(inventory.Inventory.SelectedHotbarIndex) : null;
+        var inventory = Inventory;
+        var selected = inventory?.GetSlot(inventory.SelectedHotbarIndex);
         if (selected != null && !selected.IsEmpty && selected.Item.IsConsumable)
         {
             var stats = GetComponent<PlayerStats>();
-            bool consumed = stats && stats.TryConsume(inventory.Inventory, inventory.Inventory.SelectedHotbarIndex);
+            bool consumed = stats && stats.TryConsume(inventory, inventory.SelectedHotbarIndex);
             if (consumed) nextAttackTime = Time.time + .25f;
             return consumed;
         }

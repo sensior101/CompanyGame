@@ -69,7 +69,7 @@ public class PhoneInputController : MonoBehaviour
 
     private void LockMovement()
     {
-        if (playerMovement == null) playerMovement = SceneLoadManager.Player;
+        if (playerMovement == null) playerMovement = PlayerSpawner.Player;
         if (playerMovement == null) return;
 
         movementWasEnabled = playerMovement.enabled;

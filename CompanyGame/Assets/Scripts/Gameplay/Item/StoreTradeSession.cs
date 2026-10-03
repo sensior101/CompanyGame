@@ -1,5 +1,13 @@
 using System;
-using CompanyGame.World.Maps;
+using UnityEngine;
+
+/// <summary>One item a store sells and its price.</summary>
+[Serializable]
+public sealed class StoreOffer
+{
+    public ItemData item;
+    [Min(1)] public int price;
+}
 
 /// <summary>One item lives on the cursor, outside inventory, until placed or cancelled.</summary>
 public sealed class StoreTradeSession

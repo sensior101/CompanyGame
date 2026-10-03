@@ -132,7 +132,7 @@ public class PlayerCameraController : MonoBehaviour
         wheel = GameInput.Scroll;
         switchView = GameInput.ViewTogglePressed;
 
-        if (PlayerInventory.CurrencyScrollCapturedThisFrame || PlayerInventory.HotbarScrollCapturedThisFrame) wheel = 0f;
+        if (InputFocus.ScrollCaptured()) wheel = 0f;
 
         if (switchView)
         {

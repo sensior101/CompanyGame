@@ -1,4 +1,3 @@
-using CompanyGame.Daldongne;
 using UnityEngine;
 
 namespace CompanyGame.World.Maps
@@ -17,7 +16,7 @@ namespace CompanyGame.World.Maps
         static MapPortal focused;
         static int selectionFrame = -1;
         static float closestDistance;
-        PlayerMovement player;
+        Behaviour player;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetStatics()
@@ -36,7 +35,7 @@ namespace CompanyGame.World.Maps
                 closestDistance = float.PositiveInfinity;
             }
             if (SceneLoadManager.IsLoading) return;
-            player = SceneLoadManager.Player;
+            player = SceneLoadManager.Traveller;
             if (!player || !player.isActiveAndEnabled) return;
             float distance = (player.transform.position - transform.position).sqrMagnitude;
             if (distance > interactionRadius * interactionRadius || distance >= closestDistance) return;
@@ -49,9 +48,7 @@ namespace CompanyGame.World.Maps
             // Every portal has completed Update, so overlapping portal ranges
             // choose the nearest one, regardless of component update order.
             if (focused != this || SceneLoadManager.IsLoading) return;
-            bool pressed = false;
-        pressed = GameInput.InteractPressed;
-            if (pressed) SceneLoadManager.TryLoadMap(targetScenePath, targetSpawnId, player);
+            if (GameInput.InteractPressed) SceneLoadManager.TryLoadMap(targetScenePath, targetSpawnId, player);
         }
 
         void OnDisable() { if (focused == this) focused = null; }

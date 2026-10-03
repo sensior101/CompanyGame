@@ -21,7 +21,11 @@ public class ReportManager : GameSystem<ReportManager>
 
     public string LocalPlayerId => settings.localPlayerId;
 
-    protected override void OnSystemAwake() => EnsureInitialized();
+    protected override void OnSystemAwake()
+    {
+        EnsureInitialized();
+        CompanyManager.RegistrationAllowed = CanRegisterBusiness;
+    }
 
     protected override void OnDestroy()
     {

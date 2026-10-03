@@ -1,10 +1,17 @@
 {
-    "name": "CompanyGame.Core",
+    "name": "CompanyGame.UI",
     "rootNamespace": "",
     "references": [
-        "Unity.InputSystem",
+        "CompanyGame.Core",
+        "CompanyGame.Net",
+        "CompanyGame.Economy",
+        "CompanyGame.Gameplay",
+        "CompanyGame.World",
+        "CompanyGame.Player",
         "UnityEngine.UI",
-        "Unity.TextMeshPro"
+        "Unity.TextMeshPro",
+        "Unity.RenderPipelines.Universal.Runtime",
+        "Unity.RenderPipelines.Core.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

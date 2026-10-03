@@ -48,11 +48,4 @@ namespace CompanyGame.World.Maps
         void OnDrawGizmosSelected()
         { Gizmos.color=Color.cyan; Gizmos.DrawWireSphere(transform.position, radius); }
     }
-
-    [System.Serializable]
-    public sealed class StoreOffer
-    {
-        public ItemData item;
-        [Min(1)] public int price;
-    }
 }
