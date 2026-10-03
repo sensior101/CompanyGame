@@ -37,23 +37,22 @@ namespace CompanyGame.Editor.WorldMaps
             SceneManager.SetActiveScene(village);
             OrganizeVillage(village);
 
-            var walker = FindComponent<PlayerMovement>(village);
-            var camera = walker ? walker.viewCamera : null;
-            if (!camera) camera = FindComponent<Camera>(village);
+            var follow = FindComponent<PlayerCameraController>(village);
+            var camera = follow ? follow.GetComponent<Camera>() : FindComponent<Camera>(village);
             var sun = FindComponents<Light>(village).FirstOrDefault(light => light.type == LightType.Directional);
             var volume = FindComponents<Volume>(village).FirstOrDefault(item => item.isGlobal);
-            if (!walker || !camera || !sun)
-                throw new InvalidOperationException("Village needs a player, camera and directional light before creating small maps.");
+            if (!camera || !sun)
+                throw new InvalidOperationException("Village needs a camera and directional light before creating small maps.");
 
-            CreateSmallScene(ExampleScenePath, walker, camera, sun, volume, true);
-            CreateSmallScene(TemplateScenePath, walker, camera, sun, volume, false);
+            CreateSmallScene(ExampleScenePath, camera, sun, volume, true);
+            CreateSmallScene(TemplateScenePath, camera, sun, volume, false);
             if (!AssetDatabase.LoadAssetAtPath<SceneTemplateAsset>(TemplateAssetPath))
             {
                 var template = SceneTemplateService.CreateTemplateFromScene(
                     AssetDatabase.LoadAssetAtPath<SceneAsset>(TemplateScenePath), TemplateAssetPath);
                 if (!template) throw new InvalidOperationException("Could not create the Unity scene template.");
                 template.templateName = "Company Game - Small Map";
-                template.description = "Independent map with organized hierarchy, ground, player, camera, light and default spawn. Add reusable buildings, trees and portals.";
+                template.description = "Independent map with organized hierarchy, ground, camera, light and default spawn. The player is spawned at runtime. Add reusable buildings, trees and portals.";
                 template.addToDefaults = true;
                 // Materials, meshes, scripts and character assets remain shared between maps.
                 foreach (var dependency in template.dependencies)
@@ -130,7 +129,7 @@ namespace CompanyGame.Editor.WorldMaps
             if (!EditorSceneManager.SaveScene(scene)) throw new IOException("Could not save organized village scene.");
         }
 
-        static void CreateSmallScene(string path, PlayerMovement sourcePlayer, Camera sourceCamera,
+        static void CreateSmallScene(string path, Camera sourceCamera,
             Light sourceSun, Volume sourceVolume, bool example)
         {
             if (File.Exists(path))
@@ -185,31 +184,10 @@ namespace CompanyGame.Editor.WorldMaps
                 camera.orthographic = false;
                 camera.fieldOfView = 60f;
 
-                // 플레이어 복제
-                var player = Clone(
-                    sourcePlayer.gameObject,
-                    layout.player,
-                    "Map Player"
-                ).GetComponent<PlayerMovement>();
-
-                // 플레이어 시작 위치 설정
-                player.spawn = new Vector3(0f, 0.12f, -8f);
-
-                player.transform.SetPositionAndRotation(
-                    player.spawn,
-                    Quaternion.identity
-                );
-
-                // 플레이어와 카메라 연결
-                player.viewCamera = camera;
-
-                cameraController.target = player.transform;
-
-                // 플레이어 이동 활성화
-                player.enabled = true;
+                // The player is spawned at runtime (Resources/Player) and bound to this camera on arrival.
                 var spawn = Child(layout.spawns, "Spawn_Default").gameObject.AddComponent<MapSpawnPoint>();
                 spawn.spawnId = "default";
-                spawn.transform.position = player.spawn;
+                spawn.transform.position = new Vector3(0f, 0.12f, -8f);
                 var sun = Clone(sourceSun.gameObject, layout.lighting, "Map Sun").GetComponent<Light>();
                 if (sourceVolume) Clone(sourceVolume.gameObject, layout.volumes, "Map Color Grade");
                 RenderSettings.sun = sun;

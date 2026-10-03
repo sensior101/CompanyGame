@@ -102,71 +102,17 @@ namespace CompanyGame.Editor.WorldMaps
             var objects = roots.SelectMany(root => root.GetComponentsInChildren<Transform>(true)).Select(item => item.gameObject).ToArray();
             int before = errors.Count;
             CheckReferences(objects, scene.path, errors);
-            var players = Components<PlayerMovement>(scene).Where(item => item.isActiveAndEnabled).ToArray();
+            var players = Components<PlayerMovement>(scene).ToArray();
             var cameras = Components<Camera>(scene).Where(item => item.isActiveAndEnabled).ToArray();
-            if (players.Length != 1) errors.Add(scene.path + ": expected one active player, found " + players.Length);
+            // The player is spawned from Resources/Player at runtime; a map carries only its camera and spawn points.
+            if (players.Length != 0) errors.Add(scene.path + ": maps must not contain a player (spawned from Resources/Player), found " + players.Length);
             if (cameras.Length != 1) errors.Add(scene.path + ": expected one active camera, found " + cameras.Length);
-            if (players.Length == 1)
+            else if (!cameras[0].GetComponent<PlayerCameraController>()) errors.Add(scene.path + ": camera is missing PlayerCameraController.");
             {
-                if (players.Length == 1)
-                {
-                    var player = players[0];
-
-                    // 플레이어 카메라 확인
-                    if (!player.viewCamera ||
-                        player.viewCamera.gameObject.scene != scene)
-                    {
-                        errors.Add(
-                            scene.path +
-                            ": player View Camera does not reference this scene."
-                        );
-                    }
-                    else
-                    {
-                        // 3인칭 카메라 컴포넌트 확인
-                        var cameraController =
-                            player.viewCamera.GetComponent<PlayerCameraController>();
-
-                        if (!cameraController)
-                        {
-                            errors.Add(
-                                scene.path +
-                                ": player camera is missing PlayerCameraController."
-                            );
-                        }
-                        else
-                        {
-                            // 카메라가 해당 플레이어를 따라가는지 확인
-                            if (cameraController.target != player.transform)
-                            {
-                                errors.Add(
-                                    scene.path +
-                                    ": camera target does not reference the local player."
-                                );
-                            }
-
-                            if (!cameraController.isActiveAndEnabled)
-                            {
-                                errors.Add(
-                                    scene.path +
-                                    ": PlayerCameraController is disabled."
-                                );
-                            }
-                        }
-
-
-                        // 플레이어 충돌 및 이동 컴포넌트 확인
-                        if (!player.GetComponent<CharacterController>())
-                        {
-                            errors.Add(
-                                scene.path +
-                                ": player has no CharacterController."
-                            );
-                        }
-                    }
-                }
                 var spawns = Components<MapSpawnPoint>(scene).ToArray();
                 if (spawns.Length == 0) errors.Add(scene.path + ": missing spawn point.");
+                if (!spawns.Any(item => item.spawnId == SceneLoadManager.DefaultSpawnId))
+                    errors.Add(scene.path + ": missing '" + SceneLoadManager.DefaultSpawnId + "' spawn point used when Play starts in this map.");
                 foreach (var group in spawns.GroupBy(item => item.spawnId))
                 {
                     if (string.IsNullOrWhiteSpace(group.Key)) errors.Add(scene.path + ": empty spawn ID.");
