@@ -3,9 +3,6 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
-#if ENABLE_INPUT_SYSTEM
-using UnityEngine.InputSystem;
-#endif
 
 /// <summary>Left-click eats selected food, attacks with a weapon, or punches with an empty hand.</summary>
 [DefaultExecutionOrder(-100)]
@@ -156,23 +153,11 @@ public sealed class PlayerCombat : MonoBehaviour
 
     static Vector2 PointerPosition()
     {
-#if ENABLE_INPUT_SYSTEM
-        return Mouse.current != null ? Mouse.current.position.ReadValue() : Vector2.zero;
-#elif ENABLE_LEGACY_INPUT_MANAGER
-        return Input.mousePosition;
-#else
-        return Vector2.zero;
-#endif
+        return GameInput.PointerPosition;
     }
 
     static bool LeftPressed()
     {
-#if ENABLE_INPUT_SYSTEM
-        return Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame;
-#elif ENABLE_LEGACY_INPUT_MANAGER
-        return Input.GetMouseButtonDown(0);
-#else
-        return false;
-#endif
+        return GameInput.AttackPressed;
     }
 }

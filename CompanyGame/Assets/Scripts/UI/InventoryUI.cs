@@ -4,10 +4,6 @@ using System.Globalization;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
-#if ENABLE_INPUT_SYSTEM
-using UnityEngine.InputSystem;
-using UnityEngine.InputSystem.UI;
-#endif
 
 /// <summary>Square inventory slots, separated outfit/pet equipment, and account withdrawals.</summary>
 public sealed class InventoryUI : MonoBehaviour
@@ -90,7 +86,7 @@ public sealed class InventoryUI : MonoBehaviour
         scaler.uiScaleMode = UnityEngine.UI.CanvasScaler.ScaleMode.ScaleWithScreenSize;
         scaler.referenceResolution = new Vector2(1280f, 720f);
         scaler.matchWidthOrHeight = .5f;
-        EnsureEventSystem();
+        UIEventSystem.Ensure(transform);
         BuildHotbar();
         BuildStatusBars();
         var shade = Panel("InventoryModal", transform, Vector2.zero, new Color(.16f, .13f, .13f, .12f), 0f, 0f);
@@ -654,24 +650,12 @@ public sealed class InventoryUI : MonoBehaviour
 
     static bool TabPressed()
     {
-#if ENABLE_INPUT_SYSTEM
-        return Keyboard.current != null && Keyboard.current.tabKey.wasPressedThisFrame;
-#elif ENABLE_LEGACY_INPUT_MANAGER
-        return Input.GetKeyDown(KeyCode.Tab);
-#else
-        return false;
-#endif
+        return GameInput.NextFieldPressed;
     }
 
     static bool ConfirmPressed()
     {
-#if ENABLE_INPUT_SYSTEM
-        return Keyboard.current != null && (Keyboard.current.enterKey.wasPressedThisFrame || Keyboard.current.numpadEnterKey.wasPressedThisFrame);
-#elif ENABLE_LEGACY_INPUT_MANAGER
-        return Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter);
-#else
-        return false;
-#endif
+        return GameInput.SubmitPressed;
     }
     static string EquipmentName(EquipmentSlot slot)
     {
@@ -696,18 +680,6 @@ public sealed class InventoryUI : MonoBehaviour
         button.onClick.AddListener(() => onClick());
         var navigation = button.navigation; navigation.mode = UnityEngine.UI.Navigation.Mode.None; button.navigation = navigation;
         return button;
-    }
-    void EnsureEventSystem()
-    {
-        var existing = FindFirstObjectByType<EventSystem>();
-        if (existing && existing.GetComponent<BaseInputModule>()) return;
-        var host = existing ? existing.gameObject : new GameObject("InventoryEventSystem", typeof(EventSystem));
-        if (!existing) host.transform.SetParent(transform, false);
-#if ENABLE_INPUT_SYSTEM
-        host.AddComponent<InputSystemUIInputModule>();
-#else
-        host.AddComponent<StandaloneInputModule>();
-#endif
     }
     static RectTransform Rect(string name, Transform parent, Vector2 size)
     {

@@ -1,16 +1,12 @@
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
-using UnityEngine.InputSystem;
 
 /// <summary>Opens/closes the phone with a key and stops player movement while it is open (same approach as ChatUIManager).</summary>
 public class PhoneInputController : MonoBehaviour
 {
     [SerializeField]
     private PhoneManager phone;
-
-    [SerializeField]
-    private Key toggleKey = Key.R;
 
     private PlayerMovement playerMovement;
     private bool movementWasEnabled;
@@ -33,24 +29,23 @@ public class PhoneInputController : MonoBehaviour
 
     private void Update()
     {
-        var keyboard = Keyboard.current;
-        if (keyboard == null || phone == null) return;
+        if (phone == null) return;
         if (ChatUIManager.IsChatting) return;
 
         if (IsTypingInField())
         {
-            if (keyboard.escapeKey.wasPressedThisFrame && EventSystem.current != null)
+            if (GameInput.CancelPressed && EventSystem.current != null)
             {
                 EventSystem.current.SetSelectedGameObject(null);
             }
             return;
         }
 
-        if (keyboard[toggleKey].wasPressedThisFrame)
+        if (GameInput.PhonePressed)
         {
             phone.TogglePhone();
         }
-        else if (phone.IsPhoneOpen && keyboard.escapeKey.wasPressedThisFrame)
+        else if (phone.IsPhoneOpen && GameInput.CancelPressed)
         {
             if (phone.CurrentApp != null) phone.GoHome();
             else phone.ClosePhone();

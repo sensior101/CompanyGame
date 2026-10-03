@@ -1,8 +1,5 @@
 using CompanyGame.Daldongne;
 using UnityEngine;
-#if ENABLE_INPUT_SYSTEM
-using UnityEngine.InputSystem;
-#endif
 
 namespace CompanyGame.World.Maps
 {
@@ -58,11 +55,7 @@ namespace CompanyGame.World.Maps
             // choose the nearest one, regardless of component update order.
             if (focused != this || SceneLoadManager.IsLoading) return;
             bool pressed = false;
-#if ENABLE_INPUT_SYSTEM
-            pressed = Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame;
-#elif ENABLE_LEGACY_INPUT_MANAGER
-            pressed = Input.GetKeyDown(KeyCode.Space);
-#endif
+        pressed = GameInput.InteractPressed;
             if (pressed) SceneLoadManager.TryLoadMap(targetScenePath, targetSpawnId, player);
         }
 

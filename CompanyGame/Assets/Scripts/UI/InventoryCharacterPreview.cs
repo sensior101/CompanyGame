@@ -3,9 +3,6 @@ using CompanyGame.Daldongne;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
-#if ENABLE_INPUT_SYSTEM
-using UnityEngine.InputSystem;
-#endif
 
 public sealed class InventoryCharacterPreview : MonoBehaviour
 {
@@ -91,14 +88,10 @@ public sealed class InventoryCharacterPreview : MonoBehaviour
 
         Vector2 mousePosition;
 
-#if ENABLE_INPUT_SYSTEM
-        if (Mouse.current == null)
+        if (!GameInput.HasPointer)
             return;
-
-        mousePosition = Mouse.current.position.ReadValue();
-#else
-    mousePosition = Input.mousePosition;
-#endif
+        
+        mousePosition = GameInput.PointerPosition;
 
         RectTransform rect = image.rectTransform;
 

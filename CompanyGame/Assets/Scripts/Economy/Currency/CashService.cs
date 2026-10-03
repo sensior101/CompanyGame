@@ -28,8 +28,8 @@ public static class CashService
     static bool transactionInProgress;
 
     public static long BankBalance =>
-        PropertyManager.EnsureInstance()
-            ? PropertyManager.Instance.BankBalance
+        BankManager.EnsureInstance()
+            ? BankManager.Instance.BankBalance
             : 0;
 
 
@@ -146,7 +146,7 @@ public static class CashService
         out string error)
     {
         return TryWithdraw(
-            PropertyManager.EnsureInstance(),
+            BankManager.EnsureInstance(),
             inventory,
             faceValue,
             quantity,
@@ -160,7 +160,7 @@ public static class CashService
     /// or changes neither.
     /// </summary>
     public static bool TryWithdraw(
-        PropertyManager bank,
+        BankManager bank,
         InventoryState inventory,
         long faceValue,
         int quantity,
@@ -259,7 +259,7 @@ public static class CashService
         out string error)
     {
         return TryDeposit(
-            PropertyManager.EnsureInstance(),
+            BankManager.EnsureInstance(),
             inventory,
             sourceIndex,
             1,
@@ -274,7 +274,7 @@ public static class CashService
         out string error)
     {
         return TryDeposit(
-            PropertyManager.EnsureInstance(),
+            BankManager.EnsureInstance(),
             inventory,
             sourceIndex,
             quantity,
@@ -283,7 +283,7 @@ public static class CashService
 
 
     public static bool TryDeposit(
-        PropertyManager bank,
+        BankManager bank,
         InventoryState inventory,
         int sourceIndex,
         out string error)
@@ -297,7 +297,7 @@ public static class CashService
     /// publishing both changes together.
     /// </summary>
     public static bool TryDeposit(
-        PropertyManager bank,
+        BankManager bank,
         InventoryState inventory,
         int sourceIndex,
         int quantity,

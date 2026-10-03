@@ -30,7 +30,7 @@
 | `InventoryCharacterPreview` | 실제 캐릭터의 메시·현재 자세를 별도 카메라로 표시 |
 | `InventorySlotPointer`, `InventoryHandCursor` | 드래그 대상·손 커서 |
 | `WorldDroppedItem` | 월드에 내려놓은 수량·액면가와 지도별 보존·줍기 |
-| `PropertyManager` | 통장 잔액과 변경 알림 |
+| `BankManager` | 통장 잔액과 변경 알림 |
 | `CashService` | 출금·입금, 소지 화폐 합계, 화폐 이전·결제 |
 | `CurrencyIconFactory` | 사용자가 제공한 여섯 화폐 이미지 선택 |
 

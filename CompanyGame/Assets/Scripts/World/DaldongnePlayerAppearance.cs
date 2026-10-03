@@ -1,7 +1,4 @@
 using UnityEngine;
-#if ENABLE_INPUT_SYSTEM
-using UnityEngine.InputSystem;
-#endif
 
 namespace CompanyGame.Daldongne
 {
@@ -22,19 +19,9 @@ namespace CompanyGame.Daldongne
         }
         void Update()
         {
-#if ENABLE_INPUT_SYSTEM
-            var keys = Keyboard.current;
-            if (keys == null) return;
-            // Number keys belong to the inventory hotbar. Appearance shortcuts
-            // remain available explicitly without changing the active item.
-            if (!keys.leftAltKey.isPressed && !keys.rightAltKey.isPressed) return;
-            if (keys.digit1Key.wasPressedThisFrame) Select(Variant.Female);
-            if (keys.digit2Key.wasPressedThisFrame) Select(Variant.Male);
-#elif ENABLE_LEGACY_INPUT_MANAGER
-            if (!Input.GetKey(KeyCode.LeftAlt) && !Input.GetKey(KeyCode.RightAlt)) return;
-            if (Input.GetKeyDown(KeyCode.Alpha1)) Select(Variant.Female);
-            if (Input.GetKeyDown(KeyCode.Alpha2)) Select(Variant.Male);
-#endif
+        int variant = GameInput.AltNumberPressed(2);
+        if (variant == 0) Select(Variant.Female);
+        if (variant == 1) Select(Variant.Male);
         }
     }
 }

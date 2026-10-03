@@ -160,7 +160,7 @@ public static class InventoryV2RuntimeQA
                     originalYaw = ui.CharacterPreview.PreviewYaw;
                     var portrait = ui.CharacterPreview.PortraitRect.gameObject;
                     Check(report, !portrait.GetComponent<InventoryPortraitPointer>(), "Portrait has no right-drag rotation handler");
-                    PropertyManager.Instance.SetMoney(12500000); // Disposable Play-only balance for all six artwork tiers.
+                    BankManager.Instance.SetMoney(12500000); // Disposable Play-only balance for all six artwork tiers.
                     ui.OpenWithdrawal(); WithdrawFields(ui, "1800", "2");
                     report.stage = 19; report.frames = 0; Store(report); return;
                 case 19:

@@ -4,9 +4,6 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
-#if ENABLE_INPUT_SYSTEM
-using UnityEngine.InputSystem;
-#endif
 
 /// <summary>Scene-local inventory input and UI; contents belong to InventoryManager.</summary>
 [DefaultExecutionOrder(-300)]
@@ -577,125 +574,47 @@ public sealed class PlayerInventory : MonoBehaviour
 
     static bool PickupPressed()
     {
-#if ENABLE_INPUT_SYSTEM
-        return Keyboard.current != null && Keyboard.current.fKey.wasPressedThisFrame;
-#elif ENABLE_LEGACY_INPUT_MANAGER
-        return Input.GetKeyDown(KeyCode.F);
-#else
-        return false;
-#endif
+        return GameInput.PickupPressed;
     }
 
     static bool SpacePressed()
     {
-#if ENABLE_INPUT_SYSTEM
-        return Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame;
-#elif ENABLE_LEGACY_INPUT_MANAGER
-        return Input.GetKeyDown(KeyCode.Space);
-#else
-        return false;
-#endif
+        return GameInput.InteractPressed;
     }
 
     static bool SpaceHeld()
     {
-#if ENABLE_INPUT_SYSTEM
-        return Keyboard.current != null && Keyboard.current.spaceKey.isPressed;
-#elif ENABLE_LEGACY_INPUT_MANAGER
-        return Input.GetKey(KeyCode.Space);
-#else
-        return false;
-#endif
+        return GameInput.InteractHeld;
     }
 
     static float WheelNotches()
     {
-#if ENABLE_INPUT_SYSTEM
-        if (Mouse.current == null)
-            return 0f;
-
-        float raw = Mouse.current.scroll.ReadValue().y;
-
-        if (Mathf.Approximately(raw, 0f))
-            return 0f;
-
-        return Mathf.Sign(raw);
-
-#elif ENABLE_LEGACY_INPUT_MANAGER
-    float raw = Input.mouseScrollDelta.y;
-
-    if (Mathf.Approximately(raw, 0f))
-        return 0f;
-
-    return Mathf.Sign(raw);
-
-#else
-    return 0f;
-#endif
+        float raw = GameInput.Scroll;
+        return Mathf.Approximately(raw, 0f) ? 0f : Mathf.Sign(raw);
     }
 
     bool DragButtonReleased()
     {
-#if ENABLE_INPUT_SYSTEM
-        return Mouse.current != null && (dragRightButton?Mouse.current.rightButton:Mouse.current.leftButton).wasReleasedThisFrame;
-#elif ENABLE_LEGACY_INPUT_MANAGER
-        return Input.GetMouseButtonUp(dragRightButton?1:0);
-#else
-        return false;
-#endif
+        return GameInput.ButtonReleased(dragRightButton);
     }
 
     static Vector2 PointerPosition()
     {
-#if ENABLE_INPUT_SYSTEM
-        return Mouse.current != null ? Mouse.current.position.ReadValue() : Vector2.zero;
-#elif ENABLE_LEGACY_INPUT_MANAGER
-        return Input.mousePosition;
-#else
-        return Vector2.zero;
-#endif
+        return GameInput.PointerPosition;
     }
 
     static bool TogglePressed()
     {
-#if ENABLE_INPUT_SYSTEM
-        return Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame;
-#elif ENABLE_LEGACY_INPUT_MANAGER
-        return Input.GetKeyDown(KeyCode.E);
-#else
-        return false;
-#endif
+        return GameInput.InventoryPressed;
     }
 
     static bool EscapePressed()
     {
-#if ENABLE_INPUT_SYSTEM
-        return Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame;
-#elif ENABLE_LEGACY_INPUT_MANAGER
-        return Input.GetKeyDown(KeyCode.Escape);
-#else
-        return false;
-#endif
+        return GameInput.CancelPressed;
     }
 
     static int HotbarPressed()
     {
-#if ENABLE_INPUT_SYSTEM
-        var keys = Keyboard.current;
-        if (keys == null || keys.leftAltKey.isPressed || keys.rightAltKey.isPressed) return -1;
-        if (keys.digit1Key.wasPressedThisFrame) return 0;
-        if (keys.digit2Key.wasPressedThisFrame) return 1;
-        if (keys.digit3Key.wasPressedThisFrame) return 2;
-        if (keys.digit4Key.wasPressedThisFrame) return 3;
-        if (keys.digit5Key.wasPressedThisFrame) return 4;
-        if (keys.digit6Key.wasPressedThisFrame) return 5;
-        if (keys.digit7Key.wasPressedThisFrame) return 6;
-        if (keys.digit8Key.wasPressedThisFrame) return 7;
-#elif ENABLE_LEGACY_INPUT_MANAGER
-        if (Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt)) return -1;
-        for (int i = 0; i < InventoryState.HotbarSize; i++)
-            if (Input.GetKeyDown((KeyCode)((int)KeyCode.Alpha1 + i))) return i;
-#endif
-        return -1;
+        return GameInput.NumberPressed(InventoryState.HotbarSize);
     }
 }

@@ -102,7 +102,7 @@ public static class PlayerHandsRuntimeQA
                     var floor = GameObject.CreatePrimitive(PrimitiveType.Cube); floor.name = "Disposable test floor";
                     floor.transform.position = new Vector3(0, 40, 0); floor.transform.localScale = new Vector3(24, .2f, 24);
                     p.spawn = new Vector3(0, 40.11f, 0); p.ResetToSpawn();
-                    PropertyManager.Instance.SetMoney(100000);
+                    BankManager.Instance.SetMoney(100000);
                     Check(r, CashService.TryWithdraw(inv.Inventory, 1800, 5, out _), "Prepare five selected coins");
                     inv.SelectHotbar(0); camera.firstPerson = false; r.zoom = camera.distance; Pointer(); break;
                 case 1:

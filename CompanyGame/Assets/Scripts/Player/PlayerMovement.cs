@@ -1,8 +1,5 @@
 using UnityEngine;
 
-#if ENABLE_INPUT_SYSTEM
-using UnityEngine.InputSystem;
-#endif
 
 [DisallowMultipleComponent]
 [RequireComponent(typeof(CharacterController))]
@@ -51,37 +48,9 @@ public class PlayerMovement : MonoBehaviour
         bool sprint = false;
         bool reset = false;
 
-#if ENABLE_INPUT_SYSTEM
-
-        var keys = Keyboard.current;
-
-        if (keys != null)
-        {
-            input.x =
-                (keys.dKey.isPressed ? 1 : 0) -
-                (keys.aKey.isPressed ? 1 : 0);
-
-            input.y =
-                (keys.wKey.isPressed ? 1 : 0) -
-                (keys.sKey.isPressed ? 1 : 0);
-
-            sprint = keys.leftShiftKey.isPressed;
-
-            reset = keys.homeKey.wasPressedThisFrame;
-        }
-
-#elif ENABLE_LEGACY_INPUT_MANAGER
-
-        input = new Vector2(
-            Input.GetAxisRaw("Horizontal"),
-            Input.GetAxisRaw("Vertical")
-        );
-
-        sprint = Input.GetKey(KeyCode.LeftShift);
-
-        reset = Input.GetKeyDown(KeyCode.Home);
-
-#endif
+        input = GameInput.Move;
+        sprint = GameInput.SprintHeld;
+        reset = GameInput.ResetPositionPressed;
 
         // Home 키: 플레이어 위치 초기화
         if (reset)

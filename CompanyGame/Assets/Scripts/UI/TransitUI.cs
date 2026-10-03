@@ -4,9 +4,6 @@ using CompanyGame.World.Maps;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
-#if ENABLE_INPUT_SYSTEM
-using UnityEngine.InputSystem.UI;
-#endif
 
 /// <summary>Scene-local transport prompt and destination picker, owned by PlayerInteraction.</summary>
 public sealed class TransitUI : MonoBehaviour
@@ -44,7 +41,7 @@ public sealed class TransitUI : MonoBehaviour
         scaler.uiScaleMode = UnityEngine.UI.CanvasScaler.ScaleMode.ScaleWithScreenSize;
         scaler.referenceResolution = new Vector2(1280f, 720f);
         scaler.matchWidthOrHeight = .5f;
-        EnsureEventSystem();
+        UIEventSystem.Ensure(transform);
 
         var promptRect = Panel("BoardingPrompt", transform, new Vector2(342f, 62f), Ink);
         prompt = promptRect.gameObject;
@@ -193,18 +190,6 @@ public sealed class TransitUI : MonoBehaviour
         close.navigation = closeNavigation;
     }
 
-    void EnsureEventSystem()
-    {
-        var existing = FindFirstObjectByType<EventSystem>();
-        if (existing && existing.GetComponent<BaseInputModule>()) return;
-        var host = existing ? existing.gameObject : new GameObject("TransitEventSystem", typeof(EventSystem));
-        if (!existing) host.transform.SetParent(transform, false);
-#if ENABLE_INPUT_SYSTEM
-        host.AddComponent<InputSystemUIInputModule>();
-#else
-        host.AddComponent<StandaloneInputModule>();
-#endif
-    }
 
     static RectTransform Rect(string name, Transform parent, Vector2 size)
     {

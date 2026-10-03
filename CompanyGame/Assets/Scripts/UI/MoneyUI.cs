@@ -3,30 +3,30 @@ using TMPro;
 
 public class MoneyUI : MonoBehaviour
 {
-    [SerializeField]
-    private PropertyManager propertyManager;
+    [SerializeField, UnityEngine.Serialization.FormerlySerializedAs("bank")]
+    private BankManager bank;
 
     [SerializeField]
     private TMP_Text moneyText;
 
     private void Start()
     {
-        if (propertyManager == null)
+        if (bank == null)
         {
-            propertyManager = PropertyManager.Instance;
+            bank = BankManager.Instance;
         }
 
-        if (propertyManager == null || moneyText == null)
+        if (bank == null || moneyText == null)
         {
-            Debug.LogError("MoneyUI 연결 실패: PropertyManager 또는 MoneyText를 확인하세요.");
+            Debug.LogError("MoneyUI 연결 실패: BankManager 또는 MoneyText를 확인하세요.");
             return;
         }
 
         // 게임 시작 시 현재 잔액 표시
-        UpdateMoneyUI(propertyManager.Money);
+        UpdateMoneyUI(bank.Money);
 
         // 돈이 변경될 때마다 UI 갱신
-        propertyManager.MoneyChanged += OnMoneyChanged;
+        bank.MoneyChanged += OnMoneyChanged;
     }
 
     private void OnMoneyChanged(
@@ -44,9 +44,9 @@ public class MoneyUI : MonoBehaviour
 
     private void OnDestroy()
     {
-        if (propertyManager != null)
+        if (bank != null)
         {
-            propertyManager.MoneyChanged -= OnMoneyChanged;
+            bank.MoneyChanged -= OnMoneyChanged;
         }
     }
 }

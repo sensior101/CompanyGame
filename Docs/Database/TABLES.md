@@ -587,8 +587,8 @@ DB에 매 프레임 모든 값을 쓰지 않는다. 위치/시뮬레이션 상�
 | 코드 모델/값 | 테이블/필드 | 변환 주의 |
 |---|---|---|
 | GameTime.TotalMinutes | worlds.game_minute | 달력 ruleset 별도. SimpleGameClock의 잔여 초와 RNG도 체크포인트에 포함 |
-| PropertyManager.Money | money_accounts(kind=cash).balance | BankAccount와 합쳐 한 money 컬럼으로 만들지 않음 |
-| BankAccountState.balance | money_accounts(kind=bank).balance | 입출금은 두 계좌의 이동 |
+| BankManager.Money | money_accounts(kind=bank).balance | 현금과 합쳐 한 money 컬럼으로 만들지 않음 |
+| CashService.CarriedTotal (인벤토리 지폐·동전) | money_accounts(kind=cash).balance | 입출금은 두 계좌의 이동 |
 | CompanyState | companies + company_growth | ownerId는 characters FK, 고정 NPC 회사는 owner NULL |
 | DailyCompanyRecord | company_daily_records | 코드에 없는 비용·순이익은 새 데이터이며 임의 추정 금지 |
 | StockData / IPO 목록 | stock_listings | companyId FK, 고정 stock_* ID 보존 가능 |

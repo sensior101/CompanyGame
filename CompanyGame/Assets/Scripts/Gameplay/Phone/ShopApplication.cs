@@ -16,7 +16,7 @@ public class ShopApplication : PhoneAppBase
     [SerializeField]
     private List<ShopItem> items = CreateDefaultItems();
 
-    private readonly IWallet wallet = new PropertyWallet();
+    private readonly IWallet wallet = new BankWallet();
 
     public event Action Refreshed;
     public event Action<ShopItem> ItemPurchased;

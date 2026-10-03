@@ -1,15 +1,13 @@
 using System.Collections.Generic;
 using TMPro;
 using UnityEditor;
-using UnityEditor.SceneManagement;
 using UnityEngine;
-using UnityEngine.EventSystems;
-using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
 
-/// <summary>Builds a placeholder phone UI in the open scene. Layout uses layout groups, so designers can restyle freely afterwards.</summary>
+/// <summary>Builds the placeholder phone UI as Resources/PhoneUI.prefab, which GameSystems spawns in every map. Layout uses layout groups, so designers can restyle freely afterwards.</summary>
 public static class PhoneUIBuilder
 {
+    public const string PrefabPath = "Assets/Resources/PhoneUI.prefab";
     private const string FontPath = "Assets/Art/font/NotoSansKR-Regular SDF.asset";
     private const float PhoneWidth = 520f;
     private const float PhoneHeight = 860f;
@@ -32,23 +30,13 @@ public static class PhoneUIBuilder
 
     private static TMP_FontAsset font;
 
-    [MenuItem("CompanyGame/Setup/Create Phone UI In Open Scene")]
+    [MenuItem("CompanyGame/Setup/Build Phone UI Prefab")]
     public static void Create()
     {
-        if (Object.FindAnyObjectByType<PhoneManager>() != null)
-        {
-            EditorUtility.DisplayDialog("Phone UI",
-                "이 씬에는 이미 PhoneManager가 있습니다. 기존 PhoneCanvas를 삭제한 뒤 다시 실행하세요.", "확인");
-            return;
-        }
-
         font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontPath);
         if (font == null) Debug.LogWarning("Phone UI: Korean font not found at " + FontPath + ". Korean text may not render.");
 
-        EnsureEventSystem();
-
-        var canvasGo = new GameObject("PhoneCanvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
-        Undo.RegisterCreatedObjectUndo(canvasGo, "Create Phone UI");
+        var canvasGo = new GameObject("PhoneUI", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
         var canvas = canvasGo.GetComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
         canvas.sortingOrder = 50;
@@ -98,18 +86,10 @@ public static class PhoneUIBuilder
 
         foreach (var screen in screens) screen.SetActive(false);
 
-        EditorSceneManager.MarkSceneDirty(canvasGo.scene);
-        Selection.activeGameObject = canvasGo;
-        Debug.Log("Phone UI created under 'PhoneCanvas'. Save the scene. Open the phone with the R key in Play mode.");
-    }
-
-    private static void EnsureEventSystem()
-    {
-        if (Object.FindAnyObjectByType<EventSystem>() != null) return;
-
-        var go = new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
-        Undo.RegisterCreatedObjectUndo(go, "Create EventSystem");
-        go.GetComponent<InputSystemUIInputModule>().AssignDefaultActions();
+        System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(PrefabPath));
+        PrefabUtility.SaveAsPrefabAsset(canvasGo, PrefabPath);
+        Object.DestroyImmediate(canvasGo);
+        Debug.Log("Phone UI saved to " + PrefabPath + ". Commit it; every map gets the phone in Play mode (R key).");
     }
 
     // ---------------------------------------------------------------- frame

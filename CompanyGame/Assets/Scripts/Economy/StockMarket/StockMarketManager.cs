@@ -87,7 +87,7 @@ public class StockMarketManager : MonoBehaviour
             : new NullMarketEnvironment();
         var rng = settings.randomSeed != 0 ? new System.Random(settings.randomSeed) : new System.Random();
 
-        exchange = new StockExchange(settings, new PropertyWallet(), environment, rng);
+        exchange = new StockExchange(settings, new BankWallet(), environment, rng);
         exchange.PricesUpdated += () => PricesUpdated?.Invoke();
         exchange.NewsPublished += news => NewsPublished?.Invoke(news);
     }

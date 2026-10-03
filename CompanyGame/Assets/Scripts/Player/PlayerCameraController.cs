@@ -2,9 +2,6 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-#if ENABLE_INPUT_SYSTEM
-using UnityEngine.InputSystem;
-#endif
 
 [DisallowMultipleComponent]
 [RequireComponent(typeof(Camera))]
@@ -130,32 +127,10 @@ public class PlayerCameraController : MonoBehaviour
         bool orbit = false;
         bool switchView = false;
 
-#if ENABLE_INPUT_SYSTEM
-
-        if (Mouse.current != null)
-        {
-            mouseDelta = Mouse.current.delta.ReadValue();
-            orbit = Mouse.current.rightButton.isPressed;
-            wheel = Mouse.current.scroll.ReadValue().y / 120f;
-        }
-
-        if (Keyboard.current != null)
-        {
-            switchView = Keyboard.current.tabKey.wasPressedThisFrame;
-        }
-
-#elif ENABLE_LEGACY_INPUT_MANAGER
-
-        mouseDelta = new Vector2(
-            Input.GetAxis("Mouse X"),
-            Input.GetAxis("Mouse Y")
-        ) * 10f;
-
-        orbit = Input.GetMouseButton(1);
-        wheel = Input.mouseScrollDelta.y;
-        switchView = Input.GetKeyDown(KeyCode.Tab);
-
-#endif
+        mouseDelta = GameInput.PointerDelta;
+        orbit = GameInput.OrbitHeld;
+        wheel = GameInput.Scroll;
+        switchView = GameInput.ViewTogglePressed;
 
         if (PlayerInventory.CurrencyScrollCapturedThisFrame || PlayerInventory.HotbarScrollCapturedThisFrame) wheel = 0f;
 

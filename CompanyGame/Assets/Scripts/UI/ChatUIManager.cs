@@ -2,7 +2,6 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
-using UnityEngine.InputSystem;
 using TMPro;
 
 public class ChatUIManager : MonoBehaviour
@@ -90,14 +89,8 @@ public class ChatUIManager : MonoBehaviour
 
     private void Update()
     {
-        Keyboard keyboard = Keyboard.current;
-
-        if (keyboard == null)
-            return;
-
         // Enter Ű
-        if (keyboard.enterKey.wasPressedThisFrame ||
-            keyboard.numpadEnterKey.wasPressedThisFrame)
+        if (GameInput.SubmitPressed)
         {
             if (!isChatOpen)
             {
@@ -112,7 +105,7 @@ public class ChatUIManager : MonoBehaviour
         }
 
         // ESC Ű
-        if (keyboard.escapeKey.wasPressedThisFrame && isChatOpen)
+        if (GameInput.CancelPressed && isChatOpen)
         {
             CloseChat();
         }

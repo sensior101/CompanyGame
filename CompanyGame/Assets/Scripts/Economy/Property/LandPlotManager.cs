@@ -81,7 +81,7 @@ public class LandPlotManager : MonoBehaviour
         if (plot == null || string.IsNullOrEmpty(plot.Id)) return LandPlotResult.NotFound;
         if (GetState(plot.Id) != LandPlotState.Available) return LandPlotResult.WrongState;
 
-        var wallet = PropertyManager.Instance;
+        var wallet = BankManager.Instance;
         if (wallet == null) return LandPlotResult.NoWallet;
         if (!wallet.TrySpend(plot.Price, MoneyChangeReason.Purchase)) return LandPlotResult.NotEnoughMoney;
 

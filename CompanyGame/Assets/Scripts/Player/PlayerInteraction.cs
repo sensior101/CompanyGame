@@ -6,9 +6,6 @@ using CompanyGame.World.Maps;
 using TMPro;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
-#if ENABLE_INPUT_SYSTEM
-using UnityEngine.InputSystem;
-#endif
 
 [DefaultExecutionOrder(-200)]
 [DisallowMultipleComponent]
@@ -303,34 +300,16 @@ public class PlayerInteraction : MonoBehaviour
 
     static bool SpacePressed()
     {
-#if ENABLE_INPUT_SYSTEM
-        return Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame;
-#elif ENABLE_LEGACY_INPUT_MANAGER
-        return Input.GetKeyDown(KeyCode.Space);
-#else
-        return false;
-#endif
+        return GameInput.InteractPressed;
     }
 
     static bool SpaceHeld()
     {
-#if ENABLE_INPUT_SYSTEM
-        return Keyboard.current != null && Keyboard.current.spaceKey.isPressed;
-#elif ENABLE_LEGACY_INPUT_MANAGER
-        return Input.GetKey(KeyCode.Space);
-#else
-        return false;
-#endif
+        return GameInput.InteractHeld;
     }
 
     static bool EscapePressed()
     {
-#if ENABLE_INPUT_SYSTEM
-        return Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame;
-#elif ENABLE_LEGACY_INPUT_MANAGER
-        return Input.GetKeyDown(KeyCode.Escape);
-#else
-        return false;
-#endif
+        return GameInput.CancelPressed;
     }
 }

@@ -34,7 +34,7 @@
 | 영역 | 현재 코드의 상태 | DB 설계에 반영한 내용 |
 |---|---|---|
 | 시간 | `GameTime`, `SimpleGameClock` 구현. 계절당 20일 | `worlds.game_minute`, `game_rulesets.days_per_season`. 신규 월드는 PDF의 30일 제안 |
-| 재화/은행 | `PropertyManager`, `PropertyWallet`, `BankAccount`의 현금/예금 | 현금/예금을 별도 `money_accounts` 행으로 관리하고 거래 원장과 함께 저장 |
+| 재화/은행 | `BankManager`(계좌 잔액), `CashService`(인벤토리 지폐·동전)의 예금/현금 | 현금/예금을 별도 `money_accounts` 행으로 관리하고 거래 원장과 함께 저장 |
 | 회사 | `CompanyState`, 일별 매출·수요·점유율, 세 가지 기존 레벨 | 회사 상태·일별 실적·업종별 성장 항목 분리. 순이익/비용은 신규 제안 |
 | 주식 | 종목, 시세, 시간별 갱신, 매매, 보유 주식, IPO, 뉴스 | 시세 현재값/이력/체결/보유량/뉴스 분리. 실행 시간과 식별자 추가 |
 | 경제 이벤트 | 정의, 업종별 충격, 활성 이벤트 | 이벤트 정의와 월드별 발생 인스턴스 분리 |
@@ -43,7 +43,7 @@
 | 저장/아이템/퀘스트/세금/토지 | `SaveManager` 등 대부분 틀만 있음 | 해당 테이블은 구현 완료 모델이 아니라 기획 기반 제안 |
 | 서버 | 현재 브랜치의 `Server`는 README만 존재 | MySQL 인증/접속 테이블은 신규 제안. 다른 브랜치의 API와 확정 통합된 명세가 아님 |
 
-주요 코드 근거: [GameTime.cs](../../CompanyGame/Assets/Scripts/Core/GameTime.cs), [PropertyManager.cs](../../CompanyGame/Assets/Scripts/Economy/Property/PropertyManager.cs), [CompanyState.cs](../../CompanyGame/Assets/Scripts/Economy/Company/CompanyState.cs), [StockExchange.cs](../../CompanyGame/Assets/Scripts/Economy/StockMarket/StockExchange.cs), [SaveManager.cs](../../CompanyGame/Assets/Scripts/Core/SaveManager.cs).
+주요 코드 근거: [GameTime.cs](../../CompanyGame/Assets/Scripts/Core/GameTime.cs), [BankManager.cs](../../CompanyGame/Assets/Scripts/Economy/Bank/BankManager.cs), [CompanyState.cs](../../CompanyGame/Assets/Scripts/Economy/Company/CompanyState.cs), [StockExchange.cs](../../CompanyGame/Assets/Scripts/Economy/StockMarket/StockExchange.cs), [SaveManager.cs](../../CompanyGame/Assets/Scripts/Core/SaveManager.cs).
 
 역할 분담상 **성진: 시간·날짜, 주식 로직, 씬 이동**, **채영: 서버 연동, 휴대폰 서비스/UI, 주식 뉴스**다. 따라서 성진은 월드 시간·시세·매매·회사 실적에 필요한 데이터 계약을 먼저 정하고, 채영과 인증 ID·거래 요청/응답·저장 트랜잭션을 합의하는 순서가 맞다. PDF에는 DB 전체 설계의 단독 담당자가 명시되지 않았다.
 

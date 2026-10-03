@@ -26,7 +26,7 @@ public static class CashModelQA
             return JsonUtility.ToJson(report, true);
         }
         var bankHost = new GameObject("Cash QA disposable bank") { hideFlags = HideFlags.HideAndDontSave };
-        var bank = bankHost.AddComponent<PropertyManager>();
+        var bank = bankHost.AddComponent<BankManager>();
         var items = new List<ItemData>();
         try
         {
@@ -201,7 +201,7 @@ public static class CashModelQA
         return JsonUtility.ToJson(report, true);
     }
 
-    static void ValidateZeroCurrency(Report report, PropertyManager bank)
+    static void ValidateZeroCurrency(Report report, BankManager bank)
     {
         long previousBalance = bank.Money;
         bank.SetMoney(0);

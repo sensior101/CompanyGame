@@ -18,10 +18,10 @@ public static class InventorySceneSetup
             systems = new GameObject("00_Systems").transform;
             systems.SetParent(map.transform, false);
         }
-        var banks = map.GetComponentsInChildren<PropertyManager>(true);
+        var banks = map.GetComponentsInChildren<BankManager>(true);
         if (banks.Length == 0)
         {
-            var bank = new GameObject("Bank").AddComponent<PropertyManager>();
+            var bank = new GameObject("Bank").AddComponent<BankManager>();
             bank.transform.SetParent(systems, false);
             var serialized = new SerializedObject(bank);
             serialized.FindProperty("startingMoney").longValue = fallbackStartingBalance;

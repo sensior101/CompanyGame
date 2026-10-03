@@ -3,9 +3,6 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
-#if ENABLE_INPUT_SYSTEM
-using UnityEngine.InputSystem;
-#endif
 
 /// <summary>Two-sided recipes and a live two-row inventory. Payment happens on drop.</summary>
 public sealed class StoreTradeUI : MonoBehaviour
@@ -144,11 +141,7 @@ public sealed class StoreTradeUI : MonoBehaviour
     public void CancelDrag(){Session?.CancelPending();RefreshCursor();}
     void Update()
     {
-#if ENABLE_INPUT_SYSTEM
-        if(Mouse.current!=null){var position=Mouse.current.position.ReadValue();if(IsDragging){MoveDrag(position);if((DragUsesRight?Mouse.current.rightButton:Mouse.current.leftButton).wasReleasedThisFrame)EndDrag(position);}else if(hovered)ShowTooltip(hovered,position);}
-#elif ENABLE_LEGACY_INPUT_MANAGER
-        if(IsDragging){MoveDrag(Input.mousePosition);if(Input.GetMouseButtonUp(DragUsesRight?1:0))EndDrag(Input.mousePosition);}else if(hovered)ShowTooltip(hovered,Input.mousePosition);
-#endif
+        if(GameInput.HasPointer){var position=GameInput.PointerPosition;if(IsDragging){MoveDrag(position);if(GameInput.ButtonReleased(DragUsesRight))EndDrag(position);}else if(hovered)ShowTooltip(hovered,position);}
         // Keep two full rows inside small game views as well as wide desktop views.
         var bounds=((RectTransform)transform).rect;float s=Mathf.Min(1,Mathf.Min((bounds.width-24)/740,(bounds.height-24)/600));window.localScale=Vector3.one*Mathf.Max(.1f,s);
     }
