@@ -51,7 +51,8 @@ public class SimpleGameClock : MonoBehaviour, IGameClock
 
     private void Update()
     {
-        if (paused) return;
+        // Only single player and the host advance time; clients get it from the host.
+        if (paused || !GameSession.IsAuthority) return;
 
         carrySeconds += Time.deltaTime;
         float secondsPerMinute = realSecondsPerGameHour / GameTime.MinutesPerHour;
