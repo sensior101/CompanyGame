@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
-using UnityEngine.SceneManagement;
 
 /// <summary>Scene-local inventory input and UI; contents belong to InventoryManager.</summary>
 [DefaultExecutionOrder(-300)]
@@ -512,7 +511,7 @@ public sealed class PlayerInventory : MonoBehaviour
         if (ui) return;
         if (!uiFont && interaction) uiFont = interaction.uiFont;
         ui = InventoryUI.Create(this, uiFont);
-        SceneManager.MoveGameObjectToScene(ui.gameObject, SceneLoadManager.CurrentMap);
+        DontDestroyOnLoad(ui.gameObject);
     }
 
     void SuspendControls() => controls.Hold(movement);

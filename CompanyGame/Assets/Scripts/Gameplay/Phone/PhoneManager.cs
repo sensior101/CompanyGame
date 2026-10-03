@@ -45,7 +45,6 @@ public class PhoneManager : GameSystem<PhoneManager>
     public void OpenPhone()
     {
         bool wasOpen = IsPhoneOpen;
-        UIEventSystem.Ensure(null);
         if (phoneRoot != null) phoneRoot.SetActive(true);
         RefreshHome();
         if (!wasOpen && IsPhoneOpen) OpenStateChanged?.Invoke(true);

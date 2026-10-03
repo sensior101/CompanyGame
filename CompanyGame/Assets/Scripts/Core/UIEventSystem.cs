@@ -12,13 +12,11 @@ public static class UIEventSystem
         return selected && (selected.GetComponentInParent<TMPro.TMP_InputField>() || selected.GetComponentInParent<UnityEngine.UI.InputField>());
     }
 
-    /// <summary>Maps without an EventSystem still need one for runtime UI clicks.</summary>
-    public static void Ensure(Transform owner)
+    /// <summary>Creates the one game-wide EventSystem; maps must not contain their own.</summary>
+    public static void Ensure()
     {
-        var existing = Object.FindAnyObjectByType<EventSystem>();
-        if (existing && existing.GetComponent<BaseInputModule>()) return;
-        var host = existing ? existing.gameObject : new GameObject("UIEventSystem", typeof(EventSystem));
-        if (!existing) host.transform.SetParent(owner, false);
-        host.AddComponent<InputSystemUIInputModule>();
+        if (Object.FindAnyObjectByType<EventSystem>()) return;
+        var host = new GameObject("UIEventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
+        Object.DontDestroyOnLoad(host);
     }
 }

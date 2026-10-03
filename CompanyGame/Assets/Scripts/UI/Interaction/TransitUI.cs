@@ -41,7 +41,6 @@ public sealed class TransitUI : MonoBehaviour
         scaler.uiScaleMode = UnityEngine.UI.CanvasScaler.ScaleMode.ScaleWithScreenSize;
         scaler.referenceResolution = new Vector2(1280f, 720f);
         scaler.matchWidthOrHeight = .5f;
-        UIEventSystem.Ensure(transform);
 
         var promptRect = Panel("BoardingPrompt", transform, new Vector2(342f, 62f), Ink);
         prompt = promptRect.gameObject;

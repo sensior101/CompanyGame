@@ -89,6 +89,10 @@ public class ChatUIManager : MonoBehaviour
 
     private void Update()
     {
+        // Enter in another text field (phone, withdrawal) belongs to that field.
+        if (!isChatOpen && UIEventSystem.IsEditingText())
+            return;
+
         // Enter Ű
         if (GameInput.SubmitPressed)
         {

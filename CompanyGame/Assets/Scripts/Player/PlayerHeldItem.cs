@@ -114,11 +114,12 @@ public sealed class PlayerHeldItem : MonoBehaviour
         var inventory = InventoryManager.Instance ? InventoryManager.Instance.State : null;
         if (inventory == null || !viewRig) return;
         Transform currentArm = FindRightArm();
-        bool changedArm = arm != currentArm;
+        bool newArm = arm != currentArm;
+        bool changedArm = newArm || (currentArm && !viewArm);
         if (changedArm)
         {
             arm = currentArm;
-            if (arm) { armRest = arm.localRotation; BuildArm(); }
+            if (arm) { if (newArm) armRest = arm.localRotation; BuildArm(); }
         }
         var stack = inventory.GetSlot(inventory.SelectedHotbarIndex);
         ItemData selected = stack != null && !stack.IsEmpty ? stack.Item : null;

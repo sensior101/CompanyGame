@@ -9,6 +9,8 @@ static class GameSystems
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
     static void Create()
     {
+        // UI input first, so a failing manager below cannot leave the game without clicks.
+        UIEventSystem.Ensure();
         // Order matters: the clock first, then the systems that read it or each other on startup.
         BankManager.EnsureInstance();
         Spawn<SimpleGameClock>();
@@ -18,14 +20,18 @@ static class GameSystems
         Spawn<SnsManager>();
         Spawn<LandPlotManager>();
 
-        // Built by CompanyGame/Setup/Build Phone UI Prefab.
-        var phoneUI = Resources.Load<GameObject>("PhoneUI");
-        if (phoneUI)
-        {
-            var phone = Object.Instantiate(phoneUI);
-            phone.name = phoneUI.name;
-            Object.DontDestroyOnLoad(phone);
-        }
+        // PhoneUI is built by CompanyGame/Setup/Build Phone UI Prefab; ChatUI was moved out of daldongnaemap.
+        SpawnPrefab("PhoneUI");
+        SpawnPrefab("ChatUI");
+    }
+
+    static void SpawnPrefab(string name)
+    {
+        var prefab = Resources.Load<GameObject>(name);
+        if (!prefab) return;
+        var instance = Object.Instantiate(prefab);
+        instance.name = prefab.name;
+        Object.DontDestroyOnLoad(instance);
     }
 
     static void Spawn<T>() where T : Component

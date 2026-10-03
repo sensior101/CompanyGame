@@ -86,7 +86,6 @@ public sealed partial class InventoryUI : MonoBehaviour
         scaler.uiScaleMode = UnityEngine.UI.CanvasScaler.ScaleMode.ScaleWithScreenSize;
         scaler.referenceResolution = new Vector2(1280f, 720f);
         scaler.matchWidthOrHeight = .5f;
-        UIEventSystem.Ensure(transform);
         BuildHotbar();
         BuildStatusBars();
         var shade = Panel("InventoryModal", transform, Vector2.zero, new Color(.16f, .13f, .13f, .12f), 0f, 0f);
