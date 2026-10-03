@@ -1,0 +1,16 @@
+{
+  "checks": {
+    "Wrong amount leaves inventory unchanged": true,
+    "1500 buys one rice ball": true,
+    "Output must be collected before repeat": true,
+    "Collect into chosen slot": true,
+    "Cannot duplicate collected output": true,
+    "Closing before collecting retains owned item": true,
+    "Full inventory rejects stacked payment atomically": true,
+    "Single payment reuses own slot when full": true,
+    "Non-currency cannot pay": true
+  },
+  "passed": 9,
+  "failed": 0,
+  "error": null
+}

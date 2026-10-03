@@ -18,6 +18,9 @@ public sealed class SceneLoadManager : MonoBehaviour
     PlayerMovement sourcePlayer;
     bool sourceWasEnabled;
     bool hasAppearance;
+    bool hasVitals;
+    Vector3 savedVitals;
+    float savedStaminaCost;
     DaldongnePlayerAppearance.Variant savedAppearance;
     string destinationPath;
     string destinationSpawnId;
@@ -61,6 +64,13 @@ public sealed class SceneLoadManager : MonoBehaviour
         IsLoading = true;
         runner.sourcePlayer = player;
         runner.sourceWasEnabled = player.enabled;
+        var stats = player.GetComponent<PlayerStats>();
+        runner.hasVitals = stats;
+        if (stats)
+        {
+            runner.savedVitals = new Vector3(stats.health, stats.stamina, stats.stress);
+            runner.savedStaminaCost = stats.PendingStaminaCost;
+        }
         var appearance = player.GetComponent<DaldongnePlayerAppearance>();
         runner.hasAppearance = appearance != null;
         if (appearance) runner.savedAppearance = appearance.selected;
@@ -176,6 +186,12 @@ public sealed class SceneLoadManager : MonoBehaviour
         player.transform.rotation = Quaternion.Euler(0f, spawnPoint.transform.eulerAngles.y, 0f);
         var appearance = player.GetComponent<DaldongnePlayerAppearance>();
         if (hasAppearance && appearance) appearance.Select(savedAppearance);
+        if (hasVitals)
+        {
+            var stats = player.GetComponent<PlayerStats>();
+            if (!stats) stats = player.gameObject.AddComponent<PlayerStats>();
+            stats.RestoreVitals(savedVitals, savedStaminaCost);
+        }
     }
 
     void RestoreSourceIfPresent()

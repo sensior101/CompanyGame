@@ -19,6 +19,7 @@ public class PlayerMovement : MonoBehaviour
     public Vector3 spawn = new Vector3(-17.5f, 1.08f, -27f);
 
     private CharacterController motor;
+    private PlayerStats stats;
     private float verticalSpeed;
     private Vector3 lastSafePosition;
 
@@ -117,12 +118,22 @@ public class PlayerMovement : MonoBehaviour
             speed *= sprintMultiplier;
 
         // 플레이어 이동
+        Vector3 beforeMove = transform.position;
         motor.Move(
             (
                 motion * speed +
                 Vector3.up * verticalSpeed
             ) * Time.deltaTime
         );
+
+        if (motion.sqrMagnitude > .001f && motor.isGrounded)
+        {
+            if (!stats) stats = GetComponent<PlayerStats>();
+            float travelled = Vector3.ProjectOnPlane(transform.position - beforeMove, Vector3.up).magnitude;
+            // Count achieved movement, excluding blocked input and teleports.
+            if (stats) stats.RecordTravel(Mathf.Min(travelled, speed * Time.deltaTime), speed, sprint);
+        }
+
 
         // 이동 방향으로 캐릭터 회전
         if (motion.sqrMagnitude > 0.01f)
