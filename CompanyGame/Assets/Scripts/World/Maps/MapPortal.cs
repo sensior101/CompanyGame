@@ -18,7 +18,6 @@ namespace CompanyGame.World.Maps
         static int selectionFrame = -1;
         static float closestDistance;
         PlayerMovement player;
-        float nextPlayerLookup;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetStatics()
@@ -37,11 +36,7 @@ namespace CompanyGame.World.Maps
                 closestDistance = float.PositiveInfinity;
             }
             if (SceneLoadManager.IsLoading) return;
-            if ((!player || !player.isActiveAndEnabled) && Time.unscaledTime >= nextPlayerLookup)
-            {
-                nextPlayerLookup = Time.unscaledTime + .5f;
-                SceneLoadManager.TryGetScenePlayer(gameObject.scene, out player, out _);
-            }
+            player = SceneLoadManager.Player;
             if (!player || !player.isActiveAndEnabled) return;
             float distance = (player.transform.position - transform.position).sqrMagnitude;
             if (distance > interactionRadius * interactionRadius || distance >= closestDistance) return;

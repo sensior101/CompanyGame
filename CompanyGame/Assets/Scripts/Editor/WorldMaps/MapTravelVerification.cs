@@ -311,7 +311,7 @@ namespace CompanyGame.Editor.WorldMaps
             Require(SceneManager.sceneCount == 1, "More than one map scene is loaded.");
             var players = Object.FindObjectsByType<PlayerMovement>()
                 .Where(item => item.isActiveAndEnabled).ToArray();
-            Require(players.Length == 1 && players[0].gameObject.scene == scene, "Expected exactly one active scene-local player.");
+            Require(players.Length == 1 && players[0] == SceneLoadManager.Player, "Expected exactly one active player.");
             var cameras = Object.FindObjectsByType<Camera>()
                 .Where(item => item.isActiveAndEnabled).ToArray();
             Require(cameras.Length == 1 && cameras[0].gameObject.scene == scene, "Expected exactly one active scene-local camera.");
@@ -319,7 +319,8 @@ namespace CompanyGame.Editor.WorldMaps
 
         static PlayerMovement GetPlayer(Scene scene)
         {
-            Require(SceneLoadManager.TryGetScenePlayer(scene, out var player, out var error), error);
+            var player = SceneLoadManager.Player;
+            Require(player && player.isActiveAndEnabled, "No active player.");
             return player;
         }
 

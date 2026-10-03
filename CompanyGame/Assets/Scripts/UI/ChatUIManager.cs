@@ -120,6 +120,7 @@ public class ChatUIManager : MonoBehaviour
 
         IsChatting = true;
 
+        if (playerMovement == null) playerMovement = SceneLoadManager.Player;
         if (playerMovement != null)
         {
             wasMovementEnabled = playerMovement.enabled;

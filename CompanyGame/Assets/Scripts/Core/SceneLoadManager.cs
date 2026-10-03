@@ -1,29 +1,27 @@
 using System;
 using System.Collections;
-using CompanyGame.Daldongne;
 using CompanyGame.World.Maps;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
 /// <summary>
-/// Loads one map at a time. Only this short-lived transition host survives the
-/// load; each scene owns its player, camera and lights.
+/// Loads one map at a time. The player is spawned once from Resources/Player and
+/// carried between maps; each scene owns only its camera, lights and spawn points.
 /// </summary>
 public sealed class SceneLoadManager : MonoBehaviour
 {
+    public const string DefaultSpawnId = "default";
+    const string PlayerPrefab = "Player";
+
     public static bool IsLoading { get; private set; }
     public static string LastError { get; private set; } = string.Empty;
 
+    /// <summary>The one player, kept across map loads.</summary>
+    public static PlayerMovement Player { get; private set; }
+
     static SceneLoadManager runner;
-    PlayerMovement sourcePlayer;
-    bool sourceWasEnabled;
-    bool hasAppearance;
-    bool hasVitals;
-    Vector3 savedVitals;
-    float savedStaminaCost;
-    DaldongnePlayerAppearance.Variant savedAppearance;
+    static string pendingSpawnId;
     string destinationPath;
-    string destinationSpawnId;
     bool arrivalHandled;
     float dismissAt;
 
@@ -32,7 +30,10 @@ public sealed class SceneLoadManager : MonoBehaviour
     {
         // Domain reload can be disabled in Enter Play Mode settings.
         SceneManager.sceneLoaded -= HandleSceneLoaded;
+        SceneManager.sceneLoaded += HandleSceneLoaded;
         runner = null;
+        Player = null;
+        pendingSpawnId = null;
         IsLoading = false;
         LastError = string.Empty;
     }
@@ -53,60 +54,18 @@ public sealed class SceneLoadManager : MonoBehaviour
             SceneUtility.GetBuildIndexByScenePath(path) < 0 || !Application.CanStreamedLevelBeLoaded(path))
             return Reject("Map is not enabled in the build scene list: " + path);
         if (spawnId.Length == 0) return Reject("The destination spawn ID is empty.");
-        if (!player || !player.isActiveAndEnabled || !player.gameObject.scene.IsValid())
-            return Reject("A map transition requires an active scene-local player.");
-        if (!TryGetScenePlayer(player.gameObject.scene, out var uniquePlayer, out var playerError) ||
-            uniquePlayer != player)
-            return Reject(playerError ?? "The requesting player does not belong to this map.");
+        if (!player || player != Player || !player.isActiveAndEnabled)
+            return Reject("Only the active player can change maps.");
 
         EnsureRunner();
         LastError = string.Empty;
         IsLoading = true;
-        runner.sourcePlayer = player;
-        runner.sourceWasEnabled = player.enabled;
-        var stats = player.GetComponent<PlayerStats>();
-        runner.hasVitals = stats;
-        if (stats)
-        {
-            runner.savedVitals = new Vector3(stats.health, stats.stamina, stats.stress);
-            runner.savedStaminaCost = stats.PendingStaminaCost;
-        }
-        var appearance = player.GetComponent<DaldongnePlayerAppearance>();
-        runner.hasAppearance = appearance != null;
-        if (appearance) runner.savedAppearance = appearance.selected;
+        pendingSpawnId = spawnId;
         runner.destinationPath = path;
-        runner.destinationSpawnId = spawnId;
         runner.arrivalHandled = false;
         player.enabled = false;
         runner.StartCoroutine(runner.LoadMap());
         return true;
-    }
-
-    /// <summary>Resolves exactly one enabled walker in the supplied scene.</summary>
-    public static bool TryGetScenePlayer(Scene scene, out PlayerMovement player, out string error)
-    {
-        player = null;
-        error = null;
-        if (!scene.IsValid() || !scene.isLoaded)
-        {
-            error = "The map scene is not loaded.";
-            return false;
-        }
-        foreach (var root in scene.GetRootGameObjects())
-        foreach (var candidate in root.GetComponentsInChildren<PlayerMovement>(false))
-        {
-            if (!candidate.isActiveAndEnabled) continue;
-            if (player)
-            {
-                player = null;
-                error = "Map '" + scene.name + "' contains multiple active players. Keep one scene-local player.";
-                return false;
-            }
-            player = candidate;
-        }
-        if (player) return true;
-        error = "Map '" + scene.name + "' has no active PlayerMovement.";
-        return false;
     }
 
     static void EnsureRunner()
@@ -119,86 +78,105 @@ public sealed class SceneLoadManager : MonoBehaviour
 
     static bool Reject(string error)
     {
-        EnsureRunner();
-        runner.ReportError(error);
+        Report(error);
         return false;
     }
 
-    void ReportError(string error)
+    static void Report(string error)
     {
+        EnsureRunner();
         LastError = error;
-        dismissAt = Time.unscaledTime + 10f;
+        runner.dismissAt = Time.unscaledTime + 10f;
         Debug.LogError("[Map transition] " + error);
     }
 
     IEnumerator LoadMap()
     {
         AsyncOperation operation = null;
-        SceneManager.sceneLoaded += HandleSceneLoaded;
         try
         {
             try { operation = SceneManager.LoadSceneAsync(destinationPath, LoadSceneMode.Single); }
-            catch (Exception exception) { ReportError("Could not load map: " + exception.Message); }
+            catch (Exception exception) { Report("Could not load map: " + exception.Message); }
 
             if (operation != null)
             {
                 yield return operation;
                 if (!arrivalHandled)
-                    ReportError("The scene load finished without the expected destination: " + destinationPath);
+                    Report("The scene load finished without the expected destination: " + destinationPath);
             }
             else if (string.IsNullOrEmpty(LastError))
-                ReportError("Unity could not start the scene load: " + destinationPath);
+                Report("Unity could not start the scene load: " + destinationPath);
         }
         finally
         {
-            SceneManager.sceneLoaded -= HandleSceneLoaded;
             IsLoading = false;
-            RestoreSourceIfPresent();
+            if (Player) Player.enabled = true;
             if (string.IsNullOrEmpty(LastError)) Dismiss();
         }
     }
 
     static void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
     {
-        if (!runner || !IsLoading || !string.Equals(scene.path, runner.destinationPath, StringComparison.Ordinal)) return;
-        runner.arrivalHandled = true;
-        try { runner.PlaceArrival(scene); }
-        catch (Exception exception) { runner.ReportError("Could not initialize map arrival: " + exception.Message); }
+        if (mode != LoadSceneMode.Single) return;
+        bool arrival = IsLoading && runner && string.Equals(scene.path, runner.destinationPath, StringComparison.Ordinal);
+        if (arrival) runner.arrivalHandled = true;
+        try { PlacePlayer(scene, arrival ? pendingSpawnId : DefaultSpawnId, arrival); }
+        catch (Exception exception) { Report("Could not initialize map arrival: " + exception.Message); }
     }
 
-    void PlaceArrival(Scene scene)
+    static void PlacePlayer(Scene scene, string spawnId, bool spawnRequired)
     {
-        if (!TryGetScenePlayer(scene, out var player, out var playerError))
+        if (!Player) Spawn(scene);
+        if (!Player)
         {
-            ReportError(playerError);
-            return;
-        }
-        if (!MapSpawnPoint.TryFind(scene, destinationSpawnId, out var spawnPoint, out var spawnError))
-        {
-            // Keep the destination's own default rather than choosing an
-            // arbitrary first match. Fix the ID in the portal/spawn Inspector.
-            ReportError(spawnError);
+            Report("No player. Run CompanyGame/Setup/Move Scene Players To Prefab to create Resources/Player.prefab.");
             return;
         }
 
-        player.spawn = spawnPoint.transform.position;
-        player.ResetToSpawn(); // Also resets falling velocity and safe reset position.
-        player.transform.rotation = Quaternion.Euler(0f, spawnPoint.transform.eulerAngles.y, 0f);
-        var appearance = player.GetComponent<DaldongnePlayerAppearance>();
-        if (hasAppearance && appearance) appearance.Select(savedAppearance);
-        if (hasVitals)
+        if (MapSpawnPoint.TryFind(scene, spawnId, out var spawnPoint, out var spawnError))
         {
-            var stats = player.GetComponent<PlayerStats>();
-            if (!stats) stats = player.gameObject.AddComponent<PlayerStats>();
-            stats.RestoreVitals(savedVitals, savedStaminaCost);
+            Player.spawn = spawnPoint.transform.position;
+            Player.ResetToSpawn(); // Also resets falling velocity and safe reset position.
+            Player.transform.rotation = Quaternion.Euler(0f, spawnPoint.transform.eulerAngles.y, 0f);
+        }
+        else if (spawnRequired)
+            // Keep the player where it is rather than choosing an arbitrary spawn.
+            // Fix the ID in the portal/spawn Inspector.
+            Report(spawnError);
+
+        BindCamera(scene);
+    }
+
+    static void Spawn(Scene scene)
+    {
+        var prefab = Resources.Load<PlayerMovement>(PlayerPrefab);
+        if (prefab)
+        {
+            Player = Instantiate(prefab);
+            Player.name = PlayerPrefab;
+            DontDestroyOnLoad(Player.gameObject);
+            return;
+        }
+
+        // ponytail: maps not yet migrated still carry their own player; drop once every map uses the prefab.
+        foreach (var root in scene.GetRootGameObjects())
+        {
+            Player = root.GetComponentInChildren<PlayerMovement>(false);
+            if (Player) return;
         }
     }
 
-    void RestoreSourceIfPresent()
+    static void BindCamera(Scene scene)
     {
-        if (!sourcePlayer) return;
-        sourcePlayer.enabled = sourceWasEnabled;
-        sourcePlayer = null;
+        foreach (var root in scene.GetRootGameObjects())
+        {
+            var follow = root.GetComponentInChildren<PlayerCameraController>(true);
+            if (!follow) continue;
+            follow.target = Player.transform;
+            Player.viewCamera = follow.GetComponent<Camera>();
+            return;
+        }
+        Player.viewCamera = Camera.main;
     }
 
     void Update()
@@ -217,8 +195,6 @@ public sealed class SceneLoadManager : MonoBehaviour
     void OnDestroy()
     {
         if (runner != this) return;
-        SceneManager.sceneLoaded -= HandleSceneLoaded;
-        RestoreSourceIfPresent();
         IsLoading = false;
         runner = null;
     }
