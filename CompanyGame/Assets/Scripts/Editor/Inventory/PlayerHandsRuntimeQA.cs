@@ -90,7 +90,7 @@ public static class PlayerHandsRuntimeQA
             if (!EditorApplication.isPlaying || EditorApplication.isPaused || SceneLoadManager.IsLoading || r.lastFrame == Time.frameCount) return;
             r.lastFrame = Time.frameCount; r.frames++; Store(r);
             if (r.frames < (r.stage == 0 || r.stage == 22 ? 40 : 15)) return;
-            var p = UnityEngine.Object.FindFirstObjectByType<PlayerMovement>(); if (!p) return;
+            var p = UnityEngine.Object.FindAnyObjectByType<PlayerMovement>(); if (!p) return;
             var inv = p.GetComponent<PlayerInventory>(); var held = p.GetComponent<PlayerHeldItem>(); var combat = p.GetComponent<PlayerCombat>();
             var camera = p.viewCamera.GetComponent<PlayerCameraController>();
             switch (r.stage)

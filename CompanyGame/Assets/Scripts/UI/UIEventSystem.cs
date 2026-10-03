@@ -7,7 +7,7 @@ public static class UIEventSystem
 {
     public static void Ensure(Transform owner)
     {
-        var existing = Object.FindFirstObjectByType<EventSystem>();
+        var existing = Object.FindAnyObjectByType<EventSystem>();
         if (existing && existing.GetComponent<BaseInputModule>()) return;
         var host = existing ? existing.gameObject : new GameObject("UIEventSystem", typeof(EventSystem));
         if (!existing) host.transform.SetParent(owner, false);

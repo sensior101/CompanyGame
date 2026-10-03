@@ -44,7 +44,7 @@ public sealed class PlayerHeldItem : MonoBehaviour
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void AttachLoadedPlayers()
     {
-        foreach (var player in FindObjectsByType<PlayerInventory>(FindObjectsSortMode.None))
+        foreach (var player in FindObjectsByType<PlayerInventory>())
             if (!player.GetComponent<PlayerHeldItem>()) player.gameObject.AddComponent<PlayerHeldItem>();
     }
     static void AttachScene(Scene scene, LoadSceneMode mode) { AttachLoadedPlayers(); }

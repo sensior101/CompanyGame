@@ -23,7 +23,7 @@ namespace CompanyGame.World.Maps
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void RegisterLoaded()
         {
-            foreach(var point in FindObjectsByType<StoreInteractionPoint>(FindObjectsSortMode.None))
+            foreach(var point in FindObjectsByType<StoreInteractionPoint>())
                 if(point.isActiveAndEnabled)active.Add(point);
         }
         void OnEnable() { active.Add(this); }

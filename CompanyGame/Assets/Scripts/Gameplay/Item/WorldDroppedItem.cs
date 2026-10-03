@@ -259,7 +259,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
             if (canvas) canvas.worldCamera = camera;
         }
         bool visible = false;
-        foreach (var player in FindObjectsByType<PlayerInventory>(FindObjectsSortMode.None))
+        foreach (var player in FindObjectsByType<PlayerInventory>())
         {
             if (!player || gameObject.scene != SceneLoadManager.CurrentMap || !player.CanPickUpWorldItems) continue;
             if (!IsReachableFrom(player, 3f)) continue;

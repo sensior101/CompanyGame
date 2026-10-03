@@ -97,7 +97,7 @@ namespace CompanyGame.Editor.WorldMaps
         {
             var g=new GameObject("Sign_"+text.Replace("\n"," "),typeof(RectTransform));var t=g.transform;t.SetParent(parent,false);t.localPosition=p;t.localRotation=Quaternion.Euler(0,yaw,0);
             var tm=g.AddComponent<TextMeshPro>();tm.font=AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/Art/font/NotoSansKR-Regular SDF.asset");
-            tm.text=text;tm.color=color;tm.alignment=TextAlignmentOptions.Center;tm.enableWordWrapping=false;tm.enableAutoSizing=true;tm.fontSizeMin=.2f;tm.fontSizeMax=30;tm.rectTransform.sizeDelta=new Vector2(width,height);tm.isOrthographic=false;
+            tm.text=text;tm.color=color;tm.alignment=TextAlignmentOptions.Center;tm.textWrappingMode=TextWrappingModes.NoWrap;tm.enableAutoSizing=true;tm.fontSizeMin=.2f;tm.fontSizeMax=30;tm.rectTransform.sizeDelta=new Vector2(width,height);tm.isOrthographic=false;
             const string path=AssetsRoot+"/Materials/KoreanWorldSigns.mat";var mat=AssetDatabase.LoadAssetAtPath<Material>(path);
             if(!mat){mat=new Material(tm.font.material){name="Korean World Signs",shader=Shader.Find("TextMeshPro/Distance Field")};mat.SetFloat("unity_GUIZTestMode",(float)CompareFunction.LessEqual);AssetDatabase.CreateAsset(mat,path);}
             tm.fontSharedMaterial=mat;tm.ForceMeshUpdate(true,true);

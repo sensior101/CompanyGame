@@ -248,8 +248,8 @@ public class PlayerInteraction : MonoBehaviour
         suspendedControls.Clear();
         // Closed chat controllers also listen for Enter/Escape. Pause them while
         // keyboard navigation belongs to the destination picker.
-        foreach (var chat in FindObjectsByType<ChatUIManager>(FindObjectsSortMode.None)) Suspend(chat);
-        foreach (var cameraController in FindObjectsByType<PlayerCameraController>(FindObjectsSortMode.None))
+        foreach (var chat in FindObjectsByType<ChatUIManager>()) Suspend(chat);
+        foreach (var cameraController in FindObjectsByType<PlayerCameraController>())
             if (cameraController.target == transform) Suspend(cameraController);
         movement.enabled = false;
         if (EventSystem.current) EventSystem.current.SetSelectedGameObject(null);

@@ -128,7 +128,7 @@ public static class InventoryV2RuntimeQA
             if (report.lastFrame == Time.frameCount) return;
             report.lastFrame = Time.frameCount; report.frames++; Store(report);
             if (report.frames < (report.stage == 0 || report.stage == 11 || report.stage == 13 ? 35 : 9)) return;
-            var player = UnityEngine.Object.FindFirstObjectByType<PlayerMovement>();
+            var player = UnityEngine.Object.FindAnyObjectByType<PlayerMovement>();
             if (!player) return;
             var inv = player.GetComponent<PlayerInventory>(); var ui = inv.UserInterface;
             var controller = player.viewCamera.GetComponent<PlayerCameraController>();
@@ -138,7 +138,7 @@ public static class InventoryV2RuntimeQA
                 case 0:
                     Check(report, ui && !inv.IsOpen && ui.HotbarSlotCount == 8 && ui.StorageSlotCount == 16 && ui.EquipmentSlotCount == 5,
                         "Eight quick slots, sixteen storage slots, four clothing and one pet");
-                    Check(report, UnityEngine.Object.FindObjectsByType<MoneyUI>(FindObjectsInactive.Include, FindObjectsSortMode.None).Length == 0,
+                    Check(report, UnityEngine.Object.FindObjectsByType<MoneyUI>(FindObjectsInactive.Include).Length == 0,
                         "Permanent MoneyUI is removed");
                     Check(report, CashService.BankBalance == 10000 && CashService.CarriedTotal(inv.Inventory) == 0, "Existing bank balance retained; carried cash starts empty");
                     keyboard = InputSystem.AddDevice<Keyboard>("Inventory V2 QA Keyboard"); keyboard.MakeCurrent();
@@ -209,7 +209,7 @@ public static class InventoryV2RuntimeQA
                     Check(report, inv.BeginDragInventory(15) && inv.DropIntoWorld(), "Drag can discard from the inventory without a visible discard button");
                     Check(report, inventory.GetSlot(15).IsEmpty && WorldDroppedItem.SessionDropCount == 1, "World discard creates currency stack"); break;
                 case 6:
-                    Check(report, UnityEngine.Object.FindFirstObjectByType<WorldDroppedItem>().CurrencyTotal == 3600 &&
+                    Check(report, UnityEngine.Object.FindAnyObjectByType<WorldDroppedItem>().CurrencyTotal == 3600 &&
                         CashService.CarriedTotal(inventory) == 11110100, "World drop retains exact denomination and quantity");
                     Capture("inventory-equipped"); Press(Key.E); break;
                 case 7:
@@ -229,9 +229,9 @@ public static class InventoryV2RuntimeQA
                 case 16:
                     Capture("inventory-expanded");
                     Check(report, inv.BeginDragInventory(14) && inv.DropIntoWorld(), "Drop cash before scene round trip");
-                    report.dropId = UnityEngine.Object.FindFirstObjectByType<WorldDroppedItem>().DropId;
+                    report.dropId = UnityEngine.Object.FindAnyObjectByType<WorldDroppedItem>().DropId;
                     inv.CloseInventory();
-                    var station = UnityEngine.Object.FindObjectsByType<TransitStop>(FindObjectsSortMode.None).Single(t => t.kind == TransitKind.Subway);
+                    var station = UnityEngine.Object.FindObjectsByType<TransitStop>().Single(t => t.kind == TransitKind.Subway);
                     player.spawn = station.BoardingPosition; player.ResetToSpawn(); Press();
                     report.stage = 17; report.frames = 0; Store(report); return;
                 case 17:
@@ -246,12 +246,12 @@ public static class InventoryV2RuntimeQA
                 case 11:
                     Check(report, player.gameObject.scene.path == CityDistrictBuilder.PathFor(1) && ReferenceEquals(inv.Inventory, inventory) &&
                         CashService.BankBalance == 1386300 && CashService.CarriedTotal(inventory) == 11110100, "Bank and inventory retain separate balances on map change");
-                    Check(report, WorldDroppedItem.SessionDropCount == 1 && !UnityEngine.Object.FindFirstObjectByType<WorldDroppedItem>(), "Dropped cash stays in its original map");
+                    Check(report, WorldDroppedItem.SessionDropCount == 1 && !UnityEngine.Object.FindAnyObjectByType<WorldDroppedItem>(), "Dropped cash stays in its original map");
                     Check(report, travel.OpenDestinationMenu(), "Open return transport"); break;
                 case 12:
                     Check(report, travel.TryTravelTo(TerracedVillageExpansion.ScenePath), "Return to Daldongne"); break;
                 case 13:
-                    var dropped = UnityEngine.Object.FindFirstObjectByType<WorldDroppedItem>();
+                    var dropped = UnityEngine.Object.FindAnyObjectByType<WorldDroppedItem>();
                     Check(report, dropped && dropped.DropId == report.dropId && dropped.CurrencyTotal == 3600, "Same physical cash restored on return");
                     player.spawn = dropped.transform.position + new Vector3(0, .1f, -.7f); player.ResetToSpawn(); Press(Key.F); break;
                 case 14:

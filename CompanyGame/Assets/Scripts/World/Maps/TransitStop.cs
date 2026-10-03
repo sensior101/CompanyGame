@@ -27,7 +27,7 @@ namespace CompanyGame.World.Maps
         static void RegisterLoadedStops()
         {
             // Also works when Enter Play Mode has both domain and scene reload disabled.
-            foreach (var stop in FindObjectsByType<TransitStop>(FindObjectsSortMode.None))
+            foreach (var stop in FindObjectsByType<TransitStop>())
                 if (stop.isActiveAndEnabled) activeStops.Add(stop);
         }
 

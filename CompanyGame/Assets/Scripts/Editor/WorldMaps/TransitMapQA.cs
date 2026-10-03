@@ -397,7 +397,7 @@ namespace CompanyGame.Editor.WorldMaps
             tour.stage = stage;
             tour.frame = Time.frameCount;
             tour.waitedFrames = 0;
-            tour.sceneHandle = SceneManager.GetActiveScene().handle;
+            tour.sceneHandle = SceneManager.GetActiveScene().GetHashCode();
             Store(tour);
         }
 
@@ -438,9 +438,9 @@ namespace CompanyGame.Editor.WorldMaps
                 var scene = SceneManager.GetActiveScene();
                 // Count frames after the new scene becomes active. A load may consume
                 // many frames, and a Play/domain restart may reset the counter entirely.
-                if (tour.sceneHandle != scene.handle || Time.frameCount < tour.frame)
+                if (tour.sceneHandle != scene.GetHashCode() || Time.frameCount < tour.frame)
                 {
-                    tour.sceneHandle = scene.handle;
+                    tour.sceneHandle = scene.GetHashCode();
                     tour.frame = Time.frameCount;
                     tour.waitedFrames = 0;
                     Store(tour);

@@ -231,7 +231,7 @@ public sealed class PlayerInventory : MonoBehaviour
     {
         string message = amount.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) + "원을 지갑에 도로 넣었다.";
         Debug.Log("[시스템] " + message);
-        foreach (var chat in FindObjectsByType<ChatUIManager>(FindObjectsSortMode.None))
+        foreach (var chat in FindObjectsByType<ChatUIManager>())
             if (chat) chat.ShowPopup("시스템", message);
     }
 
@@ -488,7 +488,7 @@ public sealed class PlayerInventory : MonoBehaviour
         if (!CanPickUpWorldItems) return false;
         WorldDroppedItem nearest = null;
         float bestDistance = 3f * 3f;
-        foreach (var item in FindObjectsByType<WorldDroppedItem>(FindObjectsSortMode.None))
+        foreach (var item in FindObjectsByType<WorldDroppedItem>())
         {
             if (item.gameObject.scene != SceneLoadManager.CurrentMap || item.Count <= 0) continue;
             float distance = (item.transform.position - transform.position).sqrMagnitude;
@@ -518,8 +518,8 @@ public sealed class PlayerInventory : MonoBehaviour
         previousSelection = EventSystem.current ? EventSystem.current.currentSelectedGameObject : null;
         hasControlSnapshot = true;
         suspendedControls.Clear();
-        foreach (var chat in FindObjectsByType<ChatUIManager>(FindObjectsSortMode.None)) Suspend(chat);
-        foreach (var cameraController in FindObjectsByType<PlayerCameraController>(FindObjectsSortMode.None))
+        foreach (var chat in FindObjectsByType<ChatUIManager>()) Suspend(chat);
+        foreach (var cameraController in FindObjectsByType<PlayerCameraController>())
             if (cameraController.target == transform) Suspend(cameraController);
         // Chat.OnDisable can restore the movement state it previously captured.
         // Apply our movement lock after pausing the chat controllers.

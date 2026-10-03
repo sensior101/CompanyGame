@@ -63,7 +63,7 @@ public sealed class SceneLoadManager : MonoBehaviour
             // Should not happen with one spawned player; keep the one that asked to travel.
             Debug.LogWarning("[Map transition] Tracked player was " + (Player ? Player.name : "none") +
                 "; travelling with " + player.name + ". Active players: " +
-                FindObjectsByType<PlayerMovement>(FindObjectsSortMode.None).Length);
+                FindObjectsByType<PlayerMovement>().Length);
             Player = player;
         }
 
