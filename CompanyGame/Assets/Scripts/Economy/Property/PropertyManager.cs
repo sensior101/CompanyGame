@@ -80,7 +80,7 @@ public class PropertyManager : MonoBehaviour
     public static PropertyManager Instance { get; private set; }
 
     [SerializeField, Min(0)]
-    private long startingMoney;
+    private long startingMoney = 100000L;
 
     private long currentMoney;
 

@@ -75,18 +75,24 @@ public static class SetupConvenienceGameplay
     static StoreOffer[] CreateOffers()
     {
         var rows=new[]{
-            ("TriangleGimbap","삼각김밥","food:gimbap",1500),
-            ("CupRamen","컵라면","food:cup-ramen",2000),
-            ("LunchBox","편의점 도시락","food:lunch-box",5000),
-            ("Water","생수","food:water",700),
-            ("EnergyBar","에너지바","food:energy-bar",1800),
-            ("EnergyDrink","에너지드링크","food:energy-drink",2500),
-            ("Cola","콜라","food:cola",1500),
-            ("Chips","과자","food:chips",2000),
-            ("Chocolate","초콜렛","food:chocolate",1500),
-            ("Jelly","젤리","food:jelly",1500)
+            ("TriangleGimbap","삼각김밥","food:gimbap",1500,7,0,0),
+            ("CupRamen","컵라면","food:cup-ramen",2000,8,0,0),
+            ("LunchBox","편의점 도시락","food:lunch-box",5000,10,0,0),
+            ("Water","생수","food:water",700,0,2,0),
+            ("EnergyBar","에너지바","food:energy-bar",1800,0,7,0),
+            ("EnergyDrink","에너지드링크","food:energy-drink",2500,0,10,0),
+            ("Cola","콜라","food:cola",1500,0,0,2),
+            ("Chips","과자","food:chips",2000,0,0,3),
+            ("Chocolate","초콜렛","food:chocolate",1500,0,0,3),
+            ("Jelly","젤리","food:jelly",1500,0,0,3)
         };
-        return rows.Select(r=>new StoreOffer{item=Item(r.Item1,r.Item2,r.Item3),price=r.Item4}).ToArray();
+        return rows.Select(r=>
+        {
+            var item=Item(r.Item1,r.Item2,r.Item3);
+            item.healthRestore=r.Item5;item.staminaRestore=r.Item6;item.stressRelief=r.Item7;
+            EditorUtility.SetDirty(item);AssetDatabase.SaveAssetIfDirty(item);
+            return new StoreOffer{item=item,price=r.Item4};
+        }).ToArray();
     }
     // Update only merchandise so later catalog edits preserve scene/player/NPC edits.
     public static string UpdateCatalog()

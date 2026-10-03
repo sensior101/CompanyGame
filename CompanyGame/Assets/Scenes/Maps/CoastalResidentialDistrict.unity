@@ -1103,17 +1103,15 @@ MonoBehaviour:
   femaleVisuals: {fileID: 342841245}
   maleVisuals: {fileID: 1362635158}
   firstPerson: 0
+  initialPitch: 25
   firstPersonEyeHeight: 1.6
   firstPersonFOV: 85
   thirdPersonFOV: 50
   distance: 6
-  minDistance: 3
-  maxDistance: 22
   targetHeight: 2.2
   mouseSensitivity: 0.22
   minPitch: -80
   maxPitch: 80
-  zoomSpeed: 10
   enableHeadBob: 1
   walkBobSpeed: 10
   walkBobAmount: 0.1
@@ -41602,7 +41600,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ebe7e83806fe4a34ebb7a575087fa62e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PropertyManager
-  startingMoney: 10000
+  startingMoney: 100000
 --- !u!1 &1687326425
 GameObject:
   m_ObjectHideFlags: 0

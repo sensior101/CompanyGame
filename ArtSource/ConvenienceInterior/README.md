@@ -1,0 +1,84 @@
+# 편의점 내부 모델
+
+제공된 두 사진의 공통 구성과 배치를 참고한 독립형 편의점 내부입니다.
+단위는 미터이며 실내 크기는 약 9 × 10 m, 천장 높이는 3.3 m입니다.
+사진만으로 치수를 확정할 수 없어 통로와 가구는 게임 배치를 위한 추정 치수입니다.
+
+## 파일
+
+- `ConvenienceStoreInterior.blend`: 재질, 조명, 3개 카메라와 이름별 메시를 포함한 편집 원본
+- `ConvenienceStoreInterior.glb`: 텍스처가 포함된 범용 3D 모델
+- `../../CompanyGame/Assets/Art/Interiors/ConvenienceStore/ConvenienceStoreInterior.prefab`: URP 재질, 충돌 영역, 실내 조명, 진입 위치를 포함한 Unity 프리팹
+- `../../CompanyGame/Assets/Scenes/Interiors/ConvenienceStoreInterior.unity`: 출입·플레이어·직원 거래가 연결된 Unity 씬
+- `Previews/01_Entrance.png`, `02_Reverse.png`: Blender 실내 렌더
+- `Previews/03_Cutaway.png`: 내부 배치 확인을 위해 벽·천장을 숨긴 렌더
+- `Previews/04_Unity.png`: Unity 프리팹 렌더
+- `unity-validation.json`: Unity 생성 및 통로 검사 결과
+
+달동네 씬에서 편의점 문 앞으로 가면 `들어가기 [SPACE]`가 표시됩니다.
+스페이스바로 입장한 뒤 계산대 직원 앞에서 `대화하기 [SPACE]`를 사용하세요.
+내부 출입구의 `나가기 [SPACE]`로 같은 편의점 앞으로 돌아옵니다.
+실내는 1인칭으로 시작하며 WASD 이동, 우클릭 드래그 시 시점 회전을 사용합니다.
+
+## 직원 거래
+
+- 왼쪽: 지불할 화폐. 오른쪽: 받을 상품. 아래: 현재 인벤토리 2줄(8칸씩).
+- 거래창은 사진처럼 세로 6개 × 가로 3묶음, 총 18자리입니다. 10종 상품을 채우고 나머지 8자리는 빈 거래칸으로 표시합니다.
+- 오른쪽 받을 상품은 짙은 회색 슬롯, 왼쪽 지불 화폐는 슬롯 배경 없이 표시합니다. 거래창과 별도 인벤토리 창은 반투명 흰색입니다. 아이템에 마우스를 올리면 이름(화폐는 금액)이 표시되고, 오른쪽 아래에는 개수만 표시합니다.
+- 거래 중에는 하단 퀵슬롯을 숨기고 닫을 때 복원합니다. 최신 화면과 검증 결과는 `DirectPurchaseQA/`에 있습니다.
+- 삼각김밥 1개는 **1,500원 화폐 1개**, 컵라면 1개는 **2,000원 화폐 1개**입니다.
+- 나머지 가격: 편의점 도시락 5,000원, 생수 700원, 에너지바 1,800원, 에너지드링크 2,500원, 콜라 1,500원, 과자 2,000원, 초콜렛 1,500원, 젤리 1,500원. 모두 해당 액면 화폐 1개로 구매합니다.
+- 오른쪽 상품을 직접 좌클릭 드래그합니다. 해당 금액의 화폐가 인벤토리에 있으면 즉시 1개를 차감하고 상품이 커서에 붙습니다. 화폐가 없으면 상품을 집을 수 없습니다.
+- 상품을 인벤토리의 빈 칸이나 같은 상품 칸에 놓으면 구매가 완료됩니다. 삼각김밥을 세 번 드래그해서 같은 칸에 놓으면 1,500원 화폐 3개가 차감되고 삼각김밥 3개가 쌓입니다. 왼쪽 화폐는 가격 안내입니다.
+- 한 번에 화폐 1개만 교환합니다. 같은 화폐가 여러 개 쌓여 있어도 나머지는 유지됩니다.
+- 거래용/일반 인벤토리 모두 내부 이동은 좌클릭 드래그 시 스택 전체, 우클릭 드래그 시 1개입니다. 같은 아이템 칸에 놓으면 합쳐지고, 거래용 커서에는 들고 있는 수량이 표시됩니다.
+- 다른 금액의 화폐로는 상품을 집을 수 없습니다. 놓을 칸이 가득 찼거나 다른 아이템이 있으면 상품은 커서에 유지됩니다.
+- 상품을 회수하기 전 ESC/닫기로 종료하면 미완료 거래는 취소되고 화폐가 환불됩니다. 창을 닫는 것만으로 상품이 생기지 않습니다.
+- 화폐가 필요하면 기존 인벤토리 지갑 출금 기능에서 정확한 금액을 꺼내 사용합니다. 테스트 화폐를 기본 지급하지 않습니다.
+- 확장된 24칸 인벤토리는 페이지 버튼으로 나머지 칸을 보며 화면에는 계속 2줄만 표시합니다.
+- 상품만 갱신할 때는 `SetupConvenienceGameplay.UpdateCatalog`를 실행합니다. 사진 아이콘과 외곽 두께 모델은 `ImportFoodPhotoSprites.Import`로 재생성합니다.
+- `StoreFoods.jpg`는 사용자가 첨부한 사진의 원본 복사본입니다(동일 SHA-256). Sprite Editor의 외곽 메시로 사진을 잘라 사용하며 uGUI 아이콘과 드래그 이미지에 `useSpriteMesh`를 적용해 네모 배경이 나오지 않게 했습니다. `PhotoModels/`는 같은 외곽을 0.054m 두께로 만든 손/바닥용 모델입니다.
+- 최신 검증: 상품 직접 구매, 자동 차감, 양쪽 인벤토리에서 4개 전체 이동 및 우클릭 1개 분리/합치기 등 플레이 32개와 데이터 23개 검사를 통과했습니다 (`DirectPurchaseQA/`). 이전 폴더의 화면/검사 기록은 과거 거래 방식의 기록입니다.
+
+## 구성
+
+- 왼쪽 계산대, POS, 커피 머신, 온장고, 후면 상품 선반과 천장 메뉴판
+- 중앙 양면 진열대 2열 및 앞뒤 진열대, 과자·컵라면과 가격표
+- 뒤쪽 및 오른쪽 유리문 냉장고 총 10칸, 간편식 냉장 진열장
+- 유리 상판 아이스크림 냉동고, 취식 테이블과 초록색 의자
+- 미닫이 출입구(열린 상태), 물 진열대, 직원 문
+- 크림색 타일, 초록·주황 띠, 천장 패널, 형광등, 에어컨, CCTV
+
+포장과 안내판은 새로 그린 그래픽입니다. 사진의 실제 브랜드 포장을 그대로 복제하지 않았습니다.
+113개 메시 파트, 22개 재질, 약 49만 삼각형으로 구성된 상세 모델입니다.
+가구별 메시가 재질에 따라 나뉘므로 개별 상품은 Blender 편집 모드에서 분리할 수 있습니다.
+저사양·모바일용 LOD와 라이트 베이크는 포함하지 않습니다.
+
+## 검증 범위
+
+Unity에서 메시·재질을 생성하고 프리팹을 실제 렌더했습니다.
+높이 1.8 m, 반지름 0.35 m 캡슐과 35개 BoxCollider를 사용해 입구에서
+계산대, 중앙 통로, 뒤·오른쪽 냉장고, 냉동고, 취식 공간까지 6개 경로를 검사했습니다.
+격자 탐색 간격은 0.12 m이며 경로 내부를 0.03 m 간격으로 재검사했습니다.
+검사는 Edit Mode에서 Physics.ComputePenetration으로 수행했습니다.
+추가로 Play Mode에서 실제 스페이스바/W 입력과 좌클릭 드래그 이벤트를 넣어
+출입 왕복, 직원 대화, 두 상품 결제·회수, 지갑 잔액 및 아이템 수량 보존 등 25개 검사를 통과했습니다.
+거래 데이터의 원자성·잘못된 금액·가득 찬 인벤토리·중복 회수 방지 9개 검사도 통과했습니다.
+결과와 실제 화면은 `GameplayQA/`에 있습니다. NavMesh 및 냉장고 문 애니메이션은 포함하지 않습니다.
+
+## 재생성
+
+1. Pillow가 있는 Python으로 `make_graphics.py` 실행
+2. Blender 5.x에서 `build_interior.py` 실행 (`-- --no-render`는 미리보기 렌더 생략)
+3. Unity 에디터가 이 프로젝트를 연 상태에서 다음 명령 실행:
+
+```powershell
+unity command run_script --project-path 'C:/서현/프로젝트/companyGame/CompanyGame' --caller plugin --skill unity-cli --file '../ArtSource/ConvenienceInterior/ImportConvenienceInterior.cs' --entry ImportConvenienceInterior.Build --timeout_ms 180000 --timeout 190
+unity command run_script --project-path 'C:/서현/프로젝트/companyGame/CompanyGame' --caller plugin --skill unity-cli --file '../ArtSource/ConvenienceInterior/ImportConvenienceInterior.cs' --entry ImportConvenienceInterior.Preview
+unity command run_script --project-path 'C:/서현/프로젝트/companyGame/CompanyGame' --caller plugin --skill unity-cli --file 'AgentScripts/SetupConvenienceGameplay.cs' --entry SetupConvenienceGameplay.Build
+```
+
+`ConvenienceStore.meshdata.json.gz`는 축·법선·UV를 유지하는 재생성용 데이터입니다.
+Blender 원본은 Z-up, Unity 자산은 Y-up이며 입구에서 실내 쪽이 Unity +Z입니다.
+모델 재생성은 내부 씬을 덮어쓰므로 마지막 gameplay 연결 명령도 실행해야 합니다.
+게임플레이 연결 명령은 달동네 씬을 연 Edit Mode에서 실행하며 기존 씬의 현재 편집 내용도 함께 저장합니다.

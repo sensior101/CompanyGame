@@ -50,7 +50,7 @@ public sealed class TransitUI : MonoBehaviour
         prompt = promptRect.gameObject;
         promptRect.anchorMin = promptRect.anchorMax = new Vector2(.5f, 0f);
         promptRect.pivot = new Vector2(.5f, 0f);
-        promptRect.anchoredPosition = new Vector2(0f, 100f);
+        promptRect.anchoredPosition = new Vector2(0f, 148f);
         var stripe = Panel("Accent", promptRect, new Vector2(5f, 42f), Mint);
         stripe.anchoredPosition = new Vector2(-164f, 0f);
         promptLabel = Label("Action", promptRect, "", 23f, Paper, new Vector2(214f, 52f));

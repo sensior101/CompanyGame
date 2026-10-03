@@ -7,7 +7,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 #endif
 
-/// <summary>Left-click attacks with the selected hotbar weapon, or punches with an empty/non-weapon hand.</summary>
+/// <summary>Left-click eats selected food, attacks with a weapon, or punches with an empty hand.</summary>
 [DefaultExecutionOrder(-100)]
 [DisallowMultipleComponent]
 [RequireComponent(typeof(PlayerMovement))]
@@ -68,6 +68,14 @@ public sealed class PlayerCombat : MonoBehaviour
     public bool TryAttack()
     {
         if (!CanAttack) return false;
+        var selected = inventory ? inventory.Inventory.GetSlot(inventory.Inventory.SelectedHotbarIndex) : null;
+        if (selected != null && !selected.IsEmpty && selected.Item.IsConsumable)
+        {
+            var stats = GetComponent<PlayerStats>();
+            bool consumed = stats && stats.TryConsume(inventory.Inventory, inventory.Inventory.SelectedHotbarIndex);
+            if (consumed) nextAttackTime = Time.time + .25f;
+            return consumed;
+        }
         ItemData weapon = SelectedWeapon;
         bool shot = weapon && weapon.weaponKind == WeaponKind.Firearm;
         float range = weapon ? Mathf.Max(.1f, weapon.weaponRange) : Mathf.Max(.1f, punchRange);

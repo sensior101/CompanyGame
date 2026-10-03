@@ -16,6 +16,13 @@ public class ItemData : ScriptableObject
     [Min(1)] public int maxStack = 1;
     [SerializeField] private long currencyValue;
 
+    [Header("Food effects (per item)")]
+    [Min(0f)] public float healthRestore;
+    [Min(0f)] public float staminaRestore;
+    [Min(0f)] public float stressRelief;
+    public bool IsConsumable => category == ItemCategory.General &&
+        (healthRestore > 0f || staminaRestore > 0f || stressRelief > 0f);
+
     [Header("Held appearance")]
     public GameObject heldPrefab;
     public Vector3 heldLocalPosition = Vector3.zero;

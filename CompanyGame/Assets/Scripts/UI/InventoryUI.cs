@@ -26,6 +26,8 @@ public sealed class InventoryUI : MonoBehaviour
     PlayerInventory owner;
     PlayerInteraction interaction;
     RectTransform quickSlots;
+    PlayerStats playerStats;
+    readonly RectTransform[] statusFills = new RectTransform[3];
     TMP_FontAsset font;
     GameObject modal;
     RectTransform window, grid, storageCard, withdrawalWindow, bankButton;
@@ -90,6 +92,7 @@ public sealed class InventoryUI : MonoBehaviour
         scaler.matchWidthOrHeight = .5f;
         EnsureEventSystem();
         BuildHotbar();
+        BuildStatusBars();
         var shade = Panel("InventoryModal", transform, Vector2.zero, new Color(.16f, .13f, .13f, .12f), 0f, 0f);
         Stretch(shade);
         modal = shade.gameObject;
@@ -138,6 +141,67 @@ public sealed class InventoryUI : MonoBehaviour
         layout.childAlignment = TextAnchor.UpperCenter;
         BuildWithdrawal(); BuildDragVisual(); BuildTooltip();
         modal.SetActive(false);
+    }
+
+    void BuildStatusBars()
+    {
+        playerStats = owner.GetComponent<PlayerStats>();
+        if (!playerStats) playerStats = owner.gameObject.AddComponent<PlayerStats>();
+        var row = Rect("PlayerStatusBars", quickSlots, new Vector2(618f, 36f));
+        row.anchorMin = row.anchorMax = new Vector2(.5f, 1f);
+        row.pivot = new Vector2(.5f, 0f);
+        row.anchoredPosition = new Vector2(0f, 10f);
+        var layout = row.gameObject.AddComponent<UnityEngine.UI.HorizontalLayoutGroup>();
+        layout.spacing = 12f;
+        layout.childControlWidth = layout.childControlHeight = false;
+        layout.childForceExpandWidth = layout.childForceExpandHeight = false;
+        string[] names = { "Health", "Stamina", "Stress" };
+        var colors = new[] { new Color(.91f,.19f,.25f), new Color(.36f,.36f,.94f), new Color(1f,.49f,.13f) };
+        var glyphs = new[] { InventoryGlyphGraphic.Glyph.Heart, InventoryGlyphGraphic.Glyph.Energy, InventoryGlyphGraphic.Glyph.Stress };
+        for (int i = 0; i < 3; i++)
+        {
+            var card = Panel(names[i], row, new Vector2(198f,36f), WindowColor, 15f, 15f);
+            Icon("Icon", card, glyphs[i], new Vector2(24f,24f), colors[i]).anchoredPosition = new Vector2(-77f,0f);
+            if (i == 2)
+            {
+                // Dark eyes/brows and mouth are geometry, never font characters.
+                var face = card.Find("Icon");
+                foreach (float x in new[] { -4.5f, 4.5f })
+                {
+                    var brow = Panel("Brow", face, new Vector2(6f,2f), Ink, 0f, 0f);
+                    brow.anchoredPosition = new Vector2(x,3f);
+                    brow.localRotation = Quaternion.Euler(0f,0f,x < 0 ? -20f : 20f);
+                }
+                var mouth = Panel("Mouth", face, new Vector2(8f,2f), Ink, 1f, 1f);
+                mouth.GetComponent<InventoryRoundedGraphic>().borderWidth = 0f;
+                mouth.anchoredPosition = new Vector2(0f,-4f);
+            }
+            var track = Panel("Track", card, new Vector2(140f,12f), new Color(.16f,.17f,.22f,.22f), 6f, 6f);
+            track.anchoredPosition = new Vector2(17f,0f);
+            var fill = Panel("Fill", track, Vector2.zero, colors[i], 5f, 5f);
+            fill.GetComponent<InventoryRoundedGraphic>().borderWidth = 0f;
+            fill.anchorMin = Vector2.zero; fill.anchorMax = Vector2.one;
+            fill.offsetMin = fill.offsetMax = Vector2.zero;
+            statusFills[i] = fill;
+        }
+        UpdateStatusBars();
+    }
+
+    void UpdateStatusBars()
+    {
+        if (!playerStats) return;
+        SetStatusFill(0, playerStats.health);
+        SetStatusFill(1, playerStats.stamina);
+        SetStatusFill(2, playerStats.stress);
+    }
+
+    void SetStatusFill(int index, float value)
+    {
+        var fill = statusFills[index];
+        if (!fill) return;
+        float ratio = float.IsNaN(value) ? 0f : Mathf.Clamp01(value / 100f);
+        if (!Mathf.Approximately(fill.anchorMax.x, ratio)) fill.anchorMax = new Vector2(ratio,1f);
+        if (fill.gameObject.activeSelf != (ratio > 0f)) fill.gameObject.SetActive(ratio > 0f);
     }
 
     void BuildHotbar()
@@ -261,6 +325,7 @@ public sealed class InventoryUI : MonoBehaviour
     }
     void Update()
     {
+        UpdateStatusBars();
         if (quickSlots)
         {
             bool visible = !interaction || !interaction.IsStoreOpen;

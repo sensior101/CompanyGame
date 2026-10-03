@@ -4,7 +4,7 @@ using UnityEngine;
 [RequireComponent(typeof(CanvasRenderer))]
 public sealed class InventoryGlyphGraphic : UnityEngine.UI.MaskableGraphic
 {
-    public enum Glyph { Person, Top, Bottom, Socks, Shoes, Pet, Bag, Coin }
+    public enum Glyph { Person, Top, Bottom, Socks, Shoes, Pet, Bag, Coin, Heart, Energy, Stress }
     public Glyph kind;
     protected override void OnPopulateMesh(UnityEngine.UI.VertexHelper mesh)
     {
@@ -42,6 +42,18 @@ public sealed class InventoryGlyphGraphic : UnityEngine.UI.MaskableGraphic
                 Rectangle(mesh,.34f,.7f,.09f,.24f); Rectangle(mesh,.57f,.7f,.09f,.24f); Rectangle(mesh,.34f,.85f,.32f,.09f);
                 break;
             case Glyph.Coin: Oval(mesh,.5f,.5f,.46f,.46f); break;
+            case Glyph.Heart:
+                Oval(mesh,.30f,.68f,.25f,.24f); Oval(mesh,.70f,.68f,.25f,.24f);
+                Polygon(mesh,new[]{V(.07f,.61f),V(.93f,.61f),V(.5f,.08f)});
+                break;
+            case Glyph.Energy:
+                Polygon(mesh,new[]{V(.55f,.97f),V(.15f,.43f),V(.54f,.43f)});
+                Polygon(mesh,new[]{V(.46f,.57f),V(.85f,.57f),V(.38f,.03f)});
+                break;
+            case Glyph.Stress:
+                // A tense face with angled brows: distinct from the heart and lightning.
+                Oval(mesh,.5f,.48f,.44f,.43f);
+                break;
         }
     }
     static Vector2 V(float x,float y) => new Vector2(x,y);
