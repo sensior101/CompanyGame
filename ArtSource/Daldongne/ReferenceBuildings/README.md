@@ -39,29 +39,14 @@ CharacterController의 23cm stepOffset으로 넘을 수 없었다.
 
 ## 수정 원본과 재생성
 
-새 모델의 편집 원본은 Unity 네이티브 에셋과 아래 C# 생성기다.
+새 모델의 편집 원본은 Unity 네이티브 에셋이다.
 이전 전체 맵 `.blend` / `.glb` / `.unitypackage`는 이번 변경을 포함하지 않는 이전 스냅샷이다.
 기존 전체 맵 임포터로 현재 프리팹을 덮어쓰지 않는다.
 
-- `CompanyGame/AgentScripts/ReferenceBuildingRemodel.cs`: 여섯 건물 생성. 기존 프리팹 루트·GUID·배치를 보존하며 내부 메시를 갱신한다.
-- `CompanyGame/AgentScripts/GosiwonAccessRepair.cs`: 마을 프리팹의 고시원 접근로 수정.
-- `CompanyGame/AgentScripts/GosiwonAccessQA.cs`: 명시적으로 Play Mode에서 실행하는 이동 검증.
-- `CompanyGame/AgentScripts/ReferenceBuildingReview.cs`: 화면 캡처와 에셋 검사.
 - `CompanyGame/Assets/Art/Daldongne/WarmVillage/ReferenceBuildings/`: 생성된 메시·재질. 런타임에 메시를 생성하지 않는다.
 - `CompanyGame/Assets/Art/Daldongne/WarmVillage/Prefabs/Buildings/`: 수정한 여섯 건물 프리팹.
 
-Unity가 열린 상태에서 저장소 루트의 `CompanyGame` 프로젝트 디렉터리를 대상으로 실행한다.
-생성 전 Play Mode를 종료하고 열려 있는 씬을 저장한다.
-
-```powershell
-unity command --project-path ./CompanyGame --timeout 180 run_script --file AgentScripts/ReferenceBuildingRemodel.cs --entry ReferenceBuildingRemodel.Build --timeout_ms 180000
-unity command --project-path ./CompanyGame run_script --file AgentScripts/GosiwonAccessRepair.cs --entry GosiwonAccessRepair.Build
-unity command --project-path ./CompanyGame editor_play
-unity command --project-path ./CompanyGame run_script --file AgentScripts/GosiwonAccessQA.cs --entry GosiwonAccessQA.Verify
-unity command --project-path ./CompanyGame editor_stop
-unity command --project-path ./CompanyGame run_script --file AgentScripts/ReferenceBuildingReview.cs --entry ReferenceBuildingReview.Capture
-unity command --project-path ./CompanyGame run_script --file AgentScripts/ReferenceBuildingReview.cs --entry ReferenceBuildingReview.Audit
-```
+> 2026-10-04 정리: 생성·검사에 쓰던 `CompanyGame/AgentScripts`와 Unity Pipeline 패키지(`unity command run_script`)는 저장소에서 제거했습니다. 만들어진 프리팹·메시는 그대로 남아 있습니다. 다시 생성해야 하면 커밋 `ccfd0c6`의 `CompanyGame/AgentScripts`를 복원하고 `com.unity.pipeline` 패키지를 다시 추가하세요.
 
 첫 생성은 다수의 Unity 에셋 임포트로 시간이 걸린다. CLI 전송 시간이 초과되어도 Unity의 작업이 계속될 수 있으므로 완료 상태를 확인한 뒤 재실행한다.
 이번 변경은 로컬 작업 트리에만 반영했으며 커밋·푸시는 하지 않았다.

@@ -70,13 +70,9 @@ Unity에서 메시·재질을 생성하고 프리팹을 실제 렌더했습니�
 
 1. Pillow가 있는 Python으로 `make_graphics.py` 실행
 2. Blender 5.x에서 `build_interior.py` 실행 (`-- --no-render`는 미리보기 렌더 생략)
-3. Unity 에디터가 이 프로젝트를 연 상태에서 다음 명령 실행:
+3. Unity 임포트 단계는 아래 정리 내용을 참고하세요.
 
-```powershell
-unity command run_script --project-path 'C:/서현/프로젝트/companyGame/CompanyGame' --caller plugin --skill unity-cli --file '../ArtSource/ConvenienceInterior/ImportConvenienceInterior.cs' --entry ImportConvenienceInterior.Build --timeout_ms 180000 --timeout 190
-unity command run_script --project-path 'C:/서현/프로젝트/companyGame/CompanyGame' --caller plugin --skill unity-cli --file '../ArtSource/ConvenienceInterior/ImportConvenienceInterior.cs' --entry ImportConvenienceInterior.Preview
-unity command run_script --project-path 'C:/서현/프로젝트/companyGame/CompanyGame' --caller plugin --skill unity-cli --file 'AgentScripts/SetupConvenienceGameplay.cs' --entry SetupConvenienceGameplay.Build
-```
+> 2026-10-04 정리: 생성·검사에 쓰던 `CompanyGame/AgentScripts`와 Unity Pipeline 패키지(`unity command run_script`)는 저장소에서 제거했습니다. 만들어진 프리팹·메시는 그대로 남아 있습니다. 다시 생성해야 하면 커밋 `ccfd0c6`의 `CompanyGame/AgentScripts`를 복원하고 `com.unity.pipeline` 패키지를 다시 추가하세요.
 
 `ConvenienceStore.meshdata.json.gz`는 축·법선·UV를 유지하는 재생성용 데이터입니다.
 Blender 원본은 Z-up, Unity 자산은 Y-up이며 입구에서 실내 쪽이 Unity +Z입니다.

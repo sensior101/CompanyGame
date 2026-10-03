@@ -16,9 +16,6 @@
 - `CompanyGame/Assets/Art/Daldongne/WarmVillage/Prefabs/Buildings/Supermarket.prefab`
 - `CompanyGame/Assets/Art/Daldongne/WarmVillage/Prefabs/Buildings/Bakery.prefab`
 - `CompanyGame/Assets/Art/Daldongne/WarmVillage/ShopRemodel/`: 재질과 결합 메시.
-- `CompanyGame/AgentScripts/ShopRemodel.cs`: 원본 생성기. 현재 씬을 저장하거나 전환하지 않고 프리팹 에셋만 갱신한다.
-- `CompanyGame/AgentScripts/ShopRemodelInspect.cs`: 최초 변경 전 GUID·피벗 기록. 기존 before.json을 덮어쓰지 않는다.
-- `CompanyGame/AgentScripts/ShopRemodelQA.cs`: 에셋 검사·실제 Unity 캡처·물리 이동 검사.
 - 이 폴더의 `*_InMap.png`: 현재 맵 배치 화면, `*_Model.png`와 `*_Front.png`: 별도 프리뷰 씬의 모델 검토 화면.
 
 ## 검증 결과
@@ -31,13 +28,6 @@
 - 작업 전 현재 씬에 미저장 변경이 있었다. 씬을 저장·닫기·전환하지 않고 그 상태를 유지했으며, 수정한 프리팹 에셋은 디스크에 저장했다.
 - 상세 결과: `asset-validation.json`, `navigation-validation.json`, `capture-validation.json`.
 
-재생성은 저장소 루트에서 해당 Unity 프로젝트가 열린 상태로 실행한다.
-
-```powershell
-unity command --project-path ./CompanyGame --caller plugin --skill unity-cli --timeout 180 run_script --file AgentScripts/ShopRemodel.cs --entry ShopRemodel.Build --timeout_ms 180000
-unity command --project-path ./CompanyGame --caller plugin --skill unity-cli run_script --file AgentScripts/ShopRemodelQA.cs --entry ShopRemodelQA.Audit
-unity command --project-path ./CompanyGame --caller plugin --skill unity-cli run_script --file AgentScripts/ShopRemodelQA.cs --entry ShopRemodelQA.Navigation
-unity command --project-path ./CompanyGame --caller plugin --skill unity-cli run_script --file AgentScripts/ShopRemodelQA.cs --entry ShopRemodelQA.Capture
-```
+> 2026-10-04 정리: 생성·검사에 쓰던 `CompanyGame/AgentScripts`와 Unity Pipeline 패키지(`unity command run_script`)는 저장소에서 제거했습니다. 만들어진 프리팹·메시는 그대로 남아 있습니다. 다시 생성해야 하면 커밋 `ccfd0c6`의 `CompanyGame/AgentScripts`를 복원하고 `com.unity.pipeline` 패키지를 다시 추가하세요.
 
 이전 전체 맵 Blender·GLB·Unitypackage 파일은 이 업데이트를 포함하지 않는다. 현재 편집 원본은 위 C# 생성기와 Unity 메시·재질이다. 커밋·푸시는 하지 않았다.

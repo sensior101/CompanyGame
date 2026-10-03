@@ -42,6 +42,4 @@ Blender 5.2에서 새 백그라운드 프로세스로 실행합니다. 스크립
 
 Unity에서 씬 변경을 저장한 후 **Tools → Company Game → Characters → Rebuild Reference Girl**을 실행합니다. JSON의 위치와 노멀을 유지하며 관절별 메시를 만들고, 팔레트 UV를 설정합니다. 재생성 시 에셋 GUID를 보존합니다. **Validate Reference Girl**로 에셋 참조를 확인할 수 있습니다.
 
-`CompanyGame/AgentScripts/ReferenceGirlQA.cs`는 Unity Pipeline의 `run_script`로 실행하는 검증·촬영 도구입니다. 일반 실행에는 필요하지 않습니다. 기존 `DaldongnePlayersBuild`도 새 여자 모델을 보존하도록 수정했습니다.
-
-`AvatarMotionQA.Validate`는 여자·남자와 4가지 속도를 총 4,800프레임 검사하며 걷기의 접지와 달리기의 접지·공중 구간을 구분합니다. `AvatarMotionQA.RuntimeLifecycle`은 Play 모드의 비활성화·재활성화와 순간이동 후 자세 복원을 별도로 검사합니다. `ReferenceGirlMotionPreview.Capture`로 걷기·달리기 프레임을 촬영한 뒤 Pillow가 설치된 Python으로 `encode_motion_preview.py`를 실행하면 GIF와 포즈 모음 이미지를 갱신합니다.
+> 2026-10-04 정리: 생성·검사에 쓰던 `CompanyGame/AgentScripts`와 Unity Pipeline 패키지(`unity command run_script`)는 저장소에서 제거했습니다. 만들어진 프리팹·메시는 그대로 남아 있습니다. 다시 생성해야 하면 커밋 `ccfd0c6`의 `CompanyGame/AgentScripts`를 복원하고 `com.unity.pipeline` 패키지를 다시 추가하세요.

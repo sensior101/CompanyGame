@@ -137,13 +137,17 @@ LFS 다운로드를 건너뛰었던 경우 Unity를 열기 전에 `git lfs pull`
 
 ## 제작 도구 취급
 
-`CompanyGame/AgentScripts`는 맵 제작·검증 과정에서 사용한 C# 코드 보관 폴더입니다.
-`Assets` 밖에 있으므로 Unity가 자동으로 컴파일하지 않습니다.
-여러 파일에 `DaldongneWarmImport`, `DaldongneWarmPolish` 같은 동일 클래스가 중복 선언되어 있어, 폴더 전체를 `Assets/Editor`로 복사하면 컴파일 충돌이 발생할 수 있습니다.
+에디터 도구는 `CompanyGame/Assets/Scripts/Editor`에 있고, 모두 Unity 위 메뉴에서 실행합니다.
 
-일반 팀원은 이미 저장된 씬·프리팹·메시를 사용하면 됩니다.
-제작 도구를 재사용하려면 필요한 버전과 의존 파일만 선별하고 중복 클래스를 정리한 뒤 Editor 도구로 통합해야 합니다.
-여러 스크립트는 Unity 프로젝트를 기준으로 `../ArtSource/Daldongne`에 결과를 저장하므로 현재 저장소 배치를 유지하세요.
+| 메뉴 | 용도 |
+| --- | --- |
+| CompanyGame → Setup → Build Phone UI Prefab | `Resources/PhoneUI.prefab` 다시 만들기 |
+| CompanyGame → Setup → Move Scene Players To Prefab | 씬에 들어간 플레이어를 지우고 `Resources/Player.prefab`으로 모으기 |
+| Tools → Company Game → Maps → Validate Maps | 맵 씬 검사 (플레이어 없음, 카메라 1개, `default` 스폰) |
+| Tools → Company Game → Maps → Create Small Map | 새 작은 맵 만들기 |
+| Tools → Company Game → Characters → Rebuild / Validate Reference Girl·Boy | 캐릭터 메시 재생성·검사 |
+
+예전 `CompanyGame/AgentScripts`와 메뉴 없는 맵 생성·검사 스크립트는 2026-10-04에 제거했습니다. 필요하면 커밋 `ccfd0c6`에서 복원합니다.
 Blender 재생성 스크립트는 열린 장면을 비우는 코드가 있으므로 별도 작업 파일에서 실행합니다.
 
 ## 이번 폴더 정리의 백업
