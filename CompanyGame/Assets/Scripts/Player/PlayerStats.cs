@@ -1,11 +1,19 @@
-﻿using UnityEngine;
+using System;
+using UnityEngine;
 
 public class PlayerStats : MonoBehaviour, IDamageable
 {
+    public const float Max = 100f;
+
     [Header("상태")]
-    public float health = 100f;
-    [Range(0f, 100f)] public float stamina = 100f;
+    public float health = Max;
+    [Range(0f, Max)] public float stamina = Max;
     public float stress = 0f;
+
+    [Header("쓰러짐 기준 (체력·기력은 이하, 스트레스는 이상)")]
+    [SerializeField] private float collapseHealth = 0f;
+    [SerializeField] private float collapseEnergy = 0f;
+    [SerializeField] private float collapseStress = Max;
 
     [Header("Movement stamina")]
     [Min(.1f)] public float walkingSecondsPerPoint = 8f;
@@ -64,5 +72,31 @@ public class PlayerStats : MonoBehaviour, IDamageable
         health -= received;
         Damaged?.Invoke(received, attacker);
         return true;
+    }
+
+    public float Health => health;
+    public float Energy => stamina;
+    public float Stress => stress;
+
+    public bool IsCollapsed =>
+        health <= collapseHealth || stamina <= collapseEnergy || stress >= collapseStress;
+
+    /// <summary>Fires after Add() changes a state value (for HUD updates).</summary>
+    public event Action Changed;
+
+    /// <summary>Fires once when Add() pushes the player into the collapsed state. Hospital admission listens to this.</summary>
+    public event Action Collapsed;
+
+    public void Add(float healthDelta = 0f, float energyDelta = 0f, float stressDelta = 0f)
+    {
+        bool wasCollapsed = IsCollapsed;
+
+        health = Mathf.Clamp(health + healthDelta, 0f, Max);
+        stamina = Mathf.Clamp(stamina + energyDelta, 0f, Max);
+        stress = Mathf.Clamp(stress + stressDelta, 0f, Max);
+
+        Changed?.Invoke();
+        if (!wasCollapsed && IsCollapsed)
+            Collapsed?.Invoke();
     }
 }

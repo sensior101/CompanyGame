@@ -1,0 +1,16 @@
+{
+  "name": "companygame-server",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node --env-file=.env src/index.ts",
+    "test": "node --test test/*.test.ts"
+  },
+  "dependencies": {
+    "@fastify/jwt": "^10.2.2",
+    "fastify": "^5.12.5"
+  }
+}
