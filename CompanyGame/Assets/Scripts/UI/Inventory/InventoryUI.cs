@@ -151,7 +151,7 @@ public sealed partial class InventoryUI : MonoBehaviour
         UpdateStatusBars();
         if (quickSlots)
         {
-            bool visible = !interaction || !interaction.IsStoreOpen;
+            bool visible = !interaction || !interaction.IsTradeOpen;
             if (quickSlots.gameObject.activeSelf != visible) quickSlots.gameObject.SetActive(visible);
         }
         if (!IsOpen) return;

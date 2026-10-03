@@ -17,7 +17,8 @@
 
 ```
 Core → Economy → Gameplay → World → Player → UI
-Core → Net, NPC
+Core → Net
+Gameplay → NPC → UI
 ```
 
 | 폴더 | 어셈블리 | 담당 | 주요 파일 |
@@ -26,9 +27,9 @@ Core → Net, NPC
 | Net | `CompanyGame.Net` | 서버·멀티 통신 | `PlayerData` (로그인 API 클라이언트) |
 | Economy | `CompanyGame.Economy` | 은행, 회사, 주식, 토지, 세금 | `BankManager`, `CompanyManager`, `StockMarketManager`, `LandPlotManager` |
 | Gameplay | `CompanyGame.Gameplay` | 아이템·인벤토리 상태, 현금, 핸드폰 앱, 신고, SNS | `InventoryManager`, `InventoryState`, `ItemData`, `CashService`, `PhoneManager`, `GameSystems` |
-| World | `CompanyGame.World` | 맵 이동, 포털, 정류장, 상점 지점 | `SceneLoadManager`, `MapSpawnPoint`, `MapPortal`, `TransitStop`, `StoreInteractionPoint` |
+| World | `CompanyGame.World` | 맵 이동, 포털, 정류장, 건물 출입문 | `SceneLoadManager`, `MapSpawnPoint`, `MapPortal`, `TransitStop`, `StoreInteractionPoint` |
 | Player | `CompanyGame.Player` | 이동, 카메라, 스탯, 전투, 손 아이템, 생성 | `PlayerMovement`, `PlayerCameraController`, `PlayerStats`, `PlayerCombat`, `PlayerSpawner` |
-| NPC | `CompanyGame.NPC` | NPC (자리만 잡아 둠) | |
+| NPC | `CompanyGame.NPC` | NPC, NPC 거래 | `NpcTrader` |
 | UI | `CompanyGame.UI` | 인벤토리·상점·정류장 메뉴, 채팅, 돈 표시, 핸드폰 화면 | `UI/Inventory/*`, `UI/Interaction/*`, `UI/Phone/*` |
 | Editor | 에디터 전용 | 제작 도구 | [Git_Collaboration.md](Git_Collaboration.md#제작-도구-취급) |
 
@@ -50,6 +51,13 @@ Core → Net, NPC
 | 맵 이동 | `SceneLoadManager.TryLoadMap(씬 경로, 스폰 ID)`. 씬은 빌드 목록에 있어야 합니다. |
 | 핸드폰 | `Resources/PhoneUI.prefab`을 시작할 때 띄웁니다. R 키. |
 | 키 입력 | `Core/GameInput.cs` 한 파일. 키를 바꾸려면 여기만 고칩니다. |
+
+## NPC 거래
+
+- 모든 NPC가 같은 거래 창(`UI/Interaction/TradeWindow`)을 씁니다. NPC 오브젝트에 `NpcTrader`를 붙이고 거래 목록을 넣으면, 근처에서 Space로 열립니다. 범위가 NPC를 따라가므로 움직이는 NPC도 됩니다.
+- 거래 한 줄(`TradeOffer`)은 왼쪽 `give`(플레이어가 내는 것)와 오른쪽 `get`(받는 것)입니다. 각 칸은 아이템 에셋이나 화폐 금액(`cash`)과 개수입니다. 화폐도 아이템이라, 돈이 왼쪽이면 사는 거래, 오른쪽이면 파는 거래입니다.
+- 대화·퀘스트 등 코드에서는 `PlayerInteraction.Local.OpenTrade(목록)`으로 엽니다.
+- 편의점 판매 목록은 점원 `ConvenienceClerk`에 있습니다.
 
 ## 돈
 

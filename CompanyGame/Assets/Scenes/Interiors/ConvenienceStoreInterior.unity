@@ -2095,6 +2095,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 328981291}
+  - component: {fileID: 1778413870}
   m_Layer: 0
   m_Name: ConvenienceClerk
   m_TagString: Untagged
@@ -4539,13 +4540,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 20af5567f64aaf54794d64f7f8859944, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CompanyGame.World.Maps.StoreInteractionPoint
-  action: 0
   prompt: "\uB098\uAC00\uAE30"
   targetScenePath: Assets/Scenes/daldongnaemap.unity
   targetSpawnId: store_exit
   radius: 1.2
   heightTolerance: 1
-  offers: []
 --- !u!1 &749397478
 GameObject:
   m_ObjectHideFlags: 0
@@ -5047,77 +5046,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 853859263}
   m_Mesh: {fileID: 4300000, guid: 356bb9478878a5a43805fcbe54a616f2, type: 2}
---- !u!1 &855735525
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 855735526}
-  - component: {fileID: 855735527}
-  m_Layer: 0
-  m_Name: Clerk_CustomerPosition
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &855735526
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 855735525}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -1.56, y: 0.04, z: 4.85}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1010737429}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &855735527
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 855735525}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 20af5567f64aaf54794d64f7f8859944, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CompanyGame.World.Maps.StoreInteractionPoint
-  action: 1
-  prompt: "\uB300\uD654\uD558\uAE30"
-  targetScenePath: 
-  targetSpawnId: 
-  radius: 1.25
-  heightTolerance: 0.8
-  offers:
-  - item: {fileID: 11400000, guid: 83a340db72d076240954969fafd599c9, type: 2}
-    price: 1500
-  - item: {fileID: 11400000, guid: 9f12de7de8dcb054fa1c153dbece17a8, type: 2}
-    price: 2000
-  - item: {fileID: 11400000, guid: c8b0b85506947b147ae01ee0f2f636be, type: 2}
-    price: 5000
-  - item: {fileID: 11400000, guid: 44ef929df0df1e8449290ce0fcbbd7e2, type: 2}
-    price: 700
-  - item: {fileID: 11400000, guid: 5a57b6f2ee0581b4a81be811af90bafa, type: 2}
-    price: 1800
-  - item: {fileID: 11400000, guid: 20cbc627810a10b4aa18af115b0c953a, type: 2}
-    price: 2500
-  - item: {fileID: 11400000, guid: 4776f37a218daff4789e76a28dd29d1b, type: 2}
-    price: 1500
-  - item: {fileID: 11400000, guid: 15cfa7e89325a73459256817ad93a0d3, type: 2}
-    price: 2000
-  - item: {fileID: 11400000, guid: d989efff7b461364e8422137280aca08, type: 2}
-    price: 1500
-  - item: {fileID: 11400000, guid: 3ca7176db3499e3409554a3095172a15, type: 2}
-    price: 1500
 --- !u!1 &874327955
 GameObject:
   m_ObjectHideFlags: 0
@@ -5676,7 +5604,6 @@ Transform:
   - {fileID: 2088215346}
   - {fileID: 734358505}
   - {fileID: 328981291}
-  - {fileID: 855735526}
   - {fileID: 22351012}
   - {fileID: 1821529332}
   m_Father: {fileID: 0}
@@ -14707,3 +14634,99 @@ SceneRoots:
   - {fileID: 1207134962}
   - {fileID: 140751776}
   - {fileID: 1010737429}
+--- !u!114 &1778413870
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 328981290}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c80ffff409aeec1e565dbed056b01a4e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: CompanyGame.NPC::NpcTrader
+  prompt: "거래하기"
+  radius: 3.19
+  heightTolerance: 1
+  offers:
+  - give:
+      item: {fileID: 0}
+      cash: 1500
+      count: 1
+    get:
+      item: {fileID: 11400000, guid: 83a340db72d076240954969fafd599c9, type: 2}
+      cash: 0
+      count: 1
+  - give:
+      item: {fileID: 0}
+      cash: 2000
+      count: 1
+    get:
+      item: {fileID: 11400000, guid: 9f12de7de8dcb054fa1c153dbece17a8, type: 2}
+      cash: 0
+      count: 1
+  - give:
+      item: {fileID: 0}
+      cash: 5000
+      count: 1
+    get:
+      item: {fileID: 11400000, guid: c8b0b85506947b147ae01ee0f2f636be, type: 2}
+      cash: 0
+      count: 1
+  - give:
+      item: {fileID: 0}
+      cash: 700
+      count: 1
+    get:
+      item: {fileID: 11400000, guid: 44ef929df0df1e8449290ce0fcbbd7e2, type: 2}
+      cash: 0
+      count: 1
+  - give:
+      item: {fileID: 0}
+      cash: 1800
+      count: 1
+    get:
+      item: {fileID: 11400000, guid: 5a57b6f2ee0581b4a81be811af90bafa, type: 2}
+      cash: 0
+      count: 1
+  - give:
+      item: {fileID: 0}
+      cash: 2500
+      count: 1
+    get:
+      item: {fileID: 11400000, guid: 20cbc627810a10b4aa18af115b0c953a, type: 2}
+      cash: 0
+      count: 1
+  - give:
+      item: {fileID: 0}
+      cash: 1500
+      count: 1
+    get:
+      item: {fileID: 11400000, guid: 4776f37a218daff4789e76a28dd29d1b, type: 2}
+      cash: 0
+      count: 1
+  - give:
+      item: {fileID: 0}
+      cash: 2000
+      count: 1
+    get:
+      item: {fileID: 11400000, guid: 15cfa7e89325a73459256817ad93a0d3, type: 2}
+      cash: 0
+      count: 1
+  - give:
+      item: {fileID: 0}
+      cash: 1500
+      count: 1
+    get:
+      item: {fileID: 11400000, guid: d989efff7b461364e8422137280aca08, type: 2}
+      cash: 0
+      count: 1
+  - give:
+      item: {fileID: 0}
+      cash: 1500
+      count: 1
+    get:
+      item: {fileID: 11400000, guid: 3ca7176db3499e3409554a3095172a15, type: 2}
+      cash: 0
+      count: 1

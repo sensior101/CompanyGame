@@ -1,10 +1,10 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
 
-public sealed class StoreTradePointer : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IDropHandler, IPointerEnterHandler, IPointerExitHandler, IPointerMoveHandler, IPointerDownHandler, IPointerClickHandler
+public sealed class TradePointer : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IDropHandler, IPointerEnterHandler, IPointerExitHandler, IPointerMoveHandler, IPointerDownHandler, IPointerClickHandler
 {
     public enum Kind { Inventory, Payment, Output }
-    public StoreTradeUI owner;
+    public TradeWindow owner;
     public Kind kind;
     public int index;
     bool movedSincePress;

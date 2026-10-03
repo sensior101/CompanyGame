@@ -18,19 +18,23 @@ public class PlayerInteraction : MonoBehaviour
     [Tooltip("All six districts. The active district and disabled build scenes are excluded at runtime.")]
     public TransitDestination[] destinations = Array.Empty<TransitDestination>();
 
+    /// <summary>The local player's interaction, for opening the trade window from dialogue or other code.</summary>
+    public static PlayerInteraction Local { get; private set; }
+
     public bool IsDestinationMenuOpen { get; private set; }
-    public bool IsStoreOpen => storeUI;
-    public bool IsInteractionMenuOpen => IsDestinationMenuOpen || IsStoreOpen;
+    public bool IsTradeOpen => tradeUI;
+    public bool IsInteractionMenuOpen => IsDestinationMenuOpen || IsTradeOpen;
     public StoreInteractionPoint FocusedStore { get; private set; }
-    public bool HasNearbyStoreAction => !IsInteractionMenuOpen && StoreInteractionPoint.FindNearest(transform);
-    public StoreTradeUI StoreUI => storeUI;
+    public NpcTrader FocusedTrader { get; private set; }
+    public bool HasNearbyAction => !IsInteractionMenuOpen && (StoreInteractionPoint.FindNearest(transform) || NpcTrader.FindNearest(transform));
+    public TradeWindow TradeUI => tradeUI;
     public TransitStop FocusedStop { get; private set; }
     public bool IsMenuReady => IsDestinationMenuOpen && menuArmed;
 
     PlayerMovement movement;
     TransitUI ui;
-    StoreTradeUI storeUI;
-    StoreInteractionPoint tradingWith;
+    TradeWindow tradeUI;
+    Func<bool> tradeStillAvailable;
     TransitStop boardingStop;
     readonly List<TransitDestination> availableDestinations = new List<TransitDestination>();
     readonly ControlLock controls = new ControlLock();
@@ -41,7 +45,7 @@ public class PlayerInteraction : MonoBehaviour
     bool waitForSpaceRelease = true;
     int menuOpenedFrame;
 
-    void Awake() { movement = GetComponent<PlayerMovement>(); }
+    void Awake() { movement = GetComponent<PlayerMovement>(); Local = this; }
 
     void Update()
     {
@@ -59,9 +63,9 @@ public class PlayerInteraction : MonoBehaviour
             if (OpenDestinationMenu()) ui.ShowStatus("이동하지 못했습니다. 목적지를 다시 선택해 주세요.");
             return;
         }
-        if (IsStoreOpen)
+        if (IsTradeOpen)
         {
-            if (!tradingWith || !tradingWith.IsInRange(transform) || EscapePressed()) CloseStore();
+            if ((tradeStillAvailable != null && !tradeStillAvailable()) || EscapePressed()) CloseTrade();
             return;
         }
         if (IsDestinationMenuOpen)
@@ -88,16 +92,18 @@ public class PlayerInteraction : MonoBehaviour
         {
             FocusedStop = null;
             FocusedStore = null;
+            FocusedTrader = null;
             if (ui) ui.HidePrompt();
             return;
         }
         FocusedStore = StoreInteractionPoint.FindNearest(transform);
-        if (FocusedStore)
+        FocusedTrader = FocusedStore ? null : NpcTrader.FindNearest(transform);
+        if (FocusedStore || FocusedTrader)
         {
             FocusedStop = null;
             EnsureUI();
-            ui.ShowPrompt(FocusedStore.prompt, true);
-            if (SpacePressed()) TryUseStore();
+            ui.ShowPrompt(FocusedStore ? FocusedStore.prompt : FocusedTrader.prompt, true);
+            if (SpacePressed()) { if (FocusedStore) TryUseDoor(); else TryTradeWithNearest(); }
             return;
         }
         FocusedStop = TransitStop.FindNearest(transform);
@@ -187,35 +193,51 @@ public class PlayerInteraction : MonoBehaviour
         }
     }
 
-    public bool TryUseStore()
+    bool CanStartInteraction() =>
+        Application.isPlaying && isActiveAndEnabled && !IsInteractionMenuOpen && !restorePending &&
+        !SceneLoadManager.IsLoading && !PlayerInventory.IsAnyOpen && !PlayerInventory.SpaceConsumedThisFrame &&
+        movement && movement.isActiveAndEnabled && !ChatUIManager.IsChatting && !UIEventSystem.IsEditingText();
+
+    public bool TryUseDoor()
     {
-        if (!Application.isPlaying || !isActiveAndEnabled || IsInteractionMenuOpen || restorePending ||
-            SceneLoadManager.IsLoading || PlayerInventory.IsAnyOpen || PlayerInventory.SpaceConsumedThisFrame ||
-            !movement || !movement.isActiveAndEnabled || ChatUIManager.IsChatting || UIEventSystem.IsEditingText()) return false;
-        FocusedStore=StoreInteractionPoint.FindNearest(transform);
-        if(!FocusedStore)return false;
+        if (!CanStartInteraction()) return false;
+        FocusedStore = StoreInteractionPoint.FindNearest(transform);
+        if (!FocusedStore) return false;
         EnsureUI();
-        if(FocusedStore.action==StoreAction.Door)
-        {
-            bool loaded=SceneLoadManager.TryLoadMap(FocusedStore.targetScenePath,FocusedStore.targetSpawnId,movement);
-            if(loaded){waitForSpaceRelease=true;ui.HidePrompt();}
-            return loaded;
-        }
-        var inventory=GetComponent<PlayerInventory>();
-        if(!inventory || inventory.Inventory==null)return false;
-        tradingWith=FocusedStore;
-        SuspendControls();ui.HidePrompt();
-        storeUI=StoreTradeUI.Create(new StoreTradeSession(inventory.Inventory,tradingWith.offers),uiFont,CloseStore);
-        SceneManager.MoveGameObjectToScene(storeUI.gameObject,SceneLoadManager.CurrentMap);
+        bool loaded = SceneLoadManager.TryLoadMap(FocusedStore.targetScenePath, FocusedStore.targetSpawnId, movement);
+        if (loaded) { waitForSpaceRelease = true; ui.HidePrompt(); }
+        return loaded;
+    }
+
+    public bool TryTradeWithNearest()
+    {
+        var trader = NpcTrader.FindNearest(transform);
+        return trader && OpenTrade(trader.offers, () => trader && trader.IsInRange(transform));
+    }
+
+    /// <summary>
+    /// Opens the shared trade window. Any NPC, dialogue or quest can call this.
+    /// stillAvailable closes the window when it turns false (e.g. the player walked away).
+    /// </summary>
+    public bool OpenTrade(TradeOffer[] offers, Func<bool> stillAvailable = null)
+    {
+        if (!CanStartInteraction() || offers == null) return false;
+        var inventory = InventoryManager.Instance ? InventoryManager.Instance.State : null;
+        if (inventory == null) return false;
+        EnsureUI();
+        tradeStillAvailable = stillAvailable;
+        SuspendControls(); ui.HidePrompt();
+        tradeUI = TradeWindow.Create(new TradeSession(inventory, offers), uiFont, CloseTrade);
+        SceneManager.MoveGameObjectToScene(tradeUI.gameObject, SceneLoadManager.CurrentMap);
         return true;
     }
 
-    public void CloseStore()
+    public void CloseTrade()
     {
-        if(!storeUI)return;
-        storeUI.gameObject.SetActive(false);
-        Destroy(storeUI.gameObject);storeUI=null;tradingWith=null;
-        waitForSpaceRelease=true;restorePending=true;
+        if (!tradeUI) return;
+        tradeUI.gameObject.SetActive(false);
+        Destroy(tradeUI.gameObject); tradeUI = null; tradeStillAvailable = null;
+        waitForSpaceRelease = true; restorePending = true;
     }
 
     string CurrentDistrictName()
@@ -240,8 +262,8 @@ public class PlayerInteraction : MonoBehaviour
     void OnDisable()
     {
         IsDestinationMenuOpen = false;
-        if(storeUI){Destroy(storeUI.gameObject);storeUI=null;}
-        tradingWith=null;FocusedStore=null;
+        if (tradeUI) { Destroy(tradeUI.gameObject); tradeUI = null; }
+        tradeStillAvailable = null; FocusedStore = null; FocusedTrader = null;
         FocusedStop = null;
         boardingStop = null;
         restorePending = false;

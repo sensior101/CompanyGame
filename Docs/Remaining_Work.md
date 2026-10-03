@@ -33,7 +33,7 @@
 | 아르바이트, 낚시, 로또·도박 | Gameplay, Economy |
 | 차량, 펫, 가구 배치 | Gameplay |
 | 부동산·건축(한대건설), 세금 | Economy |
-| NPC, SNS 댓글용 로컬 LLM | NPC, 저장소 루트 `AI/` (모델 파일은 커밋하지 않음) |
+| NPC별 거래 목록 (`NpcTrader`), NPC, SNS 댓글용 로컬 LLM | NPC, 저장소 루트 `AI/` (모델 파일은 커밋하지 않음) |
 | 키 추가: Ctrl 앉기, Q 퀘스트, C 차량 등록, F 차량 탑승 | `Core/GameInput.cs`. F는 지금 아이템 줍기라 정리가 필요합니다. |
 
 ## 3. 정리 잔여

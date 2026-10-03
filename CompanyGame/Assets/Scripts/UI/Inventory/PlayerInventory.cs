@@ -243,7 +243,7 @@ public sealed class PlayerInventory : MonoBehaviour
     bool HandleCurrencyDepositInput()
     {
         // Door/clerk prompts own Space in their range, even with cash selected.
-        if (!IsOpen && interaction && interaction.HasNearbyStoreAction)
+        if (!IsOpen && interaction && interaction.HasNearbyAction)
         {
             ResetCurrencyDepositGesture();
             return false;

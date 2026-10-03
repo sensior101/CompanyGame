@@ -3,19 +3,15 @@ using UnityEngine;
 
 namespace CompanyGame.World.Maps
 {
-    public enum StoreAction { Door, Shopkeeper }
-
-    /// <summary>A scene-local door or customer-side position in front of a clerk.</summary>
+    /// <summary>A scene-local building door. Trading lives on the NPC itself (NpcTrader).</summary>
     [DisallowMultipleComponent]
     public sealed class StoreInteractionPoint : MonoBehaviour
     {
-        public StoreAction action;
         public string prompt = "들어가기";
         public string targetScenePath;
         public string targetSpawnId;
         [Min(.1f)] public float radius = 1.4f;
         [Min(.1f)] public float heightTolerance = 1f;
-        public StoreOffer[] offers = System.Array.Empty<StoreOffer>();
         static readonly HashSet<StoreInteractionPoint> active = new HashSet<StoreInteractionPoint>();
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
