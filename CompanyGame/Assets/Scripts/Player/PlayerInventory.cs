@@ -21,7 +21,7 @@ public sealed class PlayerInventory : MonoBehaviour
     public int DraggedCount => draggedCount;
     public InventoryUI UserInterface => ui;
     public bool CanPickUpWorldItems => isActiveAndEnabled && !restorePending && !IsDragging &&
-        !SceneLoadManager.IsLoading && !ChatUIManager.IsChatting && !IsEditingText() &&
+        !SceneLoadManager.IsLoading && !ChatUIManager.IsChatting && !UIEventSystem.IsEditingText() &&
         !(ui && ui.IsWithdrawalOpen) && !(interaction && interaction.IsInteractionMenuOpen) &&
         (IsOpen || (movement && movement.isActiveAndEnabled));
     public event Action UiChanged;
@@ -41,13 +41,8 @@ public sealed class PlayerInventory : MonoBehaviour
     PlayerMovement movement;
     PlayerInteraction interaction;
     InventoryUI ui;
-    readonly List<Behaviour> suspendedControls = new List<Behaviour>();
-    bool movementWasEnabled;
-    bool hasControlSnapshot;
+    readonly ControlLock controls = new ControlLock();
     bool restorePending;
-    bool cursorWasVisible;
-    CursorLockMode previousCursorLock;
-    GameObject previousSelection;
     int closedFrame = -1;
     int suppressClickThroughFrame = -1;
     int inventoryRevision;
@@ -113,13 +108,13 @@ public sealed class PlayerInventory : MonoBehaviour
                 return;
             }
             if (ui && ui.IsWithdrawalOpen) return;
-            if (TogglePressed() && !IsEditingText()) { CloseInventory(); return; }
+            if (TogglePressed() && !UIEventSystem.IsEditingText()) { CloseInventory(); return; }
             if (HandleCurrencyDepositInput()) return;
             if (PickupPressed() && CanPickUpWorldItems) { TryPickUpNearest(); return; }
             return;
         }
         if (restorePending || closedFrame == Time.frameCount || !movement || !movement.isActiveAndEnabled ||
-            ChatUIManager.IsChatting || IsEditingText() || (interaction && interaction.IsInteractionMenuOpen)) return;
+            ChatUIManager.IsChatting || UIEventSystem.IsEditingText() || (interaction && interaction.IsInteractionMenuOpen)) return;
         if (TogglePressed()) { OpenInventory(); return; }
         if (PickupPressed()) { TryPickUpNearest(); return; }
         int hotbar = HotbarPressed();
@@ -140,7 +135,7 @@ public sealed class PlayerInventory : MonoBehaviour
     {
         if (!Application.isPlaying || !isActiveAndEnabled || IsOpen || IsAnyOpen || restorePending ||
             SceneLoadManager.IsLoading || !movement || !movement.isActiveAndEnabled || ChatUIManager.IsChatting ||
-            IsEditingText() || (interaction && interaction.IsInteractionMenuOpen)) return false;
+            UIEventSystem.IsEditingText() || (interaction && interaction.IsInteractionMenuOpen)) return false;
         EnsureUI();
         activeInventory = this;
         IsOpen = true;
@@ -170,7 +165,7 @@ public sealed class PlayerInventory : MonoBehaviour
 
     public void SelectHotbar(int index)
     {
-        if (IsDragging || Time.frameCount <= suppressClickThroughFrame || IsEditingText() ||
+        if (IsDragging || Time.frameCount <= suppressClickThroughFrame || UIEventSystem.IsEditingText() ||
             (ui && ui.IsWithdrawalOpen) || SceneLoadManager.IsLoading || ChatUIManager.IsChatting ||
             (interaction && interaction.IsInteractionMenuOpen)) return;
         Inventory.SelectHotbar(index);
@@ -179,7 +174,7 @@ public sealed class PlayerInventory : MonoBehaviour
     bool HandleHotbarScrollInput()
     {
         float wheel = WheelNotches();
-        if (Mathf.Approximately(wheel, 0f) || IsDragging || IsEditingText() ||
+        if (Mathf.Approximately(wheel, 0f) || IsDragging || UIEventSystem.IsEditingText() ||
             (ui && ui.IsWithdrawalOpen) || SceneLoadManager.IsLoading || ChatUIManager.IsChatting ||
             (interaction && interaction.IsInteractionMenuOpen)) return false;
 
@@ -195,7 +190,7 @@ public sealed class PlayerInventory : MonoBehaviour
 
     bool CanDepositCurrency() => Application.isPlaying && isActiveAndEnabled && Inventory != null && !restorePending &&
         closedFrame != Time.frameCount && !IsDragging && !SceneLoadManager.IsLoading && !ChatUIManager.IsChatting &&
-        !IsEditingText() && !(ui && ui.IsWithdrawalOpen) && !(interaction && interaction.IsInteractionMenuOpen) &&
+        !UIEventSystem.IsEditingText() && !(ui && ui.IsWithdrawalOpen) && !(interaction && interaction.IsInteractionMenuOpen) &&
         (IsOpen || (movement && movement.isActiveAndEnabled));
 
     int SelectedCurrencySlot => IsOpen && SelectedInventorySlot >= 0 ? SelectedInventorySlot : Inventory.SelectedHotbarIndex;
@@ -510,45 +505,9 @@ public sealed class PlayerInventory : MonoBehaviour
         SceneManager.MoveGameObjectToScene(ui.gameObject, SceneLoadManager.CurrentMap);
     }
 
-    void SuspendControls()
-    {
-        movementWasEnabled = movement.enabled;
-        cursorWasVisible = Cursor.visible;
-        previousCursorLock = Cursor.lockState;
-        previousSelection = EventSystem.current ? EventSystem.current.currentSelectedGameObject : null;
-        hasControlSnapshot = true;
-        suspendedControls.Clear();
-        foreach (var chat in FindObjectsByType<ChatUIManager>()) Suspend(chat);
-        foreach (var cameraController in FindObjectsByType<PlayerCameraController>())
-            if (cameraController.target == transform) Suspend(cameraController);
-        // Chat.OnDisable can restore the movement state it previously captured.
-        // Apply our movement lock after pausing the chat controllers.
-        movement.enabled = false;
-        if (EventSystem.current) EventSystem.current.SetSelectedGameObject(null);
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = true;
-    }
+    void SuspendControls() => controls.Hold(movement);
 
-    void Suspend(Behaviour component)
-    {
-        if (!component.isActiveAndEnabled) return;
-        suspendedControls.Add(component);
-        component.enabled = false;
-    }
-
-    void RestoreControls(bool restoreMovement)
-    {
-        if (!hasControlSnapshot) return;
-        hasControlSnapshot = false;
-        foreach (var component in suspendedControls) if (component) component.enabled = true;
-        suspendedControls.Clear();
-        if (restoreMovement && movement) movement.enabled = movementWasEnabled;
-        Cursor.lockState = previousCursorLock;
-        Cursor.visible = cursorWasVisible;
-        if (EventSystem.current)
-            EventSystem.current.SetSelectedGameObject(previousSelection && previousSelection.activeInHierarchy ? previousSelection : null);
-        previousSelection = null;
-    }
+    void RestoreControls(bool restoreMovement) => controls.Release(movement, restoreMovement);
 
     void OnDisable()
     {
@@ -565,12 +524,6 @@ public sealed class PlayerInventory : MonoBehaviour
     }
 
     void OnDestroy() { if (ui) Destroy(ui.gameObject); }
-
-    static bool IsEditingText()
-    {
-        var selected = EventSystem.current ? EventSystem.current.currentSelectedGameObject : null;
-        return selected && (selected.GetComponentInParent<TMP_InputField>() || selected.GetComponentInParent<UnityEngine.UI.InputField>());
-    }
 
     static bool PickupPressed()
     {

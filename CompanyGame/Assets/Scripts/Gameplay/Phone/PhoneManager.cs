@@ -3,10 +3,8 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>Owns the phone UI: which app is open and switching between them.</summary>
-public class PhoneManager : MonoBehaviour
+public class PhoneManager : GameSystem<PhoneManager>
 {
-    public static PhoneManager Instance { get; private set; }
-
     [SerializeField]
     private GameObject phoneRoot;
 
@@ -25,15 +23,8 @@ public class PhoneManager : MonoBehaviour
 
     public PhoneAppBase CurrentApp => currentApp;
 
-    private void Awake()
+    protected override void OnSystemAwake()
     {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
-        Instance = this;
-
         foreach (var app in apps)
         {
             if (app == null) continue;
@@ -43,11 +34,6 @@ public class PhoneManager : MonoBehaviour
 
         if (homeScreen != null) homeScreen.SetActive(false);
         if (phoneRoot != null) phoneRoot.SetActive(false);
-    }
-
-    private void OnDestroy()
-    {
-        if (Instance == this) Instance = null;
     }
 
     public void TogglePhone()

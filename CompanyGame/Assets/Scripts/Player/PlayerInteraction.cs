@@ -33,17 +33,12 @@ public class PlayerInteraction : MonoBehaviour
     StoreInteractionPoint tradingWith;
     TransitStop boardingStop;
     readonly List<TransitDestination> availableDestinations = new List<TransitDestination>();
-    readonly List<Behaviour> suspendedControls = new List<Behaviour>();
-    bool movementWasEnabled;
-    bool hasControlSnapshot;
+    readonly ControlLock controls = new ControlLock();
     bool restorePending;
     bool travelPending;
     string travelTargetPath;
     bool menuArmed;
     bool waitForSpaceRelease = true;
-    bool cursorWasVisible;
-    CursorLockMode previousCursorLock;
-    GameObject previousSelection;
     int menuOpenedFrame;
 
     void Awake() { movement = GetComponent<PlayerMovement>(); }
@@ -89,7 +84,7 @@ public class PlayerInteraction : MonoBehaviour
             waitForSpaceRelease = false;
         }
         if (!movement || !movement.isActiveAndEnabled || PlayerInventory.IsAnyOpen || PlayerInventory.SpaceConsumedThisFrame ||
-            ChatUIManager.IsChatting || IsEditingText())
+            ChatUIManager.IsChatting || UIEventSystem.IsEditingText())
         {
             FocusedStop = null;
             FocusedStore = null;
@@ -128,7 +123,7 @@ public class PlayerInteraction : MonoBehaviour
     {
         if (!Application.isPlaying || !isActiveAndEnabled || IsInteractionMenuOpen || restorePending || PlayerInventory.IsAnyOpen ||
             PlayerInventory.SpaceConsumedThisFrame || SceneLoadManager.IsLoading ||
-            !movement || !movement.isActiveAndEnabled || ChatUIManager.IsChatting || IsEditingText()) return false;
+            !movement || !movement.isActiveAndEnabled || ChatUIManager.IsChatting || UIEventSystem.IsEditingText()) return false;
         FocusedStop = TransitStop.FindNearest(transform);
         if (!FocusedStop) return false;
         EnsureUI();
@@ -161,7 +156,7 @@ public class PlayerInteraction : MonoBehaviour
         ui.SetInteractable(false);
         // SceneLoadManager validates an enabled player and then owns disabling /
         // restoring it for the asynchronous scene load.
-        movement.enabled = movementWasEnabled;
+        movement.enabled = controls.MovementWasEnabled;
         if (SceneLoadManager.TryLoadMap(destination.scenePath, boardingStop.ArrivalSpawnId, movement))
         {
             IsDestinationMenuOpen = false;
@@ -196,7 +191,7 @@ public class PlayerInteraction : MonoBehaviour
     {
         if (!Application.isPlaying || !isActiveAndEnabled || IsInteractionMenuOpen || restorePending ||
             SceneLoadManager.IsLoading || PlayerInventory.IsAnyOpen || PlayerInventory.SpaceConsumedThisFrame ||
-            !movement || !movement.isActiveAndEnabled || ChatUIManager.IsChatting || IsEditingText()) return false;
+            !movement || !movement.isActiveAndEnabled || ChatUIManager.IsChatting || UIEventSystem.IsEditingText()) return false;
         FocusedStore=StoreInteractionPoint.FindNearest(transform);
         if(!FocusedStore)return false;
         EnsureUI();
@@ -238,45 +233,9 @@ public class PlayerInteraction : MonoBehaviour
         SceneManager.MoveGameObjectToScene(ui.gameObject, SceneLoadManager.CurrentMap);
     }
 
-    void SuspendControls()
-    {
-        movementWasEnabled = movement.enabled;
-        cursorWasVisible = Cursor.visible;
-        previousCursorLock = Cursor.lockState;
-        previousSelection = EventSystem.current ? EventSystem.current.currentSelectedGameObject : null;
-        hasControlSnapshot = true;
-        suspendedControls.Clear();
-        // Closed chat controllers also listen for Enter/Escape. Pause them while
-        // keyboard navigation belongs to the destination picker.
-        foreach (var chat in FindObjectsByType<ChatUIManager>()) Suspend(chat);
-        foreach (var cameraController in FindObjectsByType<PlayerCameraController>())
-            if (cameraController.target == transform) Suspend(cameraController);
-        movement.enabled = false;
-        if (EventSystem.current) EventSystem.current.SetSelectedGameObject(null);
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = true;
-    }
+    void SuspendControls() => controls.Hold(movement);
 
-    void Suspend(Behaviour component)
-    {
-        if (!component.isActiveAndEnabled) return;
-        suspendedControls.Add(component);
-        component.enabled = false;
-    }
-
-    void RestoreControls(bool restoreMovement)
-    {
-        if (!hasControlSnapshot) return;
-        hasControlSnapshot = false;
-        foreach (var component in suspendedControls) if (component) component.enabled = true;
-        suspendedControls.Clear();
-        if (restoreMovement && movement) movement.enabled = movementWasEnabled;
-        Cursor.lockState = previousCursorLock;
-        Cursor.visible = cursorWasVisible;
-        if (EventSystem.current)
-            EventSystem.current.SetSelectedGameObject(previousSelection && previousSelection.activeInHierarchy ? previousSelection : null);
-        previousSelection = null;
-    }
+    void RestoreControls(bool restoreMovement) => controls.Release(movement, restoreMovement);
 
     void OnDisable()
     {
@@ -293,12 +252,6 @@ public class PlayerInteraction : MonoBehaviour
     }
 
     void OnDestroy() { if (ui) Destroy(ui.gameObject); }
-
-    static bool IsEditingText()
-    {
-        var selected = EventSystem.current ? EventSystem.current.currentSelectedGameObject : null;
-        return selected && (selected.GetComponentInParent<TMP_InputField>() || selected.GetComponentInParent<UnityEngine.UI.InputField>());
-    }
 
     static bool SpacePressed()
     {

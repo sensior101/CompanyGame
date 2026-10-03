@@ -1,10 +1,8 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class SnsManager : MonoBehaviour
+public class SnsManager : GameSystem<SnsManager>
 {
-    public static SnsManager Instance { get; private set; }
-
     [SerializeField]
     private SnsSettings settings = new SnsSettings();
 
@@ -24,17 +22,7 @@ public class SnsManager : MonoBehaviour
 
     private GameTime Now => GameClock.Current != null ? GameClock.Current.Now : default;
 
-    private void Awake()
-    {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
-        Instance = this;
-        if (transform.parent == null) DontDestroyOnLoad(gameObject);
-        EnsureInitialized();
-    }
+    protected override void OnSystemAwake() => EnsureInitialized();
 
     private void Start()
     {
@@ -44,10 +32,10 @@ public class SnsManager : MonoBehaviour
         if (stockMarket != null) stockMarket.NewsPublished += OnNewsPublished;
     }
 
-    private void OnDestroy()
+    protected override void OnDestroy()
     {
         if (stockMarket != null) stockMarket.NewsPublished -= OnNewsPublished;
-        if (Instance == this) Instance = null;
+        base.OnDestroy();
     }
 
     public SnsPostResult Post(string text) =>

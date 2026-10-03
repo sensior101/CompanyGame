@@ -90,7 +90,7 @@ public sealed class InventoryUI : MonoBehaviour
         BuildHotbar();
         BuildStatusBars();
         var shade = Panel("InventoryModal", transform, Vector2.zero, new Color(.16f, .13f, .13f, .12f), 0f, 0f);
-        Stretch(shade);
+        UIBuild.Stretch(shade);
         modal = shade.gameObject;
         window = Panel("InventoryWindow", shade, new Vector2(1100f, windowHeight), WindowColor, 64f, 27f);
         window.GetComponent<InventoryRoundedGraphic>().raycastTarget = true;
@@ -125,7 +125,7 @@ public sealed class InventoryUI : MonoBehaviour
         capacityLabel = Label("Capacity", storageCard, "0 / 16", 24f, Ink, new Vector2(155f, 38f));
         capacityLabel.alignment = TextAlignmentOptions.MidlineRight;
         AtTop(capacityLabel.rectTransform, 411f, -24f);
-        grid = Rect("StorageSlots", storageCard, new Vector2(976f, 222f));
+        grid = UIBuild.Rect("StorageSlots", storageCard, new Vector2(976f, 222f));
         grid.anchorMin = grid.anchorMax = new Vector2(.5f, 1f);
         grid.pivot = new Vector2(.5f, 1f);
         grid.anchoredPosition = new Vector2(0f, -48f);
@@ -143,7 +143,7 @@ public sealed class InventoryUI : MonoBehaviour
     {
         playerStats = owner.GetComponent<PlayerStats>();
         if (!playerStats) playerStats = owner.gameObject.AddComponent<PlayerStats>();
-        var row = Rect("PlayerStatusBars", quickSlots, new Vector2(618f, 36f));
+        var row = UIBuild.Rect("PlayerStatusBars", quickSlots, new Vector2(618f, 36f));
         row.anchorMin = row.anchorMax = new Vector2(.5f, 1f);
         row.pivot = new Vector2(.5f, 0f);
         row.anchoredPosition = new Vector2(0f, 10f);
@@ -209,7 +209,7 @@ public sealed class InventoryUI : MonoBehaviour
         bar.anchorMin = bar.anchorMax = new Vector2(.5f, 0f);
         bar.pivot = new Vector2(.5f, 0f);
         bar.anchoredPosition = new Vector2(0f, 12f);
-        var row = Rect("Slots", bar, new Vector2(568f, 64f));
+        var row = UIBuild.Rect("Slots", bar, new Vector2(568f, 64f));
         row.anchoredPosition = new Vector2(-12f, 0f);
         var layout = row.gameObject.AddComponent<UnityEngine.UI.HorizontalLayoutGroup>();
         layout.spacing = 8f;
@@ -232,7 +232,7 @@ public sealed class InventoryUI : MonoBehaviour
         var card = Panel("CurrentPlayer", window, new Vector2(312f, 336f), SurfaceColor, 34f, 15f);
         AtTop(card, -362f, -257f);
         Heading(card, "플레이어", InventoryGlyphGraphic.Glyph.Person, -111f);
-        var portraitRect = Rect("CharacterPortrait", card, new Vector2(235.556f, 265f));
+        var portraitRect = UIBuild.Rect("CharacterPortrait", card, new Vector2(235.556f, 265f));
         portraitRect.anchoredPosition = new Vector2(0f, -11f);
         var portraitImage = portraitRect.gameObject.AddComponent<UnityEngine.UI.RawImage>();
         portraitImage.raycastTarget = false;
@@ -292,7 +292,7 @@ public sealed class InventoryUI : MonoBehaviour
         var rect = Panel(name, parent, Vector2.one * size, SlotColor, size * .28f, size * .11f);
         var view = new SlotView { background = rect.GetComponent<InventoryRoundedGraphic>() };
         view.button = MakeButton(rect, onClick);
-        var iconRect = Rect("Icon", rect, Vector2.one * size * .68f);
+        var iconRect = UIBuild.Rect("Icon", rect, Vector2.one * size * .68f);
         iconRect.anchoredPosition = Vector2.zero;
         view.icon = iconRect.gameObject.AddComponent<UnityEngine.UI.Image>();
         view.icon.preserveAspect = true;
@@ -428,7 +428,7 @@ public sealed class InventoryUI : MonoBehaviour
     void BuildWithdrawal()
     {
         var blocker = Panel("WithdrawalModal", modal.transform, Vector2.zero, Color.clear, 0f, 0f);
-        Stretch(blocker);
+        UIBuild.Stretch(blocker);
         MakeButton(blocker, CloseWithdrawal);
         withdrawalModal = blocker.gameObject;
         var card = Panel("WithdrawalWindow", blocker, new Vector2(320f, 234f), new Color(.995f, .982f, .955f, .99f), 30f, 14f);
@@ -481,13 +481,13 @@ public sealed class InventoryUI : MonoBehaviour
         var rect = Panel(name, parent, size, new Color(1f, 1f, 1f, .97f), 19f, 8f);
         var background = rect.GetComponent<InventoryRoundedGraphic>();
         background.raycastTarget = true;
-        var viewport = Rect("TextViewport", rect, size - new Vector2(24f, 10f));
+        var viewport = UIBuild.Rect("TextViewport", rect, size - new Vector2(24f, 10f));
         viewport.gameObject.AddComponent<UnityEngine.UI.RectMask2D>();
         var text = Label("Text", viewport, "", 18f, Ink, size - new Vector2(24f, 10f));
         text.overflowMode = TextOverflowModes.Overflow;
-        Stretch(text.rectTransform); text.alignment = TextAlignmentOptions.MidlineLeft;
+        UIBuild.Stretch(text.rectTransform); text.alignment = TextAlignmentOptions.MidlineLeft;
         var hint = Label("Placeholder", viewport, placeholder, 15f, Muted, size - new Vector2(24f, 10f));
-        Stretch(hint.rectTransform); hint.alignment = TextAlignmentOptions.MidlineLeft;
+        UIBuild.Stretch(hint.rectTransform); hint.alignment = TextAlignmentOptions.MidlineLeft;
         var input = rect.gameObject.AddComponent<TMP_InputField>();
         input.targetGraphic = background; input.textViewport = viewport;
         input.textComponent = (TextMeshProUGUI)text; input.placeholder = hint;
@@ -570,7 +570,7 @@ public sealed class InventoryUI : MonoBehaviour
     {
         dragVisual = Panel("DraggedItem", transform, Vector2.one * 82f, new Color(1f, .97f, .89f, .95f), 25f, 9f);
         dragVisual.gameObject.AddComponent<CanvasGroup>().blocksRaycasts = false;
-        var iconRect = Rect("Icon", dragVisual, Vector2.one * 58f);
+        var iconRect = UIBuild.Rect("Icon", dragVisual, Vector2.one * 58f);
         iconRect.anchoredPosition = new Vector2(0f, 3f);
         dragIcon = iconRect.gameObject.AddComponent<UnityEngine.UI.Image>();
         dragIcon.preserveAspect = true; dragIcon.useSpriteMesh = true; dragIcon.raycastTarget = false;
@@ -681,26 +681,21 @@ public sealed class InventoryUI : MonoBehaviour
         var navigation = button.navigation; navigation.mode = UnityEngine.UI.Navigation.Mode.None; button.navigation = navigation;
         return button;
     }
-    static RectTransform Rect(string name, Transform parent, Vector2 size)
-    {
-        var rect = new GameObject(name, typeof(RectTransform)).GetComponent<RectTransform>(); rect.SetParent(parent, false);
-        rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(.5f, .5f); rect.sizeDelta = size; return rect;
-    }
     RectTransform Panel(string name, Transform parent, Vector2 size, Color color, float large = 28f, float small = 11f)
     {
-        var rect = Rect(name, parent, size);
+        var rect = UIBuild.Rect(name, parent, size);
         var graphic = rect.gameObject.AddComponent<InventoryRoundedGraphic>();
         graphic.color = color; graphic.largeRadius = large; graphic.smallRadius = small;
         graphic.borderWidth = large > 0f ? 1.5f : 0f; graphic.raycastTarget = false; return rect;
     }
     static RectTransform Icon(string name, Transform parent, InventoryGlyphGraphic.Glyph kind, Vector2 size, Color color)
     {
-        var rect = Rect(name, parent, size); var glyph = rect.gameObject.AddComponent<InventoryGlyphGraphic>();
+        var rect = UIBuild.Rect(name, parent, size); var glyph = rect.gameObject.AddComponent<InventoryGlyphGraphic>();
         glyph.kind = kind; glyph.color = color; glyph.raycastTarget = false; return rect;
     }
     TMP_Text Label(string name, Transform parent, string value, float size, Color color, Vector2 dimensions)
     {
-        var rect = Rect(name, parent, dimensions); var text = rect.gameObject.AddComponent<TextMeshProUGUI>();
+        var rect = UIBuild.Rect(name, parent, dimensions); var text = rect.gameObject.AddComponent<TextMeshProUGUI>();
         text.font = font; text.text = value; text.fontSize = size; text.color = color;
         text.alignment = TextAlignmentOptions.Center; text.textWrappingMode = TextWrappingModes.NoWrap;
         text.overflowMode = TextOverflowModes.Ellipsis; text.raycastTarget = false; return text;
@@ -708,6 +703,5 @@ public sealed class InventoryUI : MonoBehaviour
     static void AutoSize(TMP_Text label, float min, float max) { label.enableAutoSizing = true; label.fontSizeMin = min; label.fontSizeMax = max; }
     static void AtTop(RectTransform rect, float x, float y) { rect.anchorMin = rect.anchorMax = new Vector2(.5f, 1f); rect.anchoredPosition = new Vector2(x, y); }
     static void AtBottom(RectTransform rect, float x, float y) { rect.anchorMin = rect.anchorMax = new Vector2(.5f, 0f); rect.anchoredPosition = new Vector2(x, y); }
-    static void Stretch(RectTransform rect) { rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one; rect.offsetMin = rect.offsetMax = Vector2.zero; }
     void OnDestroy() { if (owner) owner.UiChanged -= Refresh; }
 }

@@ -40,7 +40,7 @@ public sealed class PlayerCombat : MonoBehaviour
         Time.timeScale > 0f && Time.time >= nextAttackTime && !SceneLoadManager.IsLoading &&
         !PlayerInventory.IsAnyOpen && !PlayerInventory.SpaceConsumedThisFrame && !ChatUIManager.IsChatting &&
         !(inventory && (inventory.IsOpen || inventory.IsDragging || (inventory.UserInterface && inventory.UserInterface.IsWithdrawalOpen))) &&
-        !(interaction && interaction.IsInteractionMenuOpen) && !IsEditingText() && !IsPointerOverUI();
+        !(interaction && interaction.IsInteractionMenuOpen) && !UIEventSystem.IsEditingText() && !IsPointerOverUI();
 
     PlayerMovement movement;
     PlayerInventory inventory;
@@ -143,12 +143,6 @@ public sealed class PlayerCombat : MonoBehaviour
         foreach (var hit in pointerHits)
             if (hit.module is UnityEngine.UI.GraphicRaycaster) return true;
         return false;
-    }
-
-    static bool IsEditingText()
-    {
-        GameObject selected = EventSystem.current ? EventSystem.current.currentSelectedGameObject : null;
-        return selected && (selected.GetComponentInParent<TMP_InputField>() || selected.GetComponentInParent<UnityEngine.UI.InputField>());
     }
 
     static Vector2 PointerPosition()

@@ -38,34 +38,15 @@ public class LandPlotSave
 /// 부지 상태는 LandPlot 컴포넌트가 아니라 여기서 id로 들고 있다.
 /// ponytail: 판정은 로컬에서 한다. 멀티플레이 연동 시 서버가 구매·회사명 중복을 판정하도록 옮긴다.
 /// </summary>
-public class LandPlotManager : MonoBehaviour
+public class LandPlotManager : GameSystem<LandPlotManager>
 {
     private static readonly Regex NameRule = new Regex("^[가-힣A-Za-z0-9 ]{2,12}$");
     private static readonly Regex InitialsRule = new Regex("^[가-힣A-Za-z0-9]{1,3}$");
-
-    public static LandPlotManager Instance { get; private set; }
 
     private readonly Dictionary<string, LandPlotSave> states = new Dictionary<string, LandPlotSave>();
 
     /// <summary>부지 상태가 바뀔 때 발생한다. UI 갱신과 건축 시스템이 받는다.</summary>
     public event Action<string> PlotChanged;
-
-    private void Awake()
-    {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
-
-        Instance = this;
-        DontDestroyOnLoad(gameObject);
-    }
-
-    private void OnDestroy()
-    {
-        if (Instance == this) Instance = null;
-    }
 
     public LandPlotState GetState(string plotId) =>
         states.TryGetValue(plotId, out var s) ? s.state : LandPlotState.Available;

@@ -1,10 +1,8 @@
 using System;
 using UnityEngine;
 
-public class ReportManager : MonoBehaviour
+public class ReportManager : GameSystem<ReportManager>
 {
-    public static ReportManager Instance { get; private set; }
-
     [SerializeField]
     private ReportSettings settings = new ReportSettings();
 
@@ -23,21 +21,11 @@ public class ReportManager : MonoBehaviour
 
     public string LocalPlayerId => settings.localPlayerId;
 
-    private void Awake()
-    {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
-        Instance = this;
-        if (transform.parent == null) DontDestroyOnLoad(gameObject);
-        EnsureInitialized();
-    }
+    protected override void OnSystemAwake() => EnsureInitialized();
 
-    private void OnDestroy()
+    protected override void OnDestroy()
     {
-        if (Instance == this) Instance = null;
+        base.OnDestroy();
     }
 
     public ReportSubmitResult Submit(CrimeType type, string suspectId, string evidenceId,

@@ -61,7 +61,7 @@ public sealed class TransitUI : MonoBehaviour
         prompt.SetActive(false);
 
         var shade = Panel("TransitModal", transform, Vector2.zero, new Color(.015f, .025f, .04f, .78f));
-        Stretch(shade);
+        UIBuild.Stretch(shade);
         shade.GetComponent<UnityEngine.UI.Image>().raycastTarget = true;
         modal = shade.gameObject;
         var panel = Panel("DestinationWindow", shade, new Vector2(586f, 636f), Ink);
@@ -82,7 +82,7 @@ public sealed class TransitUI : MonoBehaviour
         closeRect.GetComponent<UnityEngine.UI.Image>().raycastTarget = true;
         Label("Label", closeRect, "닫기", 17f, Paper, new Vector2(68f, 40f));
 
-        cards = Rect("Destinations", panel, new Vector2(530f, 400f));
+        cards = UIBuild.Rect("Destinations", panel, new Vector2(530f, 400f));
         cards.anchoredPosition = new Vector2(0f, -17f);
         var layout = cards.gameObject.AddComponent<UnityEngine.UI.VerticalLayoutGroup>();
         layout.spacing = 10f;
@@ -191,18 +191,9 @@ public sealed class TransitUI : MonoBehaviour
     }
 
 
-    static RectTransform Rect(string name, Transform parent, Vector2 size)
-    {
-        var rect = new GameObject(name, typeof(RectTransform)).GetComponent<RectTransform>();
-        rect.SetParent(parent, false);
-        rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(.5f, .5f);
-        rect.sizeDelta = size;
-        return rect;
-    }
-
     static RectTransform Panel(string name, Transform parent, Vector2 size, Color color)
     {
-        var rect = Rect(name, parent, size);
+        var rect = UIBuild.Rect(name, parent, size);
         var image = rect.gameObject.AddComponent<UnityEngine.UI.Image>();
         image.color = color;
         image.raycastTarget = false;
@@ -211,7 +202,7 @@ public sealed class TransitUI : MonoBehaviour
 
     TMP_Text Label(string name, Transform parent, string value, float size, Color color, Vector2 dimensions)
     {
-        var rect = Rect(name, parent, dimensions);
+        var rect = UIBuild.Rect(name, parent, dimensions);
         var text = rect.gameObject.AddComponent<TextMeshProUGUI>();
         text.font = font;
         text.fontSize = size;
@@ -222,12 +213,5 @@ public sealed class TransitUI : MonoBehaviour
         text.overflowMode = TextOverflowModes.Ellipsis;
         text.raycastTarget = false;
         return text;
-    }
-
-    static void Stretch(RectTransform rect)
-    {
-        rect.anchorMin = Vector2.zero;
-        rect.anchorMax = Vector2.one;
-        rect.offsetMin = rect.offsetMax = Vector2.zero;
     }
 }

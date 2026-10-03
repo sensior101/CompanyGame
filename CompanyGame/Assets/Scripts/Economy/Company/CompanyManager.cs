@@ -2,10 +2,8 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class CompanyManager : MonoBehaviour
+public class CompanyManager : GameSystem<CompanyManager>
 {
-    public static CompanyManager Instance { get; private set; }
-
     [SerializeField]
     private CompanyMarketSettings settings = new CompanyMarketSettings();
 
@@ -26,17 +24,7 @@ public class CompanyManager : MonoBehaviour
         }
     }
 
-    private void Awake()
-    {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
-        Instance = this;
-        if (transform.parent == null) DontDestroyOnLoad(gameObject);
-        EnsureInitialized();
-    }
+    protected override void OnSystemAwake() => EnsureInitialized();
 
     private void Start()
     {
@@ -49,10 +37,10 @@ public class CompanyManager : MonoBehaviour
         subscribedClock.DayChanged += OnDayChanged;
     }
 
-    private void OnDestroy()
+    protected override void OnDestroy()
     {
         if (subscribedClock != null) subscribedClock.DayChanged -= OnDayChanged;
-        if (Instance == this) Instance = null;
+        base.OnDestroy();
     }
 
     public List<ShareSlice> GetShareBreakdown() => Market.GetShareBreakdown();

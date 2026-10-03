@@ -2,10 +2,8 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class StockMarketManager : MonoBehaviour
+public class StockMarketManager : GameSystem<StockMarketManager>
 {
-    public static StockMarketManager Instance { get; private set; }
-
     [SerializeField]
     private StockMarketSettings settings = new StockMarketSettings();
 
@@ -31,17 +29,7 @@ public class StockMarketManager : MonoBehaviour
 
     public bool IsMarketOpen => Exchange.IsOpen(Now);
 
-    private void Awake()
-    {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
-        Instance = this;
-        if (transform.parent == null) DontDestroyOnLoad(gameObject);
-        EnsureInitialized();
-    }
+    protected override void OnSystemAwake() => EnsureInitialized();
 
     private void Start()
     {
@@ -54,10 +42,10 @@ public class StockMarketManager : MonoBehaviour
         subscribedClock.HourChanged += OnHourChanged;
     }
 
-    private void OnDestroy()
+    protected override void OnDestroy()
     {
         if (subscribedClock != null) subscribedClock.HourChanged -= OnHourChanged;
-        if (Instance == this) Instance = null;
+        base.OnDestroy();
     }
 
     public TradeReceipt Buy(string stockId, int quantity) => Exchange.Buy(Now, stockId, quantity);
