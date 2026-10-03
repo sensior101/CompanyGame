@@ -54,8 +54,15 @@ public sealed class SceneLoadManager : MonoBehaviour
             SceneUtility.GetBuildIndexByScenePath(path) < 0 || !Application.CanStreamedLevelBeLoaded(path))
             return Reject("Map is not enabled in the build scene list: " + path);
         if (spawnId.Length == 0) return Reject("The destination spawn ID is empty.");
-        if (!player || player != Player || !player.isActiveAndEnabled)
-            return Reject("Only the active player can change maps.");
+        if (!player || !player.isActiveAndEnabled) return Reject("Only the active player can change maps.");
+        if (player != Player)
+        {
+            // Should not happen with one spawned player; keep the one that asked to travel.
+            Debug.LogWarning("[Map transition] Tracked player was " + (Player ? Player.name : "none") +
+                "; travelling with " + player.name + ". Active players: " +
+                FindObjectsByType<PlayerMovement>(FindObjectsSortMode.None).Length);
+            Player = player;
+        }
 
         EnsureRunner();
         LastError = string.Empty;
@@ -74,6 +81,13 @@ public sealed class SceneLoadManager : MonoBehaviour
         var host = new GameObject("Map Transition (runtime)");
         runner = host.AddComponent<SceneLoadManager>();
         DontDestroyOnLoad(host);
+    }
+
+    // The first map's sceneLoaded can be missed in the editor; make sure the player exists anyway.
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+    static void EnsurePlayer()
+    {
+        if (!Player) PlacePlayer(SceneManager.GetActiveScene(), DefaultSpawnId, false);
     }
 
     static bool Reject(string error)
