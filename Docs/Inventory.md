@@ -22,7 +22,6 @@
 | `ItemData` | 공유 아이템 정의: ID, 이름, 아이콘, 종류, 중첩 한도 |
 | `InventoryState` | 소지품·장착·퀵슬롯 선택·가방 확장. 실패 시 기존 아이템 보존 |
 | `InventoryManager` | 맵 전환 동안 유지되는 세션 데이터 |
-| `InventorytManager` | 기존 철자의 컴포넌트를 위한 호환 클래스 |
 | `PlayerInventory` | E / ESC / 숫자 입력과 이동·카메라 제어 복구 |
 | `PlayerHeldItem` | 오른손 소켓, 1인칭 팔과 아이템, 공격 시 손 움직임·사격 궤적 |
 | `PlayerCombat` | 좌클릭 공격, 명중·장애물 판정, UI 중 공격 차단 |

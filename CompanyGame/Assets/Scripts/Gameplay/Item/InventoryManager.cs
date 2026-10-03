@@ -47,7 +47,7 @@ public class InventoryManager : MonoBehaviour
         if (instance && instance != this) { Destroy(this); return; }
         instance = this;
         state = new InventoryState();
-        // Legacy scenes may attach InventorytManager to their systems root.
+        // Legacy scenes may attach InventoryManager to their systems root.
         // Keep only a dedicated inventory host across maps, never the whole map.
         if (transform.parent || GetComponents<Component>().Length > 2 || transform.childCount > 0)
         {
