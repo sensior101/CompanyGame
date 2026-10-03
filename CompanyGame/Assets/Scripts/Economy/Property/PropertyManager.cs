@@ -15,7 +15,9 @@ public enum MoneyChangeReason
     PropertyUpgrade = 8,
     ManualAdjustment = 9,
     Withdrawal = 10,
-    Deposit = 11
+    Deposit = 11,
+    BankDeposit = 12,
+    BankWithdrawal = 13
 }
 
 [Serializable]
