@@ -24,7 +24,7 @@ namespace CompanyGame.Editor.WorldMaps
         {var g=new GameObject(name).transform;g.SetParent(p,false);return g;}
         public static Mesh SaveMesh(string key,Mesh mesh)
         {
-            string p=AssetsRoot+"/Meshes/"+key+".asset";var old=AssetDatabase.LoadAssetAtPath<Mesh>(p);
+            mesh.name=key;string p=AssetsRoot+"/Meshes/"+key+".asset";var old=AssetDatabase.LoadAssetAtPath<Mesh>(p);
             if(old){EditorUtility.CopySerialized(mesh,old);EditorUtility.SetDirty(old);Object.DestroyImmediate(mesh);return old;}
             AssetDatabase.CreateAsset(mesh,p);return mesh;
         }

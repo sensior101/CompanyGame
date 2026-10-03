@@ -130,7 +130,7 @@ namespace CompanyGame.Editor.Characters
                     bool create=!mesh;
                     if(create)mesh=new Mesh();
                     else mesh.Clear();
-                    mesh.name=assetName+"_"+name;
+                    mesh.name=name;
                     mesh.indexFormat=positions.Count>65535?IndexFormat.UInt32:IndexFormat.UInt16;
                     mesh.SetVertices(positions);mesh.SetNormals(normals);mesh.SetUVs(0,uv);mesh.SetTriangles(triangles,0);
                     mesh.RecalculateBounds();
