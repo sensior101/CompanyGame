@@ -12,7 +12,8 @@ using UnityEngine.SceneManagement;
 public sealed class PlayerInventory : MonoBehaviour
 {
     public TMP_FontAsset uiFont;
-    public InventoryState Inventory { get; private set; }
+    // Read through the manager so a script reload during Play cannot leave this null.
+    public InventoryState Inventory => InventoryManager.Instance ? InventoryManager.Instance.State : null;
     public bool IsOpen { get; private set; }
     public int SelectedInventorySlot { get; private set; } = -1;
     public string StatusMessage { get; private set; } = string.Empty;
@@ -77,7 +78,7 @@ public sealed class PlayerInventory : MonoBehaviour
         local = this;
         movement = GetComponent<PlayerMovement>();
         interaction = GetComponent<PlayerInteraction>();
-        Inventory = InventoryManager.Instance.State;
+
         if (!GetComponent<PlayerCombat>()) gameObject.AddComponent<PlayerCombat>();
     }
 

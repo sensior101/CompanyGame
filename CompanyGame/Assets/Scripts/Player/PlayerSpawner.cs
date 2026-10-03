@@ -1,3 +1,4 @@
+using CompanyGame.Daldongne;
 using CompanyGame.World.Maps;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -74,7 +75,9 @@ public static class PlayerSpawner
         {
             var follow = root.GetComponentInChildren<PlayerCameraController>(true);
             if (!follow) continue;
-            follow.target = Player.transform;
+            // Each map's camera keeps its own view settings (the store is first person); the body it hides comes from the player.
+            var look = Player.GetComponent<DaldongnePlayerAppearance>();
+            follow.Bind(Player.transform, look ? look.female : null, look ? look.male : null);
             Player.viewCamera = follow.GetComponent<Camera>();
             return;
         }

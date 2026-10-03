@@ -440,6 +440,15 @@ public class PlayerCameraController : MonoBehaviour
     {
         RestoreAllObstacles();
     }
+    /// <summary>Follow this player and hide its body in first person.</summary>
+    public void Bind(Transform player, GameObject female, GameObject male)
+    {
+        target = player;
+        femaleVisuals = female;
+        maleVisuals = male;
+        UpdatePlayerVisuals();
+    }
+
     private void UpdatePlayerVisuals()
     {
         SetVisualRenderers(femaleVisuals, !firstPerson);
