@@ -36,7 +36,7 @@ namespace CompanyGame.World.Maps
 
         public bool IsInRange(Transform player)
         {
-            if (!player || player.gameObject.scene != gameObject.scene) return false;
+            if (!player || gameObject.scene != SceneLoadManager.CurrentMap) return false;
             Vector3 offset = player.position - BoardingPosition;
             if (Mathf.Abs(offset.y) > verticalTolerance) return false;
             offset.y = 0f;

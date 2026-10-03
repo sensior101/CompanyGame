@@ -30,7 +30,7 @@ namespace CompanyGame.World.Maps
         void OnDisable() { active.Remove(this); }
         public bool IsInRange(Transform player)
         {
-            if (!player || !isActiveAndEnabled || player.gameObject.scene != gameObject.scene) return false;
+            if (!player || !isActiveAndEnabled || gameObject.scene != SceneLoadManager.CurrentMap) return false;
             Vector3 d = player.position - transform.position;
             return Mathf.Abs(d.y) <= heightTolerance && d.x*d.x+d.z*d.z <= radius*radius;
         }

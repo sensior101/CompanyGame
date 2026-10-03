@@ -53,7 +53,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
         if (source == null || source.IsEmpty) { error = "내려놓을 아이템이 없습니다."; return false; }
         if (!Prepare(owner, out var drop, out error)) return false;
         if (!owner.Inventory.TryTransferTo(drop.contents, index, count<0?source.Count:count, out error)) return false;
-        Commit(drop, owner.gameObject.scene);
+        Commit(drop, SceneLoadManager.CurrentMap);
         return true;
     }
 
@@ -66,7 +66,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
         // Prepare the destination first. A failed removal leaves the actual equipment unchanged.
         if (!drop.contents.TryAdd(source.Item, source.Count, out error)) return false;
         if (!owner.Inventory.TryRemoveEquipment(slot, out error)) return false;
-        Commit(drop, owner.gameObject.scene);
+        Commit(drop, SceneLoadManager.CurrentMap);
         return true;
     }
 
@@ -81,7 +81,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
         drop = new DropRecord
         {
             id = Guid.NewGuid().ToString("N"),
-            scenePath = owner.gameObject.scene.path,
+            scenePath = SceneLoadManager.CurrentMap.path,
             position = position,
             font = owner.uiFont
         };
@@ -98,7 +98,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
     {
         error = null;
         if (!owner || !owner.CanPickUpWorldItems || record == null ||
-            !records.ContainsKey(record.id) || gameObject.scene != owner.gameObject.scene)
+            !records.ContainsKey(record.id) || gameObject.scene != SceneLoadManager.CurrentMap)
         { error = "지금은 주울 수 없습니다."; return false; }
         if (!IsReachableFrom(owner, 4f))
         { error = "아이템에 조금 더 가까이 가 주세요."; return false; }
@@ -115,7 +115,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
 
     public bool IsReachableFrom(PlayerInventory owner, float maximumDistance)
     {
-        if (!owner || gameObject.scene != owner.gameObject.scene ||
+        if (!owner || gameObject.scene != SceneLoadManager.CurrentMap ||
             Vector3.Distance(owner.transform.position, transform.position) > maximumDistance) return false;
         Vector3 origin = owner.transform.position + Vector3.up * .8f;
         Vector3 delta = transform.position + Vector3.up * .24f - origin;
@@ -261,7 +261,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
         bool visible = false;
         foreach (var player in FindObjectsByType<PlayerInventory>(FindObjectsSortMode.None))
         {
-            if (!player || player.gameObject.scene != gameObject.scene || !player.CanPickUpWorldItems) continue;
+            if (!player || gameObject.scene != SceneLoadManager.CurrentMap || !player.CanPickUpWorldItems) continue;
             if (!IsReachableFrom(player, 3f)) continue;
             visible = true;
             break;

@@ -19,6 +19,9 @@ public sealed class SceneLoadManager : MonoBehaviour
     /// <summary>The one player, kept across map loads.</summary>
     public static PlayerMovement Player { get; private set; }
 
+    /// <summary>The map the player is in. The player itself lives outside it so it survives map loads.</summary>
+    public static Scene CurrentMap => SceneManager.GetActiveScene();
+
     static SceneLoadManager runner;
     static string pendingSpawnId;
     string destinationPath;

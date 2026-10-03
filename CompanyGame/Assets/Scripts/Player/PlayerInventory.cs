@@ -490,7 +490,7 @@ public sealed class PlayerInventory : MonoBehaviour
         float bestDistance = 3f * 3f;
         foreach (var item in FindObjectsByType<WorldDroppedItem>(FindObjectsSortMode.None))
         {
-            if (item.gameObject.scene != gameObject.scene || item.Count <= 0) continue;
+            if (item.gameObject.scene != SceneLoadManager.CurrentMap || item.Count <= 0) continue;
             float distance = (item.transform.position - transform.position).sqrMagnitude;
             if (distance > bestDistance || !item.IsReachableFrom(this, 3f)) continue;
             bestDistance = distance;
@@ -507,7 +507,7 @@ public sealed class PlayerInventory : MonoBehaviour
         if (ui) return;
         if (!uiFont && interaction) uiFont = interaction.uiFont;
         ui = InventoryUI.Create(this, uiFont);
-        SceneManager.MoveGameObjectToScene(ui.gameObject, gameObject.scene);
+        SceneManager.MoveGameObjectToScene(ui.gameObject, SceneLoadManager.CurrentMap);
     }
 
     void SuspendControls()

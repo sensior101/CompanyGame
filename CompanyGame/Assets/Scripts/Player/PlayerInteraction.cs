@@ -38,6 +38,7 @@ public class PlayerInteraction : MonoBehaviour
     bool hasControlSnapshot;
     bool restorePending;
     bool travelPending;
+    string travelTargetPath;
     bool menuArmed;
     bool waitForSpaceRelease = true;
     bool cursorWasVisible;
@@ -56,9 +57,9 @@ public class PlayerInteraction : MonoBehaviour
         }
         if (travelPending)
         {
-            // A successful load destroys this scene-local player. If it is still
-            // present when loading finishes, the async load failed; recover the UI.
+            // The player survives map loads; arriving anywhere but the target means the load failed.
             travelPending = false;
+            if (SceneLoadManager.CurrentMap.path == travelTargetPath) return;
             if (ui) ui.HideModal();
             if (OpenDestinationMenu()) ui.ShowStatus("이동하지 못했습니다. 목적지를 다시 선택해 주세요.");
             return;
@@ -165,6 +166,7 @@ public class PlayerInteraction : MonoBehaviour
         {
             IsDestinationMenuOpen = false;
             travelPending = true;
+            travelTargetPath = destination.scenePath;
             waitForSpaceRelease = true;
             ui.ShowStatus(destination.displayName + "(으)로 이동 중입니다…");
             RestoreControls(false);
@@ -184,7 +186,7 @@ public class PlayerInteraction : MonoBehaviour
         {
             if (destination == null || string.IsNullOrWhiteSpace(destination.scenePath)) continue;
             var path = destination.scenePath.Trim().Replace('\\', '/');
-            if (path == gameObject.scene.path || !paths.Add(path) ||
+            if (path == SceneLoadManager.CurrentMap.path || !paths.Add(path) ||
                 SceneUtility.GetBuildIndexByScenePath(path) < 0 || !Application.CanStreamedLevelBeLoaded(path)) continue;
             availableDestinations.Add(destination);
         }
@@ -209,7 +211,7 @@ public class PlayerInteraction : MonoBehaviour
         tradingWith=FocusedStore;
         SuspendControls();ui.HidePrompt();
         storeUI=StoreTradeUI.Create(new StoreTradeSession(inventory.Inventory,tradingWith.offers),uiFont,CloseStore);
-        SceneManager.MoveGameObjectToScene(storeUI.gameObject,gameObject.scene);
+        SceneManager.MoveGameObjectToScene(storeUI.gameObject,SceneLoadManager.CurrentMap);
         return true;
     }
 
@@ -224,16 +226,16 @@ public class PlayerInteraction : MonoBehaviour
     string CurrentDistrictName()
     {
         foreach (var destination in destinations ?? Array.Empty<TransitDestination>())
-            if (destination != null && destination.scenePath == gameObject.scene.path)
+            if (destination != null && destination.scenePath == SceneLoadManager.CurrentMap.path)
                 return destination.displayName;
-        return gameObject.scene.name;
+        return SceneLoadManager.CurrentMap.name;
     }
 
     void EnsureUI()
     {
         if (ui) return;
         ui = TransitUI.Create(uiFont, CloseDestinationMenu);
-        SceneManager.MoveGameObjectToScene(ui.gameObject, gameObject.scene);
+        SceneManager.MoveGameObjectToScene(ui.gameObject, SceneLoadManager.CurrentMap);
     }
 
     void SuspendControls()
