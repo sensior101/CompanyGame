@@ -203,6 +203,13 @@ public class PlayerInteraction : MonoBehaviour
         if (!CanStartInteraction()) return false;
         FocusedStore = StoreInteractionPoint.FindNearest(transform);
         if (!FocusedStore) return false;
+        if (string.IsNullOrEmpty(FocusedStore.targetScenePath))
+        {
+            // Empty target scene: move inside the current map.
+            bool moved = PlayerSpawner.TeleportInScene(FocusedStore.targetSpawnId);
+            if (moved) { waitForSpaceRelease = true; if (ui) ui.HidePrompt(); }
+            return moved;
+        }
         EnsureUI();
         bool loaded = SceneLoadManager.TryLoadMap(FocusedStore.targetScenePath, FocusedStore.targetSpawnId, movement);
         if (loaded) { waitForSpaceRelease = true; ui.HidePrompt(); }

@@ -19,6 +19,7 @@ static class GameSystems
         Spawn<StockMarketManager>();
         Spawn<SnsManager>();
         Spawn<LandPlotManager>();
+        Spawn<PropertyRegistry>();
 
         // PhoneUI is built by CompanyGame/Setup/Build Phone UI Prefab; ChatUI was moved out of daldongnaemap.
         SpawnPrefab("PhoneUI");

@@ -2,7 +2,7 @@ using UnityEngine;
 
 // Keep serialized values stable. Accessory is retained only for old item assets.
 public enum ItemCategory { General = 0, Top = 1, Bottom = 2, Socks = 3, Shoes = 4, Accessory = 5, Pet = 6, Bag = 7, Currency = 8, Weapon = 9,
-    Food = 10, Material = 11, Furniture = 12, Vehicle = 13, Fish = 14 }
+    Food = 10, Material = 11, Furniture = 12, Vehicle = 13, Fish = 14, Document = 15 }
 public enum EquipmentSlot { Top = 0, Bottom = 1, Socks = 2, Shoes = 3, Accessory = 4, Pet = 5 }
 public enum WeaponKind { Melee = 0, Firearm = 1 }
 
@@ -36,11 +36,16 @@ public class ItemData : ScriptableObject
     [Min(0.1f)] public float weaponRange = 50f;
     [Min(0.1f)] public float attacksPerSecond = 3f;
 
+    [Header("Property deed")]
+    public string propertyId;
+    public string propertyName;
+
     public string DisplayName => string.IsNullOrWhiteSpace(displayName) ? name : displayName;
     public int StackLimit => IsStackable ? Mathf.Max(1, maxStack) : 1;
     bool IsStackable => IsCurrency || category == ItemCategory.General || category == ItemCategory.Food ||
         category == ItemCategory.Material || category == ItemCategory.Fish;
     public bool IsCurrency => category == ItemCategory.Currency && currencyValue >= 0;
+    public bool IsDeed => category == ItemCategory.Document && !string.IsNullOrEmpty(propertyId);
     public bool IsWeapon => category == ItemCategory.Weapon;
     public long CurrencyValue => IsCurrency ? currencyValue : 0;
 

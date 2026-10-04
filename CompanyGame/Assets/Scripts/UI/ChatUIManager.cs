@@ -96,6 +96,7 @@ public class ChatUIManager : MonoBehaviour
         // Enter Ű
         if (GameInput.SubmitPressed)
         {
+            if (!isChatOpen && FloorStairsMenu.OwnsEnter) return;
             if (!isChatOpen)
             {
                 OpenChat();
