@@ -25,9 +25,9 @@ Gameplay → NPC → UI
 | --- | --- | --- | --- |
 | Core | `CompanyGame.Core` | 시간, 키 입력, 세션, 공통 도우미 | `GameTime`, `SimpleGameClock`, `GameInput`, `GameSession`, `GameSystem<T>`, `InputFocus`, `UIEventSystem` |
 | Net | `CompanyGame.Net` | 서버·멀티 통신 | `PlayerData` (로그인 API 클라이언트, 아직 어떤 코드·씬에서도 쓰지 않음) |
-| Economy | `CompanyGame.Economy` | 은행, 회사, 주식, 토지, 세금 | `BankManager`, `CompanyManager`, `StockMarketManager`, `LandPlotManager` |
+| Economy | `CompanyGame.Economy` | 은행, 회사, 주식, 토지, 소유권, 세금 | `BankManager`, `CompanyManager`, `StockMarketManager`, `LandPlotManager`, `PropertyRegistry` |
 | Gameplay | `CompanyGame.Gameplay` | 아이템·인벤토리 상태, 현금, 핸드폰 앱, 신고, SNS | `InventoryManager`, `InventoryState`, `ItemData`, `CashService`, `PhoneManager`, `GameSystems` |
-| World | `CompanyGame.World` | 맵 이동, 포털, 정류장, 건물 출입문 | `SceneLoadManager`, `MapSpawnPoint`, `MapPortal`, `TransitStop`, `StoreInteractionPoint` |
+| World | `CompanyGame.World` | 맵 이동, 포털, 정류장, 건물 출입문, 소유 구역, 계단 | `SceneLoadManager`, `MapSpawnPoint`, `MapPortal`, `TransitStop`, `StoreInteractionPoint`, `PropertyZone`, `FloorStairs` |
 | Player | `CompanyGame.Player` | 이동, 카메라, 스탯, 전투, 손 아이템, 생성 | `PlayerMovement`, `PlayerCameraController`, `PlayerStats`, `PlayerCombat`, `PlayerSpawner` |
 | NPC | `CompanyGame.NPC` | NPC, NPC 거래 | `NpcTrader` |
 | UI | `CompanyGame.UI` | 인벤토리·상점·정류장 메뉴, 채팅, 돈 표시, 핸드폰 화면 | `UI/Inventory/*`, `UI/Interaction/*`, `UI/Phone/*` |
@@ -49,11 +49,28 @@ Gameplay → NPC → UI
 | EventSystem | `GameSystems`가 가장 먼저 `UIEventSystem.Ensure()`로 하나만 만들고 맵을 옮겨도 유지합니다. 맵 씬에 EventSystem을 넣으면 2개가 됩니다. |
 | 플레이어 | `Resources/Player.prefab` 하나를 `PlayerSpawner`가 만들고 맵 사이로 데려갑니다. 맵 씬에는 플레이어를 넣지 않습니다. |
 | 맵 씬 | 그 맵 고유의 것(지형, 카메라 `PlayerCameraController` 1개, 스폰 지점, 포털·문·NPC)만 둡니다. 플레이어·EventSystem·채팅·인벤토리 UI는 넣지 않습니다. Play를 그 맵에서 시작하면 `default` 스폰에 섭니다. 카메라 시점(편의점은 1인칭)은 맵마다 다릅니다. |
-| 맵 이동 | `SceneLoadManager.TryLoadMap(씬 경로, 스폰 ID)`. 씬은 빌드 목록에 있어야 합니다. |
+| 맵 이동 | `SceneLoadManager.TryLoadMap(씬 경로, 스폰 ID)`. 씬은 빌드 목록에 있어야 합니다. 같은 씬 안 이동(층·방)은 `PlayerSpawner.TeleportInScene(스폰 ID)`이고, `StoreInteractionPoint`의 대상 씬을 비워 두면 문이 이 방식으로 동작합니다. |
 | 핸드폰 | `Resources/PhoneUI.prefab`을 시작할 때 띄웁니다. R 키. |
 | 채팅 | `Resources/ChatUI.prefab`을 시작할 때 띄웁니다. 모든 맵에서 Enter로 열고, 다른 입력창을 편집 중일 때는 열리지 않습니다. |
 | 인벤토리 UI | `PlayerInventory`가 처음 만들 때 DontDestroyOnLoad로 두어 맵을 옮겨도 핫바가 남습니다. |
 | 키 입력 | `Core/GameInput.cs` 한 파일. 키를 바꾸려면 여기만 고칩니다. |
+
+## 고시원과 소유권
+
+- 고시원 내부 씬은 `Scenes/Interiors/GoshiwonInterior.unity`입니다. 달동네 고시원 정문(`Goshiwon Entrance`)으로 들어가고, 1층 출구로 나오면 `goshiwon_exit`에 섭니다.
+- 씬은 메뉴 `CompanyGame/Setup/Build Goshiwon Interior`(`Editor/Goshiwon/GoshiwonInteriorBuilder`)가 원시 도형으로 만듭니다. 다시 실행하면 씬을 통째로 덮어쓰므로, 손으로 꾸미기 시작한 뒤에는 실행하지 않습니다. 집문서 아이템·스프라이트·달동네 출입문은 `Run Goshiwon Setup`(`GoshiwonSetup`)이 만듭니다.
+- 1~4층, 방 20개(101·102, 201~206, 301~306, 401~406). 1층에는 접수대와 주인아주머니가 있습니다. 층은 위아래로 쌓여 있고 계단은 걷지 않습니다. `FloorStairs` 근처에 서면 `FloorStairsMenu`가 윗층/아래층 메뉴를 띄우고 ↑↓+Enter 또는 클릭으로 `floor_N` 스폰에 순간이동합니다. 메뉴가 떠 있는 동안 Enter는 채팅을 열지 않습니다.
+- 스폰 ID: `goshiwon_entry`, `floor_1~4`, `room_201`(방 안), `door_201`(복도 문 앞).
+
+### 소유권 (집문서·땅문서)
+
+- 소유 상태는 `PropertyRegistry`(Economy, `GameSystems`가 생성)가 부동산 ID → 소유자 이름으로 들고 있습니다. 이미 주인이 있으면 다른 사람은 등록할 수 없고, 포기는 주인만 할 수 있습니다. `CaptureState/RestoreState`는 저장 시스템이 생기면 연결합니다(지금은 세션 동안만 유지).
+- 문서는 `ItemCategory.Document` 아이템이고 `propertyId`, `propertyName`을 가집니다. 고시원 집문서 20종은 `Resources/Inventory/Deeds/`(예: `deed_house_goshiwon_201` "고시원 201호 집문서"). 땅문서는 `land_<부지ID>` 규칙으로 같은 방식으로 추가합니다(스프라이트 `Art/Items/Deeds/deed_land.png`만 준비됨).
+- 문서를 핫바에서 들고 Space를 누르면 등록, 내 문서를 5초 누르면 게이지가 찬 뒤 포기합니다. 문·NPC·정류장 근처이거나 메뉴·핸드폰이 열려 있으면 그쪽이 Space를 가져갑니다. 처리는 플레이어에 자동으로 붙는 `UI/Property/PropertyUseController`입니다.
+- 시작 시 주인 없는 첫 고시원 방 문서 1장이 인벤토리에 들어옵니다(달동네 고시원은 시작 구역).
+- 소유 구역은 `PropertyZone`(박스, `propertyId`, `displayName`)입니다. 방·땅 구분이 없습니다. 플레이어가 남의 소유 구역에 새로 들어가면 시스템 로그 "OO님이 고시원 201호에 무단으로 침입하였습니다."가 뜹니다. 빈 곳이나 내 소유는 로그가 없습니다. `seedOwner`는 테스트용 미리 지정 주인입니다(지금 202호 = "이웃").
+- 플레이어 이름은 `GameSession.LocalPlayerName`(기본 "Player") 하나에서 읽습니다.
+- 멀티플레이를 붙일 때: 등록·포기를 방장이 판정하고(`GameSession.IsAuthority`), 소유자를 이름 대신 고유 플레이어 ID로 바꾸고, 무단침입 로그를 모두에게 보내야 합니다.
 
 ## NPC 거래
 

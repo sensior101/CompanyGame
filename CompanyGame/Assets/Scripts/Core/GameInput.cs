@@ -35,6 +35,8 @@ public static class GameInput
     public static bool CancelPressed => Pressed(Key.Escape);
     public static bool SubmitPressed => Pressed(Key.Enter) || Pressed(Key.NumpadEnter);
     public static bool NextFieldPressed => Pressed(Key.Tab);
+    public static bool NavUpPressed => Pressed(Key.UpArrow);
+    public static bool NavDownPressed => Pressed(Key.DownArrow);
     public static bool AltHeld => Held(Key.LeftAlt) || Held(Key.RightAlt);
 
     /// <summary>Index of the number key (1..count) pressed this frame, or -1. Alt+number is reserved for debug shortcuts.</summary>
