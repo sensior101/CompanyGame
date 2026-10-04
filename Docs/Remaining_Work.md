@@ -11,7 +11,7 @@
 | 아이템 ID 규칙 | `ItemData.itemId`는 저장·통신에 쓰는 고정 ID입니다. 이름 규칙(예: `food.triangle_kimbap`)을 합의합니다. |
 | 씬 담당자 | 씬마다 수정 담당자를 정해 [Git_Collaboration.md](Git_Collaboration.md)에 표로 적습니다. |
 | Unity 버전 | 6000.4.5f1에 보안 공지가 있습니다. 출시 전에 팀 전체가 같은 버전으로 올립니다. |
-| GitHub 브랜치 보호 | 문서 규칙(main·Dev 직접 push 금지)을 저장소 설정으로 켭니다. 관리자 권한이 필요합니다. |
+| GitHub 브랜치 보호 | 문서 규칙(작업자는 main·Dev에 직접 push 금지, PR 없이 관리자가 합침)에 맞게 저장소 설정을 정합니다. 관리자 권한이 필요합니다. |
 
 ## 2. 개발
 
