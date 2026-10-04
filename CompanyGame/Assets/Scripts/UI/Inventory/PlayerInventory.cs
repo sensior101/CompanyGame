@@ -58,6 +58,9 @@ public sealed class PlayerInventory : MonoBehaviour
     InventoryHandCursor handCursor;
     readonly List<RaycastResult> pointerHits = new List<RaycastResult>();
 
+    /// <summary>Lets other Space users (deeds) claim this frame's Space press before PlayerInteraction reads it.</summary>
+    public static void ConsumeSpaceThisFrame() => spaceConsumedFrame = Time.frameCount;
+
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     static void ResetStatics()
     {
@@ -79,6 +82,8 @@ public sealed class PlayerInventory : MonoBehaviour
         interaction = GetComponent<PlayerInteraction>();
 
         if (!GetComponent<PlayerCombat>()) gameObject.AddComponent<PlayerCombat>();
+        if (!GetComponent<PropertyUseController>()) gameObject.AddComponent<PropertyUseController>();
+        if (!GetComponent<FloorStairsMenu>()) gameObject.AddComponent<FloorStairsMenu>();
     }
 
     void OnEnable()
