@@ -23,6 +23,9 @@ public sealed class WorldDroppedItem : MonoBehaviour
     static readonly Dictionary<string, DropRecord> records = new Dictionary<string, DropRecord>();
     DropRecord record;
     Transform billboard;
+    Transform floatingItem, spinningModel, glowBeam;
+    readonly List<Mesh> effectMeshes = new List<Mesh>();
+    float floatPhase;
     RectTransform pickupPopup;
     TMP_Text pickupText;
 
@@ -204,8 +207,12 @@ public sealed class WorldDroppedItem : MonoBehaviour
         collider.isTrigger = true;
         billboard = new GameObject("ItemBillboard").transform;
         billboard.SetParent(transform, false);
-        billboard.localPosition = Vector3.up * .33f;
+        billboard.localPosition = Vector3.up * .98f;
+        floatingItem = new GameObject("FloatingItem").transform;
+        floatingItem.SetParent(billboard, false);
+        floatPhase = Mathf.Repeat(record.id.GetHashCode() * .001f, Mathf.PI * 2f);
         BuildItemIcon();
+        BuildDropGlow();
         BuildPickupPopup();
     }
 
@@ -213,7 +220,75 @@ public sealed class WorldDroppedItem : MonoBehaviour
     {
         var camera = Camera.main;
         if (billboard && camera) billboard.rotation = Quaternion.LookRotation(camera.transform.forward, camera.transform.up);
+        // Animate only the artwork; the pickup collider and saved drop point stay on the floor.
+        if (floatingItem) floatingItem.position = transform.position + Vector3.up * (.57f + Mathf.Sin(Time.time * 1.9f + floatPhase) * .075f);
+        if (spinningModel) spinningModel.localRotation = Quaternion.Euler(0f, Time.time * 32f + floatPhase * Mathf.Rad2Deg, 0f);
+        if (glowBeam && camera)
+        {
+            var forward = Vector3.ProjectOnPlane(camera.transform.forward, Vector3.up);
+            if (forward.sqrMagnitude > .001f) glowBeam.rotation = Quaternion.LookRotation(forward, Vector3.up);
+        }
         UpdatePickupPopup(camera);
+    }
+
+    void BuildDropGlow()
+    {
+        var material = Resources.Load<Material>("Effects/DroppedItemGlow");
+        if (!material) return;
+        CreateGlowQuad("GroundGlow", material, false);
+        glowBeam = CreateGlowQuad("RisingGlow", material, true);
+
+        var host = new GameObject("RisingGoldenSparks");
+        host.transform.SetParent(transform, false);
+        host.transform.localPosition = Vector3.up * -.025f;
+        host.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
+        var particles = host.AddComponent<ParticleSystem>();
+        particles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        var main = particles.main;
+        main.loop = true; main.duration = 2f; main.prewarm = true;
+        main.simulationSpace = ParticleSystemSimulationSpace.Local;
+        main.startLifetime = new ParticleSystem.MinMaxCurve(1.1f, 1.6f);
+        main.startSpeed = new ParticleSystem.MinMaxCurve(.42f, .72f);
+        main.startSize = new ParticleSystem.MinMaxCurve(.045f, .085f);
+        main.startColor = new Color(1f, .92f, .4f, .85f);
+        main.gravityModifier = 0f; main.maxParticles = 20;
+        var emission = particles.emission; emission.rateOverTime = 10f;
+        var shape = particles.shape; shape.shapeType = ParticleSystemShapeType.Cone;
+        shape.angle = 4f; shape.radius = .23f;
+        var color = particles.colorOverLifetime; color.enabled = true;
+        var gradient = new Gradient();
+        gradient.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+            new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(1f, .15f), new GradientAlphaKey(.65f, .65f), new GradientAlphaKey(0f, 1f) });
+        color.color = gradient;
+        var renderer = particles.GetComponent<ParticleSystemRenderer>();
+        renderer.sharedMaterial = material; renderer.renderMode = ParticleSystemRenderMode.Billboard;
+        renderer.sortingOrder = 19;
+        renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        renderer.receiveShadows = false;
+        particles.Play();
+    }
+
+    Transform CreateGlowQuad(string name, Material material, bool beam)
+    {
+        var host = new GameObject(name, typeof(MeshFilter), typeof(MeshRenderer));
+        host.transform.SetParent(transform, false);
+        host.transform.localPosition = Vector3.up * -.045f;
+        var mesh = new Mesh { name = name, hideFlags = HideFlags.DontSave };
+        mesh.vertices = beam
+            ? new[] { new Vector3(-.38f, 0f, 0f), new Vector3(.38f, 0f, 0f), new Vector3(.27f, 1.1f, 0f), new Vector3(-.27f, 1.1f, 0f) }
+            : new[] { new Vector3(-.48f, 0f, -.48f), new Vector3(.48f, 0f, -.48f), new Vector3(.48f, 0f, .48f), new Vector3(-.48f, 0f, .48f) };
+        mesh.uv = new[] { Vector2.zero, Vector2.right, Vector2.one, Vector2.up };
+        mesh.colors = new[] { Color.white, Color.white, Color.white, Color.white };
+        mesh.triangles = new[] { 0, 1, 2, 0, 2, 3 }; mesh.RecalculateBounds();
+        effectMeshes.Add(mesh); host.GetComponent<MeshFilter>().sharedMesh = mesh;
+        var renderer = host.GetComponent<MeshRenderer>(); renderer.sharedMaterial = material;
+        renderer.sortingOrder = beam ? 18 : 17;
+        renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; renderer.receiveShadows = false;
+        var properties = new MaterialPropertyBlock();
+        properties.SetFloat("_Beam", beam ? 1f : 0f);
+        properties.SetColor("_Tint", new Color(1f, .73f, .12f, beam ? .34f : .7f));
+        renderer.SetPropertyBlock(properties);
+        return host.transform;
     }
 
     void BuildPickupPopup()
@@ -296,16 +371,17 @@ public sealed class WorldDroppedItem : MonoBehaviour
         if (!Item || !Item.icon) return;
         if (Item.heldPrefab && Item.icon.texture.name == "StoreFoods")
         {
-            var model = Instantiate(Item.heldPrefab, billboard, false);
+            var model = Instantiate(Item.heldPrefab, floatingItem, false);
             model.name = "DroppedFoodModel";
             model.transform.localPosition = new Vector3(0f, -.1f, 0f);
             model.transform.localRotation = Quaternion.Euler(0, 18, 0);
             model.transform.localScale = Vector3.one * 1.4f;
+            spinningModel = model.transform;
             return;
         }
         var iconHost = new GameObject("DroppedItemIcon", typeof(SpriteRenderer));
-        iconHost.transform.SetParent(billboard, false);
-        iconHost.transform.localPosition = new Vector3(0f, -.28f, 0f);
+        iconHost.transform.SetParent(floatingItem, false);
+        iconHost.transform.localPosition = Vector3.zero;
         var renderer = iconHost.GetComponent<SpriteRenderer>();
         renderer.sprite = Item.icon;
         renderer.color = Color.white;
@@ -317,6 +393,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
 
     void OnDestroy()
     {
+        foreach (var mesh in effectMeshes) if (mesh) Destroy(mesh);
         if (record != null && record.instance == this) record.instance = null;
     }
 }
