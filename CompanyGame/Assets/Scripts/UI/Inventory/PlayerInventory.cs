@@ -89,6 +89,8 @@ public sealed class PlayerInventory : MonoBehaviour
     void OnEnable()
     {
         if (Inventory != null) Inventory.Changed += HandleInventoryChanged;
+        var combat = GetComponent<PlayerCombat>();
+        if (combat) combat.ItemUseFeedback += SetStatus;
         if (ui) ui.gameObject.SetActive(true);
     }
 
@@ -527,6 +529,8 @@ public sealed class PlayerInventory : MonoBehaviour
     {
         ResetCurrencyDepositGesture();
         if (Inventory != null) Inventory.Changed -= HandleInventoryChanged;
+        var combat = GetComponent<PlayerCombat>();
+        if (combat) combat.ItemUseFeedback -= SetStatus;
         CancelDrag();
         if (handCursor) handCursor.Hide();
         IsOpen = false;
