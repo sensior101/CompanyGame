@@ -14,11 +14,15 @@ public sealed class PlayerHeldItem : MonoBehaviour
     PlayerCombat combat;
     PlayerCameraController cameraController;
     Camera viewCamera, handCamera;
-    Transform arm, visualSource, viewRig, viewArm, worldItem, firstPersonItem;
-    Vector3 handPoint;
+    Transform arm, forearm, visualSource, viewRig, viewArm, worldItem, firstPersonItem;
+    Vector3 handPoint, forearmGrip;
+    Mesh firstPersonArmMesh;
+    DaldongneAvatarMotion avatarMotion;
     Quaternion armRest;
     ItemData heldItem;
     float attackStarted = -10f;
+    float punchAmount, punchVelocity, recoilAmount, recoilVelocity, holdBlend;
+    Vector3 viewScale;
     bool attackWasShot, excludedHandLayer;
     LineRenderer tracer;
     Material tracerMaterial;
@@ -30,7 +34,7 @@ public sealed class PlayerHeldItem : MonoBehaviour
     public Transform FirstPersonItemRoot => firstPersonItem;
     public Transform FirstPersonArmRoot => viewArm;
     public bool IsFirstPersonVisible => viewRig && viewRig.gameObject.activeInHierarchy;
-    public Vector3 WorldGripPosition => arm ? arm.TransformPoint(handPoint) : transform.position + Vector3.up;
+    public Vector3 WorldGripPosition => forearm ? forearm.TransformPoint(forearmGrip) : arm ? arm.TransformPoint(handPoint) : transform.position + Vector3.up;
 
     void Awake()
     {
@@ -137,17 +141,28 @@ public sealed class PlayerHeldItem : MonoBehaviour
         handCamera.fieldOfView = viewCamera.fieldOfView;
         handCamera.aspect = viewCamera.aspect;
         handCamera.rect = viewCamera.rect;
-        float duration = attackWasShot ? .19f : .32f;
         if (tracer) tracer.enabled = attackWasShot && Time.time - attackStarted < .07f && !InputFocus.InventoryOpen();
-        float phase = Mathf.Clamp01((Time.time - attackStarted) / duration);
-        float swing = Mathf.Sin(phase * Mathf.PI);
-        float recoil = attackWasShot ? swing : 0f;
-        float punch = attackWasShot ? 0f : swing;
-        if (arm && !firstPerson)
+        // Retrigger targets, not transforms. Preserve velocity through rapid clicks
+        // and ease all the way back to the current idle/walking pose.
+        float elapsed = Time.time - attackStarted;
+        float punchTarget = !attackWasShot && elapsed < .11f ? 1f : 0f;
+        float recoilTarget = attackWasShot && elapsed < .045f ? 1f : 0f;
+        punchAmount = Mathf.SmoothDamp(punchAmount, punchTarget, ref punchVelocity, punchTarget > 0 ? .055f : .095f);
+        recoilAmount = Mathf.SmoothDamp(recoilAmount, recoilTarget, ref recoilVelocity, recoilTarget > 0 ? .025f : .065f);
+        holdBlend = Mathf.MoveTowards(holdBlend, heldItem ? 1f : 0f, Time.deltaTime * 6f);
+        float punch = punchAmount, recoil = recoilAmount;
+        if (arm)
         {
-            // The avatar motion writes its walking pose first; only the held/attacking arm is overlaid.
-            if (heldItem || punch > .001f)
-                arm.localRotation = armRest * Quaternion.Euler(-65f * (heldItem ? 1f : punch) - 22f * punch + 8f * recoil, 0f, -8f);
+            Quaternion baseArm = avatarMotion ? avatarMotion.RightArmPose : armRest;
+            Quaternion baseForearm = avatarMotion ? avatarMotion.RightForearmPose : Quaternion.identity;
+            float holdAngle = forearm ? -12f : -25f;
+            arm.localRotation = Quaternion.Slerp(baseArm, armRest * Quaternion.Euler(holdAngle, 0, 0), holdBlend);
+            arm.localRotation = Quaternion.Slerp(arm.localRotation, armRest * Quaternion.Euler(-76f, 0, -3f), punch);
+            if (forearm)
+            {
+                forearm.localRotation = Quaternion.Slerp(baseForearm, Quaternion.Euler(-58f, 0, 0), holdBlend);
+                forearm.localRotation = Quaternion.Slerp(forearm.localRotation, Quaternion.Euler(-12f + 8f * recoil, 0, 0), punch);
+            }
         }
         if (worldItem)
         {
@@ -157,8 +172,15 @@ public sealed class PlayerHeldItem : MonoBehaviour
         }
         if (viewArm)
         {
-            viewArm.localPosition = new Vector3(.25f - .06f * punch, -.23f + .025f * punch, .16f + .15f * punch - .055f * recoil);
-            viewArm.localRotation = Quaternion.Euler(-76f - 8f * punch + 10f * recoil, -8f, -8f);
+            viewArm.localScale = viewScale;
+            viewArm.localRotation = Quaternion.Euler(-125f + 35f * punch - 8f * recoil, -10f, -18f + 10f * punch);
+            // A short forearm enters diagonally from the bottom-right, away from
+            // the central HUD. Punches travel towards the aim point and return.
+            float depth = .65f + .18f * punch - .035f * recoil;
+            float halfHeight = Mathf.Tan(handCamera.fieldOfView * Mathf.Deg2Rad * .5f) * depth;
+            Vector3 gripInView = new Vector3(halfHeight * handCamera.aspect * (.68f - .38f * punch),
+                halfHeight * (-.62f + .26f * punch), depth);
+            viewArm.localPosition = gripInView - viewArm.localRotation * Vector3.Scale(viewArm.localScale, handPoint);
             if (firstPersonItem)
             {
                 firstPersonItem.position = viewArm.TransformPoint(handPoint) + viewCamera.transform.up * .055f;
@@ -170,9 +192,19 @@ public sealed class PlayerHeldItem : MonoBehaviour
     void BuildArm()
     {
         Remove(ref viewArm);
+        if (firstPersonArmMesh) Destroy(firstPersonArmMesh);
+        firstPersonArmMesh = null;
+        forearm = arm.Find("RightForearm");
+        avatarMotion = visualSource.GetComponent<DaldongneAvatarMotion>();
+        if (avatarMotion) armRest = avatarMotion.RightArmRest;
+        else if (forearm) armRest = Quaternion.identity;
+        holdBlend = punchAmount = recoilAmount = punchVelocity = recoilVelocity = 0;
         viewArm = CopyRenderers(arm, viewRig, HandLayer);
         viewArm.name = "CurrentAvatarRightArm";
         viewArm.localScale = arm.lossyScale;
+        viewScale = Vector3.Scale(arm.lossyScale, new Vector3(1.3f, forearm ? .85f : .6f, 1.3f));
+        // Continuous skins keep the renderer beside the skeleton, not on the arm.
+        if (viewArm.GetComponentsInChildren<Renderer>(true).Length == 0 && BuildSkinnedArm()) return;
         Transform hand = arm.Find("Hand");
         if (hand) handPoint = arm.InverseTransformPoint(hand.position);
         else
@@ -181,6 +213,74 @@ public sealed class PlayerHeldItem : MonoBehaviour
             var bounds = mesh && mesh.sharedMesh ? mesh.sharedMesh.bounds : new Bounds(new Vector3(0f, -.25f, 0f), new Vector3(.18f, .5f, .18f));
             handPoint = new Vector3(bounds.center.x, bounds.min.y + .055f, bounds.center.z);
         }
+        if (forearm) forearmGrip = forearm.InverseTransformPoint(arm.TransformPoint(handPoint));
+    }
+
+    bool BuildSkinnedArm()
+    {
+        foreach (var skin in visualSource.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+        {
+            var source = skin.sharedMesh;
+            var bones = skin.bones;
+            int armIndex = System.Array.IndexOf(bones, arm);
+            if (!source || !source.isReadable || armIndex < 0) continue;
+            var includedBones = new HashSet<int>();
+            for (int i = 0; i < bones.Length; i++)
+                if (bones[i] && (forearm ? bones[i] == forearm || bones[i].IsChildOf(forearm) : bones[i] == arm || bones[i].IsChildOf(arm))) includedBones.Add(i);
+            var weights = source.boneWeights;
+            var accepted = new bool[source.vertexCount];
+            for (int i = 0; i < weights.Length; i++)
+            {
+                var w = weights[i];
+                float amount = (includedBones.Contains(w.boneIndex0) ? w.weight0 : 0)
+                    + (includedBones.Contains(w.boneIndex1) ? w.weight1 : 0)
+                    + (includedBones.Contains(w.boneIndex2) ? w.weight2 : 0)
+                    + (includedBones.Contains(w.boneIndex3) ? w.weight3 : 0);
+                accepted[i] = amount > .1f;
+            }
+            var vertices = source.vertices; var normals = source.normals; var uv = source.uv;
+            var bind = source.bindposes[armIndex]; var normalMatrix = bind.inverse.transpose;
+            var remap = new Dictionary<int, int>();
+            var outputVertices = new List<Vector3>(); var outputNormals = new List<Vector3>();
+            var outputUV = new List<Vector2>(); var submeshes = new List<int[]>();
+            for (int sub = 0; sub < source.subMeshCount; sub++)
+            {
+                var indices = source.GetTriangles(sub); var output = new List<int>();
+                for (int i = 0; i < indices.Length; i += 3)
+                {
+                    if (!accepted[indices[i]] || !accepted[indices[i+1]] || !accepted[indices[i+2]]) continue;
+                    for (int j = 0; j < 3; j++)
+                    {
+                        int original = indices[i+j];
+                        if (!remap.TryGetValue(original, out int mapped))
+                        {
+                            mapped = outputVertices.Count; remap.Add(original, mapped);
+                            outputVertices.Add(bind.MultiplyPoint3x4(vertices[original]));
+                            outputNormals.Add(normalMatrix.MultiplyVector(normals[original]).normalized);
+                            outputUV.Add(uv.Length == vertices.Length ? uv[original] : Vector2.zero);
+                        }
+                        output.Add(mapped);
+                    }
+                }
+                submeshes.Add(output.ToArray());
+            }
+            if (outputVertices.Count == 0) continue;
+            firstPersonArmMesh = new Mesh { name = "CurrentAvatarRightArmMesh", hideFlags = HideFlags.DontSave,
+                indexFormat = outputVertices.Count > 65535 ? IndexFormat.UInt32 : IndexFormat.UInt16 };
+            firstPersonArmMesh.SetVertices(outputVertices); firstPersonArmMesh.SetNormals(outputNormals); firstPersonArmMesh.SetUVs(0, outputUV);
+            firstPersonArmMesh.subMeshCount = submeshes.Count;
+            for (int i = 0; i < submeshes.Count; i++) firstPersonArmMesh.SetTriangles(submeshes[i], i);
+            firstPersonArmMesh.RecalculateBounds(); firstPersonArmMesh.RecalculateTangents();
+            viewArm.gameObject.AddComponent<MeshFilter>().sharedMesh = firstPersonArmMesh;
+            var renderer = viewArm.gameObject.AddComponent<MeshRenderer>();
+            renderer.sharedMaterials = skin.sharedMaterials; renderer.shadowCastingMode = ShadowCastingMode.Off;
+            var bounds = firstPersonArmMesh.bounds;
+            handPoint = new Vector3(bounds.center.x, bounds.min.y + .055f, bounds.center.z);
+            int forearmIndex = System.Array.IndexOf(bones, forearm);
+            if (forearmIndex >= 0) forearmGrip = source.bindposes[forearmIndex].MultiplyPoint3x4(bind.inverse.MultiplyPoint3x4(handPoint));
+            return true;
+        }
+        return false;
     }
 
     void RebuildItems()
@@ -336,5 +436,6 @@ public sealed class PlayerHeldItem : MonoBehaviour
         Remove(ref viewRig); Remove(ref worldItem);
         foreach (var material in materials) if (material) Destroy(material);
         foreach (var mesh in bakedMeshes) if (mesh) Destroy(mesh);
+        if (firstPersonArmMesh) Destroy(firstPersonArmMesh);
     }
 }
