@@ -26,7 +26,7 @@ public class PlayerInteraction : MonoBehaviour
     public bool IsInteractionMenuOpen => IsDestinationMenuOpen || IsTradeOpen;
     public StoreInteractionPoint FocusedStore { get; private set; }
     public NpcTrader FocusedTrader { get; private set; }
-    public bool HasNearbyAction => !IsInteractionMenuOpen && (StoreInteractionPoint.FindNearest(transform) || NpcTrader.FindNearest(transform));
+    public bool HasNearbyAction => !IsInteractionMenuOpen && (SeatInteraction.HasNearbySeat || FurnitureLightInteraction.HasNearbyLight || DialogueManager.HasNearbyNpc || StoreInteractionPoint.FindNearest(transform) || NpcTrader.FindNearest(transform));
     public TradeWindow TradeUI => tradeUI;
     public TransitStop FocusedStop { get; private set; }
     public bool IsMenuReady => IsDestinationMenuOpen && menuArmed;
@@ -87,7 +87,8 @@ public class PlayerInteraction : MonoBehaviour
             if (SpaceHeld()) return;
             waitForSpaceRelease = false;
         }
-        if (!movement || !movement.isActiveAndEnabled || PlayerInventory.IsAnyOpen || PlayerInventory.SpaceConsumedThisFrame ||
+        if (SeatInteraction.HasNearbySeat || FurnitureLightInteraction.HasNearbyLight || DialogueManager.HasNearbyNpc || DialogueManager.IsDialogueOpen || DialogueManager.OwnsInput ||
+            !movement || !movement.isActiveAndEnabled || PlayerInventory.IsAnyOpen || PlayerInventory.SpaceConsumedThisFrame ||
             ChatUIManager.IsChatting || UIEventSystem.IsEditingText())
         {
             FocusedStop = null;

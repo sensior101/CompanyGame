@@ -34,7 +34,7 @@ namespace CompanyGame.World.Maps
                 focused = null;
                 closestDistance = float.PositiveInfinity;
             }
-            if (SceneLoadManager.IsLoading) return;
+            if (SceneLoadManager.IsLoading || InputFocus.GameplayBlocked()) return;
             player = SceneLoadManager.Traveller;
             if (!player || !player.isActiveAndEnabled) return;
             float distance = (player.transform.position - transform.position).sqrMagnitude;
@@ -47,7 +47,7 @@ namespace CompanyGame.World.Maps
         {
             // Every portal has completed Update, so overlapping portal ranges
             // choose the nearest one, regardless of component update order.
-            if (focused != this || SceneLoadManager.IsLoading) return;
+            if (focused != this || SceneLoadManager.IsLoading || InputFocus.GameplayBlocked()) return;
             if (GameInput.InteractPressed) SceneLoadManager.TryLoadMap(targetScenePath, targetSpawnId, player);
         }
 

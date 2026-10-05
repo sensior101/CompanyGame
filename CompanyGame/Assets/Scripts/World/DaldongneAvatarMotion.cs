@@ -43,6 +43,28 @@ namespace CompanyGame.Daldongne
         Leg legL, legR;
         Vector3 previousPosition;
         float phase, blend, filteredSpeed;
+        bool seated;
+        public void SetSeated(bool value)
+        {
+            if (!SameRig()) CaptureRestPose();
+            seated = value;
+            ResetMotion();
+            if (seated) ApplySeatedPose();
+        }
+        void ApplySeatedPose()
+        {
+            Restore();
+            var p = hips.localPosition; p.y = .54f; hips.localPosition = p;
+            leftLeg.localRotation = legL.thigh.rotation * Quaternion.Euler(-90f, 0f, 0f);
+            rightLeg.localRotation = legR.thigh.rotation * Quaternion.Euler(-90f, 0f, 0f);
+            leftKnee.localRotation = legL.knee.rotation * Quaternion.Euler(90f, 0f, 0f);
+            rightKnee.localRotation = legR.knee.rotation * Quaternion.Euler(90f, 0f, 0f);
+            leftArm.localRotation = armL.rotation * Quaternion.Euler(-20f, 0f, 0f);
+            rightArm.localRotation = armR.rotation * Quaternion.Euler(-20f, 0f, 0f);
+            if (leftForearm) leftForearm.localRotation = forearmL.rotation * Quaternion.Euler(-60f, 0f, 0f);
+            if (rightForearm) rightForearm.localRotation = forearmR.rotation * Quaternion.Euler(-60f, 0f, 0f);
+            CacheArmPose();
+        }
         public Quaternion RightArmPose { get; private set; } = Quaternion.identity;
         public Quaternion RightForearmPose { get; private set; } = Quaternion.identity;
         public Quaternion RightArmRest => armR != null ? armR.rotation : rightArm ? rightArm.localRotation : Quaternion.identity;
@@ -56,6 +78,7 @@ namespace CompanyGame.Daldongne
 
         void LateUpdate()
         {
+            if (seated) { ApplySeatedPose(); previousPosition = transform.position; return; }
             float dt = Time.deltaTime;
             if (dt <= 0) return;
             Vector3 delta = transform.position - previousPosition;
