@@ -1,0 +1,47 @@
+{
+  "stage": "final",
+  "dimensions_target_m": {
+    "Tower_A": 160,
+    "Tower_B": 150,
+    "Podium": 26.1,
+    "footprint_width_approx": 90,
+    "footprint_depth_approx": 67
+  },
+  "objects": 31,
+  "vertices": 61871,
+  "triangles": 76714,
+  "units": "metres",
+  "front": "Blender -Y",
+  "reference_priority": "Four supplied reference views; inward facing towers and wavy podium",
+  "materials": [
+    "DarkGlass",
+    "BlackMetal",
+    "LED_White",
+    "Concrete_Dark",
+    "InteriorGlow",
+    "SignMaterial",
+    "TerraceGreen",
+    "Paving"
+  ],
+  "collections": [
+    "Tower_A",
+    "Tower_B",
+    "Podium",
+    "Glass",
+    "Frames",
+    "LED_Strips",
+    "Entrances",
+    "Roof",
+    "Signage",
+    "Ground_Details"
+  ],
+  "scope": "Exterior only, no full interior. Shadow planes and emission window modules are mock interiors.",
+  "scene_integration": "Standalone asset; existing 24 m / 65.5 m Handae scene object has not been replaced.",
+  "led_surface_offset_m": 0.36,
+  "notes": [
+    "Matched opposing plan rotations +/-22 degrees",
+    "Towers bend inward by 6.5 m then relax 4.5 m",
+    "Glazing modules use consistent arc-length sampling",
+    "Front podium ribbons rise up to 3.35 m towards the recessed centre"
+  ]
+}
