@@ -77,7 +77,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
         if (!owner || !owner.IsOpen || SceneLoadManager.IsLoading ||
             (owner.UserInterface && owner.UserInterface.IsWithdrawalOpen))
         { error = "지금은 내려놓을 수 없습니다."; return false; }
-        if (!TryFindDropPoint(owner, out var position)) { error = "앞에 아이템을 놓을 바닥이 없습니다."; return false; }
+        if (!TryFindDropPoint(owner, out var position)) { error = "주변에 아이템을 놓을 공간이 없습니다. 조금 이동한 뒤 다시 놓아 주세요."; return false; }
         drop = new DropRecord
         {
             id = Guid.NewGuid().ToString("N"),
@@ -133,8 +133,24 @@ public sealed class WorldDroppedItem : MonoBehaviour
         result = default;
         var forward = Vector3.ProjectOnPlane(owner.transform.forward, Vector3.up).normalized;
         if (forward.sqrMagnitude < .5f) forward = Vector3.forward;
+        // A narrow alley or an uphill step can block the point straight ahead.
+        // Check reachable floor around the player before refusing the drop.
+        foreach (float angle in DropAngles)
+        {
+            var direction = Quaternion.AngleAxis(angle, Vector3.up) * forward;
+            foreach (float distance in DropDistances)
+                if (TryFindDropPointInDirection(owner, direction, distance, out result)) return true;
+        }
+        return false;
+    }
+
+    static readonly float[] DropAngles = { 0f, 45f, -45f, 90f, -90f, 135f, -135f, 180f };
+    static readonly float[] DropDistances = { 1.4f, .8f, .45f };
+
+    static bool TryFindDropPointInDirection(PlayerInventory owner, Vector3 forward, float reach, out Vector3 result)
+    {
+        result = default;
         Vector3 origin = owner.transform.position + Vector3.up * .8f;
-        float reach = 1.4f;
         var blocks = Physics.SphereCastAll(origin, .16f, forward, reach, ~0, QueryTriggerInteraction.Ignore);
         foreach (var hit in blocks)
         {
