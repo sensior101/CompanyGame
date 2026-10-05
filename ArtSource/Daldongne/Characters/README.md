@@ -1,5 +1,14 @@
 # 플레이어 모델 소스
 
+## 현재 남성 플레이어: Meshy Male 원본 해상도 (2026-10-05)
+
+- `MeshyMaleHigh.fbx`: 제공된 `Meshy_AI_Low_Poly_Character_Mo_1005131415_generate.fbx` 원본입니다. 226,436개 삼각형을 유지하며 높이를 1.8m로 맞춥니다.
+- `MeshyMaleHigh.shorts-faces.json`: 원본 반바지의 허리·밑단 경계에 맞춰 선택하고 앞뒤·양옆에서 검토한 면 목록입니다. 원본 SHA-256과 삼각형 수를 검사하며, 회색은 이 면들에만 적용합니다.
+- `import_meshy_male.py`: 원본 메시의 연결 관계로 양팔을 분리하고 어깨의 관절 영향을 부드럽게 연결합니다. UV2는 관절 구분과 팔 영향도만 저장하며 색상에는 사용하지 않습니다.
+- `MeshyMaleImporter.cs`: 기존 `MaleVisual.prefab` 루트와 GUID를 유지하면서 10개 관절, 연속 스킨 메시, 피부·반바지 재질을 생성합니다. `DaldongneAvatarMotion`, `PlayerHeldItem`, `InventoryCharacterPreview`가 기존 경로로 보행·소지 자세·남성 모델의 오른쪽 아래팔·인벤토리 미리보기를 처리합니다.
+- 재생성: Blender에서 `--background --factory-startup --python ArtSource/Daldongne/Characters/import_meshy_male.py`를 실행한 뒤 Unity의 **Tools → Company Game → Characters → Rebuild Meshy Male**을 실행합니다. 기존 **Rebuild Reference Boy** 메뉴도 새 남성 모델을 사용합니다. 런타임 에셋은 `Assets/Art/Daldongne/Players/MeshyMale/`에 있습니다.
+- 원본에는 텍스처·뼈대·애니메이션이 없습니다. 새 얼굴이나 머리카락을 추가하지 않고 원본 형상에 기존 플레이어 관절 동작을 연결합니다.
+
 ## 현재 여성 플레이어: Meshy Female 원본 해상도 (2026-10-05)
 
 - `MeshyFemaleHigh.fbx`: 제공된 `Meshy_AI_Female_Base_Avatar_Ch_1005111639_generate.fbx` 원본입니다. 모델의 모든 212,746개 삼각형을 유지합니다.

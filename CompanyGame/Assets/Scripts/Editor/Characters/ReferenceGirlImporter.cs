@@ -43,6 +43,7 @@ namespace CompanyGame.Editor.Characters
         public static string Rebuild(bool male, bool migrateScenes = true)
         {
             if(!male && File.Exists(MeshyFemaleImporter.Folder+"/FemaleBody.fbx")) return MeshyFemaleImporter.Rebuild();
+            if(male && File.Exists(MeshyMaleImporter.Folder+"/MaleBody.fbx")) return MeshyMaleImporter.Rebuild();
             RequireEditMode();
             string folder=male?"Assets/Art/Daldongne/Players/ReferenceBoy":Folder;
             string visualPath=male?"Assets/Art/Daldongne/Players/MaleVisual.prefab":VisualPath;
@@ -194,6 +195,8 @@ namespace CompanyGame.Editor.Characters
 
         public static string Validate(bool male)
         {
+            if(male && AssetDatabase.LoadAssetAtPath<GameObject>(ReferenceBoyImporter.VisualPath).GetComponentInChildren<SkinnedMeshRenderer>(true))
+                return MeshyMaleImporter.Validate();
             if(!male && AssetDatabase.LoadAssetAtPath<GameObject>(VisualPath).GetComponentInChildren<SkinnedMeshRenderer>(true))
                 return MeshyFemaleImporter.Validate();
             string visualPath=male?"Assets/Art/Daldongne/Players/MaleVisual.prefab":VisualPath;
