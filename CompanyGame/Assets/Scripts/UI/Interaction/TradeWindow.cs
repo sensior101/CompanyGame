@@ -152,8 +152,15 @@ public sealed class TradeWindow : MonoBehaviour
         if(IsDragging){HideTooltip();return;}
         string name=null;
         if(pointer.kind==TradePointer.Kind.Inventory)
-        {var stack=Session.Inventory.GetSlot(pointer.index);if(stack!=null&&!stack.IsEmpty)name=stack.Item.DisplayName;}
-        else if(HasOffer(pointer.index)){var side=pointer.kind==TradePointer.Kind.Payment?Session.Offers[pointer.index].give:Session.Offers[pointer.index].get;name=side.Resolve().DisplayName;}
+        {var stack=Session.Inventory.GetSlot(pointer.index);if(stack!=null&&!stack.IsEmpty)name=stack.Tooltip;}
+        else if(HasOffer(pointer.index))
+        {
+            var side=pointer.kind==TradePointer.Kind.Payment?Session.Offers[pointer.index].give:Session.Offers[pointer.index].get;
+            name=side.IsBookTemplate ? side.bookTemplate.title+"\n저자 : "+side.bookTemplate.authorName : side.Resolve().DisplayName;
+        }
+        tooltip.sizeDelta = new Vector2(280, name != null && name.Contains("\n") ? 72 : 36);
+        tooltipText.rectTransform.sizeDelta = tooltip.sizeDelta - new Vector2(16, 6);
+        tooltipText.richText = false;
         if(string.IsNullOrEmpty(name)){HideTooltip();return;}
         hovered=pointer;tooltipText.text=name;
         float width=Mathf.Clamp(tooltipText.GetPreferredValues(name).x+24,80,260);tooltip.sizeDelta=new Vector2(width,36);tooltipText.rectTransform.sizeDelta=new Vector2(width-16,30);

@@ -70,7 +70,7 @@ public sealed class PlayerInventory : MonoBehaviour
         InputFocus.InventoryOpen = () => IsAnyOpen;
         InputFocus.ChatOpen = () => ChatUIManager.IsChatting;
         InputFocus.ScrollCaptured = () => CurrencyScrollCapturedThisFrame || HotbarScrollCapturedThisFrame;
-        InputFocus.GameplayBlocked = () => (PlayerSeating.Local && PlayerSeating.Local.IsSeated) || DialogueManager.OwnsInput || IsAnyOpen || SpaceConsumedThisFrame || ChatUIManager.IsChatting ||
+        InputFocus.GameplayBlocked = () => BookReader.BlocksInventoryInput || (PlayerSeating.Local && PlayerSeating.Local.IsSeated) || DialogueManager.OwnsInput || IsAnyOpen || SpaceConsumedThisFrame || ChatUIManager.IsChatting ||
             (local && (local.IsOpen || local.IsDragging || (local.ui && local.ui.IsWithdrawalOpen))) ||
             (local && local.interaction && local.interaction.IsInteractionMenuOpen);
     }
@@ -87,6 +87,7 @@ public sealed class PlayerInventory : MonoBehaviour
         if (!GetComponent<EmployeeCardPrompt>()) gameObject.AddComponent<EmployeeCardPrompt>();
         if (!GetComponent<SeatInteraction>()) gameObject.AddComponent<SeatInteraction>();
         if (!GetComponent<FurnitureLightInteraction>()) gameObject.AddComponent<FurnitureLightInteraction>();
+        if (!GetComponent<BookReader>()) gameObject.AddComponent<BookReader>();
     }
 
     void OnEnable()
@@ -101,6 +102,7 @@ public sealed class PlayerInventory : MonoBehaviour
 
     void Update()
     {
+        if (BookReader.BlocksInventoryInput) return;
         // Unity can omit uGUI OnEndDrag when the pointer leaves the Canvas.
         // Finish the same drag from the actual mouse-release frame so dragging
         // outside the inventory still reaches EndDragAt/DropIntoWorld.
@@ -342,7 +344,7 @@ public sealed class PlayerInventory : MonoBehaviour
         UiChanged?.Invoke();
     }
 
-    bool CanClick() => IsOpen && !IsDragging && Time.frameCount > suppressClickThroughFrame &&
+    bool CanClick() => !BookReader.BlocksInventoryInput && IsOpen && !IsDragging && Time.frameCount > suppressClickThroughFrame &&
         !(ui && ui.IsWithdrawalOpen) && !SceneLoadManager.IsLoading;
 
     public void SetStatus(string message)
@@ -356,7 +358,7 @@ public sealed class PlayerInventory : MonoBehaviour
 
     bool BeginDrag(ItemStack stack, int index, bool fromEquipment, EquipmentSlot equipmentSlot,bool single)
     {
-        if (!IsOpen || SceneLoadManager.IsLoading || (ui && ui.IsWithdrawalOpen) || stack == null || stack.IsEmpty) return false;
+        if (BookReader.BlocksInventoryInput || !IsOpen || SceneLoadManager.IsLoading || (ui && ui.IsWithdrawalOpen) || stack == null || stack.IsEmpty) return false;
         CancelDrag();
         draggedItem = stack.Item;
         draggedSourceCount = stack.Count;

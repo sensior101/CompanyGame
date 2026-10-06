@@ -39,5 +39,17 @@ public class InventoryManager : MonoBehaviour
         DontDestroyOnLoad(gameObject);
     }
 
-    protected virtual void OnDestroy() { if (instance == this) instance = null; }
+    void Start()
+    {
+        BookSaveService.RestoreInventory(State);
+        State.Changed += SaveBooks;
+    }
+
+    void SaveBooks() => BookSaveService.SaveInventory(State);
+
+    protected virtual void OnDestroy()
+    {
+        if (state != null) state.Changed -= SaveBooks;
+        if (instance == this) instance = null;
+    }
 }

@@ -5,10 +5,40 @@ public sealed class ItemStack
 {
     public ItemData Item { get; internal set; }
     public int Count { get; internal set; }
+    public ItemInstance Instance { get; internal set; }
+    public string InstanceId
+    {
+        get => Instance?.instanceId;
+        internal set { if (value != null || Instance != null) EnsureInstance().instanceId = value; }
+    }
+    public BookInstanceData BookData
+    {
+        get => Instance?.bookData;
+        internal set { if (value != null || Instance != null) EnsureInstance().bookData = value; }
+    }
     public bool IsEmpty => !Item || Count <= 0;
+    public bool IsUniqueBook => !IsEmpty && Item.IsBook && BookData != null &&
+        (BookData.isPublished || BookData.HasContent || !string.IsNullOrEmpty(InstanceId));
+    public int StackLimit => IsUniqueBook ? 1 : IsEmpty ? 0 : Item.StackLimit;
+    public bool CanMerge(ItemStack other) => other != null && !IsEmpty && !other.IsEmpty &&
+        Item == other.Item && !IsUniqueBook && !other.IsUniqueBook;
+    public string Tooltip => IsUniqueBook && BookData.isPublished
+        ? DisplayName + "\n저자 : " + BookData.authorName : DisplayName;
+    public string DisplayName => !IsEmpty && Item.IsBook && !string.IsNullOrWhiteSpace(BookData?.title)
+        ? BookData.title : IsEmpty ? "" : Item.DisplayName;
 
     internal ItemStack(ItemData item = null, int count = 0) { Item = item; Count = count; }
-    internal void Clear() { Item = null; Count = 0; }
+    ItemInstance EnsureInstance()
+    {
+        Instance ??= new ItemInstance();
+        Instance.itemId = Item ? Item.itemId : null;
+        return Instance;
+    }
+    internal ItemStack Copy()
+    {
+        return new ItemStack(Item, Count) { Instance = Instance?.Clone() };
+    }
+    internal void Clear() { Item = null; Count = 0; Instance = null; }
 }
 
 /// <summary>
@@ -36,6 +66,20 @@ public sealed class InventoryState
     public ItemStack GetSlot(int index) => IsSlot(index) ? slots[index] : null;
     public ItemStack GetEquipment(EquipmentSlot slot) => IsEquipment(slot) ? equipment[(int)slot] : null;
 
+    /// <summary>Publishes edits to a carried book so its persistence owner can save them.</summary>
+    public bool NotifyBookChanged(string instanceId)
+    {
+        if (string.IsNullOrEmpty(instanceId)) return false;
+        for (int i = 0; i < Capacity; i++)
+        {
+            var stack = slots[i];
+            if (stack.IsEmpty || !stack.Item.IsBook || stack.InstanceId != instanceId) continue;
+            NotifyChanged();
+            return true;
+        }
+        return false;
+    }
+
     public bool SelectHotbar(int index)
     {
         if (index < 0 || index >= HotbarSize) return false;
@@ -55,7 +99,7 @@ public sealed class InventoryState
         {
             ItemStack stack = slots[i];
             if (stack.IsEmpty) room += item.StackLimit;
-            else if (stack.Item == item) room += Math.Max(0, item.StackLimit - stack.Count);
+            else if (stack.Item == item && !stack.IsUniqueBook) room += Math.Max(0, item.StackLimit - stack.Count);
         }
         if (room < count) return Fail("인벤토리가 가득 찼습니다.", out error);
         if (item.IsCurrency)
@@ -75,15 +119,128 @@ public sealed class InventoryState
         for (int i = 0; i < Capacity && remaining > 0; i++)
         {
             ItemStack stack = slots[i];
-            if (pass == 0 ? stack.IsEmpty || stack.Item != item : !stack.IsEmpty) continue;
+            if (pass == 0 ? stack.IsEmpty || stack.Item != item || stack.IsUniqueBook : !stack.IsEmpty) continue;
             int amount = Math.Min(remaining, item.StackLimit - (stack.IsEmpty ? 0 : stack.Count));
             if (amount <= 0) continue;
-            if (stack.IsEmpty) { stack.Item = item; stack.Count = 0; }
+            if (stack.IsEmpty)
+            {
+                stack.Item = item; stack.Count = 0;
+            }
             stack.Count += amount;
             remaining -= amount;
         }
         NotifyChanged();
         return true;
+    }
+
+    /// <summary>Restores or transfers exactly one authored book without changing its identity.</summary>
+    public bool TryAddBookInstance(ItemData item, string instanceId, BookInstanceData data, out string error, int preferredSlot = -1)
+    {
+        error = null;
+        if (!item || !item.IsBook || string.IsNullOrWhiteSpace(instanceId) || data == null || !data.isPublished)
+            return Fail("책 데이터를 확인해 주세요.", out error);
+        for (int i = 0; i < Capacity; i++)
+            if (!slots[i].IsEmpty && slots[i].InstanceId == instanceId)
+                return Fail("같은 책이 이미 인벤토리에 있습니다.", out error);
+        if (IsSlot(preferredSlot) && slots[preferredSlot].IsEmpty)
+        {
+            slots[preferredSlot] = new ItemStack(item, 1)
+            {
+                InstanceId = instanceId,
+                BookData = data.Clone()
+            };
+            NotifyChanged();
+            return true;
+        }
+        for (int i = 0; i < Capacity; i++)
+        {
+            if (!slots[i].IsEmpty) continue;
+            slots[i] = new ItemStack(item, 1)
+            {
+                InstanceId = instanceId,
+                BookData = data.Clone()
+            };
+            NotifyChanged();
+            return true;
+        }
+        return Fail("인벤토리가 가득 찼습니다.", out error);
+    }
+
+    /// <summary>Turns exactly one blank into a named book. No changes on capacity failure.</summary>
+    public bool TryPublishBook(int blankSlot, BookInstanceData draft, string authorId, string authorName,
+        out int resultSlot, out string error)
+    {
+        resultSlot = -1; error = null;
+        var source = GetSlot(blankSlot);
+        if (source == null || source.IsEmpty || !source.Item.IsBook || source.IsUniqueBook ||
+            draft == null || !draft.HasContent || string.IsNullOrWhiteSpace(draft.title) || string.IsNullOrEmpty(authorId))
+            return Fail("내용과 제목을 입력해 주세요.", out error);
+        int destination = blankSlot;
+        if (source.Count > 1)
+        {
+            destination = -1;
+            for (int i = 0; i < Capacity; i++) if (slots[i].IsEmpty) { destination = i; break; }
+            if (destination < 0) return Fail("작성한 책을 보관할 빈 칸이 필요합니다. 원고는 그대로 유지됩니다.", out error);
+        }
+        var data = draft.Clone();
+        data.authorPlayerId = authorId; data.authorName = authorName ?? "Player";
+        data.isPublished = true; data.permission = BookEditPermission.FullEdit;
+        var book = new ItemStack(source.Item, 1) { InstanceId = Guid.NewGuid().ToString("N"), BookData = data };
+        source.Count--;
+        slots[destination] = book;
+        resultSlot = destination;
+        NotifyChanged();
+        return true;
+    }
+
+    public BookEditSession BeginBookEdit(string id, string editorId)
+    {
+        var book = FindBook(id);
+        if (book == null || string.IsNullOrEmpty(editorId)) return null;
+        return new BookEditSession { inventory = this, instanceId = id, editorId = editorId,
+            baseline = book.BookData.Clone(), expected = book.BookData };
+    }
+
+    public bool TryUpdateBook(string id, BookInstanceData revision, string editorId, out string error,
+        BookEditSession session = null)
+    {
+        error = null;
+        var book = FindBook(id);
+        var rules = book?.BookData;
+        if (session != null)
+        {
+            if (book == null || session.inventory != this || session.instanceId != id || session.editorId != editorId ||
+                !ReferenceEquals(session.expected, book.BookData) || session.baseline.permission != book.BookData.permission)
+                return Fail("책이 변경되었습니다. 다시 열어 주세요.", out error);
+            rules = session.baseline;
+        }
+        if (rules == null || !rules.AllowsRevision(revision, editorId))
+            return Fail("이 책의 수정 권한으로는 해당 내용을 변경할 수 없습니다.", out error);
+        if (string.IsNullOrWhiteSpace(revision.title)) return Fail("제목을 입력해 주세요.", out error);
+        var data = revision.Clone();
+        // Authorship and permission are never accepted from an editing payload.
+        data.authorPlayerId = book.BookData.authorPlayerId; data.authorName = book.BookData.authorName;
+        data.permission = book.BookData.permission; data.isPublished = book.BookData.isPublished;
+        book.BookData = data;
+        if (session != null) session.expected = data;
+        NotifyChanged(); return true;
+    }
+
+    public bool TrySetBookPermission(string id, BookEditPermission permission, string playerId, out string error)
+    {
+        error = null; var book = FindBook(id);
+        if (book == null || !book.BookData.isPublished || !book.BookData.IsAuthor(playerId) ||
+            !Enum.IsDefined(typeof(BookEditPermission), permission))
+            return Fail("저자만 다른 플레이어의 권한을 설정할 수 있습니다.", out error);
+        book.BookData.permission = permission; NotifyChanged(); return true;
+    }
+
+    public ItemStack FindBook(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return null;
+        for (int i = 0; i < Capacity; i++)
+            if (slots[i].IsUniqueBook && slots[i].InstanceId == id) return slots[i];
+        return null;
     }
 
     public bool TryRemove(int index, int count, out string error)
@@ -104,9 +261,9 @@ public sealed class InventoryState
             return Fail("이동할 아이템을 선택해 주세요.", out error);
         if (fromIndex == toIndex) return true;
         ItemStack source = slots[fromIndex], target = slots[toIndex];
-        if (!target.IsEmpty && source.Item == target.Item && target.Count < target.Item.StackLimit)
+        if (source.CanMerge(target) && target.Count < target.StackLimit)
         {
-            int amount = Math.Min(source.Count, target.Item.StackLimit - target.Count);
+            int amount = Math.Min(source.Count, target.StackLimit - target.Count);
             target.Count += amount;
             source.Count -= amount;
             if (source.Count == 0) source.Clear();
@@ -128,7 +285,7 @@ public sealed class InventoryState
         if(count==slots[fromIndex].Count)return TryMove(fromIndex,toIndex,out error);
         if(fromIndex==toIndex)return true;
         var source=slots[fromIndex];var target=slots[toIndex];
-        if(!target.IsEmpty && (target.Item!=source.Item || target.Count+count>target.Item.StackLimit))
+        if(!target.IsEmpty && (!source.CanMerge(target) || target.Count+count>target.StackLimit))
             return Fail("빈 칸이나 같은 아이템 칸에 놓아 주세요.",out error);
         if(target.IsEmpty){target.Item=source.Item;target.Count=0;}
         target.Count+=count;source.Count-=count;NotifyChanged();return true;
@@ -198,7 +355,12 @@ public sealed class InventoryState
             slots[sourceIndex].IsEmpty || slots[sourceIndex].Count < count)
             return Fail("전달할 아이템과 수량을 확인해 주세요.", out error);
         InventoryState sourceDraft = Copy(), destinationDraft = destination.Copy();
-        if (!destinationDraft.TryAdd(slots[sourceIndex].Item, count, out error)) return false;
+        var moving = slots[sourceIndex];
+        if (moving.IsUniqueBook)
+        {
+            if (count != 1 || !destinationDraft.TryAddBookInstance(moving.Item, moving.InstanceId, moving.BookData, out error)) return false;
+        }
+        else if (!destinationDraft.TryAdd(moving.Item, count, out error)) return false;
         if (!sourceDraft.TryRemove(sourceIndex, count, out error)) return false;
         ReplaceWith(sourceDraft);
         destination.ReplaceWith(destinationDraft);
@@ -238,8 +400,8 @@ public sealed class InventoryState
     {
         Capacity = source.Capacity;
         SelectedHotbarIndex = source.SelectedHotbarIndex;
-        for (int i = 0; i < slots.Length; i++) slots[i] = new ItemStack(source.slots[i].Item, source.slots[i].Count);
-        for (int i = 0; i < equipment.Length; i++) equipment[i] = new ItemStack(source.equipment[i].Item, source.equipment[i].Count);
+        for (int i = 0; i < slots.Length; i++) slots[i] = source.slots[i].Copy();
+        for (int i = 0; i < equipment.Length; i++) equipment[i] = source.equipment[i].Copy();
     }
 
     internal void NotifyChanged()

@@ -33,7 +33,7 @@ public sealed partial class InventoryUI
 
     public void ShowItemTooltip(InventorySlotPointer slot, Vector2 screenPosition)
     {
-        if (IsWithdrawalOpen || slot == null || slot.IsDropZone || !owner || owner.IsDragging || owner.Inventory == null)
+        if (BookReader.IsAnyOpen || IsWithdrawalOpen || slot == null || slot.IsDropZone || !owner || owner.IsDragging || owner.Inventory == null)
         {
             HideItemTooltip();
             return;
@@ -46,7 +46,10 @@ public sealed partial class InventoryUI
             HideItemTooltip();
             return;
         }
-        tooltipText.text = stack.Item.DisplayName;
+        tooltipText.richText = false;
+        tooltipText.text = stack.Tooltip;
+        tooltipPanel.sizeDelta = new Vector2(280f, stack.IsUniqueBook ? 72f : 44f);
+        tooltipText.rectTransform.sizeDelta = new Vector2(264f, stack.IsUniqueBook ? 64f : 35f);
         tooltipPanel.gameObject.SetActive(true);
         tooltipPanel.SetAsLastSibling();
         MoveItemTooltip(screenPosition);

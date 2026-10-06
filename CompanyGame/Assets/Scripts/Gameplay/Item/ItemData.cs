@@ -14,6 +14,7 @@ public class ItemData : ScriptableObject
     public string itemId;
     public string displayName;
     public Sprite icon;
+    [Min(0)] public long price;
     public ItemType itemType = ItemType.Misc;
     [SerializeField, HideInInspector, FormerlySerializedAs("category")] ItemCategory legacyCategory;
     [SerializeField, HideInInspector] int classificationVersion;
@@ -61,7 +62,8 @@ public class ItemData : ScriptableObject
     public string propertyName;
 
     public string DisplayName => string.IsNullOrWhiteSpace(displayName) ? name : displayName;
-    public int StackLimit => IsStackable ? Mathf.Max(1, maxStack) : 1;
+    public int StackLimit => IsBook ? 99 : IsStackable ? Mathf.Max(1, maxStack) : 1;
+    public bool IsBook => itemType == ItemType.Book;
     bool IsStackable => IsCurrency || (!isBag && itemType == ItemType.Misc) || itemType == ItemType.Consumable || itemType == ItemType.Material;
     public bool IsCurrency => itemType == ItemType.Currency && currencyValue >= 0;
     public bool IsDeed => itemType == ItemType.Document && !string.IsNullOrEmpty(propertyId);

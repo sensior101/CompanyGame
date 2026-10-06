@@ -4,7 +4,7 @@ using UnityEngine.EventSystems;
 /// <summary>Pointer drag source/target. Contents remain in the model until a valid release.</summary>
 [DisallowMultipleComponent]
 public sealed class InventorySlotPointer : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IDropHandler,
-    IPointerEnterHandler, IPointerExitHandler, IPointerMoveHandler
+    IPointerEnterHandler, IPointerExitHandler, IPointerMoveHandler, IPointerClickHandler
 {
     public PlayerInventory Owner { get; private set; }
     public int InventoryIndex { get; private set; } = -1;
@@ -57,6 +57,13 @@ public sealed class InventorySlotPointer : MonoBehaviour, IBeginDragHandler, IDr
         if (!ownsDrag) return;
         data.eligibleForClick = false;
         Owner.UpdateDrag(data.position);
+    }
+
+    public void OnPointerClick(PointerEventData data)
+    {
+        if (data.button == PointerEventData.InputButton.Right && data.eligibleForClick &&
+            Owner && !IsEquipment && !IsDropZone && !Owner.IsDragging)
+            Owner.GetComponent<BookReader>()?.OpenPermissions(InventoryIndex, (RectTransform)transform);
     }
 
     public void OnDrag(PointerEventData data)

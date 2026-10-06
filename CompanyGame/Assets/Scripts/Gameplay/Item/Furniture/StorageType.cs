@@ -12,8 +12,8 @@ public static class FurnitureStorageRules
         {
             case StorageType.Clothing: return item.itemType == ItemType.Clothing;
             case StorageType.Food: return food;
-            case StorageType.Books: return item.isBook;
-            case StorageType.General: return item.itemType != ItemType.Clothing && !food && !item.isBook;
+            case StorageType.Books: return item.IsBook || item.isBook;
+            case StorageType.General: return item.itemType != ItemType.Clothing && !food && !item.IsBook && !item.isBook;
             default: return false;
         }
     }

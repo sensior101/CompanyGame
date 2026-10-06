@@ -28,6 +28,6 @@ public static class ItemOrganization
             EditorUtility.SetDirty(item); migrated++;
         }
         AssetDatabase.SaveAssets();
-        return "11 category folders; migrated " + migrated + " item definitions; GUIDs preserved.";
+        return Enum.GetNames(typeof(ItemType)).Length + " category folders; migrated " + migrated + " item definitions; GUIDs preserved.";
     }
 }

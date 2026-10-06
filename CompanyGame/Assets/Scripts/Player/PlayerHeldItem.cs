@@ -306,7 +306,8 @@ public sealed class PlayerHeldItem : MonoBehaviour
         {
             model = new GameObject("HeldModel").transform;
             model.SetParent(parent, false);
-            if (heldItem.IsWeapon && heldItem.weaponKind == WeaponKind.Firearm) BuildPistol(model, layer);
+            if (heldItem.IsBook) BuildBook(model, layer);
+            else if (heldItem.IsWeapon && heldItem.weaponKind == WeaponKind.Firearm) BuildPistol(model, layer);
             else if (heldItem.icon) BuildIcon(model, layer);
             else Part(model, "Item", PrimitiveType.Cube, new Vector3(0f, .05f, 0f), new Vector3(.13f, .15f, .1f),
                 Material(new Color(.64f, .72f, .67f)), layer);
@@ -361,6 +362,24 @@ public sealed class PlayerHeldItem : MonoBehaviour
         Part(parent, "TriggerGuard", PrimitiveType.Cube, new Vector3(0, -.008f, .095f), new Vector3(.018f, .014f, .075f), metal, layer);
         Part(parent, "GuardFront", PrimitiveType.Cube, new Vector3(0, .025f, .129f), new Vector3(.018f, .064f, .014f), metal, layer);
         Part(parent, "Trigger", PrimitiveType.Cube, new Vector3(0, .043f, .088f), new Vector3(.014f, .035f, .018f), grip, layer);
+    }
+
+    void BuildBook(Transform parent, int layer)
+    {
+        var leather = Material(new Color(.27f, .105f, .048f), .08f);
+        var spine = Material(new Color(.19f, .065f, .032f), .04f);
+        var pages = Material(new Color(.91f, .83f, .66f));
+        var gold = Material(new Color(.71f, .49f, .17f), .55f);
+        Part(parent, "PageBlock", PrimitiveType.Cube, new Vector3(.015f, .09f, 0f), new Vector3(.20f, .26f, .045f), pages, layer);
+        Part(parent, "FrontCover", PrimitiveType.Cube, new Vector3(.008f, .09f, -.029f), new Vector3(.225f, .285f, .012f), leather, layer);
+        Part(parent, "BackCover", PrimitiveType.Cube, new Vector3(.008f, .09f, .029f), new Vector3(.225f, .285f, .012f), leather, layer);
+        Part(parent, "Spine", PrimitiveType.Cube, new Vector3(-.112f, .09f, 0f), new Vector3(.029f, .29f, .074f), spine, layer);
+        foreach (float y in new[] { -.025f, .205f })
+            Part(parent, "SpineBand", PrimitiveType.Cube, new Vector3(-.13f, y, 0f), new Vector3(.004f, .009f, .077f), gold, layer);
+        foreach (float x in new[] { -.084f, .10f })
+            Part(parent, "CoverLine", PrimitiveType.Cube, new Vector3(x, .09f, -.037f), new Vector3(.002f, .245f, .002f), gold, layer);
+        foreach (float y in new[] { -.033f, .213f })
+            Part(parent, "CoverLine", PrimitiveType.Cube, new Vector3(.008f, y, -.037f), new Vector3(.185f, .002f, .002f), gold, layer);
     }
 
     Material Material(Color color, float metallic = 0f)
