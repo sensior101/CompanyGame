@@ -21,17 +21,34 @@ public class PlayerStats : MonoBehaviour, IDamageable
     public float PendingStaminaCost { get; private set; }
 
     public bool TryConsume(InventoryState inventory, int slot)
+        => TryConsume(inventory, slot, out _);
+
+    public bool TryConsume(InventoryState inventory, int slot, out string error)
     {
-        if (!isActiveAndEnabled || health <= 0f || inventory == null) return false;
+        error = null;
+        if (!isActiveAndEnabled || health <= 0f || inventory == null)
+        { error = "지금은 음식을 먹을 수 없습니다."; return false; }
         var stack = inventory.GetSlot(slot);
-        if (stack == null || stack.IsEmpty || !stack.Item.IsConsumable) return false;
+        if (stack == null || stack.IsEmpty || !stack.Item.IsConsumable)
+        { error = "먹을 음식을 선택해 주세요."; return false; }
         var food = stack.Item;
         float nextHealth = Mathf.Clamp(health + food.healthRestore, 0f, 100f);
         float nextStamina = Mathf.Clamp(stamina + food.staminaRestore, 0f, 100f);
         float nextStress = Mathf.Clamp(stress - food.stressRelief, 0f, 100f);
-        if (nextHealth == health && nextStamina == stamina && nextStress == stress) return false;
-        if (!inventory.TryRemove(slot, 1, out _)) return false;
+        if (nextHealth == health && nextStamina == stamina && nextStress == stress)
+        {
+            error = food.healthRestore > 0f && food.staminaRestore == 0f && food.stressRelief == 0f
+                ? "체력이 이미 가득 차 있습니다. 이 음식은 체력을 회복합니다."
+                : food.staminaRestore > 0f && food.healthRestore == 0f && food.stressRelief == 0f
+                ? "기력이 이미 가득 차 있습니다."
+                : food.stressRelief > 0f && food.healthRestore == 0f && food.staminaRestore == 0f
+                ? "스트레스가 없어 지금은 먹을 필요가 없습니다."
+                : "이미 충분히 회복되어 지금은 먹을 필요가 없습니다.";
+            return false;
+        }
+        if (!inventory.TryRemove(slot, 1, out error)) return false;
         health = nextHealth; stamina = nextStamina; stress = nextStress;
+        Changed?.Invoke();
         return true;
     }
 

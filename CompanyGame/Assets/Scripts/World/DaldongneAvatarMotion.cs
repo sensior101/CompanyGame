@@ -7,6 +7,9 @@ namespace CompanyGame.Daldongne
     public sealed class DaldongneAvatarMotion : MonoBehaviour
     {
         public Transform hips, leftArm, rightArm, leftLeg, rightLeg, leftKnee, rightKnee;
+        public Transform leftForearm, rightForearm;
+        [Range(.5f, 1f)] public float footSpacing = 1f;
+        [Range(.5f, 1f)] public float strideScale = 1f, liftScale = 1f, swayScale = 1f;
 
         sealed class RestJoint
         {
@@ -32,14 +35,17 @@ namespace CompanyGame.Daldongne
         {
             public RestJoint thigh, knee;
             public Vector3 ankle;
-            public float upperLength, lowerLength, floor;
+            public float upperLength, lowerLength, floor, restSideAngle;
             public Vector3[] sole;
         }
 
-        RestJoint pelvis, armL, armR, head;
+        RestJoint pelvis, armL, armR, forearmL, forearmR, head;
         Leg legL, legR;
         Vector3 previousPosition;
         float phase, blend, filteredSpeed;
+        public Quaternion RightArmPose { get; private set; } = Quaternion.identity;
+        public Quaternion RightForearmPose { get; private set; } = Quaternion.identity;
+        public Quaternion RightArmRest => armR != null ? armR.rotation : rightArm ? rightArm.localRotation : Quaternion.identity;
 
         void OnEnable()
         {
@@ -62,6 +68,7 @@ namespace CompanyGame.Daldongne
                 return;
             }
             Pose(speed, dt);
+            CacheArmPose();
         }
 
         void ResetMotion()
@@ -72,12 +79,20 @@ namespace CompanyGame.Daldongne
         void Restore()
         {
             pelvis?.Restore(); armL?.Restore(); armR?.Restore(); head?.Restore();
+            forearmL?.Restore(); forearmR?.Restore();
             legL?.thigh.Restore(); legL?.knee.Restore();
             legR?.thigh.Restore(); legR?.knee.Restore();
+            CacheArmPose();
+        }
+        void CacheArmPose()
+        {
+            if (rightArm) RightArmPose = rightArm.localRotation;
+            if (rightForearm) RightForearmPose = rightForearm.localRotation;
         }
         bool SameRig() => pelvis != null && pelvis.joint == hips && armL.joint == leftArm
             && armR.joint == rightArm && legL.thigh.joint == leftLeg && legR.thigh.joint == rightLeg
-            && legL.knee.joint == leftKnee && legR.knee.joint == rightKnee;
+            && legL.knee.joint == leftKnee && legR.knee.joint == rightKnee
+            && forearmL.joint == leftForearm && forearmR.joint == rightForearm;
 
         void CaptureRestPose()
         {
@@ -85,6 +100,7 @@ namespace CompanyGame.Daldongne
             // Retain each avatar's own hip height and authored arm rotations.
             pelvis = new RestJoint(hips);
             armL = new RestJoint(leftArm); armR = new RestJoint(rightArm);
+            forearmL = new RestJoint(leftForearm); forearmR = new RestJoint(rightForearm);
             head = new RestJoint(hips ? hips.Find("Head") : null);
             legL = CaptureLeg(leftLeg, leftKnee);
             legR = CaptureLeg(rightLeg, rightKnee);
@@ -117,6 +133,26 @@ namespace CompanyGame.Daldongne
                     }
                 }
             }
+            // A continuous skin has no MeshFilter beneath the knee. Sample its
+            // rest-pose shin/foot vertices once, retaining the same sole solver.
+            foreach (var skin in GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            {
+                var mesh = skin.sharedMesh;
+                int bone = System.Array.IndexOf(skin.bones, knee);
+                if (!mesh || !mesh.isReadable || bone < 0) continue;
+                var vertices = mesh.vertices;
+                var weights = mesh.boneWeights;
+                for (int i = 0; i < vertices.Length && i < weights.Length; i++)
+                {
+                    var w = weights[i];
+                    float influence = (w.boneIndex0 == bone ? w.weight0 : 0)
+                        + (w.boneIndex1 == bone ? w.weight1 : 0)
+                        + (w.boneIndex2 == bone ? w.weight2 : 0)
+                        + (w.boneIndex3 == bone ? w.weight3 : 0);
+                    if (influence > .5f)
+                        samples.Add(knee.InverseTransformPoint(skin.transform.TransformPoint(vertices[i])));
+                }
+            }
             if (samples.Count == 0) samples.Add(Vector3.down * leg.upperLength);
             // Cache a lower silhouette, including each rig's actual heel and toe.
             // No per-frame allocations or per-frame mesh reads are required.
@@ -143,6 +179,8 @@ namespace CompanyGame.Daldongne
             float ankleHeight = Mathf.Clamp((kneeInRoot.y - leg.floor) * .23f, .065f, .11f);
             leg.ankle = new Vector3(kneeInRoot.x, leg.floor + ankleHeight, kneeInRoot.z);
             leg.lowerLength = Mathf.Max(.08f, kneeInRoot.y - leg.ankle.y);
+            var thighInRoot = transform.InverseTransformPoint(thigh.position);
+            leg.restSideAngle = Mathf.Atan2(leg.ankle.x - thighInRoot.x, thighInRoot.y - leg.ankle.y) * Mathf.Rad2Deg;
             return leg;
         }
 
@@ -196,7 +234,7 @@ namespace CompanyGame.Daldongne
         {
             if (!leg.thigh.joint || !leg.knee.joint) return;
             var thigh = leg.thigh.joint;
-            Vector3 target = leg.ankle + new Vector3(side * foot.y * .08f, foot.y, foot.x);
+            Vector3 target = new Vector3(leg.ankle.x * footSpacing, leg.ankle.y + foot.y, leg.ankle.z + foot.x);
             Vector3 local = thigh.parent.InverseTransformPoint(transform.TransformPoint(target)) - leg.thigh.position;
             float down = Mathf.Max(.08f, -local.y);
             float sagittalDown = Mathf.Sqrt(down * down + local.x * local.x);
@@ -207,7 +245,9 @@ namespace CompanyGame.Daldongne
             float kneeAngle = Mathf.PI - Mathf.Acos(Mathf.Clamp((leg.upperLength * leg.upperLength + leg.lowerLength * leg.lowerLength - distance * distance)
                 / (2 * leg.upperLength * leg.lowerLength), -1, 1));
             float hipAngle = -(Mathf.Atan2(local.z, sagittalDown) + hipTriangle) * Mathf.Rad2Deg;
-            float sideAngle = Mathf.Atan2(local.x, down) * Mathf.Rad2Deg;
+            // The bind pose already includes the thigh-to-knee lateral offset.
+            // Subtract it instead of adding a second outward rotation each step.
+            float sideAngle = Mathf.Atan2(local.x, down) * Mathf.Rad2Deg - leg.restSideAngle;
             // Positive X at the knee folds the heel back, like a human knee.
             var thighPose = Quaternion.Euler(0, 0, sideAngle) * Quaternion.Euler(hipAngle, 0, 0);
             thigh.localRotation = leg.thigh.rotation * Quaternion.Slerp(Quaternion.identity, thighPose, weight);
@@ -246,8 +286,10 @@ namespace CompanyGame.Daldongne
             contact = Mathf.Lerp(contact, .415f, running);
             float stride = Mathf.Lerp(.095f, .26f, pace) + run * .035f;
             stride = Mathf.Lerp(stride, .28f, running);
+            stride *= strideScale;
             float lift = Mathf.Lerp(.065f, .11f, pace) + run * .045f;
             lift = Mathf.Lerp(lift, .185f, running);
+            lift *= liftScale;
             float rightPhase = Mathf.Repeat(phase + .5f, 1);
             Vector2 leftFoot = Vector2.Lerp(FootPath(phase, contact, stride, lift),
                 RunningFootPath(phase, contact, stride, lift), running);
@@ -268,7 +310,7 @@ namespace CompanyGame.Daldongne
                 float stance = Mathf.Repeat(phase, .5f) / contact;
                 float absorption = stance < 1 ? Mathf.Sin(stance * Mathf.PI) : 0;
                 compression += .025f * absorption * absorption * running;
-                hips.localPosition = pelvis.position + new Vector3(-wave * Mathf.Lerp(.017f, .009f, running),
+                hips.localPosition = pelvis.position + new Vector3(-wave * Mathf.Lerp(.017f, .009f, running) * swayScale,
                     -compression, -.008f * run + .012f * running) * blend;
                 hips.localRotation = pelvis.rotation * Quaternion.Euler((1.5f + run * 3 + running * 4) * blend,
                     wave * Mathf.Lerp(3.5f, 4.5f, running) * blend, wave * Mathf.Lerp(1.8f, 1.1f, running) * blend);
@@ -289,6 +331,8 @@ namespace CompanyGame.Daldongne
             armWave = Mathf.Lerp(armWave, Mathf.Cos((phase - contact * .5f) * Mathf.PI * 2 + Mathf.PI * .5f), running);
             if (leftArm) leftArm.localRotation = armL.rotation * Quaternion.Euler((armWave * armSwing - 7 * running) * blend, wave * 2 * blend, -1.5f * blend);
             if (rightArm) rightArm.localRotation = armR.rotation * Quaternion.Euler((-armWave * armSwing - 7 * running) * blend, wave * 2 * blend, 1.5f * blend);
+            if (leftForearm) leftForearm.localRotation = forearmL.rotation * Quaternion.Euler(-Mathf.Lerp(10, 25, running) * blend, 0, 0);
+            if (rightForearm) rightForearm.localRotation = forearmR.rotation * Quaternion.Euler(-Mathf.Lerp(10, 25, running) * blend, 0, 0);
             if (head.joint)
                 head.joint.localRotation = Quaternion.Euler((-.8f - 4 * running) * blend, -wave * 2.7f * blend, -wave * 1.3f * blend) * head.rotation;
         }

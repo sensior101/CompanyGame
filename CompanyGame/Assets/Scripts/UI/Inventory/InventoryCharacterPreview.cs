@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
+[DefaultExecutionOrder(400)]
 public sealed class InventoryCharacterPreview : MonoBehaviour
 {
     const int PreviewLayer = 30;
