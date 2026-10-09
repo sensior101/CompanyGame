@@ -40,6 +40,9 @@ public sealed partial class InventoryUI : MonoBehaviour
     bool withdrawing;
     RectTransform tooltipPanel;
     TMP_Text tooltipText;
+    RectTransform statusPanel;
+    TMP_Text statusText;
+    float statusUntil;
     int submittedFrame = -1;
     long lastBank = long.MinValue;
     float windowHeight = 750f;
@@ -134,7 +137,7 @@ public sealed partial class InventoryUI : MonoBehaviour
         layout.constraint = UnityEngine.UI.GridLayoutGroup.Constraint.FixedColumnCount;
         layout.constraintCount = 8;
         layout.childAlignment = TextAnchor.UpperCenter;
-        BuildWithdrawal(); BuildDragVisual(); BuildTooltip();
+        BuildWithdrawal(); BuildDragVisual(); BuildTooltip(); BuildStatusFeedback();
         modal.SetActive(false);
     }
 
@@ -148,6 +151,8 @@ public sealed partial class InventoryUI : MonoBehaviour
     void Update()
     {
         UpdateStatusBars();
+        if (statusPanel && statusPanel.gameObject.activeSelf && Time.unscaledTime >= statusUntil)
+            statusPanel.gameObject.SetActive(false);
         if (quickSlots)
         {
             bool visible = !interaction || !interaction.IsTradeOpen;
@@ -166,6 +171,7 @@ public sealed partial class InventoryUI : MonoBehaviour
     public void Refresh()
     {
         if (!owner || owner.Inventory == null) return;
+        RefreshStatusFeedback();
         HideItemTooltip();
         var state = owner.Inventory;
         if (storage.Count != state.Capacity) RebuildStorage(state.Capacity);
@@ -180,6 +186,30 @@ public sealed partial class InventoryUI : MonoBehaviour
         foreach (var pair in equipment) ApplySlot(pair.Value, state.GetEquipment(pair.Key), false, EquipmentName(pair.Key));
         capacityLabel.text = used + " / " + state.Capacity;
         RefreshBalances();
+    }
+
+    void BuildStatusFeedback()
+    {
+        statusPanel = Panel("ItemStatus", transform, new Vector2(740f, 40f), new Color(.16f, .12f, .10f, .94f), 15f, 7f);
+        statusPanel.anchorMin = statusPanel.anchorMax = new Vector2(.5f, 1f);
+        statusPanel.pivot = new Vector2(.5f, 1f);
+        statusPanel.anchoredPosition = new Vector2(0f, -12f);
+        statusText = Label("Message", statusPanel, "", 18f, Color.white, new Vector2(708f, 34f));
+        AutoSize(statusText, 12f, 18f);
+        statusPanel.gameObject.SetActive(false);
+    }
+
+    void RefreshStatusFeedback()
+    {
+        if (!statusPanel) return;
+        string message = owner.StatusMessage;
+        statusText.text = message;
+        statusPanel.gameObject.SetActive(!string.IsNullOrEmpty(message));
+        if (string.IsNullOrEmpty(message)) return;
+        statusPanel.sizeDelta = new Vector2(Mathf.Min(740f, ((RectTransform)transform).rect.width - 24f), 40f);
+        statusText.rectTransform.sizeDelta = new Vector2(statusPanel.sizeDelta.x - 32f, 34f);
+        statusUntil = Time.unscaledTime + 4.5f;
+        statusPanel.SetAsLastSibling();
     }
     void RefreshBalances()
     {

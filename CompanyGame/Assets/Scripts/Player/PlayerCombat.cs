@@ -20,6 +20,7 @@ public sealed class PlayerCombat : MonoBehaviour
     public Transform attackOrigin;
 
     public event Action<bool> AttackPerformed;
+    public event Action<string> ItemUseFeedback;
     public bool HasLastHit { get; private set; }
     public RaycastHit LastHit { get; private set; }
     public bool LastAttackWasShot { get; private set; }
@@ -66,8 +67,11 @@ public sealed class PlayerCombat : MonoBehaviour
         if (selected != null && !selected.IsEmpty && selected.Item.IsConsumable)
         {
             var stats = GetComponent<PlayerStats>();
-            bool consumed = stats && stats.TryConsume(inventory, inventory.SelectedHotbarIndex);
+            string foodName = selected.Item.DisplayName;
+            string error = "플레이어 상태를 확인할 수 없습니다.";
+            bool consumed = stats && stats.TryConsume(inventory, inventory.SelectedHotbarIndex, out error);
             if (consumed) nextAttackTime = Time.time + .25f;
+            ItemUseFeedback?.Invoke(consumed ? foodName + " 1개를 먹었습니다." : error);
             return consumed;
         }
         ItemData weapon = SelectedWeapon;

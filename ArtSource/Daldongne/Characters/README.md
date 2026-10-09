@@ -1,4 +1,27 @@
-# 사진 참고 여자 플레이어
+# 플레이어 모델 소스
+
+## 현재 남성 플레이어: Meshy Male 원본 해상도 (2026-10-05)
+
+- `MeshyMaleHigh.fbx`: 제공된 `Meshy_AI_Low_Poly_Character_Mo_1005131415_generate.fbx` 원본입니다. 226,436개 삼각형을 유지하며 높이를 1.8m로 맞춥니다.
+- `MeshyMaleHigh.shorts-faces.json`: 원본 반바지의 허리·밑단 경계에 맞춰 선택하고 앞뒤·양옆에서 검토한 면 목록입니다. 원본 SHA-256과 삼각형 수를 검사하며, 회색은 이 면들에만 적용합니다.
+- `import_meshy_male.py`: 원본 메시의 연결 관계로 양팔을 분리하고 어깨의 관절 영향을 부드럽게 연결합니다. UV2는 관절 구분과 팔 영향도만 저장하며 색상에는 사용하지 않습니다.
+- `MeshyMaleImporter.cs`: 기존 `MaleVisual.prefab` 루트와 GUID를 유지하면서 10개 관절, 연속 스킨 메시, 피부·반바지 재질을 생성합니다. `DaldongneAvatarMotion`, `PlayerHeldItem`, `InventoryCharacterPreview`가 기존 경로로 보행·소지 자세·남성 모델의 오른쪽 아래팔·인벤토리 미리보기를 처리합니다.
+- 재생성: Blender에서 `--background --factory-startup --python ArtSource/Daldongne/Characters/import_meshy_male.py`를 실행한 뒤 Unity의 **Tools → Company Game → Characters → Rebuild Meshy Male**을 실행합니다. 기존 **Rebuild Reference Boy** 메뉴도 새 남성 모델을 사용합니다. 런타임 에셋은 `Assets/Art/Daldongne/Players/MeshyMale/`에 있습니다.
+- 원본에는 텍스처·뼈대·애니메이션이 없습니다. 새 얼굴이나 머리카락을 추가하지 않고 원본 형상에 기존 플레이어 관절 동작을 연결합니다.
+
+## 현재 여성 플레이어: Meshy Female 원본 해상도 (2026-10-05)
+
+- `MeshyFemaleHigh.fbx`: 제공된 `Meshy_AI_Female_Base_Avatar_Ch_1005111639_generate.fbx` 원본입니다. 모델의 모든 212,746개 삼각형을 유지합니다.
+- `MeshyFemale.glb`: 이전에 제공된 부위 분리 원본입니다. 관절의 영역 판별에만 쓰며 런타임 형상으로 사용하지 않습니다.
+- `import_meshy_female_high.py`: FBX 형상을 높이 1.8m로 정규화하고 검토된 속옷 면 선택과 관절 영역 정보를 추가합니다. 메시 감축이나 무릎 절단을 하지 않습니다.
+- `MeshyFemaleImporter.cs`: 기존 여성 프리팹 루트를 보존하며 팔꿈치를 포함한 10개 관절, 연속 스킨 메시 1개, 피부와 속옷 재질 2개를 생성합니다. 기존 `DaldongneAvatarMotion`이 관절을 구동합니다. 남성 rigid 메시도 같은 스크립트에서 계속 지원합니다.
+- 원본에 머리카락, 얼굴 텍스처, 스켈레톤, 애니메이션은 없습니다. 원본 자체의 각진 형상은 유지됩니다. 추가한 스킨 웨이트는 무릎/어깨/팔꿈치/목 전환을 지원하며 손가락 애니메이션은 포함하지 않습니다.
+- 여성 보행은 좁은 발 간격과 짧은 보폭, 낮은 발 들기로 설정합니다. `PlayerHeldItem`은 팔꿈치를 접어 아이템을 들고, 1인칭에서는 스킨의 오른쪽 아래팔 영역을 복사한 별도 오브젝트를 기존 손 카메라로 오른쪽 아래에 표시합니다. 빈손에서는 소지 자세를 해제하고, 연속 공격은 현재 동작에서 부드럽게 이어집니다.
+- 기존 `FemaleVisual.prefab`의 GUID와 루트는 유지합니다. `Resources/Player.prefab`, `PlayerFemale.prefab`, `PlayerMale.prefab`의 여성 외형 참조에 반영되며 남성 외형은 변경하지 않습니다.
+- 재생성: Blender에서 `--background --factory-startup --python ArtSource/Daldongne/Characters/import_meshy_female_high.py`를 실행한 후 Unity의 **Tools → Company Game → Characters → Rebuild Meshy Female**을 실행합니다. 기존 **Rebuild Reference Girl** 메뉴도 현재 모델로 연결됩니다. 런타임 에셋은 `Assets/Art/Daldongne/Players/MeshyFemale/`에 있습니다. 피부와 속옷은 텍스처 혼합 없이 각각 단색 재질을 사용합니다. `MeshyFemaleHigh.underwear-faces.json`은 고해상도 원본의 옷 테두리에 맞춘 면 선택이며 원본 SHA-256으로 일치 여부를 검사합니다. `MeshyFemaleHigh.underwear-contours.json`에는 선택 기준으로 사용한 정투영 윤곽을 보관합니다.
+- 아래 `ReferenceGirl.blend`와 `build_female_player.py` 설명은 이전 모델의 보관 자료입니다. 이전 생성기를 실행하면 현재 여성 모델 JSON을 덮어쓰므로 현재 모델 재생성에는 사용하지 않습니다.
+
+## 이전 여성 모델 (보관)
 
 제공된 정면·후면·측면·사선 참고 이미지의 큰 머리 비율, 두꺼운 앞머리, 야구모자, 긴 머리와 리본, 오버핏 재킷, 치마, 레이스업 부츠를 반영한 로우폴리 모델입니다. 무채색 참고에 마을용 크림·밤색·세이지 팔레트를 적용했습니다. 양쪽 귀 주변에는 머리카락을 한 가닥씩 추가했습니다.
 

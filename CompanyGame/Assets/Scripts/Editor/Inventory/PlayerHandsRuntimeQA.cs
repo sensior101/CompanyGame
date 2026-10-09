@@ -103,6 +103,13 @@ public static class PlayerHandsRuntimeQA
                     floor.transform.position = new Vector3(0, 40, 0); floor.transform.localScale = new Vector3(24, .2f, 24);
                     p.spawn = new Vector3(0, 40.11f, 0); p.ResetToSpawn();
                     BankManager.Instance.SetMoney(100000);
+                    // Bootstrap now grants a deed in slot zero. This disposable
+                    // test owns its Play session and needs an empty test inventory.
+                    for (int i = 0; i < inv.Inventory.Capacity; i++)
+                    {
+                        var slot = inv.Inventory.GetSlot(i);
+                        if (!slot.IsEmpty) inv.Inventory.TryRemove(i, slot.Count, out _);
+                    }
                     Check(r, CashService.TryWithdraw(inv.Inventory, 1800, 5, out _), "Prepare five selected coins");
                     inv.SelectHotbar(0); camera.firstPerson = false; r.zoom = camera.distance; Pointer(); break;
                 case 1:

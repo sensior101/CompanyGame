@@ -48,9 +48,7 @@ public static class PlayerSpawner
 
         if (MapSpawnPoint.TryFind(scene, spawnId, out var spawnPoint, out var spawnError))
         {
-            Player.spawn = spawnPoint.transform.position;
-            Player.ResetToSpawn(); // Also resets falling velocity and safe reset position.
-            Player.transform.rotation = Quaternion.Euler(0f, spawnPoint.transform.eulerAngles.y, 0f);
+            MovePlayerTo(spawnPoint);
         }
         else if (spawnRequired)
             // Keep the player where it is rather than choosing an arbitrary spawn.
@@ -58,6 +56,26 @@ public static class PlayerSpawner
             SceneLoadManager.Report(spawnError);
 
         BindCamera(scene);
+    }
+
+    /// <summary>Moves the player to a spawn point of the current map without loading a scene.</summary>
+    public static bool TeleportInScene(string spawnId)
+    {
+        if (!Player) return false;
+        if (!MapSpawnPoint.TryFind(SceneLoadManager.CurrentMap, spawnId, out var sp, out var err))
+        {
+            SceneLoadManager.Report(err);
+            return false;
+        }
+        MovePlayerTo(sp);
+        return true;
+    }
+
+    static void MovePlayerTo(MapSpawnPoint sp)
+    {
+        Player.spawn = sp.transform.position;
+        Player.ResetToSpawn(); // Also resets falling velocity and safe reset position.
+        Player.transform.rotation = Quaternion.Euler(0f, sp.transform.eulerAngles.y, 0f);
     }
 
     static void Spawn()

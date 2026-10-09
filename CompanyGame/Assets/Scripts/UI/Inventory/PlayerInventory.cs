@@ -58,6 +58,9 @@ public sealed class PlayerInventory : MonoBehaviour
     InventoryHandCursor handCursor;
     readonly List<RaycastResult> pointerHits = new List<RaycastResult>();
 
+    /// <summary>Lets other Space users (deeds) claim this frame's Space press before PlayerInteraction reads it.</summary>
+    public static void ConsumeSpaceThisFrame() => spaceConsumedFrame = Time.frameCount;
+
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     static void ResetStatics()
     {
@@ -79,11 +82,15 @@ public sealed class PlayerInventory : MonoBehaviour
         interaction = GetComponent<PlayerInteraction>();
 
         if (!GetComponent<PlayerCombat>()) gameObject.AddComponent<PlayerCombat>();
+        if (!GetComponent<PropertyUseController>()) gameObject.AddComponent<PropertyUseController>();
+        if (!GetComponent<FloorStairsMenu>()) gameObject.AddComponent<FloorStairsMenu>();
     }
 
     void OnEnable()
     {
         if (Inventory != null) Inventory.Changed += HandleInventoryChanged;
+        var combat = GetComponent<PlayerCombat>();
+        if (combat) combat.ItemUseFeedback += SetStatus;
         if (ui) ui.gameObject.SetActive(true);
     }
 
@@ -419,7 +426,7 @@ public sealed class PlayerInventory : MonoBehaviour
         string error;
         bool success = equipped ? WorldDroppedItem.TryDropEquipment(this, equipmentSlot, out error)
             : WorldDroppedItem.TryDropStorage(this, sourceIndex, out error, amount);
-        SetStatus(success ? "앞에 내려놓았습니다. 가까이에서 F 키로 주울 수 있습니다." : error);
+        SetStatus(success ? "주변 바닥에 내려놓았습니다. F 키로 주울 수 있습니다." : error);
         return success;
     }
 
@@ -522,6 +529,8 @@ public sealed class PlayerInventory : MonoBehaviour
     {
         ResetCurrencyDepositGesture();
         if (Inventory != null) Inventory.Changed -= HandleInventoryChanged;
+        var combat = GetComponent<PlayerCombat>();
+        if (combat) combat.ItemUseFeedback -= SetStatus;
         CancelDrag();
         if (handCursor) handCursor.Hide();
         IsOpen = false;

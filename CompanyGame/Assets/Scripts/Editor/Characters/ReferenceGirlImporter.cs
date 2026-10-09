@@ -40,8 +40,10 @@ namespace CompanyGame.Editor.Characters
 
         public static string Rebuild() => Rebuild(false);
 
-        public static string Rebuild(bool male)
+        public static string Rebuild(bool male, bool migrateScenes = true)
         {
+            if(!male && File.Exists(MeshyFemaleImporter.Folder+"/FemaleBody.fbx")) return MeshyFemaleImporter.Rebuild();
+            if(male && File.Exists(MeshyMaleImporter.Folder+"/MaleBody.fbx")) return MeshyMaleImporter.Rebuild();
             RequireEditMode();
             string folder=male?"Assets/Art/Daldongne/Players/ReferenceBoy":Folder;
             string visualPath=male?"Assets/Art/Daldongne/Players/MaleVisual.prefab":VisualPath;
@@ -65,7 +67,7 @@ namespace CompanyGame.Editor.Characters
             }
             if(sourceTriangles>20000)
                 throw new InvalidDataException("Character source exceeds the 20000 triangle geometry budget.");
-            // One palette texture and one material keep the nine animated renderers inexpensive.
+            // One palette texture and one material serve all animated renderers.
             var palette=new Texture2D(256,16,TextureFormat.RGBA32,false);
             for(int x=0;x<256;x++)
             {
@@ -143,13 +145,13 @@ namespace CompanyGame.Editor.Characters
                 motion.hips=joints["Hips"];motion.leftArm=joints["LeftArm"];motion.rightArm=joints["RightArm"];
                 motion.leftLeg=joints["LeftLeg"];motion.rightLeg=joints["RightLeg"];
                 motion.leftKnee=joints["LeftKnee"];motion.rightKnee=joints["RightKnee"];
-                // The source uses the same 0.767 m hip pivot as the existing motion script.
+                // Capture the imported model's own joint positions.
                 motion.Pose(0,0);
                 PrefabUtility.SaveAsPrefabAsset(root,visualPath);
             }
             finally { PrefabUtility.UnloadPrefabContents(root); }
             AssetDatabase.SaveAssets();
-            int migrated=ReconnectUnpackedSceneVisuals(male,visualPath);
+            int migrated=migrateScenes?ReconnectUnpackedSceneVisuals(male,visualPath):0;
             string report=Validate(male);
             return assetName+" imported; migrated "+migrated+" unpacked scene visuals. "+report;
         }
@@ -193,6 +195,10 @@ namespace CompanyGame.Editor.Characters
 
         public static string Validate(bool male)
         {
+            if(male && AssetDatabase.LoadAssetAtPath<GameObject>(ReferenceBoyImporter.VisualPath).GetComponentInChildren<SkinnedMeshRenderer>(true))
+                return MeshyMaleImporter.Validate();
+            if(!male && AssetDatabase.LoadAssetAtPath<GameObject>(VisualPath).GetComponentInChildren<SkinnedMeshRenderer>(true))
+                return MeshyFemaleImporter.Validate();
             string visualPath=male?"Assets/Art/Daldongne/Players/MaleVisual.prefab":VisualPath;
             var prefab=AssetDatabase.LoadAssetAtPath<GameObject>(visualPath);
             if(!prefab)throw new InvalidOperationException("Character visual missing.");
@@ -220,15 +226,21 @@ namespace CompanyGame.Editor.Characters
                 if(opposed>indices.Length/300)throw new InvalidOperationException("Triangle winding disagrees with normals: "+mesh.name);
                 triangles+=mesh.triangles.Length/3;
             }
-            if(renderers.Length!=9 || triangles>20000)throw new InvalidOperationException("Unexpected character geometry budget.");
-            foreach(string name in new[]{"PlayerFemale","PlayerMale"})
+            string folder=male?"Assets/Art/Daldongne/Players/ReferenceBoy":Folder;
+            string assetName=male?"ReferenceBoy":"ReferenceGirl";
+            var source=JObject.Parse(File.ReadAllText(folder+"/"+assetName+".meshdata.json"));
+            var expectedJoints=source["parts"].Select(p=>(string)p["joint"]).Distinct().OrderBy(n=>n).ToArray();
+            if(!renderers.Select(r=>r.name).OrderBy(n=>n).SequenceEqual(expectedJoints) || triangles>20000)
+                throw new InvalidOperationException("Unexpected character geometry budget or mesh joints.");
+            foreach(string path in new[]{"Assets/Art/Daldongne/Players/PlayerFemale.prefab","Assets/Art/Daldongne/Players/PlayerMale.prefab","Assets/Resources/Player.prefab"})
             {
-                var player=AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Art/Daldongne/Players/"+name+".prefab");
+                var player=AssetDatabase.LoadAssetAtPath<GameObject>(path);
                 var appearance=player.GetComponent<DaldongnePlayerAppearance>();
                 if(!player.GetComponent<CharacterController>() || !player.GetComponent<PlayerMovement>() || !appearance.female || !appearance.male)
-                    throw new InvalidOperationException("Playable prefab connections missing: "+name);
-                if(!appearance.female.transform.Find("Hips/Head/Hair"))throw new InvalidOperationException("Playable prefab still uses previous female.");
-                if(male && !appearance.male.transform.Find("Hips/Head/Hair"))throw new InvalidOperationException("Playable prefab still uses previous male.");
+                    throw new InvalidOperationException("Playable prefab connections missing: "+path);
+                var visual=male?appearance.male:appearance.female;
+                if(PrefabUtility.GetCorrespondingObjectFromSource(visual)!=prefab || !visual.transform.Find("Hips/Head"))
+                    throw new InvalidOperationException("Playable prefab visual connection missing: "+path);
             }
             var report=new JObject{["passed"]=true,["triangles"]=triangles,["renderers"]=renderers.Length,
                 ["materials"]=renderers.Select(r=>r.sharedMaterial).Distinct().Count(),["rig"]="Existing rigid joint motion",
