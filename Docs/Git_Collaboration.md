@@ -14,98 +14,79 @@ git remote -v
 원격 주소는 `https://github.com/sensior101/CompanyGame.git`입니다.
 비공개 저장소라면 팀원이 GitHub에서 저장소 접근 권한을 받은 계정으로 인증해야 합니다.
 
-## 첫 업로드
-
-최초 Git 정리 시점에는 로컬 커밋과 원격 브랜치가 없었습니다.
-그 이후 다른 사람이 먼저 원격에 커밋했다면 아래 초기 업로드 절차를 그대로 진행하지 말고 원격 이력부터 확인하세요. 강제 푸시는 사용하지 않습니다.
-
-저장소 루트에서 아래 순서로 실행합니다.
-
-```powershell
-# 본인 Git 작성자 정보가 등록되어 있는지 확인합니다.
-git var GIT_AUTHOR_IDENT
-
-# 최초 등록할 파일을 검토합니다.
-git add .
-git status
-git diff --cached --stat
-git lfs ls-files
-
-# 검토 후 첫 커밋과 업로드를 진행합니다.
-git commit -m "Add Unity project and shared development sources"
-git push -u origin main
-```
-
-작성자 정보가 없다면 본인의 이름과 GitHub 이메일 또는 GitHub에서 제공하는 비공개 이메일로 설정합니다.
-
-```powershell
-git config --local user.name "본인 이름"
-git config --local user.email "본인 GitHub 이메일"
-```
-
-`git status`에 `Library`, `Temp`, `Logs`, `UserSettings`, `__pycache__`, `.unitypackage`가 나타나지 않아야 합니다.
-LFS 파일의 본체는 pre-push 훅이 업로드합니다. `.gitattributes`도 반드시 커밋합니다.
-
 ## 브랜치 규칙
 
 | 브랜치 | 역할 | 규칙 |
 | --- | --- | --- |
-| `main` | 플레이 가능한 안정판 | 작업 중에는 손대지 않습니다. 관리자만 다룹니다. |
-| `Dev` | 통합 브랜치 | 직접 커밋·푸시하지 않습니다. 작업 브랜치를 합치는 것은 관리자가 합니다. |
-| `dev-…` | 개별 작업 | 항상 최신 `Dev`에서 분기하고, 원격에 푸시하면 작업이 끝납니다. |
+| `main` | 플레이 가능한 안정판 | 직접 푸시 금지. `Dev`에서 올린 PR만 받습니다. |
+| `Dev` | 통합 브랜치 | 직접 푸시 금지. 기능 브랜치의 PR만 받습니다. |
+| `feature/*`, `fix/*`, `docs/*` | 개별 작업 | 최신 `Dev`에서 분기하고 `Dev`로 PR을 보냅니다. |
 
-작업 흐름은 다음과 같습니다. **Pull Request(PR)는 쓰지 않습니다.**
+- 영문 소문자와 하이픈을 쓰고 브랜치 하나에는 기능 하나만 담습니다.
+- 원격 브랜치 이름 `Dev`는 대소문자를 그대로 유지합니다.
+- 작성자가 아닌 팀원 한 명 이상이 승인한 뒤 합칩니다.
+- 기능 브랜치 → `Dev`: **Squash and merge**.
+- `Dev` → `main`: 관리자가 Unity 확인 후 **Create a merge commit**. Squash하지 않습니다.
+- 합친 기능 브랜치는 삭제하고, 다음 작업은 최신 `Dev`에서 새로 시작합니다.
+- 강제 푸시와 이미 푸시한 브랜치의 rebase는 금지합니다.
 
-1. 최신 `Dev`에서 작업 브랜치(`dev-작업명`)를 만듭니다.
-2. 작업 브랜치에서 개발하고 커밋합니다.
-3. 작업 브랜치를 원격에 그대로 푸시합니다. 여기까지가 작업자 몫입니다.
-4. 관리자가 Unity에서 확인한 뒤 `Dev`로 합칩니다. 작업자(사람·AI 모두)는 `Dev`나 `main`에 직접 머지하거나 푸시하지 않습니다.
+## 작업 순서
 
-### 브랜치 이름
-
-- `dev-작업명` (예: `dev-goshiwon`, `dev-phone-backend`)
-- 영문 소문자와 하이픈을 쓰고, 브랜치 하나에는 작업 하나만 담습니다.
-- Git 브랜치 이름은 대소문자를 구분합니다. 원격 브랜치 이름 `Dev`는 표기 그대로 씁니다.
-
-### 합치기 (관리자)
-
-- 작업 브랜치를 `Dev`로 합칠 때는 작업 하나가 커밋 하나가 되도록 squash 합니다.
-- 합친 작업 브랜치는 삭제합니다. 이어서 작업할 때는 `Dev`에서 새 브랜치를 만듭니다.
-- 커밋 메시지에 무엇을 바꿨는지 적고, Unity에서 어떻게 확인했는지는 커밋 본문에 적습니다.
-- 씬(`.unity`)이나 프리팹을 수정한 변경은 가능하면 코드 변경과 브랜치를 나눕니다.
-- 작업 브랜치는 오래 두지 않습니다. 오래 둘수록 씬 충돌이 커집니다.
-
-## 일상 작업
-
-아래 명령은 로컬 변경을 먼저 커밋하거나 정리한 상태에서 실행합니다.
+Unity 씬과 프로젝트를 저장하고 기존 변경을 먼저 안전하게 정리합니다.
 
 ```powershell
+git fetch origin
 git switch Dev
 git pull --ff-only
-git switch -c dev-player-interaction
+git switch -c feature/player-interaction
 ```
 
-브랜치 이름은 위의 규칙을 따릅니다. 작업 후에는 Unity에서 씬과 프로젝트를 저장하고 변경 파일을 확인합니다.
+변경 목록을 확인하고 해당 기능의 파일과 `.meta`만 명시적으로 추가합니다.
 
 ```powershell
 git status
 git diff --stat
-git add .
+# git add -- <검토한 파일과 .meta 경로>
 git diff --cached --stat
+git diff --cached --check
 git commit -m "Implement player interaction"
 git push -u origin HEAD
 ```
 
-푸시하면 작업이 끝납니다. PR은 열지 않고, `Dev`로 합치는 것은 관리자가 합니다.
-작업 중에 `Dev`가 앞서 나가면 기능 브랜치에 `Dev`를 합쳐서 받습니다. 이미 푸시한 브랜치의 이력을 바꾸는 rebase는 쓰지 않습니다.
+GitHub에서 `Dev`를 대상으로 PR을 엽니다. 설명에는 변경 내용, Unity 확인 방법,
+씬·프리팹 변경 여부를 적습니다. 씬·프리팹 변경과 코드는 커밋과 PR을 나눕니다.
+PR 사이에 의존성이 있으면 필요한 PR과 병합 순서를 명시합니다.
+영어 명령형 한 줄 커밋 제목을 쓰고, 필요한 설명은 빈 줄 아래 본문에 적습니다.
+
+작업 중 `Dev`가 앞서가면 기능 브랜치에서 다음을 실행합니다.
 
 ```powershell
 git fetch origin
 git merge origin/Dev
 ```
 
-다른 사람의 변경을 받을 때는 Unity에서 편집한 내용을 먼저 저장하고 로컬 변경을 정리하세요.
-LFS 다운로드를 건너뛰었던 경우 Unity를 열기 전에 `git lfs pull`을 실행합니다.
+`Library`, `Temp`, `Logs`, `UserSettings`, 재생성 가능한 QA 출력은 커밋하지 않습니다.
+게임에서 사용하는 텍스처와 유지하기로 한 카탈로그 미리보기는 QA 출력과 구분합니다.
+큰 모델은 Git LFS로 관리하며, Unity를 열기 전 필요한 LFS 본체를 받습니다.
+
+```powershell
+git lfs pull
+```
+
+새 스크립트는 UTF-8로 저장합니다. 기존 CP949 스크립트의 인코딩 변환은
+기능 수정과 섞지 않고 별도 커밋으로 처리합니다.
+
+## 긴급 수정
+
+`main`에서 `fix/이름`을 만들고 `main` 대상 PR로 수정합니다.
+병합 후 `main`의 변경을 `Dev`에도 반영하는 PR을 엽니다.
+
+## 관리자 확인
+
+- `main`, `Dev`: PR 필수, 승인 한 명 이상, 강제 푸시·삭제 금지.
+- 병합 담당자와 자동 브랜치 삭제 설정을 확인합니다.
+- `Dev` → `main` 전에 Unity 컴파일과 주요 씬을 확인합니다.
+- 병합 후 두 브랜치의 파일 상태가 같은지 확인합니다.
 
 ## 맵과 에셋 공동 작업
 
