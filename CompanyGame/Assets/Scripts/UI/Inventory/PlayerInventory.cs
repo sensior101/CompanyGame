@@ -78,6 +78,8 @@ public sealed class PlayerInventory : MonoBehaviour
     void Awake()
     {
         local = this;
+        if (!GetComponent<PlayerSeating>()) gameObject.AddComponent<PlayerSeating>();
+        if (!GetComponent<SeatInteraction>()) gameObject.AddComponent<SeatInteraction>();
         movement = GetComponent<PlayerMovement>();
         interaction = GetComponent<PlayerInteraction>();
 
