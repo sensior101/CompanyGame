@@ -1,0 +1,426 @@
+{
+  "units": "meters",
+  "blender_front": "-Y",
+  "unity_front": "-Z",
+  "floor_elevation": 0.75,
+  "shell_dimensions": [
+    30,
+    18,
+    8.8
+  ],
+  "bounds_min": [
+    -19.0,
+    -20.0,
+    -0.28200000524520874
+  ],
+  "bounds_max": [
+    19.0,
+    10.130000114440918,
+    9.680000305175781
+  ],
+  "triangles": 35544,
+  "mesh_objects": 42,
+  "access": {
+    "stair_count": 5,
+    "stair_rise": 0.15,
+    "stair_tread": 0.42,
+    "stair_width": 6.4,
+    "ramp_run_length": 7.5,
+    "ramp_run_rise": 0.375,
+    "ramp_width": 1.8,
+    "ramp_slope": "1:20",
+    "ramp_landing": [
+      2,
+      4
+    ],
+    "bench_count": 1,
+    "plaza_elevation": 0.018,
+    "upper_ramp_exit_opening": {
+      "x": 7,
+      "y_min": -14.8,
+      "y_max": -13,
+      "width": 1.8
+    }
+  },
+  "materials": [
+    {
+      "name": "CL_Brick",
+      "baseColor": [
+        0.23999999463558197,
+        0.25,
+        0.26499998569488525,
+        1.0
+      ],
+      "roughness": 0.8600000143051147,
+      "metallic": 0.0,
+      "baseColorTexture": "Textures/CL_Brick_BaseColor.png",
+      "normalTexture": "Textures/CL_Brick_Normal.png",
+      "base_color": [
+        0.23999999463558197,
+        0.25,
+        0.26499998569488525,
+        1.0
+      ],
+      "base_texture": "Textures/CL_Brick_BaseColor.png",
+      "normal_texture": "Textures/CL_Brick_Normal.png"
+    },
+    {
+      "name": "CL_Oak",
+      "baseColor": [
+        0.5699999928474426,
+        0.36000001430511475,
+        0.18000000715255737,
+        1.0
+      ],
+      "roughness": 0.550000011920929,
+      "metallic": 0.0,
+      "baseColorTexture": "Textures/CL_Oak_BaseColor.png",
+      "base_color": [
+        0.5699999928474426,
+        0.36000001430511475,
+        0.18000000715255737,
+        1.0
+      ],
+      "base_texture": "Textures/CL_Oak_BaseColor.png",
+      "normal_texture": ""
+    },
+    {
+      "name": "CL_Glass",
+      "baseColor": [
+        0.9100000262260437,
+        0.9700000286102295,
+        1.0,
+        0.2199999988079071
+      ],
+      "roughness": 0.06499999761581421,
+      "metallic": 0.0,
+      "unityShader": "Universal Render Pipeline/Lit",
+      "surface": "Transparent",
+      "alpha": 0.18,
+      "cull": "Off",
+      "smoothness": 0.92,
+      "castShadows": false,
+      "base_color": [
+        0.9100000262260437,
+        0.9700000286102295,
+        1.0,
+        0.2199999988079071
+      ],
+      "base_texture": "",
+      "normal_texture": ""
+    },
+    {
+      "name": "CL_Frame",
+      "baseColor": [
+        0.04500000178813934,
+        0.052000001072883606,
+        0.054999999701976776,
+        1.0
+      ],
+      "roughness": 0.3499999940395355,
+      "metallic": 0.699999988079071,
+      "base_color": [
+        0.04500000178813934,
+        0.052000001072883606,
+        0.054999999701976776,
+        1.0
+      ],
+      "base_texture": "",
+      "normal_texture": ""
+    },
+    {
+      "name": "CL_Concrete",
+      "baseColor": [
+        0.6100000143051147,
+        0.625,
+        0.6200000047683716,
+        1.0
+      ],
+      "roughness": 0.800000011920929,
+      "metallic": 0.0,
+      "base_color": [
+        0.6100000143051147,
+        0.625,
+        0.6200000047683716,
+        1.0
+      ],
+      "base_texture": "",
+      "normal_texture": ""
+    },
+    {
+      "name": "CL_Plaster",
+      "baseColor": [
+        0.8399999737739563,
+        0.8199999928474426,
+        0.75,
+        1.0
+      ],
+      "roughness": 0.8199999928474426,
+      "metallic": 0.0,
+      "base_color": [
+        0.8399999737739563,
+        0.8199999928474426,
+        0.75,
+        1.0
+      ],
+      "base_texture": "",
+      "normal_texture": ""
+    },
+    {
+      "name": "CL_Pavement",
+      "baseColor": [
+        0.6700000166893005,
+        0.6700000166893005,
+        0.6299999952316284,
+        1.0
+      ],
+      "roughness": 0.8799999952316284,
+      "metallic": 0.0,
+      "base_color": [
+        0.6700000166893005,
+        0.6700000166893005,
+        0.6299999952316284,
+        1.0
+      ],
+      "base_texture": "",
+      "normal_texture": ""
+    },
+    {
+      "name": "CL_Grass",
+      "baseColor": [
+        0.20999999344348907,
+        0.30000001192092896,
+        0.10999999940395355,
+        1.0
+      ],
+      "roughness": 0.9399999976158142,
+      "metallic": 0.0,
+      "base_color": [
+        0.20999999344348907,
+        0.30000001192092896,
+        0.10999999940395355,
+        1.0
+      ],
+      "base_texture": "",
+      "normal_texture": ""
+    },
+    {
+      "name": "CL_Soil",
+      "baseColor": [
+        0.12999999523162842,
+        0.10499999672174454,
+        0.07500000298023224,
+        1.0
+      ],
+      "roughness": 0.9800000190734863,
+      "metallic": 0.0,
+      "base_color": [
+        0.12999999523162842,
+        0.10499999672174454,
+        0.07500000298023224,
+        1.0
+      ],
+      "base_texture": "",
+      "normal_texture": ""
+    },
+    {
+      "name": "CL_LeafDark",
+      "baseColor": [
+        0.10999999940395355,
+        0.23000000417232513,
+        0.07000000029802322,
+        1.0
+      ],
+      "roughness": 0.8500000238418579,
+      "metallic": 0.0,
+      "cull": "Off",
+      "base_color": [
+        0.10999999940395355,
+        0.23000000417232513,
+        0.07000000029802322,
+        1.0
+      ],
+      "base_texture": "",
+      "normal_texture": ""
+    },
+    {
+      "name": "CL_LeafLight",
+      "baseColor": [
+        0.30000001192092896,
+        0.4099999964237213,
+        0.11500000208616257,
+        1.0
+      ],
+      "roughness": 0.8600000143051147,
+      "metallic": 0.0,
+      "cull": "Off",
+      "base_color": [
+        0.30000001192092896,
+        0.4099999964237213,
+        0.11500000208616257,
+        1.0
+      ],
+      "base_texture": "",
+      "normal_texture": ""
+    },
+    {
+      "name": "CL_Bark",
+      "baseColor": [
+        0.23999999463558197,
+        0.20000000298023224,
+        0.15000000596046448,
+        1.0
+      ],
+      "roughness": 0.9599999785423279,
+      "metallic": 0.0,
+      "base_color": [
+        0.23999999463558197,
+        0.20000000298023224,
+        0.15000000596046448,
+        1.0
+      ],
+      "base_texture": "",
+      "normal_texture": ""
+    },
+    {
+      "name": "CL_Paper",
+      "baseColor": [
+        0.8100000023841858,
+        0.7699999809265137,
+        0.6000000238418579,
+        1.0
+      ],
+      "roughness": 0.9200000166893005,
+      "metallic": 0.0,
+      "base_color": [
+        0.8100000023841858,
+        0.7699999809265137,
+        0.6000000238418579,
+        1.0
+      ],
+      "base_texture": "",
+      "normal_texture": ""
+    },
+    {
+      "name": "CL_BookNavy",
+      "baseColor": [
+        0.10999999940395355,
+        0.20000000298023224,
+        0.23999999463558197,
+        1.0
+      ],
+      "roughness": 0.8500000238418579,
+      "metallic": 0.0,
+      "base_color": [
+        0.10999999940395355,
+        0.20000000298023224,
+        0.23999999463558197,
+        1.0
+      ],
+      "base_texture": "",
+      "normal_texture": ""
+    },
+    {
+      "name": "CL_BookOchre",
+      "baseColor": [
+        0.5799999833106995,
+        0.3799999952316284,
+        0.11999999731779099,
+        1.0
+      ],
+      "roughness": 0.8199999928474426,
+      "metallic": 0.0,
+      "base_color": [
+        0.5799999833106995,
+        0.3799999952316284,
+        0.11999999731779099,
+        1.0
+      ],
+      "base_texture": "",
+      "normal_texture": ""
+    },
+    {
+      "name": "CL_BookSage",
+      "baseColor": [
+        0.3100000023841858,
+        0.4099999964237213,
+        0.28999999165534973,
+        1.0
+      ],
+      "roughness": 0.8299999833106995,
+      "metallic": 0.0,
+      "base_color": [
+        0.3100000023841858,
+        0.4099999964237213,
+        0.28999999165534973,
+        1.0
+      ],
+      "base_texture": "",
+      "normal_texture": ""
+    },
+    {
+      "name": "CL_BookTerracotta",
+      "baseColor": [
+        0.4699999988079071,
+        0.20999999344348907,
+        0.12999999523162842,
+        1.0
+      ],
+      "roughness": 0.8600000143051147,
+      "metallic": 0.0,
+      "base_color": [
+        0.4699999988079071,
+        0.20999999344348907,
+        0.12999999523162842,
+        1.0
+      ],
+      "base_texture": "",
+      "normal_texture": ""
+    },
+    {
+      "name": "CL_Upholstery",
+      "baseColor": [
+        0.23999999463558197,
+        0.3100000023841858,
+        0.2549999952316284,
+        1.0
+      ],
+      "roughness": 0.8999999761581421,
+      "metallic": 0.0,
+      "base_color": [
+        0.23999999463558197,
+        0.3100000023841858,
+        0.2549999952316284,
+        1.0
+      ],
+      "base_texture": "",
+      "normal_texture": ""
+    },
+    {
+      "name": "CL_Light",
+      "baseColor": [
+        0.9800000190734863,
+        0.9200000166893005,
+        0.7300000190734863,
+        1.0
+      ],
+      "roughness": 0.3199999928474426,
+      "metallic": 0.0,
+      "emission": [
+        0.98,
+        0.92,
+        0.73,
+        1
+      ],
+      "emissionStrength": 2,
+      "base_color": [
+        0.9800000190734863,
+        0.9200000166893005,
+        0.7300000190734863,
+        1.0
+      ],
+      "base_texture": "",
+      "normal_texture": ""
+    }
+  ]
+}
