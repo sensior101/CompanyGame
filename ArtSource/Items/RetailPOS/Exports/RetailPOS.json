@@ -1,0 +1,233 @@
+{
+  "name": "RetailPOS",
+  "units": "metres",
+  "triangles": 23166,
+  "meshCount": 16,
+  "screenObjects": [
+    "Screen_Main",
+    "Screen_Customer",
+    "Screen_Card"
+  ],
+  "screenImage": "Textures/POS_BlackScreen.png",
+  "drawerObject": "CashDrawerSlide",
+  "drawerTravelMetres": 0.24,
+  "blenderOpenLocalOffset": [
+    0,
+    -0.24,
+    0
+  ],
+  "unityOpenLocalOffset": [
+    0,
+    0,
+    -0.24
+  ],
+  "fps": 30,
+  "clips": [
+    {
+      "name": "CashDrawer_Open",
+      "firstFrame": 1,
+      "lastFrame": 31,
+      "loop": false
+    },
+    {
+      "name": "CashDrawer_Close",
+      "firstFrame": 61,
+      "lastFrame": 91,
+      "loop": false
+    }
+  ],
+  "checks": {
+    "threeSeparateScreens": true,
+    "fullRectangleScreenUVs": true,
+    "drawerAnimatedTravel": true
+  },
+  "materials": [
+    {
+      "name": "Dots Stroke",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "Material",
+      "color": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 0.5
+    },
+    {
+      "name": "POS_BrushedSteel",
+      "color": [
+        0.3100000023841858,
+        0.3400000035762787,
+        0.3700000047683716,
+        1.0
+      ],
+      "metallic": 0.8700000047683716,
+      "roughness": 0.27000001072883606
+    },
+    {
+      "name": "POS_CancelRed",
+      "color": [
+        0.41999998688697815,
+        0.026000000536441803,
+        0.01899999938905239,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 0.30000001192092896
+    },
+    {
+      "name": "POS_CharcoalPolymer",
+      "color": [
+        0.024000000208616257,
+        0.02800000086426735,
+        0.032999999821186066,
+        1.0
+      ],
+      "metallic": 0.11999999731779099,
+      "roughness": 0.3199999928474426
+    },
+    {
+      "name": "POS_ConfirmGreen",
+      "color": [
+        0.017999999225139618,
+        0.2800000011920929,
+        0.11999999731779099,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 0.30000001192092896
+    },
+    {
+      "name": "POS_CorrectAmber",
+      "color": [
+        0.7400000095367432,
+        0.3400000035762787,
+        0.03500000014901161,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 0.30000001192092896
+    },
+    {
+      "name": "POS_DrawerTray",
+      "color": [
+        0.032999999821186066,
+        0.03700000047683716,
+        0.04399999976158142,
+        1.0
+      ],
+      "metallic": 0.05999999865889549,
+      "roughness": 0.47999998927116394
+    },
+    {
+      "name": "POS_EdgeGraphite",
+      "color": [
+        0.054999999701976776,
+        0.06199999898672104,
+        0.07100000232458115,
+        1.0
+      ],
+      "metallic": 0.550000011920929,
+      "roughness": 0.25
+    },
+    {
+      "name": "POS_ReceiptInk",
+      "color": [
+        0.18000000715255737,
+        0.20000000298023224,
+        0.20999999344348907,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 0.6499999761581421
+    },
+    {
+      "name": "POS_ReceiptPaper",
+      "color": [
+        0.8299999833106995,
+        0.8199999928474426,
+        0.7699999809265137,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 0.8199999928474426
+    },
+    {
+      "name": "POS_Rubber",
+      "color": [
+        0.008999999612569809,
+        0.010999999940395355,
+        0.014000000432133675,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 0.6800000071525574
+    },
+    {
+      "name": "POS_ScannerLens",
+      "color": [
+        0.1599999964237213,
+        0.0020000000949949026,
+        0.006000000052154064,
+        1.0
+      ],
+      "metallic": 0.3499999940395355,
+      "roughness": 0.14000000059604645
+    },
+    {
+      "name": "POS_Screen_Card",
+      "color": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 0.2199999988079071
+    },
+    {
+      "name": "POS_Screen_Customer",
+      "color": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 0.2199999988079071
+    },
+    {
+      "name": "POS_Screen_Main",
+      "color": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 0.2199999988079071
+    },
+    {
+      "name": "POS_StatusLight",
+      "color": [
+        0.15000000596046448,
+        0.5,
+        0.47999998927116394,
+        1.0
+      ],
+      "metallic": 0.10000000149011612,
+      "roughness": 0.30000001192092896
+    }
+  ]
+}
