@@ -50,6 +50,7 @@ public class PlayerCameraController : MonoBehaviour
 
     private float bobTimer;
     private float currentBobOffset;
+    private bool wasRiding, previousFirstPerson;
     private Vector3 previousTargetPosition;
     private bool hasPreviousTargetPosition;
 
@@ -128,7 +129,7 @@ public class PlayerCameraController : MonoBehaviour
         bool switchView = false;
 
         mouseDelta = GameInput.PointerDelta;
-        orbit = GameInput.OrbitHeld;
+        orbit = GameInput.OrbitHeld && !InputFocus.GameplayBlocked();
         wheel = GameInput.Scroll;
         switchView = GameInput.ViewTogglePressed;
 
@@ -158,9 +159,16 @@ public class PlayerCameraController : MonoBehaviour
             );
         }
 
+        var vehicle = target.GetComponent<PlayerVehicle>();
+        bool riding = vehicle && vehicle.IsRiding;
+        if (riding != wasRiding || firstPerson != previousFirstPerson)
+        {
+            bobTimer = currentBobOffset = 0f;
+            wasRiding = riding; previousFirstPerson = firstPerson;
+        }
         float targetBobOffset = 0f;
 
-        if (enableHeadBob && firstPerson && horizontalSpeed > movementThreshold)
+        if (!riding && enableHeadBob && firstPerson && horizontalSpeed > movementThreshold)
         {
             bool isRunning = horizontalSpeed >= runSpeedThreshold;
 
@@ -182,7 +190,7 @@ public class PlayerCameraController : MonoBehaviour
             bobTimer = 0f;
         }
 
-        currentBobOffset = Mathf.Lerp(
+        currentBobOffset = riding ? 0f : Mathf.Lerp(
             currentBobOffset,
             targetBobOffset,
             Time.deltaTime * bobSmoothSpeed

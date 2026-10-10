@@ -133,6 +133,14 @@ public sealed class PlayerHeldItem : MonoBehaviour
             RebuildItems();
         }
 
+        var vehicle = GetComponent<PlayerVehicle>();
+        if (vehicle && vehicle.IsRiding)
+        {
+            viewRig.gameObject.SetActive(false);
+            if (handCamera) handCamera.enabled = false;
+            if (worldItem) worldItem.gameObject.SetActive(false);
+            return;
+        }
         bool firstPerson = cameraController && cameraController.firstPerson;
         bool showHands = firstPerson && !InputFocus.InventoryOpen() && !InputFocus.ChatOpen() &&
             !SceneLoadManager.IsLoading && movement.isActiveAndEnabled;

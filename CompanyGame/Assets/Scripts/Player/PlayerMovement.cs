@@ -16,6 +16,7 @@ public class PlayerMovement : MonoBehaviour
     public Vector3 spawn = new Vector3(-17.5f, 1.08f, -27f);
 
     private CharacterController motor;
+    private PlayerVehicle vehicle;
     private PlayerStats stats;
     private float verticalSpeed;
     private Vector3 lastSafePosition;
@@ -43,6 +44,7 @@ public class PlayerMovement : MonoBehaviour
 
     protected virtual void Update()
     {
+        if (!vehicle) vehicle = GetComponent<PlayerVehicle>();
         Vector2 input = Vector2.zero;
 
         bool sprint = false;
@@ -88,14 +90,16 @@ public class PlayerMovement : MonoBehaviour
 
         // 플레이어 이동
         Vector3 beforeMove = transform.position;
+        bool riding = vehicle && vehicle.IsRiding;
+        Vector3 horizontal = riding ? vehicle.RideMotion(motion, sprint, Time.deltaTime) : motion * speed;
         motor.Move(
             (
-                motion * speed +
+                horizontal +
                 Vector3.up * verticalSpeed
             ) * Time.deltaTime
         );
 
-        if (motion.sqrMagnitude > .001f && motor.isGrounded)
+        if (!riding && motion.sqrMagnitude > .001f && motor.isGrounded)
         {
             if (!stats) stats = GetComponent<PlayerStats>();
             float travelled = Vector3.ProjectOnPlane(transform.position - beforeMove, Vector3.up).magnitude;
@@ -105,7 +109,7 @@ public class PlayerMovement : MonoBehaviour
 
 
         // 이동 방향으로 캐릭터 회전
-        if (motion.sqrMagnitude > 0.01f)
+        if (!riding && motion.sqrMagnitude > 0.01f)
             transform.rotation = Quaternion.LookRotation(motion);
 
         // 안전한 위치 저장

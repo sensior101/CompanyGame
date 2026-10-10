@@ -17,6 +17,14 @@ public sealed class TransitUI : MonoBehaviour
     TMP_Text subtitle;
     TMP_Text status;
     UnityEngine.UI.Button close;
+    RectTransform vehiclePopup;
+    TMP_Text vehicleOwnerText, vehicleAccessText, vehicleLockText;
+    UnityEngine.UI.Button vehicleLockButton;
+    WorldDroppedItem menuVehicle;
+    GameObject ridingHints;
+    Action closeVehicleMenu;
+    public bool IsVehicleMenuOpen => vehiclePopup && vehiclePopup.gameObject.activeSelf;
+    public WorldDroppedItem MenuVehicle => menuVehicle;
     readonly List<UnityEngine.UI.Button> destinationButtons = new List<UnityEngine.UI.Button>();
     static readonly Color Ink = new Color(.075f, .12f, .17f);
     static readonly Color Paper = new Color(.94f, .96f, .97f);
@@ -110,6 +118,78 @@ public sealed class TransitUI : MonoBehaviour
 
     public void HidePrompt() { if (prompt) prompt.SetActive(false); }
     public void HideModal() { if (modal) modal.SetActive(false); }
+
+    public void SetRidingHints(bool visible)
+    {
+        if(visible && !ridingHints)
+        {
+            var rect=Panel("VehicleRidingHints",transform,new Vector2(190,72),new Color(.045f,.065f,.075f,.86f));
+            rect.anchorMin=rect.anchorMax=rect.pivot=Vector2.zero;
+            rect.anchoredPosition=new Vector2(22,22);
+            var label=Label("Controls",rect,"Shift : 가속\nSpace : 내리기",20,Paper,new Vector2(162,58));
+            label.alignment=TextAlignmentOptions.MidlineLeft;
+            label.textWrappingMode=TextWrappingModes.Normal;
+            ridingHints=rect.gameObject;
+        }
+        if(ridingHints)ridingHints.SetActive(visible);
+    }
+
+    public void ShowVehicleMenu(WorldDroppedItem vehicle, Vector2 screenPosition, Action onClose)
+    {
+        closeVehicleMenu=onClose;menuVehicle=vehicle;
+        if(!vehiclePopup)
+        {
+            vehiclePopup=Panel("VehiclePermissions",transform,new Vector2(310,232),Ink);
+            vehiclePopup.GetComponent<UnityEngine.UI.Image>().raycastTarget=true;
+            vehiclePopup.anchorMin=vehiclePopup.anchorMax=new Vector2(.5f,.5f);vehiclePopup.pivot=new Vector2(0,1);
+            // Children keep centered anchors; the popup alone follows the click.
+            var heading=Label("Title",vehiclePopup,"탈것 권한 설정",23,Paper,new Vector2(244,36));
+            heading.rectTransform.anchoredPosition=new Vector2(-15,88);
+            vehicleOwnerText=Label("Owner",vehiclePopup,"",16,Paper,new Vector2(270,32));
+            vehicleOwnerText.rectTransform.anchoredPosition=new Vector2(0,48);
+            vehicleAccessText=Label("Access",vehiclePopup,"",16,new Color(.7f,.79f,.82f),new Vector2(278,38));
+            vehicleAccessText.rectTransform.anchoredPosition=new Vector2(0,12);
+            var toggle=Panel("ToggleVehicleLock",vehiclePopup,new Vector2(270,42),new Color(.18f,.31f,.33f));
+            toggle.anchoredPosition=new Vector2(0,-36);toggle.GetComponent<UnityEngine.UI.Image>().raycastTarget=true;
+            vehicleLockButton=toggle.gameObject.AddComponent<UnityEngine.UI.Button>();
+            vehicleLockButton.onClick.AddListener(()=>{
+                if(menuVehicle)menuVehicle.TrySetVehicleLocked(GameSession.LocalPlayerName,!menuVehicle.VehicleLocked);
+                RefreshVehicleMenu();
+            });
+            vehicleLockText=Label("Label",toggle,"",19,Paper,new Vector2(266,40));
+            var note=Label("Hint",vehiclePopup,"자전거 우클릭 : 해체 · F : 줍기",15,new Color(.7f,.79f,.82f),new Vector2(280,30));
+            note.rectTransform.anchoredPosition=new Vector2(0,-87);
+            var exit=Panel("Close",vehiclePopup,new Vector2(28,28),new Color(.2f,.27f,.3f));exit.anchoredPosition=new Vector2(132,88);
+            exit.GetComponent<UnityEngine.UI.Image>().raycastTarget=true;
+            exit.gameObject.AddComponent<UnityEngine.UI.Button>().onClick.AddListener(()=>closeVehicleMenu?.Invoke());
+            Label("Label",exit,"X",20,Paper,new Vector2(28,28));
+        }
+        vehiclePopup.gameObject.SetActive(true);vehiclePopup.SetAsLastSibling();
+        var canvasRect=(RectTransform)transform;
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect,screenPosition,null,out var point);
+        var bounds=canvasRect.rect;var size=vehiclePopup.sizeDelta;
+        float x=point.x+12, y=point.y-12;
+        if(x+size.x>bounds.xMax-8)x=point.x-size.x-12;
+        if(y-size.y<bounds.yMin+8)y=point.y+size.y+12;
+        vehiclePopup.anchoredPosition=new Vector2(Mathf.Clamp(x,bounds.xMin+8,bounds.xMax-size.x-8),Mathf.Clamp(y,bounds.yMin+size.y+8,bounds.yMax-8));
+        RefreshVehicleMenu();
+    }
+
+    public void RefreshVehicleMenu()
+    {
+        if(!IsVehicleMenuOpen || !menuVehicle)return;
+        string owner=menuVehicle.VehicleOwner;
+        vehicleOwnerText.text="소유자 : <noparse>"+(owner??"미등록")+"</noparse>";
+        vehicleAccessText.text=menuVehicle.VehicleLocked?"다른 플레이어 탑승 : 허용 안 함":"다른 플레이어 탑승 : 허용";
+        vehicleLockButton.interactable=owner==GameSession.LocalPlayerName && !menuVehicle.IsOccupied;
+        vehicleLockText.text=owner==null?"손에 들고 Space로 소유권 등록":owner!=GameSession.LocalPlayerName?"소유자만 권한 변경 가능":menuVehicle.VehicleLocked?"잠금 해제":"잠금";
+    }
+    public bool PointerInVehicleMenu(Vector2 point) => IsVehicleMenuOpen && RectTransformUtility.RectangleContainsScreenPoint(vehiclePopup,point,null);
+    public void HideVehicleMenu()
+    {
+        if(vehiclePopup)vehiclePopup.gameObject.SetActive(false);
+        menuVehicle=null;
+    }
 
     public void ShowDestinations(TransitKind kind, string currentName,
         IReadOnlyList<TransitDestination> destinations, Action<TransitDestination> onChoose)

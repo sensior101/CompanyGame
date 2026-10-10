@@ -44,6 +44,33 @@ namespace CompanyGame.Daldongne
         Vector3 previousPosition;
         float phase, blend, filteredSpeed;
         bool seated;
+        bool cycling;
+        float cyclePhase;
+        public void SetCycling(bool value, float pedalPhase)
+        {
+            if (!SameRig()) CaptureRestPose();
+            bool changed = cycling != value;
+            cycling = value; cyclePhase = pedalPhase;
+            if (cycling) ApplyCyclingPose();
+            else if (changed) ResetMotion();
+        }
+        void ApplyCyclingPose()
+        {
+            Restore();
+            if (!hips || !leftLeg || !rightLeg || !leftKnee || !rightKnee) return;
+            var p = hips.localPosition; p.y = .98f; p.z -= .35f; hips.localPosition = p;
+            hips.localRotation = pelvis.rotation * Quaternion.Euler(8f,0,0);
+            float pedal = Mathf.Sin(cyclePhase);
+            leftLeg.localRotation = legL.thigh.rotation * Quaternion.Euler(-48f + 24f * pedal,0,-5f);
+            rightLeg.localRotation = legR.thigh.rotation * Quaternion.Euler(-48f - 24f * pedal,0,5f);
+            leftKnee.localRotation = legL.knee.rotation * Quaternion.Euler(70f - 28f * pedal,0,0);
+            rightKnee.localRotation = legR.knee.rotation * Quaternion.Euler(70f + 28f * pedal,0,0);
+            if (leftArm) leftArm.localRotation = armL.rotation * Quaternion.Euler(-62f,0,-8f);
+            if (rightArm) rightArm.localRotation = armR.rotation * Quaternion.Euler(-62f,0,8f);
+            if (leftForearm) leftForearm.localRotation = forearmL.rotation * Quaternion.Euler(-23f,0,0);
+            if (rightForearm) rightForearm.localRotation = forearmR.rotation * Quaternion.Euler(-23f,0,0);
+            CacheArmPose();
+        }
         public void SetSeated(bool value)
         {
             if (!SameRig()) CaptureRestPose();
@@ -78,6 +105,7 @@ namespace CompanyGame.Daldongne
 
         void LateUpdate()
         {
+            if (cycling) { ApplyCyclingPose(); previousPosition = transform.position; return; }
             if (seated) { ApplySeatedPose(); previousPosition = transform.position; return; }
             float dt = Time.deltaTime;
             if (dt <= 0) return;

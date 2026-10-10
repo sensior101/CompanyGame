@@ -49,7 +49,7 @@ public sealed partial class InventoryUI
             HideItemTooltip();
             return;
         }
-        tooltipText.text = stack.Tooltip;
+        tooltipText.text = stack.Tooltip + (stack.Item.IsVehicle ? " · 좌클릭 설치" : "");
         float width = Mathf.Clamp(tooltipText.GetPreferredValues(tooltipText.text).x + 24f, 120f, 360f);
         float height = Mathf.Max(44f, tooltipText.GetPreferredValues(tooltipText.text, width - 24f, 0f).y + 20f);
         tooltipPanel.sizeDelta = new Vector2(width, height);

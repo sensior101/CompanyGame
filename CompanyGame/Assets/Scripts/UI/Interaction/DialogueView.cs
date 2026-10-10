@@ -49,7 +49,7 @@ public sealed class DialogueView : MonoBehaviour
     {
         var interaction = PlayerInteraction.Local;
         return interaction && interaction.isActiveAndEnabled && !interaction.IsInteractionMenuOpen &&
-            !BookReader.BlocksInventoryInput && !PlayerInventory.IsAnyOpen && !PlayerInventory.SpaceConsumedThisFrame && !ChatUIManager.IsChatting &&
+            !BookReader.BlocksInventoryInput && !(interaction.GetComponent<PlayerVehicle>()?.IsRiding ?? false) && !PlayerInventory.IsAnyOpen && !PlayerInventory.SpaceConsumedThisFrame && !ChatUIManager.IsChatting &&
             !UIEventSystem.IsEditingText() && !(PhoneManager.Instance && PhoneManager.Instance.IsPhoneOpen) &&
             SceneLoadManager.Traveller && SceneLoadManager.Traveller.isActiveAndEnabled;
     }

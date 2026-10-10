@@ -32,13 +32,29 @@ public class InventoryManager : MonoBehaviour
         {
             instance = null;
             InventoryManager host = Instance;
+            host.GrantCityBicycles();
             Destroy(this);
             return;
         }
         DontDestroyOnLoad(gameObject);
+        GrantCityBicycles();
         BookSaveService.RestoreInventory(state);
         state.Changed += SaveBooks;
         LibraryCatalog.ConnectLocal(state);
+    }
+
+    // Temporary traversal kit requested for this development build. One of each colour per session.
+    public void GrantCityBicycles()
+    {
+        var items = Resources.LoadAll<ItemData>("Inventory/Vehicles/CityBicycle");
+        System.Array.Sort(items, (a,b) => string.CompareOrdinal(a.itemId,b.itemId));
+        foreach (var item in items)
+        {
+            bool owned = false;
+            for (int i = 0; i < State.Capacity; i++)
+                if (State.GetSlot(i).Item == item) { owned = true; break; }
+            if (!owned && !State.TryAdd(item,1,out string error)) Debug.LogWarning(error);
+        }
     }
 
     void SaveBooks() => BookSaveService.SaveInventory(state);

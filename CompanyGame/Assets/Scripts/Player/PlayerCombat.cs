@@ -64,6 +64,14 @@ public sealed class PlayerCombat : MonoBehaviour
         if (!CanAttack) return false;
         var inventory = Inventory;
         var selected = inventory?.GetSlot(inventory.SelectedHotbarIndex);
+        var vehicle = GetComponent<PlayerVehicle>();
+        if (selected != null && !selected.IsEmpty && selected.Item.IsVehicle)
+        {
+            bool used = vehicle && vehicle.TryPlaceSelected();
+            if (used) nextAttackTime = Time.time + .3f;
+            return used;
+        }
+        if (vehicle && vehicle.IsRiding) return false;
         if (selected != null && !selected.IsEmpty && selected.Item.IsConsumable)
         {
             var stats = GetComponent<PlayerStats>();

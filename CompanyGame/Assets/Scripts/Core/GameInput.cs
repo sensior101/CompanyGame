@@ -59,6 +59,7 @@ public static class GameInput
 
     // Mouse
     public static bool AttackPressed => Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame;
+    public static bool DismantleVehiclePressed => Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame;
     public static bool OrbitHeld => Mouse.current != null && Mouse.current.rightButton.isPressed;
     public static Vector2 PointerPosition => Mouse.current != null ? Mouse.current.position.ReadValue() : Vector2.zero;
     public static Vector2 PointerDelta => Mouse.current != null ? Mouse.current.delta.ReadValue() : Vector2.zero;

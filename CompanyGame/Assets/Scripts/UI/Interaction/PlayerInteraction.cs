@@ -23,11 +23,19 @@ public class PlayerInteraction : MonoBehaviour
 
     public bool IsDestinationMenuOpen { get; private set; }
     public bool IsTradeOpen => tradeUI;
-    public bool IsInteractionMenuOpen => IsDestinationMenuOpen || IsTradeOpen || InventoryItemSelector.IsOpen;
+    public bool IsInteractionMenuOpen => IsDestinationMenuOpen || IsTradeOpen || IsVehicleMenuOpen || InventoryItemSelector.IsOpen;
+    public bool IsVehicleMenuOpen => ui && ui.IsVehicleMenuOpen;
+    static int worldClickFrame = -1;
+    public static bool WorldClickConsumedThisFrame => worldClickFrame == Time.frameCount;
+    WorldDroppedItem hoveredVehicle;
+    readonly List<UnityEngine.EventSystems.RaycastResult> vehiclePointerHits = new List<UnityEngine.EventSystems.RaycastResult>();
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    static void ResetVehiclePointer() { worldClickFrame=-1; }
     public StoreInteractionPoint FocusedStore { get; private set; }
     public NpcTrader FocusedTrader { get; private set; }
     public bool HasNearbyAction => !IsInteractionMenuOpen &&
-        (DialogueManager.HasNearbyNpc || SeatInteraction.HasNearbySeat || StoreInteractionPoint.FindNearest(transform) || NpcTrader.FindNearest(transform));
+        ((GetComponent<PlayerVehicle>()?.IsRiding ?? false) || WorldDroppedItem.FindNearestVehicle(GetComponent<PlayerInventory>()) ||
+         DialogueManager.HasNearbyNpc || SeatInteraction.HasNearbySeat || StoreInteractionPoint.FindNearest(transform) || NpcTrader.FindNearest(transform));
     public TradeWindow TradeUI => tradeUI;
     public TransitStop FocusedStop { get; private set; }
     public bool IsMenuReady => IsDestinationMenuOpen && menuArmed;
@@ -74,9 +82,15 @@ public class PlayerInteraction : MonoBehaviour
     {
         if (SceneLoadManager.IsLoading)
         {
-            if (ui) ui.HidePrompt();
+            if (IsVehicleMenuOpen) CloseVehicleMenu();
+            ClearVehicleHover();
+            if (ui) { ui.HidePrompt(); ui.HideVehicleMenu(); ui.SetRidingHints(false); }
             return;
         }
+        var vehicle = GetComponent<PlayerVehicle>();
+        if(vehicle && vehicle.IsRiding) { EnsureUI(); ui.SetRidingHints(true); }
+        else if(ui)ui.SetRidingHints(false);
+        if(HandleVehiclePointer(vehicle))return;
         if (InventoryItemSelector.IsOpen) { if(ui)ui.HidePrompt(); return; }
         if (travelPending)
         {
@@ -106,6 +120,13 @@ public class PlayerInteraction : MonoBehaviour
             return;
         }
         if (restorePending) return;
+        if (vehicle && vehicle.IsRiding && movement && movement.isActiveAndEnabled &&
+            !PlayerInventory.IsAnyOpen && !ChatUIManager.IsChatting && !UIEventSystem.IsEditingText())
+        {
+            EnsureUI(); ui.HidePrompt();
+            if (SpacePressed() && !PlayerInventory.SpaceConsumedThisFrame) { PlayerInventory.ConsumeSpaceThisFrame(); vehicle.Dismount(); }
+            return;
+        }
         if (waitForSpaceRelease)
         {
             if (SpaceHeld()) return;
@@ -118,6 +139,22 @@ public class PlayerInteraction : MonoBehaviour
             FocusedStore = null;
             FocusedTrader = null;
             if (ui) ui.HidePrompt();
+            return;
+        }
+        var inventoryState = GetComponent<PlayerInventory>().Inventory;
+        var heldStack = inventoryState?.GetSlot(inventoryState.SelectedHotbarIndex);
+        if (heldStack != null && !heldStack.IsEmpty && heldStack.Item.IsVehicle)
+        {
+            FocusedStop = null; FocusedStore = null; FocusedTrader = null;
+            if (ui) ui.HidePrompt();
+            return;
+        }
+        var placedVehicle = WorldDroppedItem.FindNearestVehicle(GetComponent<PlayerInventory>());
+        if (placedVehicle)
+        {
+            FocusedStore = null; FocusedTrader = null; FocusedStop = null;
+            EnsureUI(); ui.ShowPrompt("자전거 탑승", true);
+            if (SpacePressed()) { placedVehicle.TryMount(GetComponent<PlayerInventory>()); PlayerInventory.ConsumeSpaceThisFrame(); }
             return;
         }
         FocusedStore = StoreInteractionPoint.FindNearest(transform);
@@ -147,6 +184,70 @@ public class PlayerInteraction : MonoBehaviour
         if (!restorePending) return;
         restorePending = false;
         RestoreControls(!SceneLoadManager.IsLoading);
+    }
+
+    bool HandleVehiclePointer(PlayerVehicle vehicle)
+    {
+        bool menu=IsVehicleMenuOpen;
+        bool blocked=DialogueManager.OwnsInput || BookReader.BlocksInventoryInput || (vehicle && vehicle.IsRiding)||IsDestinationMenuOpen||IsTradeOpen||restorePending||
+            PlayerInventory.IsAnyOpen||ChatUIManager.IsChatting||UIEventSystem.IsEditingText()||
+            (PhoneManager.Instance && PhoneManager.Instance.IsPhoneOpen)||(!menu && (!movement || !movement.isActiveAndEnabled));
+        if(blocked) { ClearVehicleHover(); if(menu)CloseVehicleMenu(); return false; }
+        var inventory=GetComponent<PlayerInventory>();
+        if(menu && (!ui.MenuVehicle || !ui.MenuVehicle.IsPlacedVehicle || ui.MenuVehicle.IsOccupied ||
+            !ui.MenuVehicle.IsReachableFrom(inventory,3f) || EscapePressed()))
+        { CloseVehicleMenu();return true; }
+        if(menu)ui.RefreshVehicleMenu();
+        Vector2 pointer=GameInput.PointerPosition;
+        bool overUI=false;
+        if(UnityEngine.EventSystems.EventSystem.current)
+        {
+            vehiclePointerHits.Clear();
+            UnityEngine.EventSystems.EventSystem.current.RaycastAll(new UnityEngine.EventSystems.PointerEventData(UnityEngine.EventSystems.EventSystem.current){position=pointer},vehiclePointerHits);
+            foreach(var hit in vehiclePointerHits)if(hit.module is UnityEngine.UI.GraphicRaycaster){overUI=true;break;}
+        }
+        WorldDroppedItem hitVehicle=null;
+        if(!overUI && GameInput.HasPointer && movement && movement.viewCamera)
+        {
+            hitVehicle=WorldDroppedItem.FindPointedVehicle(inventory,movement.viewCamera,pointer);
+        }
+        var highlighted=overUI && menu ? ui.MenuVehicle : hitVehicle;
+        if(hoveredVehicle!=highlighted){ClearVehicleHover();hoveredVehicle=highlighted;if(hoveredVehicle)hoveredVehicle.SetVehicleHover(true);}
+        if(GameInput.DismantleVehiclePressed && !overUI && hitVehicle)
+        {
+            worldClickFrame=Time.frameCount;
+            if(hitVehicle.TryDismantleVehicle(GameSession.LocalPlayerName,out var error))
+            {
+                CloseVehicleMenu();ClearVehicleHover();
+                inventory.SetStatus("탈것을 해체했습니다. 드롭 아이템을 F로 주워 주세요.");
+            }
+            else if(!string.IsNullOrEmpty(error))inventory.SetStatus(error);
+            return true;
+        }
+        if(GameInput.AttackPressed && !overUI)
+        {
+            if(hitVehicle)
+            {
+                worldClickFrame=Time.frameCount;
+                EnsureUI();ui.HidePrompt();
+                if(!menu)SuspendControls();
+                ui.ShowVehicleMenu(hitVehicle,pointer,CloseVehicleMenu);
+                return true;
+            }
+            if(menu){worldClickFrame=Time.frameCount;CloseVehicleMenu();return true;}
+        }
+        return menu;
+    }
+
+    public void CloseVehicleMenu()
+    {
+        if(!IsVehicleMenuOpen)return;
+        ui.HideVehicleMenu();ClearVehicleHover();restorePending=true;waitForSpaceRelease=true;
+    }
+    void ClearVehicleHover()
+    {
+        if(hoveredVehicle)hoveredVehicle.SetVehicleHover(false);
+        hoveredVehicle=null;
     }
 
     public bool OpenDestinationMenu()
@@ -302,6 +403,7 @@ public class PlayerInteraction : MonoBehaviour
 
     void OnDisable()
     {
+        ClearVehicleHover();
         IsDestinationMenuOpen = false;
         if (tradeUI) { Destroy(tradeUI.gameObject); tradeUI = null; }
         tradeStillAvailable = null; FocusedStore = null; FocusedTrader = null;
@@ -310,7 +412,7 @@ public class PlayerInteraction : MonoBehaviour
         restorePending = false;
         travelPending = false;
         waitForSpaceRelease = true;
-        if (ui) { ui.HidePrompt(); ui.HideModal(); }
+        if (ui) { ui.HidePrompt(); ui.HideModal(); ui.HideVehicleMenu(); ui.SetRidingHints(false); }
         RestoreControls(!SceneLoadManager.IsLoading);
     }
 

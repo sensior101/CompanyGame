@@ -70,7 +70,7 @@ public sealed class PlayerInventory : MonoBehaviour
         InputFocus.InventoryOpen = () => IsAnyOpen;
         InputFocus.ChatOpen = () => ChatUIManager.IsChatting;
         InputFocus.ScrollCaptured = () => CurrencyScrollCapturedThisFrame || HotbarScrollCapturedThisFrame;
-        InputFocus.GameplayBlocked = () => BookReader.BlocksInventoryInput || DialogueManager.OwnsInput || IsAnyOpen || SpaceConsumedThisFrame || ChatUIManager.IsChatting ||
+        InputFocus.GameplayBlocked = () => BookReader.BlocksInventoryInput || DialogueManager.OwnsInput || IsAnyOpen || SpaceConsumedThisFrame || PlayerInteraction.WorldClickConsumedThisFrame || ChatUIManager.IsChatting ||
             (local && (local.IsOpen || local.IsDragging || (local.ui && local.ui.IsWithdrawalOpen))) ||
             (local && local.interaction && local.interaction.IsInteractionMenuOpen);
     }
@@ -94,6 +94,8 @@ public sealed class PlayerInventory : MonoBehaviour
         if (Inventory != null) Inventory.Changed += HandleInventoryChanged;
         var combat = GetComponent<PlayerCombat>();
         if (combat) combat.ItemUseFeedback += SetStatus;
+        var vehicle = GetComponent<PlayerVehicle>();
+        if (vehicle) { vehicle.Feedback += SetStatus; vehicle.PlacementRequested += TryPlaceSelectedVehicle; }
         if (ui) ui.gameObject.SetActive(true);
     }
 
@@ -297,6 +299,8 @@ public sealed class PlayerInventory : MonoBehaviour
         if (SelectedInventorySlot < 0)
         {
             if (!Inventory.GetSlot(index).IsEmpty) SelectedInventorySlot = index;
+            if (SelectedInventorySlot >= 0 && Inventory.GetSlot(index).Item.IsVehicle)
+                StatusMessage = "손에 들고 Space 소유권 등록 · 5초 길게 소유권 포기 · 좌클릭 설치";
         }
         else if (SelectedInventorySlot == index) SelectedInventorySlot = -1;
         else
@@ -483,6 +487,13 @@ public sealed class PlayerInventory : MonoBehaviour
         pointerHits.RemoveAll(hit => !(hit.module is UnityEngine.UI.GraphicRaycaster));
     }
 
+    bool TryPlaceSelectedVehicle()
+    {
+        bool success = WorldDroppedItem.TryPlaceVehicle(this, out string error);
+        SetStatus(success ? "자전거를 설치했습니다. Space 탑승 · 좌클릭 권한 설정 · 우클릭 해체" : error);
+        return success;
+    }
+
     /// <summary>Pick up the nearest reachable stack; F works both in gameplay and in inventory.</summary>
     public bool TryPickUpNearest()
     {
@@ -491,7 +502,7 @@ public sealed class PlayerInventory : MonoBehaviour
         float bestDistance = 3f * 3f;
         foreach (var item in FindObjectsByType<WorldDroppedItem>())
         {
-            if (item.gameObject.scene != SceneLoadManager.CurrentMap || item.Count <= 0) continue;
+            if (item.gameObject.scene != SceneLoadManager.CurrentMap || item.Count <= 0 || item.IsPlacedVehicle) continue;
             float distance = (item.transform.position - transform.position).sqrMagnitude;
             if (distance > bestDistance || !item.IsReachableFrom(this, 3f)) continue;
             bestDistance = distance;
@@ -521,6 +532,8 @@ public sealed class PlayerInventory : MonoBehaviour
         if (Inventory != null) Inventory.Changed -= HandleInventoryChanged;
         var combat = GetComponent<PlayerCombat>();
         if (combat) combat.ItemUseFeedback -= SetStatus;
+        var vehicle = GetComponent<PlayerVehicle>();
+        if (vehicle) { vehicle.Feedback -= SetStatus; vehicle.PlacementRequested -= TryPlaceSelectedVehicle; }
         CancelDrag();
         if (handCursor) handCursor.Hide();
         IsOpen = false;

@@ -24,6 +24,8 @@ public sealed class PlayerSeating : MonoBehaviour
     }
     public bool TrySit(Seat seat)
     {
+        var vehicle = GetComponent<PlayerVehicle>();
+        if (vehicle && vehicle.IsRiding) return false;
         if (IsSeated || !movement.enabled || !motor.enabled || SceneLoadManager.IsLoading || !seat || !seat.Reserve(transform)) return false;
         standingPosition = transform.position; standingRotation = transform.rotation;
         movementWasEnabled = movement.enabled; motorWasEnabled = motor.enabled;
