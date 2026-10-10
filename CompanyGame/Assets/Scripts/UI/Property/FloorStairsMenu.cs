@@ -25,6 +25,7 @@ public sealed class FloorStairsMenu : MonoBehaviour
     readonly List<int> targets = new List<int>();
     readonly List<Image> rows = new List<Image>();
     readonly List<TMP_Text> labels = new List<TMP_Text>();
+    TMP_Text hint;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     static void ResetStatics() { shown = false; enterFrame = -1; }
@@ -38,17 +39,34 @@ public sealed class FloorStairsMenu : MonoBehaviour
         if (GameInput.NavDownPressed) selected = Mathf.Min(targets.Count - 1, selected + 1);
         Refresh();
         if (GameInput.SubmitPressed) { enterFrame = Time.frameCount; Go(selected); }
+        else if (near.allowSpace && GameInput.InteractPressed)
+        {
+            PlayerInventory.ConsumeSpaceThisFrame();
+            Go(selected);
+        }
     }
 
     static bool CanShow(PlayerInteraction interaction) =>
-        interaction && !SceneLoadManager.IsLoading && !PlayerInventory.IsAnyOpen && !ChatUIManager.IsChatting &&
+        interaction && !SeatInteraction.HasNearbySeat && !FurnitureLightInteraction.HasNearbyLight && !PlayerInventory.SpaceConsumedThisFrame &&
+        !(PlayerSeating.Local && PlayerSeating.Local.IsSeated) && !DialogueManager.HasNearbyNpc && !DialogueManager.IsDialogueOpen && !DialogueManager.OwnsInput &&
+        !SceneLoadManager.IsLoading && !PlayerInventory.IsAnyOpen && !ChatUIManager.IsChatting &&
         !UIEventSystem.IsEditingText() && !interaction.IsInteractionMenuOpen &&
         !(PhoneManager.Instance && PhoneManager.Instance.IsPhoneOpen);
 
     void Go(int index)
     {
         if (index < 0 || index >= targets.Count) return;
-        PlayerSpawner.TeleportInScene("floor_" + targets[index]);
+        if (stairs && !string.IsNullOrWhiteSpace(stairs.targetScenePath))
+        {
+            if (!Application.CanStreamedLevelBeLoaded(stairs.targetScenePath))
+            {
+                if (hint) hint.text = "윗층 공간은 아직 준비 중입니다.";
+                return;
+            }
+            SceneLoadManager.TryLoadMap(stairs.targetScenePath, stairs.targetSpawnId, PlayerSpawner.Player);
+        }
+        else
+            PlayerSpawner.TeleportInScene("floor_" + targets[index]);
     }
 
     void Show(FloorStairs near)
@@ -62,8 +80,9 @@ public sealed class FloorStairsMenu : MonoBehaviour
         for (int i = 0; i < rows.Count; i++)
         {
             rows[i].gameObject.SetActive(i < targets.Count);
-            if (i < targets.Count) labels[i].text = (targets[i] > near.floor ? "윗층으로 이동" : "아래층으로 이동") + "  (" + targets[i] + "층)";
+            if (i < targets.Count) labels[i].text = (targets[i] > near.floor && near.allowSpace ? "윗층으로 올라가기" : targets[i] > near.floor ? "윗층으로 이동" : "아래층으로 이동") + "  (" + targets[i] + "층)";
         }
+        if (hint) hint.text = near.allowSpace ? "버튼 클릭 또는 Space" : "↑↓ 선택   Enter 이동";
         root.SetActive(true);
         shown = true;
     }
@@ -105,7 +124,7 @@ public sealed class FloorStairsMenu : MonoBehaviour
         var interaction = PlayerInteraction.Local;
         var font = interaction && interaction.uiFont ? interaction.uiFont : TMP_Settings.defaultFontAsset;
         for (int i = 0; i < 2; i++) BuildRow(panel, font, i);
-        var hint = Text("Hint", panel, font, "↑↓ 선택   Enter 이동", 15f, new Color(.72f, .79f, .83f), new Vector2(0f, -53f), new Vector2(300f, 24f));
+        hint = Text("Hint", panel, font, "↑↓ 선택   Enter 이동", 15f, new Color(.72f, .79f, .83f), new Vector2(0f, -53f), new Vector2(300f, 24f));
         hint.raycastTarget = false;
     }
 

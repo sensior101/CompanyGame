@@ -89,6 +89,10 @@ public sealed class PlayerInventory : MonoBehaviour
         if (!GetComponent<PlayerCombat>()) gameObject.AddComponent<PlayerCombat>();
         if (!GetComponent<PropertyUseController>()) gameObject.AddComponent<PropertyUseController>();
         if (!GetComponent<FloorStairsMenu>()) gameObject.AddComponent<FloorStairsMenu>();
+        if (!GetComponent<EmployeeCardPrompt>()) gameObject.AddComponent<EmployeeCardPrompt>();
+        if (!GetComponent<SeatInteraction>()) gameObject.AddComponent<SeatInteraction>();
+        if (!GetComponent<FurnitureLightInteraction>()) gameObject.AddComponent<FurnitureLightInteraction>();
+        if (!GetComponent<BookReader>()) gameObject.AddComponent<BookReader>();
     }
 
     void OnEnable()
@@ -212,7 +216,7 @@ public sealed class PlayerInventory : MonoBehaviour
         return true;
     }
 
-    bool CanDepositCurrency() => Application.isPlaying && isActiveAndEnabled && Inventory != null && !restorePending &&
+    bool CanDepositCurrency() => !SeatInteraction.HasNearbySeat && !FurnitureLightInteraction.HasNearbyLight && !DialogueManager.HasNearbyNpc && !DialogueManager.IsDialogueOpen && Application.isPlaying && isActiveAndEnabled && Inventory != null && !restorePending &&
         closedFrame != Time.frameCount && !IsDragging && !SceneLoadManager.IsLoading && !ChatUIManager.IsChatting &&
         !UIEventSystem.IsEditingText() && !(ui && ui.IsWithdrawalOpen) && !(interaction && interaction.IsInteractionMenuOpen) &&
         (IsOpen || (movement && movement.isActiveAndEnabled));

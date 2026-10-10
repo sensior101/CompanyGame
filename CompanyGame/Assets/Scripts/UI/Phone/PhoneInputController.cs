@@ -30,7 +30,7 @@ public class PhoneInputController : MonoBehaviour
     private void Update()
     {
         if (phone == null) return;
-        if (ChatUIManager.IsChatting) return;
+        if (ChatUIManager.IsChatting || DialogueManager.OwnsInput) return;
 
         if (IsTypingInField())
         {

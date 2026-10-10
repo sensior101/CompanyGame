@@ -9,6 +9,10 @@ namespace CompanyGame.World.Maps
     {
         public int floor = 1;
         public int topFloor = 4;
+        public bool allowSpace;
+        [Tooltip("Optional separate upper-floor map. Empty keeps the existing in-scene floor transfer.")]
+        public string targetScenePath;
+        public string targetSpawnId = "stairs_arrival";
         [Min(.5f)] public float radius = 2f;
         const float HeightTolerance = 1.5f;
         static readonly HashSet<FloorStairs> active = new HashSet<FloorStairs>();

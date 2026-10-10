@@ -48,7 +48,7 @@ public sealed partial class InventoryUI
 
     public void ShowItemTooltip(InventorySlotPointer slot, Vector2 screenPosition)
     {
-        if (IsWithdrawalOpen || slot == null || slot.IsDropZone || !owner || owner.IsDragging || owner.Inventory == null)
+        if (BookReader.IsAnyOpen || IsWithdrawalOpen || slot == null || slot.IsDropZone || !owner || owner.IsDragging || owner.Inventory == null)
         {
             HideItemTooltip();
             return;

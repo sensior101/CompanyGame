@@ -1631,7 +1631,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b52c70f4c7d84f829b873bca5a33c770, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CompanyGame.World.Maps.MapSpawnPoint
   spawnId: social_07
 --- !u!1 &154547022
@@ -1729,7 +1729,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f2a7fed2ab039344eb86fc4fbdc2a400, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CompanyGame.World.Maps.TransitStop
   kind: 1
   boardingPoint: {fileID: 161819492}
@@ -2308,7 +2308,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b52c70f4c7d84f829b873bca5a33c770, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CompanyGame.World.Maps.MapSpawnPoint
   spawnId: social_10
 --- !u!1 &222661014
@@ -2565,9 +2565,57 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b52c70f4c7d84f829b873bca5a33c770, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CompanyGame.World.Maps.MapSpawnPoint
   spawnId: social_12
+--- !u!1 &241859183
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 241859184}
+  - component: {fileID: 241859185}
+  m_Layer: 0
+  m_Name: Handae HQ Lobby Portal
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &241859184
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 241859183}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 2, y: 0.4, z: 199.15}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 999318021}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &241859185
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 241859183}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c65efd6198d14cc7a3f94fdfb873a63b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: CompanyGame.World::CompanyGame.World.Maps.MapPortal
+  targetScenePath: Assets/Scenes/Interiors/HandaeHQLobby.unity
+  targetSpawnId: handae_entry
+  displayName: "\uD55C\uB300\uAC74\uC124 \uBCF8\uC0AC \uB85C\uBE44 \uB4E4\uC5B4\uAC00\uAE30"
+  interactionRadius: 2.5
 --- !u!1 &244453977
 GameObject:
   m_ObjectHideFlags: 0
@@ -2820,7 +2868,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b52c70f4c7d84f829b873bca5a33c770, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CompanyGame.World.Maps.MapSpawnPoint
   spawnId: subway
 --- !u!1 &253615867
@@ -4694,7 +4742,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b52c70f4c7d84f829b873bca5a33c770, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CompanyGame.World.Maps.MapSpawnPoint
   spawnId: default
 --- !u!1 &372346659
@@ -5207,7 +5255,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b52c70f4c7d84f829b873bca5a33c770, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CompanyGame.World.Maps.MapSpawnPoint
   spawnId: social_11
 --- !u!1 &409188207
@@ -6568,7 +6616,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c65efd6198d14cc7a3f94fdfb873a63b, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: CompanyGame.World::CompanyGame.World.Maps.MapPortal
   targetScenePath: Assets/Scenes/Maps/IndustrialDistrict.unity
   targetSpawnId: default
@@ -6664,6 +6712,51 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 541078818}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!1 &541917716
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 541917717}
+  - component: {fileID: 541917718}
+  m_Layer: 0
+  m_Name: Spawn_handae_exit
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &541917717
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 541917716}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 2, y: 0.45, z: 198.2}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 999318021}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &541917718
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 541917716}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b52c70f4c7d84f829b873bca5a33c770, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: CompanyGame.World::CompanyGame.World.Maps.MapSpawnPoint
+  spawnId: handae_exit
 --- !u!1 &553013702
 GameObject:
   m_ObjectHideFlags: 0
@@ -8955,7 +9048,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 824418626fc830640a0d86d1f600d2e3, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerCameraController
   target: {fileID: 0}
   femaleVisuals: {fileID: 0}
@@ -8995,7 +9088,7 @@ MonoBehaviour:
   m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a79441f348de89743a2939f4d699eac1, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.UniversalAdditionalCameraData
   m_RenderShadows: 1
   m_RequiresDepthTextureOption: 2
@@ -9175,7 +9268,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b52c70f4c7d84f829b873bca5a33c770, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CompanyGame.World.Maps.MapSpawnPoint
   spawnId: bus
 --- !u!1 &785326621
@@ -10941,6 +11034,8 @@ Transform:
   - {fileID: 1891331560}
   - {fileID: 1950414764}
   - {fileID: 599085016}
+  - {fileID: 241859184}
+  - {fileID: 541917717}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1003968002
@@ -11433,7 +11528,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b52c70f4c7d84f829b873bca5a33c770, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CompanyGame.World.Maps.MapSpawnPoint
   spawnId: social_01
 --- !u!1 &1034848841
@@ -11531,7 +11626,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b52c70f4c7d84f829b873bca5a33c770, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CompanyGame.World.Maps.MapSpawnPoint
   spawnId: social_02
 --- !u!1 &1052134433
@@ -11788,7 +11883,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b52c70f4c7d84f829b873bca5a33c770, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CompanyGame.World.Maps.MapSpawnPoint
   spawnId: social_13
 --- !u!1 &1064356532
@@ -11833,7 +11928,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b52c70f4c7d84f829b873bca5a33c770, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CompanyGame.World.Maps.MapSpawnPoint
   spawnId: social_08
 --- !u!1 &1070882195
@@ -13832,7 +13927,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b52c70f4c7d84f829b873bca5a33c770, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CompanyGame.World.Maps.MapSpawnPoint
   spawnId: social_09
 --- !u!1 &1233905229
@@ -15927,7 +16022,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b52c70f4c7d84f829b873bca5a33c770, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CompanyGame.World.Maps.MapSpawnPoint
   spawnId: social_04
 --- !u!1 &1455669614
@@ -19486,7 +19581,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b52c70f4c7d84f829b873bca5a33c770, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CompanyGame.World.Maps.MapSpawnPoint
   spawnId: social_00
 --- !u!1 &1731076254
@@ -20104,7 +20199,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b52c70f4c7d84f829b873bca5a33c770, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CompanyGame.World.Maps.MapSpawnPoint
   spawnId: social_06
 --- !u!1 &1789961162
@@ -20261,7 +20356,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b52c70f4c7d84f829b873bca5a33c770, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CompanyGame.World.Maps.MapSpawnPoint
   spawnId: social_05
 --- !u!1 &1828322019
@@ -20306,7 +20401,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f2a7fed2ab039344eb86fc4fbdc2a400, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CompanyGame.World.Maps.TransitStop
   kind: 0
   boardingPoint: {fileID: 1828322020}
@@ -20752,7 +20847,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b52c70f4c7d84f829b873bca5a33c770, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CompanyGame.World.Maps.MapSpawnPoint
   spawnId: social_14
 --- !u!1 &1862523270
@@ -20798,7 +20893,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 474bcb49853aa07438625e644c072ee6, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.UniversalAdditionalLightData
   m_UsePipelineSettings: 1
   m_AdditionalLightsShadowResolutionTier: 2
@@ -22646,7 +22741,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b52c70f4c7d84f829b873bca5a33c770, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CompanyGame.World.Maps.MapSpawnPoint
   spawnId: social_03
 --- !u!1 &2074689665
@@ -23502,7 +23597,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ebe7e83806fe4a34ebb7a575087fa62e, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PropertyManager
   startingMoney: 100000
 --- !u!1 &2131339541

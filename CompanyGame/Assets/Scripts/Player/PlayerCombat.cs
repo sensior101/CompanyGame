@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using CompanyGame.World.Maps;
 
 /// <summary>Left-click eats selected food, attacks with a weapon, or punches with an empty hand.</summary>
 [DefaultExecutionOrder(-100)]
@@ -62,6 +63,7 @@ public sealed class PlayerCombat : MonoBehaviour
     public bool TryAttack()
     {
         if (!CanAttack) return false;
+        if (EmployeeGate.TryHandleClick(movement.viewCamera ? movement.viewCamera : Camera.main, transform)) return true;
         var inventory = Inventory;
         var selected = inventory?.GetSlot(inventory.SelectedHotbarIndex);
         var vehicle = GetComponent<PlayerVehicle>();

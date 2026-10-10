@@ -9,6 +9,15 @@ public sealed class ItemStack
     public BookInstanceData BookData { get; internal set; }
     public string OwnershipKey => Item && Item.IsVehicle && !string.IsNullOrEmpty(InstanceId) ? "vehicle:" + InstanceId : null;
     public bool IsEmpty => !Item || Count <= 0;
+    public bool IsUniqueBook => !IsEmpty && Item.IsBook && BookData != null &&
+        (BookData.isPublished || BookData.HasContent || !string.IsNullOrEmpty(InstanceId));
+    public int StackLimit => IsUniqueBook ? 1 : IsEmpty ? 0 : Item.StackLimit;
+    public bool CanMerge(ItemStack other) => other != null && !IsEmpty && !other.IsEmpty &&
+        Item == other.Item && !IsUniqueBook && !other.IsUniqueBook;
+    public string Tooltip => IsUniqueBook && BookData.isPublished
+        ? DisplayName + "\n저자 : " + BookData.authorName : DisplayName;
+    public string DisplayName => !IsEmpty && Item.IsBook && !string.IsNullOrWhiteSpace(BookData?.title)
+        ? BookData.title : IsEmpty ? "" : Item.DisplayName;
 
     public bool IsUniqueBook => !IsEmpty && Item.IsBook && BookData != null &&
         (BookData.isPublished || BookData.HasContent || !string.IsNullOrEmpty(InstanceId));
@@ -57,6 +66,20 @@ public sealed class InventoryState
 
     public ItemStack GetSlot(int index) => IsSlot(index) ? slots[index] : null;
     public ItemStack GetEquipment(EquipmentSlot slot) => IsEquipment(slot) ? equipment[(int)slot] : null;
+
+    /// <summary>Publishes edits to a carried book so its persistence owner can save them.</summary>
+    public bool NotifyBookChanged(string instanceId)
+    {
+        if (string.IsNullOrEmpty(instanceId)) return false;
+        for (int i = 0; i < Capacity; i++)
+        {
+            var stack = slots[i];
+            if (stack.IsEmpty || !stack.Item.IsBook || stack.InstanceId != instanceId) continue;
+            NotifyChanged();
+            return true;
+        }
+        return false;
+    }
 
     public bool SelectHotbar(int index)
     {
