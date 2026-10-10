@@ -35,6 +35,8 @@ public static class GameInput
     public static bool CancelPressed => Pressed(Key.Escape);
     public static bool SubmitPressed => Pressed(Key.Enter) || Pressed(Key.NumpadEnter);
     public static bool NextFieldPressed => Pressed(Key.Tab);
+    public static bool NavLeftPressed => Pressed(Key.LeftArrow);
+    public static bool NavRightPressed => Pressed(Key.RightArrow);
     public static bool NavUpPressed => Pressed(Key.UpArrow);
     public static bool NavDownPressed => Pressed(Key.DownArrow);
     public static bool AltHeld => Held(Key.LeftAlt) || Held(Key.RightAlt);

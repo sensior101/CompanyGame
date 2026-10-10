@@ -25,7 +25,7 @@ public sealed class SeatInteraction : MonoBehaviour
             }
             return;
         }
-        if (SceneLoadManager.IsLoading ||
+        if (SceneLoadManager.IsLoading || BookReader.BlocksInventoryInput ||
             PlayerInventory.IsAnyOpen || ChatUIManager.IsChatting || UIEventSystem.IsEditingText() ||
             (PhoneManager.Instance && PhoneManager.Instance.IsPhoneOpen) ||
             (PlayerInteraction.Local && PlayerInteraction.Local.IsInteractionMenuOpen)) { Hide(); return; }

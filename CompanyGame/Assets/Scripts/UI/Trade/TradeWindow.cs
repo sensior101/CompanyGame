@@ -8,7 +8,7 @@ using UnityEngine.EventSystems;
 /// The trade window every NPC uses. Each row swaps the left item (what the player gives) for the right item
 /// (what the player gets); cash is just an item, so the same window buys and sells. Payment happens on taking the right item.
 /// </summary>
-public sealed class TradeWindow : MonoBehaviour
+public sealed partial class TradeWindow : MonoBehaviour
 {
     public TradeSession Session { get; private set; }
     public bool IsDragging => Session!=null && Session.HasCursorItem;
@@ -16,8 +16,11 @@ public sealed class TradeWindow : MonoBehaviour
     TMP_FontAsset font;
     RectTransform window,ghost,tooltip;
     TMP_Text tooltipText,ghostCount;
-    TradePointer hovered;
-    const int TradeCapacity=18;
+    public const int TradeCapacity=18;
+    public int OfferPage { get; private set; }
+    public int OfferPageCount => Math.Max(1,(Session.Offers.Length+TradeCapacity-1)/TradeCapacity);
+    RectTransform previousOffers,nextOffers;
+    float nextOfferRefresh;
     readonly List<Slot> inventoryViews=new List<Slot>();
     readonly List<Slot> outputViews=new List<Slot>();
     readonly List<Slot> paymentViews=new List<Slot>();
@@ -44,6 +47,8 @@ public sealed class TradeWindow : MonoBehaviour
         var trades=Panel("TradeWindow",window,new Vector2(672,416),Paper);trades.anchoredPosition=new Vector2(0,90);
         Border(trades);
         SymbolButton("Close",window,new Vector2(351,282),()=>onClose(),0);
+        previousOffers=SymbolButton("PreviousOffers",window,new Vector2(-288,316),()=>ChangeOfferPage(-1),-1);
+        nextOffers=SymbolButton("NextOffers",window,new Vector2(288,316),()=>ChangeOfferPage(1),1);
         // The reference has three columns, each containing six vertical trades.
         for(int i=0;i<TradeCapacity;i++)
         {
@@ -83,6 +88,11 @@ public sealed class TradeWindow : MonoBehaviour
     {var p=rect.gameObject.AddComponent<TradePointer>();p.owner=this;p.kind=kind;p.index=index;return p;}
     public void Refresh()
     {
+        Session.RefreshOffers();
+        OfferPage=Mathf.Clamp(OfferPage,0,OfferPageCount-1);
+        previousOffers.gameObject.SetActive(OfferPageCount>1);nextOffers.gameObject.SetActive(OfferPageCount>1);
+        previousOffers.GetComponent<UnityEngine.UI.Button>().interactable=OfferPage>0;
+        nextOffers.GetComponent<UnityEngine.UI.Button>().interactable=OfferPage<OfferPageCount-1;
         for(int i=0;i<16;i++)
         {
             int index=page*16+i;var v=inventoryViews[i];v.pointer.index=index;var stack=Session.Inventory.GetSlot(index);
@@ -92,13 +102,23 @@ public sealed class TradeWindow : MonoBehaviour
         }
         for(int i=0;i<outputViews.Count;i++)
         {
-            var v=outputViews[i];bool available=HasOffer(i);var offer=available?Session.Offers[i]:null;
-            v.image.enabled=available;v.image.sprite=available?Icon(offer.get):null;v.image.color=Color.white;v.count.text=available?offer.get.Count.ToString():"";
-            var payment=paymentViews[i];payment.image.enabled=available;
-            payment.image.sprite=available?Icon(offer.give):null;payment.count.text=available?offer.give.Count.ToString():"";
+            int index=OfferPage*TradeCapacity+i;
+            var v=outputViews[i];var payment=paymentViews[i];v.pointer.index=payment.pointer.index=index;
+            bool present=HasOffer(index);var offer=present?Session.Offers[index]:null;
+            bool available=present && Session.IsOfferAvailable(index);
+            v.image.enabled=present;v.image.sprite=present?Icon(offer.get):null;
+            v.image.color=available?Color.white:new Color(.4f,.4f,.4f,.65f);
+            v.count.text="";payment.count.text="";
+            payment.image.enabled=present;payment.image.sprite=present?Icon(offer.give):null;
         }
-        RefreshCursor();HideTooltip();
+        RefreshCursor();
     }
+    public void ChangeOfferPage(int amount)
+    {
+        if(IsDragging)return;
+        OfferPage=Mathf.Clamp(OfferPage+amount,0,OfferPageCount-1);HideTooltip();Refresh();
+    }
+
     void OnInventoryChanged(){Refresh();}
     void ChangePage(int amount){page=Mathf.Clamp(page+amount,0,(Session.Inventory.Capacity-1)/16);Refresh();}
     void RefreshCursor()
@@ -136,33 +156,62 @@ public sealed class TradeWindow : MonoBehaviour
     {
         if(!IsDragging || lastDropFrame==Time.frameCount)return;
         if(!Application.isFocused || position.x<0 || position.y<0 || position.x>=Screen.width || position.y>=Screen.height){CancelDrag();return;}
-        hits.Clear();if(EventSystem.current)EventSystem.current.RaycastAll(new PointerEventData(EventSystem.current){position=position},hits);
-        foreach(var h in hits){var p=h.gameObject.GetComponentInParent<TradePointer>();if(p && p.owner==this){Drop(p.kind,p.index);return;}}
+        var pointer=PointerAt(position);
+        if(pointer){Drop(pointer.kind,pointer.index);return;}
         // Keep carrying the item when released over background or a panel gap.
     }
     public void CancelDrag(){Session?.CancelPending();RefreshCursor();}
+    TradePointer PointerAt(Vector2 position)
+    {
+        hits.Clear();
+        if(EventSystem.current)EventSystem.current.RaycastAll(new PointerEventData(EventSystem.current){position=position},hits);
+        foreach(var hit in hits)
+        {
+            var pointer=hit.gameObject.GetComponentInParent<TradePointer>();
+            if(pointer && pointer.owner==this)return pointer;
+            if(hit.module is UnityEngine.UI.GraphicRaycaster)return null;
+        }
+        return null;
+    }
     void Update()
     {
-        if(GameInput.HasPointer){var position=GameInput.PointerPosition;if(IsDragging){MoveDrag(position);if(GameInput.ButtonReleased(DragUsesRight))EndDrag(position);}else if(hovered)ShowTooltip(hovered,position);}
+        if(Time.unscaledTime>=nextOfferRefresh) { nextOfferRefresh=Time.unscaledTime+.25f;Refresh(); }
+        if(GameInput.HasPointer)
+        {
+            var position=GameInput.PointerPosition;
+            if(IsDragging){MoveDrag(position);if(GameInput.ButtonReleased(DragUsesRight))EndDrag(position);}
+            else
+            {
+                // Re-evaluate after drops, page refreshes and external inventory changes,
+                // even when the mouse stays still on the same slot.
+                var pointer=PointerAt(position);
+                if(pointer)ShowTooltip(pointer,position);else HideTooltip();
+            }
+        }
         // Keep two full rows inside small game views as well as wide desktop views.
-        var bounds=((RectTransform)transform).rect;float s=Mathf.Min(1,Mathf.Min((bounds.width-24)/740,(bounds.height-24)/600));window.localScale=Vector3.one*Mathf.Max(.1f,s);
+        var bounds=((RectTransform)transform).rect;float s=Mathf.Min(1,Mathf.Min((bounds.width-24)/740,(bounds.height-24)/660));window.localScale=Vector3.one*Mathf.Max(.1f,s);
     }
     public void ShowTooltip(TradePointer pointer,Vector2 screenPosition)
     {
         if(IsDragging){HideTooltip();return;}
         string name=null;
         if(pointer.kind==TradePointer.Kind.Inventory)
-        {var stack=Session.Inventory.GetSlot(pointer.index);if(stack!=null&&!stack.IsEmpty)name=stack.Item.DisplayName;}
-        else if(HasOffer(pointer.index)){var side=pointer.kind==TradePointer.Kind.Payment?Session.Offers[pointer.index].give:Session.Offers[pointer.index].get;name=side.Resolve().DisplayName;}
+        {var stack=Session.Inventory.GetSlot(pointer.index);if(stack!=null&&!stack.IsEmpty)name=stack.Tooltip;}
+        else if(HasOffer(pointer.index))
+        {
+            var side=Session.Offers[pointer.index].give;
+            name=pointer.kind==TradePointer.Kind.Output?Session.OutputTooltip(pointer.index):
+                (!side.item || side.item.IsCurrency)?((side.item?side.item.CurrencyValue:side.cash)*side.Count).ToString("N0")+"원":side.Tooltip;
+        }
         if(string.IsNullOrEmpty(name)){HideTooltip();return;}
-        hovered=pointer;tooltipText.text=name;
-        float width=Mathf.Clamp(tooltipText.GetPreferredValues(name).x+24,80,260);tooltip.sizeDelta=new Vector2(width,36);tooltipText.rectTransform.sizeDelta=new Vector2(width-16,30);
+        tooltipText.richText=false;tooltipText.text=name;
+        float width=Mathf.Clamp(tooltipText.GetPreferredValues(name).x+24,80,260);float height=Mathf.Max(36,tooltipText.GetPreferredValues(name,width-16,0).y+16);tooltip.sizeDelta=new Vector2(width,height);tooltipText.rectTransform.sizeDelta=new Vector2(width-16,height-8);
         RectTransformUtility.ScreenPointToLocalPointInRectangle((RectTransform)transform,screenPosition,null,out var p);
         var bounds=((RectTransform)transform).rect;var half=tooltip.sizeDelta*.5f;p+=new Vector2(half.x+16,-half.y-18);
         p.x=Mathf.Clamp(p.x,bounds.xMin+half.x+6,bounds.xMax-half.x-6);p.y=Mathf.Clamp(p.y,bounds.yMin+half.y+6,bounds.yMax-half.y-6);
         tooltip.anchoredPosition=p;tooltip.gameObject.SetActive(true);tooltip.SetAsLastSibling();
     }
-    public void HideTooltip(){hovered=null;if(tooltip)tooltip.gameObject.SetActive(false);}
+    public void HideTooltip(){if(tooltip)tooltip.gameObject.SetActive(false);}
     void OnApplicationFocus(bool focused){if(!focused){CancelDrag();HideTooltip();}}
     void OnDisable(){CancelDrag();HideTooltip();Session?.CancelPending();}
     void OnDestroy(){if(Session!=null){Session.Inventory.Changed-=OnInventoryChanged;Session.CancelPending();}}
@@ -175,9 +224,10 @@ public sealed class TradeWindow : MonoBehaviour
         foreach(bool horizontal in new[]{true,false})foreach(int side in new[]{-1,1})
         {var line=Panel("Border",parent,horizontal?new Vector2(parent.sizeDelta.x,2):new Vector2(2,parent.sizeDelta.y),new Color(1,1,1,.85f));line.anchoredPosition=horizontal?new Vector2(0,side*parent.sizeDelta.y*.5f):new Vector2(side*parent.sizeDelta.x*.5f,0);line.GetComponent<UnityEngine.UI.Image>().raycastTarget=false;}
     }
-    void SymbolButton(string name,Transform parent,Vector2 position,Action action,int direction)
+    RectTransform SymbolButton(string name,Transform parent,Vector2 position,Action action,int direction)
     {
         var r=Panel(name,parent,new Vector2(26,28),Paper);r.anchoredPosition=position;r.gameObject.AddComponent<UnityEngine.UI.Button>().onClick.AddListener(()=>action());
         for(int i=0;i<2;i++){var line=Panel("Stroke",r,new Vector2(direction==0?15:10,2),Ink);line.localEulerAngles=new Vector3(0,0,i==0?45:-45);if(direction!=0)line.anchoredPosition=new Vector2(0,(i==0?-1:1)*direction*3.2f);line.GetComponent<UnityEngine.UI.Image>().raycastTarget=false;}
+        return r;
     }
 }

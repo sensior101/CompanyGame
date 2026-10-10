@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 using System;
 using System.Collections.Generic;
@@ -23,10 +23,11 @@ public class PlayerInteraction : MonoBehaviour
 
     public bool IsDestinationMenuOpen { get; private set; }
     public bool IsTradeOpen => tradeUI;
-    public bool IsInteractionMenuOpen => IsDestinationMenuOpen || IsTradeOpen;
+    public bool IsInteractionMenuOpen => IsDestinationMenuOpen || IsTradeOpen || InventoryItemSelector.IsOpen;
     public StoreInteractionPoint FocusedStore { get; private set; }
     public NpcTrader FocusedTrader { get; private set; }
-    public bool HasNearbyAction => !IsInteractionMenuOpen && (SeatInteraction.HasNearbySeat || StoreInteractionPoint.FindNearest(transform) || NpcTrader.FindNearest(transform));
+    public bool HasNearbyAction => !IsInteractionMenuOpen &&
+        (SeatInteraction.HasNearbySeat || StoreInteractionPoint.FindNearest(transform) || NpcTrader.FindNearest(transform));
     public TradeWindow TradeUI => tradeUI;
     public TransitStop FocusedStop { get; private set; }
     public bool IsMenuReady => IsDestinationMenuOpen && menuArmed;
@@ -54,6 +55,7 @@ public class PlayerInteraction : MonoBehaviour
             if (ui) ui.HidePrompt();
             return;
         }
+        if (InventoryItemSelector.IsOpen) { if(ui)ui.HidePrompt(); return; }
         if (travelPending)
         {
             // The player survives map loads; arriving anywhere but the target means the load failed.
@@ -87,7 +89,7 @@ public class PlayerInteraction : MonoBehaviour
             if (SpaceHeld()) return;
             waitForSpaceRelease = false;
         }
-        if (SeatInteraction.HasNearbySeat || !movement || !movement.isActiveAndEnabled || PlayerInventory.IsAnyOpen || PlayerInventory.SpaceConsumedThisFrame ||
+        if (BookReader.BlocksInventoryInput || SeatInteraction.HasNearbySeat || !movement || !movement.isActiveAndEnabled || PlayerInventory.IsAnyOpen || PlayerInventory.SpaceConsumedThisFrame ||
             ChatUIManager.IsChatting || UIEventSystem.IsEditingText())
         {
             FocusedStop = null;
@@ -236,6 +238,16 @@ public class PlayerInteraction : MonoBehaviour
         SuspendControls(); ui.HidePrompt();
         tradeUI = TradeWindow.Create(new TradeSession(inventory, offers), uiFont, CloseTrade);
         SceneManager.MoveGameObjectToScene(tradeUI.gameObject, SceneLoadManager.CurrentMap);
+        return true;
+    }
+
+    public bool OpenTrade(TradeSession session, Func<bool> stillAvailable = null)
+    {
+        if (!CanStartInteraction() || session == null) return false;
+        EnsureUI(); tradeStillAvailable=stillAvailable;
+        SuspendControls(); ui.HidePrompt();
+        tradeUI=TradeWindow.Create(session,uiFont,CloseTrade);
+        SceneManager.MoveGameObjectToScene(tradeUI.gameObject,SceneLoadManager.CurrentMap);
         return true;
     }
 

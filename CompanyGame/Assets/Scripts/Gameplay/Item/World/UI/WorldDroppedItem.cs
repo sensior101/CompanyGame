@@ -39,6 +39,14 @@ public sealed class WorldDroppedItem : MonoBehaviour
     static void ResetSession()
     {
         records.Clear();
+        var book = Resources.Load<ItemData>("Inventory/Books/BlankBook");
+        if (book && book.IsBook)
+            foreach (var saved in BookSaveService.GetWorldDrops())
+            {
+                if (saved == null || saved.itemId != book.itemId || string.IsNullOrEmpty(saved.dropId)) continue;
+                var drop = new DropRecord { id = saved.dropId, scenePath = saved.scenePath, position = saved.position };
+                if (BookSaveService.RestoreBook(drop.contents, book, saved, out _)) records[drop.id] = drop;
+            }
         SceneManager.sceneLoaded -= RestoreSceneDrops;
         SceneManager.sceneLoaded += RestoreSceneDrops;
     }
@@ -94,6 +102,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
     static void Commit(DropRecord drop, Scene scene)
     {
         records.Add(drop.id, drop);
+        BookSaveService.SaveWorldDrop(drop.id, drop.scenePath, drop.position, drop.contents.GetSlot(0));
         CreateVisual(drop, scene);
     }
 
@@ -109,6 +118,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
         if (quantity <= 0) { error = "이미 주운 아이템입니다."; return false; }
         if (!record.contents.TryTransferTo(owner.Inventory, 0, quantity, out error)) return false;
         records.Remove(record.id);
+        BookSaveService.RemoveWorldDrop(record.id);
         record.instance = null;
         record = null;
         gameObject.SetActive(false);
@@ -363,7 +373,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
 
     string PickupPromptText()
     {
-        return (Item ? Item.DisplayName : "아이템") + "   [줍기 F]";
+        return (record?.contents.GetSlot(0)?.DisplayName ?? "아이템") + "   [줍기 F]";
     }
 
     void BuildItemIcon()

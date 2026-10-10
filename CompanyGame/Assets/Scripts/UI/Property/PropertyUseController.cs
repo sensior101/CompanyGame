@@ -101,7 +101,7 @@ public sealed class PropertyUseController : MonoBehaviour
         var stack = inventory?.GetSlot(inventory.SelectedHotbarIndex);
         var deed = stack != null && !stack.IsEmpty && stack.Item.IsDeed ? stack.Item : null;
         var interaction = PlayerInteraction.Local;
-        bool gate = deed && interaction && !PlayerInventory.IsAnyOpen && !ChatUIManager.IsChatting &&
+        bool gate = !BookReader.BlocksInventoryInput && deed && interaction && !PlayerInventory.IsAnyOpen && !ChatUIManager.IsChatting &&
             !UIEventSystem.IsEditingText() && !interaction.IsInteractionMenuOpen && !interaction.HasNearbyAction &&
             !(PhoneManager.Instance && PhoneManager.Instance.IsPhoneOpen) && !TransitStop.FindNearest(transform);
         if (state == State.WaitRelease) { if (!GameInput.InteractHeld) state = State.Idle; return; }

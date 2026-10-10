@@ -1,6 +1,6 @@
 using UnityEngine;
 
-/// <summary>Owns an empty, session-long inventory across single-scene map loads.</summary>
+/// <summary>Owns the session inventory across single-scene map loads.</summary>
 [DefaultExecutionOrder(-400)]
 public class InventoryManager : MonoBehaviour
 {
@@ -32,12 +32,19 @@ public class InventoryManager : MonoBehaviour
         {
             instance = null;
             InventoryManager host = Instance;
-            host.state = state;
             Destroy(this);
             return;
         }
         DontDestroyOnLoad(gameObject);
+        BookSaveService.RestoreInventory(state);
+        state.Changed += SaveBooks;
     }
 
-    protected virtual void OnDestroy() { if (instance == this) instance = null; }
+    void SaveBooks() => BookSaveService.SaveInventory(state);
+    void OnApplicationQuit() { if (instance == this) SaveBooks(); }
+    protected virtual void OnDestroy()
+    {
+        if (state != null) state.Changed -= SaveBooks;
+        if (instance == this) instance = null;
+    }
 }

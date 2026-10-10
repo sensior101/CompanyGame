@@ -9,7 +9,7 @@ public sealed class TradePointer : MonoBehaviour, IBeginDragHandler, IDragHandle
     public int index;
     bool movedSincePress;
     public void OnPointerDown(PointerEventData e){if(e.button==PointerEventData.InputButton.Left)movedSincePress=false;}
-    public void OnPointerClick(PointerEventData e){if(owner && kind==Kind.Output && e.button==PointerEventData.InputButton.Left && !movedSincePress)owner.ClickOffer(index,e.position);}
+    public void OnPointerClick(PointerEventData e){if(!owner || e.button!=PointerEventData.InputButton.Left || movedSincePress)return;if(kind==Kind.Output)owner.ClickOffer(index,e.position);}
     public void OnPointerEnter(PointerEventData e){if(owner)owner.ShowTooltip(this,e.position);}
     public void OnPointerMove(PointerEventData e){if(owner)owner.ShowTooltip(this,e.position);}
     public void OnPointerExit(PointerEventData e){if(owner)owner.HideTooltip();}

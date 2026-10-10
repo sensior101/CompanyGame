@@ -4,7 +4,7 @@ using UnityEngine.EventSystems;
 /// <summary>Pointer drag source/target. Contents remain in the model until a valid release.</summary>
 [DisallowMultipleComponent]
 public sealed class InventorySlotPointer : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IDropHandler,
-    IPointerEnterHandler, IPointerExitHandler, IPointerMoveHandler
+    IPointerEnterHandler, IPointerExitHandler, IPointerMoveHandler, IPointerClickHandler
 {
     public PlayerInventory Owner { get; private set; }
     public int InventoryIndex { get; private set; } = -1;
@@ -12,6 +12,7 @@ public sealed class InventorySlotPointer : MonoBehaviour, IBeginDragHandler, IDr
     public bool IsEquipment { get; private set; }
     public bool IsDropZone { get; private set; }
     bool ownsDrag;
+    bool hoverOnly;
 
     public static InventorySlotPointer AttachStorage(GameObject host, PlayerInventory owner, int index)
     {
@@ -35,28 +36,39 @@ public sealed class InventorySlotPointer : MonoBehaviour, IBeginDragHandler, IDr
     }
 
     static InventorySlotPointer GetOrAdd(GameObject host) => host.GetComponent<InventorySlotPointer>() ?? host.AddComponent<InventorySlotPointer>();
-    public void Configure(PlayerInventory owner, int index)
+    public void Configure(PlayerInventory owner, int index) => Configure(owner, index, false);
+    public void Configure(PlayerInventory owner, int index, bool hoverOnly)
     {
         Owner = owner; InventoryIndex = index; IsEquipment = false; IsDropZone = false;
+        this.hoverOnly = hoverOnly;
     }
     public void ConfigureEquipment(PlayerInventory owner, EquipmentSlot slot)
     {
         Owner = owner; Equipment = slot; InventoryIndex = -1; IsEquipment = true; IsDropZone = false;
+        hoverOnly = false;
     }
     public void ConfigureDropZone(PlayerInventory owner)
     {
         Owner = owner; InventoryIndex = -1; IsEquipment = false; IsDropZone = true;
+        hoverOnly = false;
     }
 
     public void OnBeginDrag(PointerEventData data)
     {
-        if (!Owner || IsDropZone || data.button == PointerEventData.InputButton.Middle) return;
+        if (hoverOnly || !Owner || IsDropZone || data.button == PointerEventData.InputButton.Middle) return;
         if (Owner.UserInterface) Owner.UserInterface.HideItemTooltip();
         bool single=data.button==PointerEventData.InputButton.Right;
         ownsDrag = IsEquipment ? Owner.BeginDragEquipment(Equipment,single) : Owner.BeginDragInventory(InventoryIndex,single);
         if (!ownsDrag) return;
         data.eligibleForClick = false;
         Owner.UpdateDrag(data.position);
+    }
+
+    public void OnPointerClick(PointerEventData data)
+    {
+        if (!hoverOnly && data.button == PointerEventData.InputButton.Right && data.eligibleForClick &&
+            Owner && !IsEquipment && !IsDropZone && !Owner.IsDragging)
+            Owner.GetComponent<BookReader>()?.OpenPermissions(InventoryIndex, (RectTransform)transform);
     }
 
     public void OnDrag(PointerEventData data)
@@ -74,7 +86,7 @@ public sealed class InventorySlotPointer : MonoBehaviour, IBeginDragHandler, IDr
 
     public void OnDrop(PointerEventData data)
     {
-        if (data.button == PointerEventData.InputButton.Middle || !Owner) return;
+        if (hoverOnly || data.button == PointerEventData.InputButton.Middle || !Owner) return;
         var source = data.pointerDrag ? data.pointerDrag.GetComponent<InventorySlotPointer>() : null;
         if (!source || source.Owner != Owner) return;
         data.eligibleForClick = false;
@@ -83,7 +95,7 @@ public sealed class InventorySlotPointer : MonoBehaviour, IBeginDragHandler, IDr
 
     public bool AcceptDrop()
     {
-        if (!Owner || !Owner.IsDragging) return false;
+        if (hoverOnly || !Owner || !Owner.IsDragging) return false;
         return IsDropZone ? Owner.DropIntoWorld() : IsEquipment ? Owner.DropOnEquipment(Equipment) : Owner.DropOnInventory(InventoryIndex);
     }
 

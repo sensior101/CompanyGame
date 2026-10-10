@@ -101,16 +101,8 @@ public sealed partial class InventoryUI : MonoBehaviour
         title.alignment = TextAlignmentOptions.MidlineLeft;
         AtTop(title.rectTransform, -331f, -44f);
         AtTop(Icon("BagIcon", window, InventoryGlyphGraphic.Glyph.Bag, new Vector2(43f, 48f), Accent), -504f, -44f);
-        var bank = Panel("BankBalanceButton", window, new Vector2(285f, 51f), new Color(1f, .99f, .96f, .66f), 24f, 12f);
-        bankButton = bank;
-        AtTop(bank, 218f, -38f);
-        MakeButton(bank, OpenWithdrawal);
-        var coin = Icon("BankCoin", bank, InventoryGlyphGraphic.Glyph.Coin, new Vector2(30f, 30f), new Color(.94f, .65f, .18f));
-        coin.anchoredPosition = new Vector2(-113f, 0f);
-        bankLabel = Label("BankBalance", bank, "지갑  0원", 23f, Ink, new Vector2(218f, 43f));
-        bankLabel.fontStyle = FontStyles.Bold;
-        AutoSize(bankLabel, 12f, 23f);
-        bankLabel.rectTransform.anchoredPosition = new Vector2(20f, 0f);
+        var bank = BuildWalletDisplay(window, out bankLabel);
+        bankButton = bank; AtTop(bank, 218f, -38f); MakeButton(bank, OpenWithdrawal);
         var close = Panel("CloseInventory", window, new Vector2(127f, 51f), new Color(1f, .99f, .96f, .66f), 22f, 10f);
         AtTop(close, 448f, -38f);
         MakeButton(close, owner.CloseInventory);
@@ -155,7 +147,7 @@ public sealed partial class InventoryUI : MonoBehaviour
             statusPanel.gameObject.SetActive(false);
         if (quickSlots)
         {
-            bool visible = !interaction || !interaction.IsTradeOpen;
+            bool visible = !InventoryItemSelector.IsOpen && (!interaction || !interaction.IsTradeOpen);
             if (quickSlots.gameObject.activeSelf != visible) quickSlots.gameObject.SetActive(visible);
         }
         if (!IsOpen) return;
