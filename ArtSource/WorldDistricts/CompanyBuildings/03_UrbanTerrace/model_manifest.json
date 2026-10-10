@@ -1,0 +1,43 @@
+{
+  "asset": "Office03_UrbanTerrace",
+  "reference_type": "B",
+  "stage": "First proportional exterior model / review",
+  "building_dimensions_xyz_m": [
+    81.6,
+    64.8,
+    144.0
+  ],
+  "height_relative_to_office01": 0.973,
+  "recipe_xy_scale_baked": 1.2,
+  "units": "metres",
+  "front": "Blender -Y",
+  "meshes": 11,
+  "triangles": 20820,
+  "materials": [
+    "Office03_UrbanTerrace_Glass",
+    "Office03_UrbanTerrace_GlassDark",
+    "Office03_UrbanTerrace_GlassWarm",
+    "Office03_UrbanTerrace_Green",
+    "Office03_UrbanTerrace_Metal",
+    "Office03_UrbanTerrace_MetalLight",
+    "Office03_UrbanTerrace_Roof",
+    "Office03_UrbanTerrace_Stone",
+    "Office03_UrbanTerrace_StoneDark"
+  ],
+  "features": [
+    "Neutral stone grid around larger glass fields",
+    "Three upper setbacks with continuous roof terraces",
+    "Compact public lobby and separate loading entrance",
+    "Four complete elevations with low terrace planting"
+  ],
+  "source_helpers": [
+    "C:\\서현\\프로젝트\\companyGame\\ArtSource\\WorldDistricts\\HandaeHQ\\v02\\build_handae.py",
+    "C:\\서현\\프로젝트\\companyGame\\ArtSource\\WorldDistricts\\CompanyBuildings\\01_LimestoneTower\\build_office01.py"
+  ],
+  "scope": "Exterior modeling, initial materials and review renders. No Unity scene or gameplay changes.",
+  "pending": [
+    "Final texture and joint detailing",
+    "Company signage",
+    "Unity materials/colliders/LOD and runtime validation"
+  ]
+}
