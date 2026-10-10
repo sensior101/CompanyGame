@@ -1,0 +1,829 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CompanyGame 기획 도구</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+:root{--bg:#fff;--fg:#111;--sub:#6b6b6b;--line:#e6e6e6;--tile:#f3f3f3;--accent:#111;--on-accent:#fff;--warn:#c0392b;--warn-bg:#fdeeee;--ok:#1e8449;--mid:#b7791f;--c1:#2563eb;--c2:#f59e0b;--c3:#10b981;--c4:#ef4444;--c5:#8b5cf6}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f0f10;--fg:#f2f2f2;--sub:#9a9a9a;--line:#2a2a2c;--tile:#1c1c1e;--accent:#f2f2f2;--on-accent:#111;--warn:#ff7a6b;--warn-bg:#3a1d1b;--ok:#4ade80;--mid:#fbbf24}}
+:root[data-theme="dark"]{--bg:#0f0f10;--fg:#f2f2f2;--sub:#9a9a9a;--line:#2a2a2c;--tile:#1c1c1e;--accent:#f2f2f2;--on-accent:#111;--warn:#ff7a6b;--warn-bg:#3a1d1b;--ok:#4ade80;--mid:#fbbf24}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:Pretendard,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;line-height:1.55;-webkit-font-smoothing:antialiased}
+main{max-width:960px;margin:0 auto;padding:28px 16px 96px}
+header{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+header h1{font-size:26px;margin:0;letter-spacing:-.02em}
+header p{margin:4px 0 0;color:var(--sub);font-size:14px}
+nav{position:sticky;top:0;background:var(--bg);display:flex;gap:8px;overflow-x:auto;padding:14px 0;z-index:5;border-bottom:1px solid var(--line)}
+nav button{flex:none;font:inherit;font-size:15px;border:1.5px solid var(--line);background:var(--bg);color:var(--fg);border-radius:999px;padding:7px 16px;cursor:pointer}
+nav button[aria-selected=true]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+section{display:none}section.on{display:block}
+h2{font-size:24px;letter-spacing:-.02em;margin:32px 0 6px}
+h3{font-size:18px;margin:0 0 10px}
+.lead{color:var(--sub);margin:0 0 20px}
+.card{border:1.5px solid var(--line);border-radius:24px;padding:22px;margin-bottom:16px}
+.muted{color:var(--sub)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.tile{background:var(--tile);border-radius:16px;padding:12px 14px}
+.tile span{font-size:13px;color:var(--sub)}
+.tile b{display:block;font-size:21px;letter-spacing:-.01em}
+.form{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px 16px;margin-bottom:16px}
+.form label{display:flex;flex-direction:column;font-size:13px;color:var(--sub);gap:4px}
+input,select,textarea{font:inherit;font-size:15px;color:var(--fg);background:var(--bg);border:1.5px solid var(--line);border-radius:12px;padding:8px 10px;width:100%}
+input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent)}
+textarea{font-size:14px;line-height:1.6;resize:vertical}
+input[type=range]{padding:0;border:0;accent-color:var(--accent)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:6px 5px;border-bottom:1px solid var(--line);vertical-align:middle}
+th{color:var(--sub);font-weight:500;font-size:13px;white-space:nowrap}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+td input,td select{padding:5px 8px;font-size:14px;border-radius:10px}
+td input[type=number]{text-align:right}
+.scroll{overflow-x:auto}
+button.sm{font:inherit;font-size:13px;border:1.5px solid var(--line);background:var(--bg);color:var(--fg);border-radius:999px;padding:5px 12px;cursor:pointer;white-space:nowrap}
+button.del{color:var(--warn)}
+.edbar{display:flex;gap:8px;margin-top:10px}
+details{margin-top:14px}
+summary{cursor:pointer;font-size:14px;color:var(--sub)}
+details[open] summary{margin-bottom:10px}
+.alert{background:var(--warn-bg);color:var(--warn);border-radius:14px;padding:10px 14px;margin:8px 0;font-size:14px}
+.stack{display:flex;height:26px;border-radius:10px;overflow:hidden;background:var(--tile);margin:10px 0 6px}
+.stack i{display:block;height:100%}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--sub)}
+.legend b{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px}
+.hbar{height:10px;border-radius:5px;background:var(--accent);min-width:2px}
+.note{font-size:13px;color:var(--sub);margin-top:12px}
+.issue{display:grid;grid-template-columns:1fr 130px auto auto;gap:6px 8px;padding:12px 0;border-bottom:1px solid var(--line);align-items:center}
+.issue:last-child{border-bottom:0}
+.issue textarea{grid-column:1/-1;min-height:38px}
+.pill{display:inline-block;font-size:12px;border-radius:999px;padding:1px 9px;background:var(--tile);color:var(--sub);margin-left:6px}
+.status{font-size:13px;color:var(--sub);min-height:1em}
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;align-items:center}
+.filters button[aria-pressed=true]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+@media (max-width:600px){.issue{grid-template-columns:1fr auto}.issue input.cat{grid-column:1}}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <div>
+    <h1>CompanyGame 기획 도구</h1>
+    <p>노션 「기획안 (수정본)」 수치로 돌려보는 시뮬레이터와 검사기. 모든 표는 고치기·추가·삭제가 되고, 팀 전체에 저장돼.</p>
+  </div>
+  <div class="status" id="gStatus">불러오는 중…</div>
+</header>
+<nav role="tablist">
+  <button data-t="types">회사 종류</button>
+  <button data-t="server">서버 인원</button>
+  <button data-t="market">시장·경쟁</button>
+  <button data-t="value">기업가치·등급</button>
+  <button data-t="pnl">회사 손익</button>
+  <button data-t="recipe">조합법 검사</button>
+  <button data-t="activity">경제활동 밸런스</button>
+  <button data-t="land">부지 수급</button>
+  <button data-t="board">기획 구체화 보드</button>
+</nav>
+
+<section id="types">
+  <h2>회사 종류</h2>
+  <p class="lead">기획 2장 회사·사무소·암시장 전체. 「시장 계산」에 체크한 업종이 시장·경쟁 탭과 서버 인원 탭 계산에 들어가.</p>
+  <div class="card"><div id="edTypes"></div></div>
+  <div class="card"><h3>기본 상장기업 (NPC)</h3><div id="edStocks"></div></div>
+</section>
+
+<section id="server">
+  <h2>서버 인원 1~100명 검토</h2>
+  <p class="lead">기획 기준은 10~20명. 인원을 바꾸면 부지·회사·네트워크·콘텐츠가 버티는지 바로 계산해. 부지 수는 부지 수급 탭, 업종 수는 회사 종류 탭 값을 써.</p>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px">
+      <div><span class="muted">서버 인원</span><div style="font-size:44px;font-weight:700;line-height:1.1" id="sNTxt">20명</div></div>
+      <div style="text-align:right"><span class="muted">판정</span><div style="font-size:22px;font-weight:700" id="sVerdict"></div></div>
+    </div>
+    <div class="form" style="margin-top:16px">
+      <label style="grid-column:1/-1">인원<input type="range" id="sN" min="1" max="100" value="20"></label>
+      <label>1인당 기준 NPC (가정)<input type="number" id="sPer" value="500"></label>
+      <label>위치 동기화 횟수 (회/초, 가정)<input type="number" id="sHz" value="20"></label>
+      <label>1명 상태 크기 (바이트, 가정)<input type="number" id="sBytes" value="40"></label>
+      <label>방장 업로드 속도 (Mbps, 가정)<input type="number" id="sUp" value="20"></label>
+      <label>구역(씬) 수<input type="number" id="sScenes" value="9"></label>
+    </div>
+    <div class="tiles" id="sTiles"></div>
+  </div>
+  <div class="card"><h3>항목별 점검</h3><div class="scroll"><table id="sChecks"></table></div></div>
+  <div class="card"><h3>인원 구간별 정리</h3><div class="scroll"><table id="sRanges"></table></div>
+    <details><summary>구간 편집</summary><div id="edRanges"></div></details>
+    <p class="note">방장 업로드 = 인원 × (인원−1) × 동기화 횟수 × 상태 크기. 같은 구역만 동기화하면 (인원−1) 대신 (인원−1) ÷ 구역 수.</p></div>
+</section>
+
+<section id="market">
+  <h2>업종 시장 규모와 동일 업종 경쟁</h2>
+  <p class="lead">기획 2-1-b: 잠재 소비자 = NPC 인구 × 업종 수요율 → 기업가치로 절대 확보량 → 겹치는 소비자만 상대 경쟁력으로 나눔 → 구매빈도를 곱해 판매량.</p>
+  <div class="card">
+    <div class="form">
+      <label>플레이어 수<input type="number" id="mPlayers" value="20" min="1"></label>
+      <label>1인당 기준 NPC (가정)<input type="number" id="mPer" value="500" min="0"></label>
+      <label>도시 번영도 보정 (가정)<input type="number" id="mPros" value="1" step="0.05" min="0"></label>
+      <label>업종<select id="mInd"></select></label>
+      <label>업종 수요율 %<input type="number" id="mRate" step="0.5" data-nosave></label>
+      <label>1인 월 구매 횟수<input type="number" id="mFreq" step="0.1" data-nosave></label>
+      <label>이벤트 구매빈도 배율<input type="number" id="mEvent" value="1" step="0.1" min="0"></label>
+      <label>가격 민감도 (기획 없음, 0=무시)<input type="number" id="mElastic" value="0" step="0.1" min="0"></label>
+    </div>
+    <div class="tiles">
+      <div class="tile"><span>서버 NPC 인구</span><b id="mNpc"></b></div>
+      <div class="tile"><span>업종 잠재 소비자</span><b id="mPot"></b></div>
+      <div class="tile"><span>절대 확보량 합계</span><b id="mSum"></b></div>
+      <div class="tile"><span>겹치는 소비자</span><b id="mOver"></b></div>
+    </div>
+    <p class="note">수요율·구매 횟수를 여기서 고치면 회사 종류 표에도 반영돼.</p>
+  </div>
+  <div class="card">
+    <h3>같은 업종 회사</h3>
+    <div id="edCompanies"></div>
+    <div class="scroll" style="margin-top:14px"><table id="mResult"></table></div>
+    <div class="stack" id="mStack"></div>
+    <div class="legend" id="mLegend"></div>
+    <details><summary>기업가치 → 절대 확보율 표 편집 (기획 예시표)</summary><div id="edCapture"></div></details>
+    <p class="note">확보율은 표를 선형 보간, 표 최댓값 이상은 마지막 값. 3개 이상이 겹칠 때는 「모든 회사가 같은 겹침 구역을 공유」한다고 가정 (기획엔 2개 예시만 있음).</p>
+  </div>
+</section>
+
+<section id="value">
+  <h2>기업가치 점수와 기업 등급</h2>
+  <p class="lead">기획 2-1-a: 인지도·평판·자산을 종합해 등급이 오름. 가중치·등급 기준·평판 점수는 기획에 없어서 표에서 정해보면 돼.</p>
+  <div class="card">
+    <div class="form">
+      <label>인지도<input type="number" id="vAware" value="120" min="0"></label>
+      <label>평판<select id="vRep"></select></label>
+      <label>기업 자산 (원)<input type="number" id="vAsset" value="300000000" step="10000000" min="0"></label>
+      <label>CEO 벌점 (100 = 강제 매각)<input type="number" id="vPenalty" value="0" min="0" max="100"></label>
+      <label>인지도 1당 점수 (가정)<input type="number" id="wAware" value="1" step="0.1"></label>
+      <label>자산 1억당 점수 (가정)<input type="number" id="wAsset" value="40"></label>
+    </div>
+    <div class="tiles">
+      <div class="tile"><span>기업가치 점수</span><b id="vScore"></b></div>
+      <div class="tile"><span>기업 등급</span><b id="vGrade"></b></div>
+      <div class="tile"><span>절대 소비자 확보율</span><b id="vCapture"></b></div>
+      <div class="tile"><span>다음 등급까지</span><b id="vNext"></b></div>
+    </div>
+    <div id="vAlerts"></div>
+    <details><summary>기업 등급 기준 편집</summary><div id="edCGrades"></div></details>
+    <details><summary>평판 단계 점수 편집</summary><div id="edRep"></div></details>
+    <p class="note">인스타 좋아요 1개 = 인지도 +1 (기획 2-1-c).</p>
+  </div>
+</section>
+
+<section id="pnl">
+  <h2>회사 월 손익 계산기</h2>
+  <p class="lead">순수익 = 매출 − (원가 + 운영비). 직원 등급·특성·스킬 효과는 표에서 고칠 수 있어. 특성 수치는 기획 값, 나머지는 가정.</p>
+  <div class="card">
+    <div class="form">
+      <label>월 판매 가능 수요 (개)<input type="number" id="pDemand" value="3000"></label>
+      <label>판매가 (원)<input type="number" id="pPrice" value="5000" step="100"></label>
+      <label>개당 재료원가 (원)<input type="number" id="pCost" value="3000" step="100"></label>
+      <label>직원 1명 월 생산량 (가정)<input type="number" id="pCap" value="400"></label>
+      <label>회사 층수<input type="number" id="pFloors" value="1" min="1"></label>
+      <label>층당 시설 유지비 (가정)<input type="number" id="pFloorCost" value="1000000" step="100000"></label>
+      <label>물류비 (개당, 가정)<input type="number" id="pLogi" value="200" step="50"></label>
+      <label>마케팅 비용 (월)<input type="number" id="pMkt" value="500000" step="100000"></label>
+    </div>
+    <h3>직원</h3>
+    <div id="edStaff"></div>
+    <h3 style="margin-top:18px">경영 스킬 (사용 체크, 최대 5개)</h3>
+    <div id="edSkills"></div>
+    <div class="tiles" style="margin-top:16px">
+      <div class="tile"><span>생산 가능량</span><b id="pProd"></b></div>
+      <div class="tile"><span>실제 판매량</span><b id="pSold"></b></div>
+      <div class="tile"><span>매출</span><b id="pRev"></b></div>
+      <div class="tile"><span>원가 + 운영비</span><b id="pExp"></b></div>
+      <div class="tile"><span>월 순수익</span><b id="pNet"></b></div>
+    </div>
+    <div id="pBreak" style="margin-top:14px"></div>
+    <div id="pAlerts"></div>
+    <details><summary>직원 등급 편집 (월급·생산 배율)</summary><div id="edSGrades"></div></details>
+    <details><summary>직원 특성 편집</summary><div id="edTraits"></div></details>
+  </div>
+</section>
+
+<section id="recipe">
+  <h2>조합법 충돌 검사기</h2>
+  <p class="lead">한 줄에 「이름: 재료 + 재료」. 배치로 구분하는 건 「(가로)」처럼 괄호로 적어. 고치면 바로 검사하고 저장돼.</p>
+  <div class="card">
+    <div class="form" style="grid-template-columns:1fr auto">
+      <label>목록<select id="rSet" data-nosave><option value="food">해금 음식</option><option value="furn">해금 가구</option></select></label>
+      <label>&nbsp;<button class="sm" id="rReset" type="button" style="padding:9px 14px">기획안 값으로 되돌리기</button></label>
+    </div>
+    <label class="muted" style="font-size:13px">공용 재료 (쉼표 구분)<input id="rIng"></label>
+    <textarea id="rText" rows="14" style="margin-top:10px" aria-label="조합법 목록"></textarea>
+    <div id="rOut" style="margin-top:14px"></div>
+    <details><summary>재료 개수 목표 편집 (기획 2-1-d)</summary><div id="edTarget"></div></details>
+  </div>
+</section>
+
+<section id="activity">
+  <h2>경제활동 밸런스</h2>
+  <p class="lead">같은 게임 시간에 무엇을 하면 얼마를 버는지 비교. 기획 1-4의 확률·보수가 기본값.</p>
+  <div class="card">
+    <h3>로또 기댓값</h3>
+    <div class="form">
+      <label>숫자 범위 (1~N)<input type="number" id="lN" value="20"></label>
+      <label>선택 개수<input type="number" id="lK" value="6"></label>
+      <label>장당 가격<input type="number" id="lPrice" value="5000"></label>
+      <label>1인 주당 최대 장수<input type="number" id="lMax" value="10"></label>
+    </div>
+    <div id="edLotto"></div>
+    <div id="lOut" style="margin-top:12px"></div>
+  </div>
+  <div class="card">
+    <h3>낚시 기댓값</h3>
+    <div class="form"><label>1회 캐스팅 소요 (게임 분, 가정)<input type="number" id="fMin" value="10"></label></div>
+    <div id="edFish"></div>
+    <div id="fOut"></div>
+  </div>
+  <div class="card">
+    <h3>게임 1시간 수입 비교</h3>
+    <div class="form"><label>하루 영업 시간<input type="number" id="aHours" value="9"></label></div>
+    <div id="edAlba"></div>
+    <div id="aOut" style="margin-top:12px"></div>
+    <p class="note">소요 시간은 가정. 낚시는 위 표 기댓값으로 자동 포함.</p>
+  </div>
+  <div class="card">
+    <h3>음식 가성비 (1,000원당 회복)</h3>
+    <div id="edFood"></div>
+    <h3 style="margin-top:18px">순위</h3>
+    <div class="scroll"><table id="foodRank"></table></div>
+  </div>
+</section>
+
+<section id="land">
+  <h2>서버 부지 수급</h2>
+  <p class="lead">1인당 최대 부지 수, 회사 건물도 부지 1개를 차지해. 빈부지가 모자라면 부지 가격 공식과 신규 지역 개발 시점을 정해야 해.</p>
+  <div class="card">
+    <div class="form">
+      <label>플레이어 수<input type="number" id="dPlayers" value="20"></label>
+      <label>1인당 최대 부지<input type="number" id="dMax" value="3"></label>
+      <label>최대치까지 사는 비율 % (가정)<input type="number" id="dRatio" value="60"></label>
+      <label>신규 지역 1곳당 부지<input type="number" id="dNew" value="8"></label>
+    </div>
+    <div id="edZones"></div>
+    <div class="tiles" style="margin-top:14px">
+      <div class="tile"><span>빈부지 공급</span><b id="dSupply"></b></div>
+      <div class="tile"><span>최대 수요</span><b id="dMaxDemand"></b></div>
+      <div class="tile"><span>예상 수요</span><b id="dExp"></b></div>
+      <div class="tile"><span>필요한 신규 지역</span><b id="dNeed"></b></div>
+    </div>
+    <div id="dAlerts"></div>
+  </div>
+</section>
+
+<section id="board">
+  <h2>기획 구체화 보드</h2>
+  <p class="lead">기획안에서 비었거나 숫자가 없거나 안 맞는 부분. 내용·분류·상태·메모 모두 고칠 수 있고 지울 수 있어.</p>
+  <div class="card">
+    <div class="filters" id="bFilter"></div>
+    <div id="bList"></div>
+    <div style="display:grid;grid-template-columns:1fr 130px auto;gap:8px;margin-top:14px">
+      <input id="bNew" placeholder="새 항목 (예: 대출 한도 공식)" data-nosave>
+      <input id="bNewCat" placeholder="분류" list="bCats" data-nosave>
+      <button class="sm" id="bAdd" type="button">추가</button>
+    </div>
+    <datalist id="bCats"></datalist>
+    <div class="edbar"><button class="sm" id="bReset" type="button">기본 목록으로</button></div>
+  </div>
+</section>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const v = id => +$(id).value || 0;
+const won = n => Math.round(n).toLocaleString('ko-KR') + '원';
+const num = n => Math.round(n).toLocaleString('ko-KR');
+const pct = n => (n * 100).toFixed(Math.abs(n) < 0.01 ? 2 : 1) + '%';
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const clone = o => JSON.parse(JSON.stringify(o));
+const COLORS = ['var(--c1)', 'var(--c2)', 'var(--c3)', 'var(--c4)', 'var(--c5)'];
+
+/* ================= 기본 데이터 (기획안 수정본 기준, 없는 값은 가정) ================= */
+const T = (cat, name, op, rev, limit, market, rate, freq, price, gap) => ({ cat, name, op, rev, limit, market, rate, freq, price, gap });
+const DEFAULTS = {
+  types: [
+    T('제조업', '음식 제조업체', '플레이어', 'NPC 소비 (3×3 조합 생산)', '없음', true, 80, 8, 5000, '해금 음식 30종과 연결 방식'),
+    T('제조업', '방산업체', '플레이어', 'NPC 소비', '없음', true, 1, .05, 5000000, '상품 목록·조합법, 전쟁 이벤트 연동'),
+    T('제조업', '농업용품', '플레이어', 'NPC + 농사짓는 플레이어', '없음', true, 15, .5, 20000, '상품 목록·조합법'),
+    T('제조업', '낚시용품', '플레이어', 'NPC + 낚시하는 플레이어', '없음', true, 10, .3, 30000, '상품 목록, 낚시 확률에 주는 효과'),
+    T('제조업', '자동차', '플레이어', 'NPC 소비', '없음', true, 8, .02, 30000000, '상품·조합법, 자동차 상점(NPC)과 관계'),
+    T('제조업', '제약', '플레이어', 'NPC 소비', '없음', true, 30, 1, 10000, '상품, 상태이상 치료와 연결'),
+    T('제조업', '가구', '플레이어', 'NPC 소비 (3×3 조합 생산)', '없음', true, 25, .3, 50000, '해금 가구 30종과 연결 방식'),
+    T('서비스', 'IT 회사', '플레이어', '앱 이용자 수·거래량', '없음', true, 40, 4, 1000, '앱별 수익 공식, 휴대폰(8장) 내용'),
+    T('서비스', '엔터테인먼트 회사', '플레이어', '미디어·인플루언서·영화관·방송국', '없음', true, 35, 1, 12000, '수익 공식, 영화관·방송국 설립 조건'),
+    T('서비스', '사무소', '플레이어', '플레이어 고객 직접 응대 (자동화 불가)', '부지만 있으면 가능', false, 0, 0, 0, '사업자 미등록 시 가산세 비율'),
+    T('특수', '살인청부업체', '플레이어 (히든 해금)', '의뢰금 (조직 자금)', '서버 1개', false, 0, 0, 0, '성공 시 노출도 증가량, 의뢰 금액'),
+    T('NPC 기본', '물류업체', 'NPC', '제조 → 소매·플레이어 배송', '시스템', false, 0, 0, 0, '물류비 공식'),
+    T('NPC 기본', '보험회사', 'NPC', '의료·펫·자동차 보험료', '시스템', false, 0, 0, 0, '보험료, 자동차 보험 미정'),
+    T('NPC 기본', '한대건설', 'NPC (유일)', '시공 의뢰 (회사 30·사무소 10·주택 20종)', '서버 1개', false, 0, 0, 0, '건축비, 동시 공사 가능 건수'),
+  ],
+  stocks: [
+    { name: 'SG 하이닉스', ind: '반도체', size: '-', price: 0, shares: 0 }, { name: '사성전자', ind: '전자·IT', size: '-', price: 0, shares: 0 },
+    { name: '기우자동차', ind: '자동차', size: '-', price: 0, shares: 0 }, { name: '클래프톤', ind: '게임', size: '-', price: 0, shares: 0 },
+    { name: '한대건설', ind: '건설', size: '대기업', price: 0, shares: 0 }, { name: '하이진로', ind: '주류', size: '-', price: 0, shares: 0 },
+  ],
+  ranges: [
+    { label: '1명', n: 1, note: '솔로 모드. 거래·범죄·경쟁·주식 체결을 NPC로 대체해야 함.' },
+    { label: '2~9명', n: 5, note: '업종 대부분이 비어 있음. NPC 호가·NPC 좋아요 필요. 시상식 의미 약함.' },
+    { label: '10~20명 (기획 기준)', n: 15, note: '방장 호스트로 충분. 15명부터 모두 최대치로 사면 기존 빈부지가 모자람.' },
+    { label: '21~50명', n: 35, note: '구역별 동기화 필수, 신규 지역 여러 곳, 업종 경쟁 과열.' },
+    { label: '51~100명', n: 80, note: '전용 서버 필요, 부지·업종 수를 기획부터 늘려야 함.' },
+  ],
+  capture: [{ val: 0, rate: 0 }, { val: 50, rate: 10 }, { val: 100, rate: 20 }, { val: 300, rate: 45 }, { val: 500, rate: 65 }, { val: 700, rate: 80 }, { val: 1000, rate: 90 }],
+  companies: [{ name: 'A기업', val: 500, price: 5000, cost: 3000 }, { name: 'B기업', val: 300, price: 5000, cost: 3000 }],
+  cgrades: [{ name: '신생', min: 0 }, { name: '소기업', min: 100 }, { name: '중소기업', min: 300 }, { name: '중견기업', min: 600 }, { name: '대기업', min: 900 }],
+  rep: [{ name: '매우 나쁨', score: -120 }, { name: '나쁨', score: -60 }, { name: '보통', score: 0 }, { name: '좋음', score: 60 }, { name: '매우 좋음', score: 120 }],
+  sgrades: [{ name: 'C', pay: 2000000, mul: 1 }, { name: 'B', pay: 2800000, mul: 1.25 }, { name: 'A', pay: 3800000, mul: 1.5 }],
+  traits: [{ name: '없음', spd: 0, pay: 0, q: 0 }, { name: '성실함', spd: 5, pay: 0, q: 0 }, { name: '워커홀릭', spd: 10, pay: 8, q: 0 }, { name: '완벽주의', spd: -5, pay: 0, q: 10 }, { name: '게으름', spd: -5, pay: 0, q: 0 }],
+  staff: [{ name: '직원1', grade: 'B', trait: '성실함' }, { name: '직원2', grade: 'C', trait: '없음' }, { name: '직원3', grade: 'C', trait: '게으름' }],
+  skills: [
+    { on: true, name: '원가 절감', desc: '재료 구매 가격 감소', cost: -10, prod: 0, pay: 0, price: 0, sales: 0 },
+    { on: true, name: '효율 경영', desc: '직원 업무효율 증가', cost: 0, prod: 10, pay: 0, price: 0, sales: 0 },
+    { on: false, name: '작업 최적화', desc: '직원 업무속도 증가', cost: 0, prod: 10, pay: 0, price: 0, sales: 0 },
+    { on: false, name: '인건비 관리', desc: '직원 급여 감소', cost: 0, prod: 0, pay: -10, price: 0, sales: 0 },
+    { on: false, name: '투자 신뢰', desc: '자사 주가 상승 요인 (손익 무관)', cost: 0, prod: 0, pay: 0, price: 0, sales: 0 },
+    { on: false, name: '창고 확장', desc: '최대 보관 한도 증가 (손익 무관)', cost: 0, prod: 0, pay: 0, price: 0, sales: 0 },
+    { on: false, name: '품질 관리', desc: '상품 품질 증가', cost: 0, prod: 0, pay: 0, price: 5, sales: 0 },
+    { on: false, name: '브랜드 경영', desc: '마케팅 효과 증가 (손익 무관)', cost: 0, prod: 0, pay: 0, price: 0, sales: 0 },
+    { on: false, name: '인재 경영', desc: '고등급 직원 확률 (손익 무관)', cost: 0, prod: 0, pay: 0, price: 0, sales: 0 },
+    { on: false, name: '고객 관리', desc: '소비자 이탈률 감소', cost: 0, prod: 0, pay: 0, price: 0, sales: 5 },
+  ],
+  target: [{ n: 2, count: 14 }, { n: 3, count: 8 }, { n: 4, count: 6 }, { n: 5, count: 2 }],
+  lotto: [{ rank: '1등', match: 6, prize: 100000000 }, { rank: '2등', match: 5, prize: 4000000 }, { rank: '3등', match: 4, prize: 100000 }],
+  fish: [{ name: '피라미', p: 18, price: 1000 }, { name: '미꾸라지', p: 18, price: 1000 }, { name: '모래무지', p: 17, price: 1000 }, { name: '붕어', p: 16, price: 2000 }, { name: '잉어', p: 14, price: 3000 }, { name: '쏘가리', p: 10, price: 4000 }, { name: '가물치', p: 6.9, price: 5000 }, { name: '황금 잉어', p: .1, price: 1000000 }],
+  alba: [{ name: '편의점 알바', pay: 500, min: 5 }, { name: '도서관 알바', pay: 1000, min: 10 }, { name: '시청 알바', pay: 700, min: 8 }],
+  food: [['삼각김밥', '편의점', 1500, 7, 0, 0], ['컵라면', '편의점', 2000, 8, 0, 0], ['편의점 도시락', '편의점', 5000, 10, 0, 0], ['생수', '편의점·수퍼마켓', 700, 0, 2, 0], ['에너지바', '편의점', 1800, 0, 7, 0], ['에너지드링크', '편의점', 2500, 0, 10, 0], ['콜라', '편의점·수퍼마켓', 1500, 0, 0, 2], ['과자', '편의점·수퍼마켓', 2000, 0, 0, 3], ['초콜렛', '편의점·수퍼마켓', 1500, 0, 0, 3], ['젤리', '편의점·수퍼마켓', 1500, 0, 0, 3], ['아이스 아메리카노', '카페', 2000, 0, 5, 0], ['핫 아메리카노', '카페', 1500, 0, 5, 0], ['라떼', '카페', 3000, 0, 0, 5], ['카페라떼', '카페', 2500, 0, 5, 0], ['유자차', '카페', 2800, 0, 5, 1], ['요거트스무디', '카페', 4000, 0, 0, 7], ['버블티', '카페', 3000, 2, 0, 2], ['샌드위치', '카페', 2000, 5, 0, 0], ['초코칩 쿠키', '카페', 1000, 3, 0, 0], ['조각 케이크', '카페', 4500, 0, 0, 10]]
+    .map(([name, place, price, h, e, s]) => ({ name, place, price, h, e, s })),
+  zones: [{ name: '달동네', count: 0 }, { name: '번화가', count: 6 }, { name: '행정지구', count: 4 }, { name: '산업지구 1', count: 8 }, { name: '산업지구 2', count: 8 }, { name: '도심주거지구', count: 4 }, { name: '해양주거지구', count: 4 }, { name: '농경지', count: 8 }],
+  recipes: {
+    food: { ing: '곡물, 밀가루, 원육, 해산물, 채소, 유제품, 과일, 달걀, 양념, 설탕, 음료베이스, 마법가루', text: `컵떡볶이: 곡물 + 양념
+해물라면: 밀가루 + 해산물 + 양념
+치킨: 원육 + 밀가루 + 양념
+햄버거: 밀가루 + 원육 + 채소 + 양념
+피자: 밀가루 + 유제품 + 원육 + 채소 + 양념
+된장찌개: 채소 + 원육 + 양념
+돼지국밥: 곡물 + 원육 + 채소 + 양념
+제육덮밥: 곡물 + 원육 + 채소 + 양념
+삼계탕: 곡물 + 원육 + 채소 + 마법가루
+소고기: 원육 + 원육 (가로)
+돼지고기: 원육 + 원육 (세로)
+오리고기: 원육 + 원육 (대각선)
+짜장면: 밀가루 + 원육 + 양념
+탕수육: 밀가루 + 원육 + 과일
+매운짬뽕: 밀가루 + 해산물 + 채소 + 양념
+마라탕: 밀가루 + 원육 + 채소 + 양념
+돈카츠: 원육 + 밀가루 + 달걀
+매운탕: 해산물 + 채소 + 양념
+모둠초밥: 곡물 + 해산물 + 해산물 + 양념 + 마법가루
+모둠회: 해산물 + 해산물 + 채소 + 양념
+핫도그: 밀가루 + 원육
+소프트 아이스크림: 유제품 + 설탕
+(이름 없음): 음료베이스 + 마법가루
+과일주스: 과일 + 음료베이스
+마카롱: 밀가루 + 달걀 + 설탕
+케이크: 밀가루 + 유제품 + 달걀 + 설탕 + 특수원료
+그릭요거트: 유제품 + 과일 + 마법가루
+샐러드: 채소 + 과일 + 양념
+아사이볼: 과일 + 유제품 + 곡물 + 마법가루
+프로틴 쉐이크: 유제품 + 과일 + 곡물 + 마법가루 + 음료베이스` },
+    furn: { ing: '목재, 금속, 유리, 천, 가죽, 플라스틱, 석재, 도자기, 전자부품, 조명부품, 페인트, 특수소재', text: `침대: 목재 + 천 + 특수소재
+바 의자: 목재 + 금속
+소파(2인용): 목재 + 천 + 특수소재
+소파(4인용): 목재 + 천 + 금속 + 특수소재
+게이밍의자: 금속 + 플라스틱 + 가죽 + 특수소재
+안마의자: 가죽 + 금속 + 플라스틱 + 전자부품 + 특수소재
+식탁: 목재 + 금속 + 페인트
+커피 테이블: 목재 + 유리 + 금속
+벽선반: 목재 + 금속
+옷걸이 행거: 금속 + 플라스틱
+신발장: 목재 + 플라스틱
+책장: 목재 + 금속 + 페인트
+상부장: 목재 + 금속 + 페인트
+냉장고: 금속 + 플라스틱 + 전자부품 + 특수소재
+컴퓨터: 금속 + 플라스틱 + 전자부품 + 유리
+TV: 유리 + 플라스틱 + 금속 + 전자부품
+데스크조명: 금속 + 조명부품
+샹들리에: 금속 + 유리 + 조명부품 + 전자부품 + 특수소재
+발수건: 천 + 특수소재
+러그: 천 + 페인트
+커튼: 천 + 페인트
+세탁기: 금속 + 플라스틱 + 전자부품
+샤워부스: 유리 + 금속 + 플라스틱
+화장대: 목재 + 유리 + 페인트
+전신거울: 유리 + 목재 + 금속
+욕조: 석재 + 금속 + 플라스틱 + 특수소재
+주방 아일랜드: 목재 + 석재 + 금속 + 페인트
+피규어 진열장: 유리 + 목재 + 금속 + 조명부품 + 페인트
+운동기구: 금속 + 플라스틱 + 가죽 + 특수소재
+피아노: 목재 + 금속 + 페인트 + 특수소재 + 가죽` },
+  },
+  issues: [
+    ['empty-store', '빈 섹션', '2-4 상점 내용 없음 — 창업 비용(보증금·월세·인테리어), 진열, NPC 구매 규칙'],
+    ['empty-admin', '빈 섹션', '4장 은행·경찰서·소방서·병원·도서관 내용 없음 (5-4 범죄 처벌이 4-2를 참조하는데 비어 있음)'],
+    ['empty-phone', '빈 섹션', '8장 휴대폰 내용 없음 (인스타·배달앱·세금앱이 휴대폰에 들어감)'],
+    ['car-insurance', '미정', '자동차 보험 여부'],
+    ['pet-hatch', '미정', '펫 부화 조건: 200보인지 200m인지'],
+    ['food-noname', '데이터 오류', '디저트카페 「음료베이스 + 마법가루」 음식 이름 빈칸'],
+    ['cake-ingredient', '데이터 오류', '케이크 재료 「특수원료」가 공용 재료 12종에 없음 (마법가루?)'],
+    ['food-dup', '데이터 오류', '음식 조합 중복: 치킨=짜장면, 햄버거=마라탕, 돼지국밥=제육덮밥 → 조합법 검사 탭'],
+    ['furn-dup', '데이터 오류', '가구 조합 중복 6건, 「도자기」 사용처 없음 → 조합법 검사 탭'],
+    ['recipe-dist', '데이터 오류', '재료 개수 분포가 목표(2개 14·3개 8·4개 6·5개 2)와 다름'],
+    ['month', '수치 없음', '「매월 30일 세금」「매달 5일 월급」의 월 정의 (한 계절 = 30일)'],
+    ['value-formula', '수치 없음', '기업가치 점수 공식 (인지도·평판·자산 가중치)과 등급 기준 → 기업가치 탭'],
+    ['demand-rate', '수치 없음', '업종별 수요율·구매빈도 (음식 80%, 자동차 8%, 방산 1% 외)'],
+    ['npc-pop', '수치 없음', '플레이어 1인당 기준 NPC 인구, 도시 번영도 보정 공식'],
+    ['price-demand', '규칙 없음', '판매가가 수요에 영향을 주는지 (지금 공식엔 가격이 없어 비싸게 팔수록 이득)'],
+    ['multi-compete', '규칙 없음', '같은 업종 3개 이상 겹칠 때 계산 방법'],
+    ['lotto-ev', '밸런스', '로또 환급률 약 295% — 장당 5,000원에 기댓값 14,770원'],
+    ['fish-var', '밸런스', '낚시 기댓값의 33%가 황금 잉어(0.1%) — 체감 수입과 차이 큼'],
+    ['tax', '수치 없음', '세율과 과세 대상(수익·자산·부지), 사업자 미등록 가산세'],
+    ['startup-cost', '수치 없음', '부지 가격, 건축비, 임대 보증금·월세'],
+    ['staff-pay', '수치 없음', '직원 등급별 급여·생산량, 만족도 시스템 (기획 문장이 중간에 끊김)'],
+    ['loan', '수치 없음', '대출 한도·이자 「매년 변동」 규칙 (은행 섹션 없음)'],
+    ['land-supply', '밸런스', '기존 빈부지 42개(신규 맵 8개 제외) vs 최대 소유 60개 (20명 × 3)'],
+    ['insta-infl', '밸런스', '좋아요 1개 = 인지도 +1 → 인원이 적으면 인지도가 거의 안 오르거나 담합 가능'],
+    ['hitman-exposure', '수치 없음', '살인청부 성공 시 노출도 증가량'],
+    ['server-size', '규칙 없음', '서버 인원 상한과 1인 플레이 지원 여부 → 서버 인원 탭'],
+    ['net-host', '규칙 없음', '방장 호스트 vs 전용 서버, 구역(씬)별 관심 영역 동기화'],
+    ['stock-npc', '규칙 없음', '인원이 적을 때 주식 NPC 호가(시장 조성자)'],
+    ['insta-npc-like', '규칙 없음', 'NPC도 인스타 좋아요를 누르는지'],
+    ['company-products', '수치 없음', '방산·농업용품·낚시용품·자동차·제약 상품 목록과 조합법 → 회사 종류 탭'],
+    ['it-ent-revenue', '수치 없음', 'IT·엔터테인먼트 회사 수익 공식'],
+    ['stock-size', '수치 없음', '상장기업 5곳 규모 빈칸, 시작 주가·발행 주식 수'],
+    ['typo-state', '문구', '「음식을 섭취하여 체력 혹은 기력을 낮출 수 있다」 → 높일'],
+  ].map(([id, cat, text]) => ({ id, cat, text, s: 0, memo: '' })),
+};
+let DATA = clone(DEFAULTS);
+let PARAMS = {};
+
+/* ================= 저장 (Cloudflare KV, 팀 공유) ================= */
+// ponytail: 문서 하나를 통째로 덮어씀(마지막 저장이 이김). 동시 편집이 잦으면 표별 키로 나눈다.
+let saveTimer;
+function save() {
+  clearTimeout(saveTimer); $('gStatus').textContent = '저장 중…';
+  saveTimer = setTimeout(async () => {
+    try {
+      const r = await fetch('/api/state', { method: 'PUT', body: JSON.stringify({ v: 3, data: DATA, params: PARAMS }) });
+      $('gStatus').textContent = r.ok ? '팀 공용으로 저장됨 · ' + new Date().toLocaleTimeString('ko-KR') : '저장 실패 (' + r.status + ')';
+    } catch { $('gStatus').textContent = '저장 실패 — 네트워크 확인'; }
+  }, 600);
+}
+
+/* ================= 범용 표 편집기 ================= */
+// cols: { k, l(제목), t: 'text'|'num'|'bool'|'sel', w(px), opts: () => [] , d(새 행 기본값) }
+const EDITORS = {};
+function editor(elId, key, cols, after) {
+  const el = $(elId);
+  const cell = (c, val, i) => {
+    const a = `data-i="${i}" data-k="${c.k}"`, st = `style="width:${c.w || 120}px"`;
+    if (c.t === 'bool') return `<input type="checkbox" ${a} ${val ? 'checked' : ''}>`;
+    if (c.t === 'sel') return `<select ${a} ${st}>${c.opts().map(o => `<option ${o === val ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
+    return `<input ${c.t === 'num' ? 'type="number" step="any"' : ''} ${a} ${st} value="${esc(val)}">`;
+  };
+  const draw = () => {
+    el.innerHTML = `<div class="scroll"><table><tr>${cols.map(c => `<th class="${c.t === 'num' ? 'n' : ''}">${c.l}</th>`).join('')}<th></th></tr>` +
+      DATA[key].map((r, i) => `<tr>${cols.map(c => `<td>${cell(c, r[c.k], i)}</td>`).join('')}<td><button class="sm del" type="button" data-del="${i}" aria-label="삭제">삭제</button></td></tr>`).join('') +
+      `</table></div><div class="edbar"><button class="sm" type="button" data-add>+ 행 추가</button><button class="sm" type="button" data-reset>기본값으로</button><span class="pill">${DATA[key].length}개</span></div>`;
+  };
+  el.oninput = e => {
+    const { i, k } = e.target.dataset; if (i == null) return;
+    const c = cols.find(c => c.k === k);
+    DATA[key][i][k] = c.t === 'num' ? +e.target.value : c.t === 'bool' ? e.target.checked : e.target.value;
+    changed(key);
+  };
+  el.onclick = e => {
+    const d = e.target.dataset;
+    if (d.del != null) { DATA[key].splice(+d.del, 1); draw(); changed(key, true); }
+    else if (d.add != null) { DATA[key].push(Object.fromEntries(cols.map(c => [c.k, c.d ?? (c.t === 'num' ? 0 : c.t === 'bool' ? false : c.t === 'sel' ? c.opts()[0] : '')]))); draw(); changed(key, true); }
+    else if (d.reset != null && confirm('이 표를 기획안 기본값으로 되돌릴까? 팀 전체에 적용돼.')) { DATA[key] = clone(DEFAULTS[key]); draw(); changed(key, true); }
+  };
+  EDITORS[key] = draw;
+}
+// 다른 표의 선택지로 쓰이는 표가 바뀌면 그 표를 다시 그림
+const DEPENDS = { sgrades: ['staff'], traits: ['staff'] };
+function changed(key, structural) {
+  if (structural || DEPENDS[key]) (DEPENDS[key] || []).forEach(k => EDITORS[k]());
+  recalc(); save();
+}
+
+/* ================= 탭 ================= */
+const tabs = document.querySelectorAll('nav button');
+function showTab(t) {
+  tabs.forEach(b => b.setAttribute('aria-selected', b.dataset.t === t));
+  document.querySelectorAll('section').forEach(s => s.classList.toggle('on', s.id === t));
+  try { localStorage.setItem('tab', t); } catch {}
+}
+tabs.forEach(b => b.onclick = () => showTab(b.dataset.t));
+
+/* ================= 회사 종류 ================= */
+editor('edTypes', 'types', [
+  { k: 'cat', l: '분류', w: 80 }, { k: 'name', l: '업종', w: 130 }, { k: 'op', l: '운영', w: 100 }, { k: 'rev', l: '수익 구조', w: 200 },
+  { k: 'limit', l: '서버 제한', w: 100 }, { k: 'market', l: '시장 계산', t: 'bool' }, { k: 'rate', l: '수요율 %', t: 'num', w: 70 },
+  { k: 'freq', l: '월 구매', t: 'num', w: 70 }, { k: 'price', l: '기준가', t: 'num', w: 110 }, { k: 'gap', l: '기획에서 빈 부분', w: 220 },
+]);
+editor('edStocks', 'stocks', [
+  { k: 'name', l: '기업', w: 120 }, { k: 'ind', l: '업종', w: 100 }, { k: 'size', l: '규모', w: 90 },
+  { k: 'price', l: '시작 주가', t: 'num', w: 110 }, { k: 'shares', l: '발행 주식 수', t: 'num', w: 120 },
+]);
+
+/* ================= 공통 계산 ================= */
+const marketTypes = () => DATA.types.filter(t => t.market);
+function capture(val) {
+  const tb = [...DATA.capture].sort((a, b) => a.val - b.val);
+  if (!tb.length) return 0;
+  if (val <= tb[0].val) return tb[0].rate / 100;
+  for (let i = 1; i < tb.length; i++) {
+    const a = tb[i - 1], b = tb[i];
+    if (val <= b.val) return (a.rate + (b.rate - a.rate) * (val - a.val) / ((b.val - a.val) || 1)) / 100;
+  }
+  return tb[tb.length - 1].rate / 100;
+}
+// n개 회사가 같은 겹침 구역 P명을 공유한다고 가정 → P = 초과분 / (n-1)
+function splitMarket(market, vals) {
+  const abs = vals.map(x => market * capture(x));
+  const sum = abs.reduce((a, b) => a + b, 0), n = vals.length;
+  if (sum <= market || n < 2) return { abs, final: abs, overlap: 0 };
+  const P = Math.min((sum - market) / (n - 1), Math.min(...abs));
+  const total = vals.reduce((a, b) => a + Math.max(b, 0), 0) || 1;
+  return { abs, final: abs.map((a, i) => a - P + P * Math.max(vals[i], 0) / total), overlap: P };
+}
+const comb = (n, k) => { if (k < 0 || k > n) return 0; let r = 1; for (let i = 0; i < k; i++) r = r * (n - i) / (i + 1); return r; };
+function lottoStats() {
+  const N = v('lN'), K = v('lK'), all = comb(N, K) || 1;
+  const rows = DATA.lotto.map(r => ({ ...r, p: comb(K, r.match) * comb(N - K, K - r.match) / all }));
+  return { rows, ev: rows.reduce((a, r) => a + r.p * r.prize, 0), price: v('lPrice') };
+}
+const fishEV = () => DATA.fish.reduce((a, f) => a + f.p / 100 * f.price, 0);
+const landSupply = () => DATA.zones.reduce((a, z) => a + (+z.count || 0), 0);
+
+/* ================= 시장·경쟁 ================= */
+editor('edCompanies', 'companies', [{ k: 'name', l: '회사', w: 110 }, { k: 'val', l: '기업가치', t: 'num', w: 90, d: 100 }, { k: 'price', l: '판매가', t: 'num', w: 110 }, { k: 'cost', l: '원가', t: 'num', w: 110 }]);
+editor('edCapture', 'capture', [{ k: 'val', l: '기업가치', t: 'num', w: 100 }, { k: 'rate', l: '절대 확보율 %', t: 'num', w: 100 }]);
+function fillMarketSelect() {
+  const sel = $('mInd'), cur = sel.value, list = marketTypes();
+  sel.innerHTML = list.map(t => `<option>${esc(t.name)}</option>`).join('');
+  sel.value = list.some(t => t.name === cur) ? cur : (list.some(t => t.name === PARAMS.mInd) ? PARAMS.mInd : (list[0] || {}).name);
+}
+const curType = () => marketTypes().find(t => t.name === $('mInd').value);
+function syncTypeInputs() { const t = curType(); if (t && document.activeElement !== $('mRate') && document.activeElement !== $('mFreq')) { $('mRate').value = t.rate; $('mFreq').value = t.freq; } }
+$('mInd').addEventListener('change', () => {
+  const t = curType(); if (!t) return;
+  DATA.companies.forEach(c => { c.price = t.price; c.cost = Math.round(t.price * .6); });
+  EDITORS.companies(); syncTypeInputs(); recalc(); save();
+});
+['mRate', 'mFreq'].forEach(id => $(id).addEventListener('input', () => {
+  const t = curType(); if (!t) return;
+  t[id === 'mRate' ? 'rate' : 'freq'] = v(id); EDITORS.types(); recalc(); save();
+}));
+function calcMarket() {
+  const t = curType() || { rate: 0, freq: 0, price: 1 };
+  const npc = v('mPlayers') * v('mPer') * v('mPros'), pot = npc * t.rate / 100;
+  const { abs, final, overlap } = splitMarket(pot, DATA.companies.map(c => +c.val || 0));
+  $('mNpc').textContent = num(npc) + '명'; $('mPot').textContent = num(pot) + '명';
+  $('mSum').textContent = num(abs.reduce((a, b) => a + b, 0)) + '명'; $('mOver').textContent = num(overlap) + '명';
+  let rows = '', stack = '', legend = '';
+  DATA.companies.forEach((c, i) => {
+    const pf = Math.max(0, Math.min(1.5, 1 - v('mElastic') * (c.price / (t.price || 1) - 1)));
+    const qty = final[i] * t.freq * v('mEvent') * pf, col = COLORS[i % COLORS.length];
+    rows += `<tr><td>${esc(c.name)}</td><td class="n">${pct(capture(+c.val || 0))}</td><td class="n">${num(final[i])}명</td><td class="n">${num(qty)}</td><td class="n">${won(qty * c.price)}</td><td class="n">${won(qty * (c.price - c.cost))}</td></tr>`;
+    stack += `<i style="width:${pot ? final[i] / pot * 100 : 0}%;background:${col}"></i>`;
+    legend += `<span><b style="background:${col}"></b>${esc(c.name)} ${pct(pot ? final[i] / pot : 0)}</span>`;
+  });
+  $('mResult').innerHTML = '<tr><th>회사</th><th class="n">확보율</th><th class="n">최종 소비자</th><th class="n">월 판매량</th><th class="n">월 매출</th><th class="n">매출총이익</th></tr>' + rows;
+  const rest = pot - final.reduce((a, b) => a + b, 0);
+  $('mStack').innerHTML = stack;
+  $('mLegend').innerHTML = legend + `<span><b style="background:var(--tile);border:1px solid var(--line)"></b>미확보 ${pct(pot ? Math.max(rest, 0) / pot : 0)}</span>`;
+}
+
+/* ================= 기업가치 ================= */
+editor('edCGrades', 'cgrades', [{ k: 'name', l: '등급', w: 120 }, { k: 'min', l: '최소 점수', t: 'num', w: 100 }]);
+editor('edRep', 'rep', [{ k: 'name', l: '평판', w: 120 }, { k: 'score', l: '점수', t: 'num', w: 100 }]);
+function calcValue() {
+  const sel = $('vRep'), cur = sel.value;
+  sel.innerHTML = DATA.rep.map(r => `<option>${esc(r.name)}</option>`).join('');
+  sel.value = DATA.rep.some(r => r.name === cur) ? cur : (DATA.rep.some(r => r.name === PARAMS.vRep) ? PARAMS.vRep : (DATA.rep.find(r => r.score === 0) || DATA.rep[0] || {}).name);
+  const rep = DATA.rep.find(r => r.name === sel.value) || { score: 0 };
+  const score = v('vAware') * v('wAware') + rep.score + v('vAsset') / 1e8 * v('wAsset');
+  const gs = [...DATA.cgrades].sort((a, b) => a.min - b.min);
+  const cur2 = [...gs].reverse().find(g => score >= g.min), next = gs.find(g => g.min > score);
+  $('vScore').textContent = num(score) + '점';
+  $('vGrade').textContent = cur2 ? cur2.name : '-';
+  $('vCapture').textContent = pct(capture(score));
+  $('vNext').textContent = next ? `${num(next.min - score)}점 · 좋아요 ${v('wAware') > 0 ? num(Math.ceil((next.min - score) / v('wAware'))) : '-'}개` : '최고 등급';
+  const a = [];
+  if (v('vPenalty') >= 100) a.push('벌점 100점 도달: 회사 강제 매각 → 건물 철거, 빈 회사 부지로 복귀 (히든 이벤트: 살인청부업체 해금 조건).');
+  else if (v('vPenalty') >= 70) a.push(`벌점 ${v('vPenalty')}점: 매각까지 ${100 - v('vPenalty')}점. 암시장 벌점 세탁은 1점당 100만원, 월 최대 30점.`);
+  $('vAlerts').innerHTML = a.map(x => `<div class="alert">${x}</div>`).join('');
+}
+
+/* ================= 손익 ================= */
+editor('edStaff', 'staff', [{ k: 'name', l: '이름', w: 100 }, { k: 'grade', l: '등급', t: 'sel', w: 80, opts: () => DATA.sgrades.map(g => g.name) }, { k: 'trait', l: '특성', t: 'sel', w: 110, opts: () => DATA.traits.map(t => t.name) }]);
+editor('edSkills', 'skills', [{ k: 'on', l: '사용', t: 'bool' }, { k: 'name', l: '스킬', w: 110 }, { k: 'desc', l: '설명', w: 200 }, { k: 'cost', l: '재료비 %', t: 'num', w: 70 }, { k: 'prod', l: '생산량 %', t: 'num', w: 70 }, { k: 'pay', l: '급여 %', t: 'num', w: 70 }, { k: 'price', l: '판매가 %', t: 'num', w: 70 }, { k: 'sales', l: '판매량 %', t: 'num', w: 70 }]);
+editor('edSGrades', 'sgrades', [{ k: 'name', l: '등급', w: 80 }, { k: 'pay', l: '월급', t: 'num', w: 120 }, { k: 'mul', l: '생산 배율', t: 'num', w: 90, d: 1 }]);
+editor('edTraits', 'traits', [{ k: 'name', l: '특성', w: 110 }, { k: 'spd', l: '업무속도 %', t: 'num', w: 90 }, { k: 'pay', l: '급여 %', t: 'num', w: 90 }, { k: 'q', l: '품질 %', t: 'num', w: 90 }]);
+function calcPnl() {
+  const on = DATA.skills.filter(s => s.on), act = on.slice(0, 5);
+  const sum = k => act.reduce((a, s) => a + (+s[k] || 0), 0) / 100;
+  let prod = 0, pay = 0, quality = 0;
+  DATA.staff.forEach(s => {
+    const g = DATA.sgrades.find(x => x.name === s.grade) || DATA.sgrades[0] || { pay: 0, mul: 1 };
+    const t = DATA.traits.find(x => x.name === s.trait) || { spd: 0, pay: 0, q: 0 };
+    prod += v('pCap') * g.mul * (1 + t.spd / 100) * (1 + sum('prod'));
+    pay += g.pay * (1 + t.pay / 100) * (1 + sum('pay'));
+    quality += t.q;
+  });
+  const price = v('pPrice') * (1 + sum('price')), demand = v('pDemand') * (1 + sum('sales'));
+  const sold = Math.min(prod, demand), material = sold * v('pCost') * (1 + sum('cost'));
+  const logi = sold * v('pLogi'), facility = v('pFloors') * v('pFloorCost'), mkt = v('pMkt');
+  const rev = sold * price, exp = material + pay + logi + facility + mkt, net = rev - exp;
+  $('pProd').textContent = num(prod) + '개'; $('pSold').textContent = num(sold) + '개';
+  $('pRev').textContent = won(rev); $('pExp').textContent = won(exp);
+  $('pNet').innerHTML = `<span style="color:${net < 0 ? 'var(--warn)' : 'var(--ok)'}">${won(net)}</span>`;
+  const parts = [['재료원가', material], ['직원 급여', pay], ['물류비', logi], ['시설 유지비', facility], ['마케팅', mkt]], max = Math.max(...parts.map(p => p[1]), 1);
+  $('pBreak').innerHTML = '<table>' + parts.map(([n, x]) => `<tr><td style="width:90px">${n}</td><td><div class="hbar" style="width:${x / max * 100}%"></div></td><td class="n" style="width:130px">${won(x)}</td></tr>`).join('') + '</table>';
+  const a = [];
+  if (on.length > 5) a.push(`스킬이 ${on.length}개 체크됐어. 기획상 최대 5개라 위에서부터 5개만 계산했어.`);
+  if (prod < demand) a.push(`생산이 수요보다 ${num(demand - prod)}개 부족해. 직원을 늘리거나 생산 자동화(등급 해금)가 필요.`);
+  if (prod > demand * 1.3) a.push(`생산이 수요보다 ${num(prod - demand)}개 많아. 남는 재고 처리(창고 한도·폐기)를 정해야 해.`);
+  if (net < 0) a.push('적자. 판매가·원가·인원 중 무엇으로 맞출지 확인.');
+  if (quality) a.push(`직원 품질 합계 +${quality}%: 품질이 매출에 주는 효과는 기획에 없음.`);
+  $('pAlerts').innerHTML = a.map(x => `<div class="alert">${x}</div>`).join('');
+}
+
+/* ================= 조합법 ================= */
+editor('edTarget', 'target', [{ k: 'n', l: '재료 수', t: 'num', w: 80 }, { k: 'count', l: '목표 종 수', t: 'num', w: 90 }]);
+function loadRecipeSet() { const r = DATA.recipes[$('rSet').value]; $('rIng').value = r.ing; $('rText').value = r.text; }
+function checkRecipes() {
+  const ing = new Set($('rIng').value.split(',').map(s => s.trim()).filter(Boolean));
+  const rows = $('rText').value.split('\n').map(l => l.trim()).filter(Boolean).map(l => {
+    const [name, rest = ''] = l.split(/:(.*)/s);
+    const note = (rest.match(/\(([^)]*)\)/) || [])[1] || '';
+    return { name: name.trim(), note, parts: rest.replace(/\([^)]*\)/g, '').split('+').map(s => s.trim()).filter(Boolean) };
+  });
+  const groups = {}, unknown = [], used = new Set(), counts = {};
+  rows.forEach(r => {
+    const key = [...r.parts].sort().join('+') + (r.note ? '|' + r.note : '');
+    (groups[key] = groups[key] || []).push(r.name);
+    r.parts.forEach(p => { used.add(p); if (!ing.has(p)) unknown.push(`${r.name}의 「${p}」`); });
+    counts[r.parts.length] = (counts[r.parts.length] || 0) + 1;
+  });
+  const dups = Object.entries(groups).filter(([, n]) => n.length > 1), unused = [...ing].filter(i => !used.has(i));
+  const noName = rows.filter(r => !r.name || /이름 없음/.test(r.name)).length;
+  const okc = b => b ? 'var(--warn)' : 'var(--ok)';
+  let h = `<div class="tiles"><div class="tile"><span>아이템 수</span><b>${rows.length}종</b></div><div class="tile"><span>중복 조합</span><b style="color:${okc(dups.length)}">${dups.length}건</b></div><div class="tile"><span>목록에 없는 재료</span><b style="color:${okc(unknown.length)}">${unknown.length}건</b></div><div class="tile"><span>안 쓰는 재료</span><b>${unused.length}종</b></div></div>`;
+  dups.forEach(([k, n]) => h += `<div class="alert">같은 조합 「${esc(k.split('|')[0].replace(/\+/g, ' + '))}」 → ${n.map(esc).join(', ')}. 3×3 배치로 구분할지, 재료를 바꿀지 정해야 해.</div>`);
+  unknown.forEach(u => h += `<div class="alert">${esc(u)}는 공용 재료 목록에 없어.</div>`);
+  if (noName) h += `<div class="alert">이름이 비어 있는 아이템이 ${noName}개 있어.</div>`;
+  if (unused.length) h += `<p class="note">사용처 없는 재료: ${unused.map(esc).join(', ')}</p>`;
+  h += '<h3 style="margin-top:16px">재료 개수 분포 vs 목표</h3><table><tr><th>재료 수</th><th class="n">현재</th><th class="n">목표</th><th class="n">차이</th></tr>' +
+    DATA.target.map(({ n, count }) => { const c = counts[n] || 0, d = c - count; return `<tr><td>${n}개</td><td class="n">${c}</td><td class="n">${count}</td><td class="n" style="color:${okc(d)}">${d > 0 ? '+' : ''}${d}</td></tr>`; }).join('') + '</table>';
+  $('rOut').innerHTML = h;
+}
+$('rSet').onchange = () => { loadRecipeSet(); checkRecipes(); };
+$('rReset').onclick = () => { if (!confirm('이 목록을 기획안 값으로 되돌릴까? 팀 전체에 적용돼.')) return; DATA.recipes[$('rSet').value] = clone(DEFAULTS.recipes[$('rSet').value]); loadRecipeSet(); checkRecipes(); save(); };
+const onRecipeEdit = () => { DATA.recipes[$('rSet').value] = { ing: $('rIng').value, text: $('rText').value }; checkRecipes(); save(); };
+$('rText').oninput = onRecipeEdit; $('rIng').oninput = onRecipeEdit;
+
+/* ================= 경제활동 ================= */
+editor('edLotto', 'lotto', [{ k: 'rank', l: '등수', w: 70 }, { k: 'match', l: '일치 개수', t: 'num', w: 80 }, { k: 'prize', l: '상금', t: 'num', w: 140 }]);
+editor('edFish', 'fish', [{ k: 'name', l: '물고기', w: 110 }, { k: 'p', l: '확률 %', t: 'num', w: 80 }, { k: 'price', l: '판매가', t: 'num', w: 120 }]);
+editor('edAlba', 'alba', [{ k: 'name', l: '일', w: 120 }, { k: 'pay', l: '1건 보수', t: 'num', w: 100 }, { k: 'min', l: '1건 소요 (분)', t: 'num', w: 100, d: 5 }]);
+editor('edFood', 'food', [{ k: 'name', l: '음식', w: 130 }, { k: 'place', l: '판매처', w: 120 }, { k: 'price', l: '가격', t: 'num', w: 90 }, { k: 'h', l: '체력', t: 'num', w: 60 }, { k: 'e', l: '기력', t: 'num', w: 60 }, { k: 's', l: '스트레스↓', t: 'num', w: 70 }]);
+function calcActivity() {
+  const L = lottoStats();
+  $('lOut').innerHTML = '<table><tr><th>등수</th><th class="n">확률</th><th class="n">1/x</th><th class="n">기댓값 기여</th></tr>' +
+    L.rows.map(r => `<tr><td>${esc(r.rank)}</td><td class="n">${(r.p * 100).toFixed(4)}%</td><td class="n">${r.p ? num(1 / r.p) : '-'}</td><td class="n">${won(r.p * r.prize)}</td></tr>`).join('') + '</table>' +
+    `<div class="tiles" style="margin-top:12px"><div class="tile"><span>장당 기댓값</span><b>${won(L.ev)}</b></div><div class="tile"><span>환급률</span><b style="color:${L.ev > L.price ? 'var(--warn)' : 'var(--ok)'}">${pct(L.ev / (L.price || 1))}</b></div><div class="tile"><span>주 ${v('lMax')}장 기대 손익</span><b>${won((L.ev - L.price) * v('lMax'))}</b></div></div>` +
+    (L.ev > L.price ? `<div class="alert">살수록 돈을 버는 구조야 (환급률 ${pct(L.ev / L.price)}). 실제 복권은 50% 안팎. 숫자 범위를 늘리거나 상금을 줄여야 해.</div>` : '');
+  const ev = fishEV(), pSum = DATA.fish.reduce((a, f) => a + (+f.p || 0), 0);
+  const top = [...DATA.fish].sort((a, b) => b.p * b.price - a.p * a.price)[0];
+  $('fOut').innerHTML = `<p class="note">확률 합계 ${pSum.toFixed(1)}% · 캐스팅 1회 기댓값 <b>${won(ev)}</b>` +
+    (top && ev ? ` · 가장 큰 비중: ${esc(top.name)} ${pct(top.p / 100 * top.price / ev)}` : '') + '</p>' +
+    (Math.abs(pSum - 100) > .01 ? `<div class="alert">확률 합계가 100%가 아니야 (${pSum.toFixed(2)}%).</div>` : '');
+  const rows = DATA.alba.map(a => [a.name, a.pay * 60 / (a.min || 1)]).concat([['낚시', ev * 60 / (v('fMin') || 1)]]);
+  const max = Math.max(...rows.map(r => r[1]), 1), bestAlba = Math.max(0, ...rows.slice(0, -1).map(r => r[1]));
+  $('aOut').innerHTML = '<table>' + rows.map(([n, x]) => `<tr><td style="width:110px">${esc(n)}</td><td><div class="hbar" style="width:${x / max * 100}%"></div></td><td class="n" style="width:120px">${won(x)}/시간</td></tr>`).join('') + '</table>' +
+    `<p class="note">한 달(30일 × ${v('aHours')}시간) 알바만 하면 최대 ${won(bestAlba * 30 * v('aHours'))}.</p>`;
+  const fr = DATA.food.map(f => ({ ...f, eff: (f.h + f.e + f.s) / (f.price || 1) * 1000 })).sort((a, b) => b.eff - a.eff), best = (fr[0] || {}).eff || 1;
+  $('foodRank').innerHTML = '<tr><th>음식</th><th class="n">1,000원당</th><th style="width:45%"></th></tr>' + fr.map(f => `<tr><td>${esc(f.name)}</td><td class="n">${f.eff.toFixed(1)}</td><td><div class="hbar" style="width:${f.eff / best * 100}%"></div></td></tr>`).join('');
+}
+
+/* ================= 부지 ================= */
+editor('edZones', 'zones', [{ k: 'name', l: '구역', w: 140 }, { k: 'count', l: '빈부지', t: 'num', w: 80 }]);
+function calcLand() {
+  const supply = landSupply(), maxD = v('dPlayers') * v('dMax'), exp = maxD * v('dRatio') / 100;
+  const need = Math.max(0, Math.ceil((exp - supply) / (v('dNew') || 1)));
+  $('dSupply').textContent = supply + '개'; $('dMaxDemand').textContent = maxD + '개'; $('dExp').textContent = Math.round(exp) + '개'; $('dNeed').textContent = need + '곳';
+  const a = [];
+  if (maxD > supply) a.push(`모두 최대치로 사면 ${maxD - supply}개가 모자라. 신규 지역 개발(시청 신청) 조건과 타이밍을 정해야 해.`);
+  if (exp > supply * .8) a.push('예상 수요가 공급의 80%를 넘어 부지 가격이 크게 오를 수 있어. 부지 가격 공식(역세권·상권 가산)이 필요.');
+  const names = DATA.zones.map(z => z.name), dupNames = names.filter((n, i) => names.indexOf(n) !== i);
+  if (dupNames.length) a.push(`구역 이름 중복: ${[...new Set(dupNames)].map(esc).join(', ')}`);
+  $('dAlerts').innerHTML = a.map(x => `<div class="alert">${x}</div>`).join('');
+}
+
+/* ================= 서버 인원 ================= */
+editor('edRanges', 'ranges', [{ k: 'label', l: '구간', w: 150 }, { k: 'n', l: '대표 인원', t: 'num', w: 80, d: 10 }, { k: 'note', l: '요약', w: 380 }]);
+function serverChecks(n) {
+  const supply = landSupply(), scenes = v('sScenes') || 1, ratio = v('dRatio') / 100, perPlayer = v('dMax');
+  const mbps = aoi => n * Math.max(aoi ? (n - 1) / scenes : n - 1, 0) * v('sHz') * v('sBytes') * 8 / 1e6;
+  const up = v('sUp'), full = mbps(false), aoi = mbps(true), inds = marketTypes().length || 1, perInd = n / inds;
+  const L = lottoStats(), st = (ok, warn) => ok ? 'ok' : warn ? 'warn' : 'bad';
+  return [
+    ['네트워크 (방장 업로드)', st(full <= up * .5, aoi <= up * .5), `전체 동기화 ${full.toFixed(1)} Mbps · 같은 구역만 ${aoi.toFixed(1)} Mbps`, full > up * .5 ? (aoi <= up * .5 ? '구역(씬)별 관심 영역 동기화를 넣어야 해.' : '방장 PC로는 무리. 전용 서버가 필요해.') : '방장 호스트로 충분해.', full],
+    ['방장 의존', st(n <= 20, n <= 40), n === 1 ? '혼자' : `방장 1명이 ${n - 1}명 상태·저장 처리`, '방장이 나가면 서버가 멈춰. 인원이 많을수록 방장 이전·전용 서버를 정해야 해.'],
+    ['부지', st(n * perPlayer <= supply, n * perPlayer * ratio <= supply), `최대 ${n * perPlayer}개 · 예상 ${Math.round(n * perPlayer * ratio)}개 / 공급 ${supply}개`, n * perPlayer > supply ? `모두 최대치로 사면 신규 지역 ${Math.ceil((n * perPlayer - supply) / (v('dNew') || 1))}곳 필요 (시청 확장 신청).` : '여유 있어.'],
+    ['회사 경쟁', st(perInd >= 1 && perInd <= 3, perInd < 1 || perInd <= 6), `시장 계산 업종 ${inds}개 · 업종당 ${perInd.toFixed(1)}개 회사`, perInd < 1 ? '비어 있는 업종이 많아 서버 정보에 빨간 글씨가 많아져.' : perInd > 3 ? '한 업종에 회사가 몰려 확보율 겹침이 커. 업종이나 NPC 인구를 늘려야 해.' : '적당해.'],
+    ['NPC 인구', 'ok', `${num(n * v('sPer'))}명`, '수요 계산은 숫자라 부담이 없지만, 화면을 걸어다니는 NPC 수는 따로 상한을 정해야 해.'],
+    ['플레이어 간 콘텐츠', st(n >= 5, n >= 2), n === 1 ? '상대 없음' : `상대 ${n - 1}명`, n === 1 ? '거래·범죄·살인청부·경찰 신고가 작동하지 않아. 혼자 할 때 NPC로 대체할지 정해야 해.' : n < 5 ? '범죄 신고·살인청부가 거의 안 일어나.' : '정상.'],
+    ['주식 체결', st(n >= 10, n >= 2), `주문 상대 최대 ${n - 1}명`, n < 10 ? '가격·시간 우선 체결은 상대 주문이 있어야 해. NPC 호가(시장 조성자)가 필요해.' : 'NPC 호가를 함께 두면 안정적.'],
+    ['성향·서버 이름', st(n >= 5, n >= 2), `성향 16종 중 최대 ${Math.min(n, 16)}종`, n < 5 ? '동률이 잦아 가나다순으로 이름이 정해지는 경우가 많아.' : '정상.'],
+    ['시상식', st(n >= 15, true), `부문당 경쟁자 ${n}명`, n <= 5 ? '모든 사람이 상을 받을 수 있어 의미가 약해.' : n < 15 ? '같은 사람이 여러 상을 휩쓸 수 있어. 중복 수상 제한을 정할지.' : '정상.'],
+    ['인스타 인지도', st(n >= 15, true), `게시물 1개 최대 좋아요 ${Math.max(n - 1, 0)}개`, '좋아요를 플레이어만 누르면 인원이 적을수록 인지도가 거의 안 올라. NPC 좋아요를 넣을지 정해야 해.'],
+    ['구역(씬) 분산', st(n / scenes >= .5 && n / scenes <= 6, true), `구역당 평균 ${(n / scenes).toFixed(1)}명`, n / scenes < .5 ? '대부분 구역이 비어 있어 도시가 썰렁해.' : n / scenes > 6 ? '방장이 모든 씬을 동시에 돌려야 해서 부하가 커.' : '적당해.'],
+    ['로또 돈 풀림 (인원 무관)', L.ev > L.price ? 'bad' : 'ok', `주당 최대 ${won(n * v('lMax') * (L.ev - L.price))}`, L.ev > L.price ? '살수록 이득이라 인원에 비례해 돈이 풀려. 상금표부터 고쳐야 해.' : '정상.'],
+  ];
+}
+const MARK = { ok: ['가능', 'var(--ok)'], warn: ['주의', 'var(--mid)'], bad: ['문제', 'var(--warn)'] };
+function calcServer() {
+  const n = v('sN') || 1, checks = serverChecks(n), core = checks.slice(0, -1);
+  $('sNTxt').textContent = n + '명';
+  const vd = core.some(c => c[1] === 'bad') ? ['현재 구조로 어려움', 'var(--warn)'] : core.some(c => c[1] === 'warn') ? ['조건부 가능', 'var(--mid)'] : ['가능', 'var(--ok)'];
+  $('sVerdict').innerHTML = `<span style="color:${vd[1]}">${vd[0]}</span>`;
+  $('sTiles').innerHTML = [['NPC 인구', num(n * v('sPer')) + '명'], ['최대 부지 수요', n * v('dMax') + '개'], ['최대 회사 수', n + '개'], ['방장 업로드', checks[0][4].toFixed(1) + ' Mbps']].map(([a, b]) => `<div class="tile"><span>${a}</span><b>${b}</b></div>`).join('');
+  $('sChecks').innerHTML = '<tr><th>항목</th><th>판정</th><th>계산</th><th>고려할 점</th></tr>' + checks.map(([name, s, val, note]) =>
+    `<tr><td><b>${name}</b></td><td style="color:${MARK[s][1]};white-space:nowrap">● ${MARK[s][0]}</td><td>${val}</td><td class="muted">${note}</td></tr>`).join('');
+  $('sRanges').innerHTML = '<tr><th>구간</th><th>판정 (대표 인원)</th><th>걸리는 항목</th><th>요약</th></tr>' + DATA.ranges.map(r => {
+    const c = serverChecks(Math.max(1, +r.n || 1)).slice(0, -1), bad = c.filter(x => x[1] === 'bad'), warn = c.filter(x => x[1] === 'warn');
+    const s = bad.length ? 'bad' : warn.length ? 'warn' : 'ok';
+    return `<tr><td><b>${esc(r.label)}</b></td><td style="color:${MARK[s][1]};white-space:nowrap">● ${{ bad: '어려움', warn: '조건부', ok: '가능' }[s]} (${r.n}명)</td><td class="muted">${[...bad, ...warn].map(x => x[0]).join(', ') || '-'}</td><td>${esc(r.note)}</td></tr>`;
+  }).join('');
+}
+
+/* ================= 보드 ================= */
+const STATUS = ['미정', '논의중', '확정'];
+let bFilter = '전체';
+function drawBoard() {
+  const cats = ['전체', ...new Set(DATA.issues.map(i => i.cat).filter(Boolean))];
+  if (!cats.includes(bFilter)) bFilter = '전체';
+  const done = DATA.issues.filter(i => i.s === 2).length;
+  $('bFilter').innerHTML = cats.map(c => `<button class="sm" type="button" aria-pressed="${c === bFilter}" data-f="${esc(c)}">${esc(c)}</button>`).join('') + `<span class="pill">확정 ${done}/${DATA.issues.length}</span>`;
+  $('bCats').innerHTML = cats.slice(1).map(c => `<option value="${esc(c)}">`).join('');
+  $('bList').innerHTML = DATA.issues.map((it, i) => [it, i]).filter(([it]) => bFilter === '전체' || it.cat === bFilter).map(([it, i]) =>
+    `<div class="issue"><input data-i="${i}" data-k="text" value="${esc(it.text)}" aria-label="내용">
+      <input class="cat" data-i="${i}" data-k="cat" value="${esc(it.cat)}" list="bCats" aria-label="분류">
+      <select data-i="${i}" data-k="s" style="width:auto">${STATUS.map((s, j) => `<option value="${j}" ${(it.s || 0) === j ? 'selected' : ''}>${s}</option>`).join('')}</select>
+      <button class="sm del" type="button" data-del="${i}">삭제</button>
+      <textarea data-i="${i}" data-k="memo" rows="1" placeholder="결정 내용·메모">${esc(it.memo)}</textarea></div>`).join('');
+}
+$('bFilter').onclick = e => { if (e.target.dataset.f) { bFilter = e.target.dataset.f; drawBoard(); } };
+$('bList').oninput = e => {
+  const { i, k } = e.target.dataset; if (i == null) return;
+  DATA.issues[i][k] = k === 's' ? +e.target.value : e.target.value;
+  if (k === 's') drawBoard();
+  save();
+};
+$('bList').addEventListener('change', e => { if (e.target.dataset.k === 'cat') drawBoard(); });
+$('bList').onclick = e => { if (e.target.dataset.del != null) { DATA.issues.splice(+e.target.dataset.del, 1); drawBoard(); save(); } };
+$('bAdd').onclick = () => {
+  const text = $('bNew').value.trim(); if (!text) return;
+  DATA.issues.push({ id: 'c' + Date.now(), cat: $('bNewCat').value.trim() || '추가', text, s: 0, memo: '' });
+  $('bNew').value = ''; drawBoard(); save();
+};
+$('bReset').onclick = () => { if (confirm('보드를 기본 목록으로 되돌릴까? 추가한 항목과 메모가 사라지고 팀 전체에 적용돼.')) { DATA.issues = clone(DEFAULTS.issues); drawBoard(); save(); } };
+EDITORS.issues = drawBoard;
+
+/* ================= 입력값 저장 + 전체 재계산 ================= */
+const paramInputs = [...document.querySelectorAll('section input[id], section select[id]')].filter(el => !el.hasAttribute('data-nosave') && !['rIng', 'rText'].includes(el.id));
+paramInputs.forEach(el => el.addEventListener('input', () => { PARAMS[el.id] = el.value; recalc(); save(); }));
+function recalc() {
+  fillMarketSelect(); syncTypeInputs();
+  calcMarket(); calcValue(); calcPnl(); calcActivity(); calcLand(); calcServer();
+  $('sNTxt').textContent = v('sN') + '명';
+}
+function renderAll() {
+  Object.values(EDITORS).forEach(d => d());
+  paramInputs.forEach(el => { if (PARAMS[el.id] != null && el.tagName !== 'SELECT') el.value = PARAMS[el.id]; });
+  loadRecipeSet(); checkRecipes(); recalc();
+}
+
+let savedTab; try { savedTab = localStorage.getItem('tab'); } catch {}
+showTab($(savedTab) && document.querySelector(`nav [data-t="${savedTab}"]`) ? savedTab : 'types');
+renderAll();
+fetch('/api/state').then(r => r.ok ? r.json() : {}).then(s => {
+  if (s && s.v === 3) {
+    // 새 표가 추가돼도 기존 저장본이 깨지지 않게 기본값 위에 덮어씀
+    DATA = { ...clone(DEFAULTS), ...s.data, recipes: { ...clone(DEFAULTS.recipes), ...(s.data || {}).recipes } };
+    PARAMS = s.params || {};
+  }
+  renderAll(); $('gStatus').textContent = '팀 공용 저장본 불러옴';
+}).catch(() => { $('gStatus').textContent = '서버 연결 실패 — 변경 내용이 저장되지 않아.'; });
+</script>
+</body>
+</html>
