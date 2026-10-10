@@ -34,6 +34,10 @@
 | `CashService` | 출금·입금, 소지 화폐 합계, 화폐 이전·결제 |
 | `CurrencyIconFactory` | 사용자가 제공한 여섯 화폐 이미지 선택 |
 
+책 전용 화면은 `Gameplay/Item/Book/UI/BookReader.cs`, 월드 드랍은 `Gameplay/Item/World/UI/WorldDroppedItem.cs`에서 관리합니다. `UI/Inventory`에는 인벤토리 화면·선택·입력 코드가 남습니다. 공통 거래 상태는 `Gameplay/Trade`, 거래 화면은 `UI/Trade`입니다.
+
+작성된 책 호버는 `BookInstanceData.Tooltip`을 통해 제목과 저자를 함께 표시합니다. 인벤토리, 출판 선택창, 구매·대여·회수창 모두 같은 형식을 사용합니다. 대여 중인 책만 그 아래에 구분선과 대여 중 안내가 추가됩니다. 자세한 책임·호환성 규칙은 [Architecture.md](Architecture.md#책거래-책임-정리-2026-10-10)에 있습니다.
+
 아이템 에셋은 **Create → Company Game → Inventory → Item**에서 생성합니다. 옷·펫·가방은 1개씩, 일반 아이템은 `maxStack`을 사용합니다.
 
 아이템 지급은 `InventoryManager.Instance.State.TryAdd(item, count, out error)`로 연결합니다. 초기 인벤토리는 비어 있습니다. 테스트용 아이템은 저장된 씬이나 실제 시작 인벤토리에 넣지 않습니다.
