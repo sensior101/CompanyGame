@@ -33,6 +33,19 @@ public sealed class BookInstanceData
         (isPublished || !string.IsNullOrWhiteSpace(authorName)
             ? "\n저자 : " + (string.IsNullOrWhiteSpace(authorName) ? "미상" : authorName) : "");
 
+    // Keep loan information plain text so every item view can choose its own typography.
+    public string TooltipDetails
+    {
+        get
+        {
+            if (!IsLibraryLoan || !LibraryCatalog.TryGetLoanStatus(this, out int remainingDays,
+                    out int overdueDays, out long accruedFine)) return "";
+            return overdueDays > 0
+                ? $"연체 기간 : {overdueDays}일\n누적된 연체료 : {accruedFine:N0}원"
+                : $"남은 대여기간 : {remainingDays}일";
+        }
+    }
+
     public bool HasContent => Array.Exists(pages ?? Array.Empty<string>(), value => !string.IsNullOrWhiteSpace(value));
     public bool IsAuthor(string playerId) => !string.IsNullOrEmpty(playerId) && playerId == authorPlayerId;
     public bool CanEdit(string playerId) => !IsLibraryLoan && (IsAuthor(playerId) || permission != BookEditPermission.ReadOnly);

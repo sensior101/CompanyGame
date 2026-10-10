@@ -15,7 +15,7 @@ public sealed partial class TradeWindow : MonoBehaviour
     public bool DragUsesRight { get; private set; }
     TMP_FontAsset font;
     RectTransform window,ghost,tooltip;
-    TMP_Text tooltipText,ghostCount;
+    TMP_Text tooltipText,tooltipDetails,ghostCount;
     public const int TradeCapacity=18;
     public int OfferPage { get; private set; }
     public int OfferPageCount => Math.Max(1,(Session.Offers.Length+TradeCapacity-1)/TradeCapacity);
@@ -71,6 +71,10 @@ public sealed partial class TradeWindow : MonoBehaviour
         tooltip=Panel("ItemTooltip",transform,new Vector2(180,36),new Color(.16f,.12f,.10f,.96f));
         tooltip.GetComponent<UnityEngine.UI.Image>().raycastTarget=false;
         tooltipText=Label("Name",tooltip,"",15,Color.white,new Vector2(164,30),Vector2.zero);
+        tooltipText.richText=false;tooltipText.textWrappingMode=TextWrappingModes.Normal;
+        tooltipDetails=Label("Details",tooltip,"",12,new Color(.88f,.88f,.88f),new Vector2(164,20),Vector2.zero);
+        tooltipDetails.richText=false;tooltipDetails.textWrappingMode=TextWrappingModes.Normal;
+        tooltipDetails.gameObject.SetActive(false);
         tooltip.gameObject.SetActive(false);
     }
     bool HasOffer(int index)=>Session.HasOffer(index);
@@ -194,9 +198,9 @@ public sealed partial class TradeWindow : MonoBehaviour
     public void ShowTooltip(TradePointer pointer,Vector2 screenPosition)
     {
         if(IsDragging){HideTooltip();return;}
-        string name=null;
+        string name=null,details="";
         if(pointer.kind==TradePointer.Kind.Inventory)
-        {var stack=Session.Inventory.GetSlot(pointer.index);if(stack!=null&&!stack.IsEmpty)name=stack.Tooltip;}
+        {var stack=Session.Inventory.GetSlot(pointer.index);if(stack!=null&&!stack.IsEmpty){name=stack.Tooltip;details=stack.TooltipDetails;}}
         else if(HasOffer(pointer.index))
         {
             var side=Session.Offers[pointer.index].give;
@@ -205,7 +209,16 @@ public sealed partial class TradeWindow : MonoBehaviour
         }
         if(string.IsNullOrEmpty(name)){HideTooltip();return;}
         tooltipText.richText=false;tooltipText.text=name;
-        float width=Mathf.Clamp(tooltipText.GetPreferredValues(name).x+24,80,260);float height=Mathf.Max(36,tooltipText.GetPreferredValues(name,width-16,0).y+16);tooltip.sizeDelta=new Vector2(width,height);tooltipText.rectTransform.sizeDelta=new Vector2(width-16,height-8);
+        tooltipDetails.text=details;bool hasDetails=!string.IsNullOrEmpty(details);tooltipDetails.gameObject.SetActive(hasDetails);
+        float width=Mathf.Clamp(Mathf.Max(tooltipText.GetPreferredValues(name).x,hasDetails?tooltipDetails.GetPreferredValues(details).x:0)+24,80,260);
+        float titleHeight=tooltipText.GetPreferredValues(name,width-16,0).y;
+        float detailHeight=hasDetails?tooltipDetails.GetPreferredValues(details,width-16,0).y:0;
+        float height=Mathf.Max(36,titleHeight+(hasDetails?detailHeight+6:0)+16);
+        tooltip.sizeDelta=new Vector2(width,height);
+        tooltipText.rectTransform.sizeDelta=new Vector2(width-16,hasDetails?titleHeight:height-8);
+        tooltipText.rectTransform.anchoredPosition=hasDetails?new Vector2(0,(height-titleHeight)*.5f-8):Vector2.zero;
+        tooltipDetails.rectTransform.sizeDelta=new Vector2(width-16,detailHeight);
+        tooltipDetails.rectTransform.anchoredPosition=new Vector2(0,height*.5f-14-titleHeight-detailHeight*.5f);
         RectTransformUtility.ScreenPointToLocalPointInRectangle((RectTransform)transform,screenPosition,null,out var p);
         var bounds=((RectTransform)transform).rect;var half=tooltip.sizeDelta*.5f;p+=new Vector2(half.x+16,-half.y-18);
         p.x=Mathf.Clamp(p.x,bounds.xMin+half.x+6,bounds.xMax-half.x-6);p.y=Mathf.Clamp(p.y,bounds.yMin+half.y+6,bounds.yMax-half.y-6);

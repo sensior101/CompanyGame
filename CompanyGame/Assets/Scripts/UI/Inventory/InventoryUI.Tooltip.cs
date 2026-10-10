@@ -7,6 +7,11 @@ using UnityEngine.EventSystems;
 
 public sealed partial class InventoryUI
 {
+    TMP_Text tooltipDetails;
+    InventorySlotPointer tooltipSlot;
+    Vector2 tooltipPosition;
+    float nextTooltipRefresh;
+
     void BuildDragVisual()
     {
         dragVisual = Panel("DraggedItem", transform, Vector2.one * 82f, new Color(1f, .97f, .89f, .95f), 25f, 9f);
@@ -30,7 +35,14 @@ public sealed partial class InventoryUI
         tooltipText = Label("Text", tooltipPanel, "", 15f, Color.white, new Vector2(202f, 35f));
         tooltipText.alignment = TextAlignmentOptions.Midline;
         tooltipText.richText = false;
+        tooltipText.textWrappingMode = TextWrappingModes.Normal;
         tooltipText.overflowMode = TextOverflowModes.Overflow;
+        tooltipDetails = Label("Details", tooltipPanel, "", 12f,
+            new Color(.88f, .88f, .88f), new Vector2(202f, 20f));
+        tooltipDetails.richText = false;
+        tooltipDetails.textWrappingMode = TextWrappingModes.Normal;
+        tooltipDetails.overflowMode = TextOverflowModes.Overflow;
+        tooltipDetails.gameObject.SetActive(false);
         tooltipPanel.gameObject.SetActive(false);
     }
 
@@ -49,11 +61,23 @@ public sealed partial class InventoryUI
             HideItemTooltip();
             return;
         }
+        tooltipSlot = slot;
+        tooltipPosition = screenPosition;
+        nextTooltipRefresh = Time.unscaledTime + .25f;
         tooltipText.text = stack.Tooltip + (stack.Item.IsVehicle ? " · 좌클릭 설치" : "");
-        float width = Mathf.Clamp(tooltipText.GetPreferredValues(tooltipText.text).x + 24f, 120f, 360f);
-        float height = Mathf.Max(44f, tooltipText.GetPreferredValues(tooltipText.text, width - 24f, 0f).y + 20f);
+        tooltipDetails.text = stack.TooltipDetails;
+        bool hasDetails = !string.IsNullOrEmpty(tooltipDetails.text);
+        tooltipDetails.gameObject.SetActive(hasDetails);
+        float width = Mathf.Clamp(Mathf.Max(tooltipText.GetPreferredValues(tooltipText.text).x,
+            hasDetails ? tooltipDetails.GetPreferredValues(tooltipDetails.text).x : 0f) + 24f, 120f, 360f);
+        float titleHeight = tooltipText.GetPreferredValues(tooltipText.text, width - 24f, 0f).y;
+        float detailHeight = hasDetails ? tooltipDetails.GetPreferredValues(tooltipDetails.text, width - 24f, 0f).y : 0f;
+        float height = Mathf.Max(44f, titleHeight + (hasDetails ? detailHeight + 6f : 0f) + 20f);
         tooltipPanel.sizeDelta = new Vector2(width, height);
-        tooltipText.rectTransform.sizeDelta = new Vector2(width - 24f, height - 16f);
+        tooltipText.rectTransform.sizeDelta = new Vector2(width - 24f, hasDetails ? titleHeight : height - 16f);
+        tooltipText.rectTransform.anchoredPosition = hasDetails ? new Vector2(0f, (height - titleHeight) * .5f - 10f) : Vector2.zero;
+        tooltipDetails.rectTransform.sizeDelta = new Vector2(width - 24f, detailHeight);
+        tooltipDetails.rectTransform.anchoredPosition = new Vector2(0f, height * .5f - 16f - titleHeight - detailHeight * .5f);
         tooltipPanel.gameObject.SetActive(true);
         tooltipPanel.SetAsLastSibling();
         MoveItemTooltip(screenPosition);
@@ -62,6 +86,7 @@ public sealed partial class InventoryUI
     public void MoveItemTooltip(Vector2 screenPosition)
     {
         if (!tooltipPanel || !tooltipPanel.gameObject.activeSelf) return;
+        tooltipPosition = screenPosition;
         if (!RectTransformUtility.ScreenPointToLocalPointInRectangle((RectTransform)transform,
                 screenPosition, null, out Vector2 local)) return;
         Rect canvas = ((RectTransform)transform).rect;
@@ -75,7 +100,18 @@ public sealed partial class InventoryUI
 
     public void HideItemTooltip()
     {
+        tooltipSlot = null;
         if (tooltipPanel) tooltipPanel.gameObject.SetActive(false);
+    }
+
+    void LateUpdate()
+    {
+        // A game day can change without pointer movement or an inventory edit.
+        if (tooltipPanel && tooltipPanel.gameObject.activeSelf && Time.unscaledTime >= nextTooltipRefresh)
+        {
+            if (!tooltipSlot || !tooltipSlot.isActiveAndEnabled) HideItemTooltip();
+            else ShowItemTooltip(tooltipSlot, tooltipPosition);
+        }
     }
 
     public void BeginDragVisual(ItemStack stack,int count=-1)

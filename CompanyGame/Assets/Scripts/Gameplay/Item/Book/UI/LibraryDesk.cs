@@ -71,13 +71,18 @@ public sealed class LibraryDesk : MonoBehaviour
         }
         else if(Enum.TryParse<LibraryTradeMode>(id,out var mode))
         {
-            var session=LibraryCatalog.CreateTrade(GameSession.LocalPlayerId,inventory.Inventory,mode,Withdrawn);
+            if(mode==LibraryTradeMode.Borrow && !LibraryCatalog.CanOpenBorrowing(GameSession.LocalPlayerId,out var message))
+            {
+                manager.PresentNotice(dialogue,message);
+                yield break;
+            }
+            var session=LibraryCatalog.CreateTrade(GameSession.LocalPlayerId,inventory.Inventory,mode,Withdrawn,Borrowed);
             interaction.OpenTrade(session,()=>this && dialogue.InRange(interaction.transform));
         }
     }
     void SelectedPublication(InventoryItemSelector selection)
     {
-        manager.Present(dialogue,selection.SelectedItem.DisplayName+"을 출판하시겠습니까? 출판 비용은 10,000원입니다.",new[]{
+        manager.Present(dialogue,KoreanText.Object(selection.SelectedItem.DisplayName)+" 출판하시겠습니까? 출판 비용은 10,000원입니다.",new[]{
             new DialogueOption("PublishYes","네, 그렇게 해주세요"),
             new DialogueOption("PublishNo","아니요, 다시 생각해볼게요")});
     }
@@ -86,14 +91,14 @@ public sealed class LibraryDesk : MonoBehaviour
         string title=selection.SelectedItem.DisplayName;
         bool returned=LibraryCatalog.Return(GameSession.LocalPlayerId,selection.Handoff,out int days,out long fee,out var error);
         selection.Close();selector=null;
-        string message=returned?title+"이 반납되었습니다. 감사합니다.":error;
+        string message=returned?KoreanText.Subject(title)+" 반납되었습니다. 감사합니다.":error;
         if(returned && days>0)message+="\n"+days+"일 연체되었습니다. 연체비는 총 "+fee.ToString("N0")+"원입니다.";
-        manager.Present(dialogue,message);
+        manager.PresentNotice(dialogue,message);
     }
     void CancelledReturn()
     {
         selector=null;
-        if(this && manager)manager.Present(dialogue,"책 반납이 취소되었습니다.");
+        if(this && manager)manager.PresentNotice(dialogue,"책 반납이 취소되었습니다.");
     }
     void ConfirmPublication()
     {
@@ -102,18 +107,23 @@ public sealed class LibraryDesk : MonoBehaviour
         selector.Close();selector=null;
         if(ok)
         {
-            manager.Present(dialogue,"출판이 완료되었습니다. 많은 독자분들이 읽어주셨으면 좋겠네요!");
+            manager.PresentNotice(dialogue,"출판이 완료되었습니다. 많은 독자분들이 읽어주셨으면 좋겠네요!");
         }
-        else manager.Present(dialogue,error);
+        else manager.PresentNotice(dialogue,error);
     }
     void CancelledPublication()
     {
         selector=null;
-        if(this && manager)manager.Present(dialogue,"아쉽네요. 다음에 기회가 된다면 꼭 출판해주세요.");
+        if(this && manager)manager.PresentNotice(dialogue,"아쉽네요. 다음에 기회가 된다면 꼭 출판해주세요.");
     }
     void Withdrawn(string title,long royalty)
     {
-        manager.Present(dialogue,title+"이 회수되었습니다. 지금까지 누적된 "+royalty.ToString("N0")+"원을 받아주세요.");
+        manager.Present(dialogue,KoreanText.Subject(title)+" 회수되었습니다. 지금까지 누적된 "+royalty.ToString("N0")+"원을 받아주세요.");
+    }
+    void Borrowed(string title)
+    {
+        if(this && manager)manager.Present(dialogue,KoreanText.Object(title)+" 대여하셨습니다. 대여 가능 기간은 "+
+            LibraryCatalog.FreeDays+"일이며, 이후부터 하루 "+LibraryCatalog.DailyFine.ToString("N0")+"원의 연체료가 부과됩니다.");
     }
     void OnDestroy()
     {

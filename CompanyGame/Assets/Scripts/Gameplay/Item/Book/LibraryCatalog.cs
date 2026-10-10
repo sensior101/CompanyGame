@@ -116,6 +116,40 @@ public static class LibraryCatalog
             loan.workId == stack.BookData.libraryWorkId && Today - loan.startDay < RecallDay;
     }
     public static bool IsAvailable(string workId) => Find(workId)?.listed == true && !State.loans.Exists(x => x.workId == workId && x.active);
+    // Derive display values from the same game-day ledger used for fines/recall.
+    // Book instances keep the loan identity; no duplicate countdown is saved.
+    public static bool TryGetLoanStatus(BookInstanceData book, out int remainingDays, out int overdueDays, out long accruedFine)
+    {
+        remainingDays = overdueDays = 0; accruedFine = 0;
+        if (book == null || !book.IsLibraryLoan) return false;
+        var loan = State.loans.Find(x => x.active && x.id == book.libraryLoanId && x.workId == book.libraryWorkId);
+        if (loan == null) return false;
+        int elapsed = Math.Max(0, Today - loan.startDay);
+        remainingDays = Math.Max(0, FreeDays - elapsed);
+        overdueDays = OverdueDays(loan, Today);
+        accruedFine = (long)overdueDays * DailyFine;
+        return true;
+    }
+    public static bool CanOpenBorrowing(string playerId, out string message)
+    {
+        var loan = BorrowedBy(playerId);
+        if (loan != null)
+        {
+            string title = Find(loan.workId)?.book?.title;
+            if (string.IsNullOrWhiteSpace(title)) title = "책";
+            return Fail("현재 " + KoreanText.Object(title) + " 대여중입니다. 한 권씩만 대여가 가능합니다.", out message);
+        }
+        bool hasPublishedBooks = false;
+        foreach (var work in State.works)
+        {
+            if (!work.listed || work.book == null) continue;
+            hasPublishedBooks = true;
+            if (IsAvailable(work.id)) { message = null; return true; }
+        }
+        return Fail(hasPublishedBooks
+            ? "죄송합니다. 현재 대여 가능한 책이 없습니다."
+            : "죄송합니다. 현재 저희 도서관에 출판된 책이 없습니다.", out message);
+    }
     public static bool CanPublish(ItemStack stack, string playerId)
     {
         if (stack == null || !stack.IsUniqueBook || !stack.BookData.isPublished || !stack.BookData.HasContent ||
@@ -162,25 +196,30 @@ public static class LibraryCatalog
     // UI consumes these offers with the exact same TradeSession/TradeWindow drag path as every shop.
     public static TradeSession CreateTrade(string playerId, InventoryState inventory, LibraryTradeMode mode,
         Action<string,long> withdrawn = null)
+        => CreateTrade(playerId, inventory, mode, withdrawn, null);
+
+    public static TradeSession CreateTrade(string playerId, InventoryState inventory, LibraryTradeMode mode,
+        Action<string,long> withdrawn, Action<string> borrowed)
     {
         Func<TradeOffer[]> offers = () =>
         {
             var list = new List<TradeOffer>();
-            if (mode == LibraryTradeMode.Buy) list.Add(MakeOffer(playerId, inventory, mode, null, withdrawn));
+            if (mode == LibraryTradeMode.Buy) list.Add(MakeOffer(playerId, inventory, mode, null, withdrawn, borrowed));
             foreach (var work in State.works)
-                if (work.listed && (mode != LibraryTradeMode.Withdraw || work.book.IsAuthor(playerId)))
-                    list.Add(MakeOffer(playerId, inventory, mode, work, withdrawn));
+                if (work.listed && work.book != null && (mode != LibraryTradeMode.Withdraw || work.book.IsAuthor(playerId)))
+                    list.Add(MakeOffer(playerId, inventory, mode, work, withdrawn, borrowed));
             return list.ToArray();
         };
         return mode == LibraryTradeMode.Borrow ? new RentalTradeSession(inventory, offers) : new TradeSession(inventory, offers);
     }
-    static TradeOffer MakeOffer(string player, InventoryState inventory, LibraryTradeMode mode, Work work, Action<string,long> withdrawn)
+    static TradeOffer MakeOffer(string player, InventoryState inventory, LibraryTradeMode mode, Work work, Action<string,long> withdrawn,
+        Action<string> borrowed = null)
     {
         return new TradeOffer
         {
             give = new TradeItem { cash=mode==LibraryTradeMode.Buy ? (work==null?BlankPrice:BookPrice) : 0, count=1 },
             get = new TradeItem { item=BookItem, count=1, bookTemplate=work?.book.Clone() },
-            fulfillment = new LibraryFulfillment(player,inventory,mode,work?.id,withdrawn),
+            fulfillment = new LibraryFulfillment(player,inventory,mode,work?.id,withdrawn,borrowed),
             isRented = mode==LibraryTradeMode.Borrow ? () => !IsAvailable(work.id) : null
         };
     }
@@ -190,8 +229,9 @@ public static class LibraryCatalog
         readonly InventoryState inventory;
         readonly LibraryTradeMode mode;
         readonly Action<string,long> withdrawn;
-        public LibraryFulfillment(string player,InventoryState inventory,LibraryTradeMode mode,string workId,Action<string,long> withdrawn)
-        {this.player=player;this.inventory=inventory;this.mode=mode;this.workId=workId;this.withdrawn=withdrawn;}
+        readonly Action<string> borrowed;
+        public LibraryFulfillment(string player,InventoryState inventory,LibraryTradeMode mode,string workId,Action<string,long> withdrawn,Action<string> borrowed)
+        {this.player=player;this.inventory=inventory;this.mode=mode;this.workId=workId;this.withdrawn=withdrawn;this.borrowed=borrowed;}
         public bool CanTake(out string error)
         {
             if(!Guard(player,inventory,out error))return false;
@@ -231,6 +271,7 @@ public static class LibraryCatalog
             }
             finally{changing=false;}
             if(mode==LibraryTradeMode.Withdraw)withdrawn?.Invoke(work.book.title,royalty);
+            if(mode==LibraryTradeMode.Borrow)borrowed?.Invoke(item.DisplayName);
         }
     }
     static bool Deliver(string player,InventoryState inventory,string workId,LibraryTradeMode mode,out string error)
