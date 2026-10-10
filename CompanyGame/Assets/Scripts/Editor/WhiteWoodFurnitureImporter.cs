@@ -92,7 +92,7 @@ public static class WhiteWoodFurnitureImporter
                     bounds=renderers[0].bounds;foreach(var renderer in renderers)bounds.Encapsulate(renderer.bounds);
                     var box=root.AddComponent<BoxCollider>();box.center=bounds.center;box.size=bounds.size;
                     var world=root.AddComponent<WorldObject>();world.objectType=WorldObjectType.PlaceableFurniture;world.furnitureItem=item;
-                    world.functions=item.furnitureFunctions;world.storageType=item.storageType;world.placement=item.furniturePlacement;
+                    world.functions=item.furnitureFunctions;
                     if(deskLamp)ConfigureDeskLamp(root,world);
                     item.furniturePrefab=PrefabUtility.SaveAsPrefabAsset(root,folder+"/"+row.key+".prefab");EditorUtility.SetDirty(item);
                     AssetDatabase.SetLabels(item,new[]{"Furniture","WhiteWood",row.pack});AssetDatabase.SetLabels(item.furniturePrefab,new[]{"Furniture","WhiteWood",row.pack});count++;

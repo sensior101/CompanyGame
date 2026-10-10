@@ -72,7 +72,7 @@ public static class FurnitureCollectionImporter
                     bounds = renderers[0].bounds; foreach (var renderer in renderers) bounds.Encapsulate(renderer.bounds);
                     var collider = root.AddComponent<BoxCollider>(); collider.center = bounds.center; collider.size = bounds.size;
                     var world = root.AddComponent<WorldObject>(); world.objectType = WorldObjectType.PlaceableFurniture;
-                    world.functions = functions; world.storageType = storage; world.placement = placement; world.furnitureItem = item;
+                    world.functions = functions; world.furnitureItem = item;
                     // Author classification only; no unrequested sleep, storage, cooking or placement gameplay.
                     item.furniturePrefab = PrefabUtility.SaveAsPrefabAsset(root, folder + "/" + row.key + ".prefab");
                     if (!item.furniturePrefab) throw new InvalidOperationException("Prefab save failed: " + row.key);
@@ -102,7 +102,7 @@ public static class FurnitureCollectionImporter
             var item = AssetDatabase.LoadAssetAtPath<ItemData>(AssetDatabase.GUIDToAssetPath(guid)); count++;
             if (item.itemType != ItemType.Furniture || !item.furniturePrefab) { failures.Add(item.name + ": missing prefab/classification"); continue; }
             var world = item.furniturePrefab.GetComponent<WorldObject>();
-            if (!world || world.furnitureItem != item || world.functions != item.furnitureFunctions || world.storageType != item.storageType || world.placement != item.furniturePlacement) failures.Add(item.name + ": inconsistent metadata");
+            if (!world || world.furnitureItem != item || world.functions != item.furnitureFunctions) failures.Add(item.name + ": inconsistent metadata");
             foreach (var filter in item.furniturePrefab.GetComponentsInChildren<MeshFilter>()) if (!filter.sharedMesh || filter.sharedMesh.vertexCount == 0) failures.Add(item.name + ": empty mesh");
             foreach (var renderer in item.furniturePrefab.GetComponentsInChildren<Renderer>()) if (renderer.sharedMaterials.Any(m => !m || m.shader.name != "Universal Render Pipeline/Lit")) failures.Add(item.name + ": invalid URP material");
         }

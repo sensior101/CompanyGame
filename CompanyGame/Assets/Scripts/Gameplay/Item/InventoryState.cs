@@ -14,16 +14,6 @@ public sealed class ItemStack
     public int StackLimit => IsUniqueBook ? 1 : IsEmpty ? 0 : Item.StackLimit;
     public bool CanMerge(ItemStack other) => other != null && !IsEmpty && !other.IsEmpty &&
         Item == other.Item && !IsUniqueBook && !other.IsUniqueBook;
-    public string Tooltip => IsUniqueBook && BookData.isPublished
-        ? DisplayName + "\n저자 : " + BookData.authorName : DisplayName;
-    public string DisplayName => !IsEmpty && Item.IsBook && !string.IsNullOrWhiteSpace(BookData?.title)
-        ? BookData.title : IsEmpty ? "" : Item.DisplayName;
-
-    public bool IsUniqueBook => !IsEmpty && Item.IsBook && BookData != null &&
-        (BookData.isPublished || BookData.HasContent || !string.IsNullOrEmpty(InstanceId));
-    public int StackLimit => IsUniqueBook ? 1 : IsEmpty ? 0 : Item.StackLimit;
-    public bool CanMerge(ItemStack other) => other != null && !IsEmpty && !other.IsEmpty &&
-        Item == other.Item && !IsUniqueBook && !other.IsUniqueBook;
     public string Tooltip => !IsEmpty && Item.IsBook && BookData != null
         ? BookData.Tooltip(Item.DisplayName) : DisplayName;
     public string TooltipDetails => !IsEmpty && Item.IsBook && BookData != null
