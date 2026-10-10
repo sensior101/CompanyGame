@@ -9,6 +9,18 @@ public class ReportManager : GameSystem<ReportManager>
     private ReportService service;
 
     public event Action<CrimeReport> ReportResolved;
+    public event Action<CrimeType, string, string> CrimeOccurred;
+
+    /// <summary>Observed crime notification. Reporting and penalties still use ReportService.</summary>
+    public void NotifyCrime(CrimeType type, string actorName, string targetName)
+    {
+        if (CrimeOccurred == null) return;
+        foreach (Action<CrimeType, string, string> listener in CrimeOccurred.GetInvocationList())
+        {
+            try { listener(type, actorName, targetName); }
+            catch (Exception exception) { Debug.LogException(exception); }
+        }
+    }
 
     public ReportService Service
     {

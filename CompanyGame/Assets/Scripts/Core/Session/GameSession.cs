@@ -13,6 +13,26 @@ public static class GameSession
     /// <summary>이 클라이언트 플레이어의 표시 이름. 소유권·시스템 메시지가 쓴다.</summary>
     public static string LocalPlayerName { get; set; } = "Player";
 
+    // Offline identity survives restarts and display-name changes. A future login
+    // provider supplies its account ID here before inventory/ownership is loaded.
+    static string localPlayerId;
+    public static string LocalPlayerId
+    {
+        get
+        {
+            if (!string.IsNullOrEmpty(localPlayerId)) return localPlayerId;
+            localPlayerId = UnityEngine.PlayerPrefs.GetString("Session.LocalPlayerId", "");
+            if (string.IsNullOrEmpty(localPlayerId))
+            {
+                localPlayerId = System.Guid.NewGuid().ToString("N");
+                UnityEngine.PlayerPrefs.SetString("Session.LocalPlayerId", localPlayerId);
+                UnityEngine.PlayerPrefs.Save();
+            }
+            return localPlayerId;
+        }
+        set => localPlayerId = value;
+    }
+
     /// <summary>True where economy, time and events are computed. Gate every simulation write on this.</summary>
     public static bool IsAuthority => Mode != SessionMode.Client;
 

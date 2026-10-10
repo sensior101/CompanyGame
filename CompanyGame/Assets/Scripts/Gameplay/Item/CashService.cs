@@ -27,6 +27,25 @@ public static partial class CashService
 
     static bool transactionInProgress;
 
+    static bool RequireAuthority(out string error)
+    {
+        error = GameSession.IsAuthority ? null : "거래는 호스트의 승인이 필요합니다.";
+        return GameSession.IsAuthority;
+    }
+
+    /// <summary>A committed physical-cash change, with its inventory owner and purpose.</summary>
+    public static event Action<InventoryState, long, MoneyChangeReason, string> TransactionCompleted;
+
+    internal static void NotifyTransaction(InventoryState inventory, long delta, MoneyChangeReason reason, string purpose)
+    {
+        if (delta == 0 || TransactionCompleted == null) return;
+        foreach (Action<InventoryState, long, MoneyChangeReason, string> listener in TransactionCompleted.GetInvocationList())
+        {
+            try { listener(inventory, delta, reason, purpose); }
+            catch (Exception exception) { Debug.LogException(exception); }
+        }
+    }
+
     public static long BankBalance =>
         BankManager.EnsureInstance()
             ? BankManager.Instance.BankBalance
@@ -44,6 +63,7 @@ public static partial class CashService
 
         definitions.Clear();
         transactionInProgress = false;
+        TransactionCompleted = null;
     }
 
     // 금액에 따라 화폐 디자인 결정

@@ -17,7 +17,10 @@ public enum MoneyChangeReason
     Withdrawal = 10,
     Deposit = 11,
     BankDeposit = 12,
-    BankWithdrawal = 13
+    BankWithdrawal = 13,
+    BookPublicationFee = 14,
+    BookRoyalty = 15,
+    LibraryLateFee = 16
 }
 
 [Serializable]
@@ -144,7 +147,7 @@ public class BankManager : MonoBehaviour
 
     public bool AddMoney(long amount, MoneyChangeReason reason)
     {
-        if (amount <= 0 || currentMoney > long.MaxValue - amount) return false;
+        if (!GameSession.IsAuthority || amount <= 0 || currentMoney > long.MaxValue - amount) return false;
         ApplyBalance(currentMoney + amount, amount, reason);
         return true;
     }
@@ -153,7 +156,7 @@ public class BankManager : MonoBehaviour
 
     public bool TrySpend(long amount, MoneyChangeReason reason)
     {
-        if (amount <= 0 || currentMoney < amount) return false;
+        if (!GameSession.IsAuthority || amount <= 0 || currentMoney < amount) return false;
         ApplyBalance(currentMoney - amount, -amount, reason);
         return true;
     }
@@ -170,7 +173,7 @@ public class BankManager : MonoBehaviour
     // Used by CashService to debit/credit and publish in one transaction.
     public bool TryDebitSilently(long amount)
     {
-        if (!CanAfford(amount)) return false;
+        if (!GameSession.IsAuthority || !CanAfford(amount)) return false;
         currentMoney -= amount;
         return true;
     }
@@ -179,7 +182,7 @@ public class BankManager : MonoBehaviour
 
     public bool TryCreditSilently(long amount)
     {
-        if (amount <= 0 || currentMoney > long.MaxValue - amount) return false;
+        if (!GameSession.IsAuthority || amount <= 0 || currentMoney > long.MaxValue - amount) return false;
         currentMoney += amount;
         return true;
     }

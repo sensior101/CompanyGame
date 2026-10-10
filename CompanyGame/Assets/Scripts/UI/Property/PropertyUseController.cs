@@ -67,7 +67,7 @@ public sealed class PropertyUseController : MonoBehaviour
         {
             string owner = registry.GetOwner(zone.propertyId);
             if (owner != null && owner != GameSession.LocalPlayerName)
-                Say(NoParse(GameSession.LocalPlayerName) + "님이 " + zone.displayName + "에 무단으로 침입하였습니다.");
+                ReportManager.Instance?.NotifyCrime(CrimeType.Trespass, GameSession.LocalPlayerName, zone.displayName);
         }
     }
 
@@ -147,9 +147,8 @@ public sealed class PropertyUseController : MonoBehaviour
 
     static void Say(string message)
     {
-        Debug.Log("[시스템] " + message);
         foreach (var chat in FindObjectsByType<ChatUIManager>())
-            if (chat) chat.ShowPopup("시스템", message);
+            if (chat) chat.ShowSystemMessage(message);
     }
 
     void ShowGauge(float amount)

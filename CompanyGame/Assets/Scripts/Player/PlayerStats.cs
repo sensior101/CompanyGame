@@ -87,6 +87,14 @@ public class PlayerStats : MonoBehaviour, IDamageable
         if (!isActiveAndEnabled || health <= 0f || amount <= 0f || float.IsNaN(amount) || float.IsInfinity(amount)) return false;
         float received = Mathf.Min(health, amount);
         health -= received;
+        var aggressor = attacker ? attacker.GetComponentInParent<PlayerStats>() : null;
+        if (aggressor && aggressor != this && ReportManager.Instance)
+        {
+            var local = PlayerSpawner.Player;
+            string actorName = local && aggressor.gameObject == local.gameObject ? GameSession.LocalPlayerName : aggressor.name;
+            string targetName = local && gameObject == local.gameObject ? GameSession.LocalPlayerName : name;
+            ReportManager.Instance.NotifyCrime(health <= 0f ? CrimeType.Murder : CrimeType.Assault, actorName, targetName);
+        }
         Damaged?.Invoke(received, attacker);
         return true;
     }

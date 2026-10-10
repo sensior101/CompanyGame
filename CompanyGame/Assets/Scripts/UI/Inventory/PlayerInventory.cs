@@ -224,28 +224,14 @@ public sealed class PlayerInventory : MonoBehaviour
     {
         ItemStack stack = Inventory.GetSlot(index);
         if (stack == null || stack.IsEmpty || !stack.Item.IsCurrency) return false;
-        ItemData currency = stack.Item;
 
         // Inventory input runs before transit input. Even a rejected deposit owns
         // this press so the same Space cannot also board public transport.
         spaceConsumedFrame = Time.frameCount;
         bool deposited = CashService.TryDeposit(Inventory, index, quantity, out string error);
         if (deposited && EventSystem.current) EventSystem.current.SetSelectedGameObject(null);
-        if (deposited)
-        {
-            long amount = checked(currency.CurrencyValue * (long)quantity);
-            ShowWalletDepositMessage(amount);
-        }
         SetStatus(error);
         return deposited;
-    }
-
-    static void ShowWalletDepositMessage(long amount)
-    {
-        string message = amount.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) + "원을 지갑에 도로 넣었다.";
-        Debug.Log("[시스템] " + message);
-        foreach (var chat in FindObjectsByType<ChatUIManager>())
-            if (chat) chat.ShowPopup("시스템", message);
     }
 
     bool HandleCurrencyDepositInput()
