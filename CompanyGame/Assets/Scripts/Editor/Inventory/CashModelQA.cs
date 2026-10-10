@@ -259,9 +259,9 @@ public static class CashModelQA
                 !CashService.TryPay(zeroInventory, merchant, 1, out _) && Count(zeroInventory, fake) == 98 &&
                 CashService.CarriedTotal(merchant) == 0 && bank.Money == 0,
                 "Fake coins cannot pay a positive NPC or player price");
-            Check(report, !CashService.TryPayNpc(zeroInventory, 0, out _) &&
-                !CashService.TryPay(zeroInventory, merchant, 0, out _) && merchant.GetSlot(0).IsEmpty && Count(zeroInventory, fake) == 98,
-                "Zero settlement cannot silently mint recipient currency; fake coins use explicit item transfer");
+            Check(report, CashService.TryPayNpc(zeroInventory, 0, out _) &&
+                CashService.TryPay(zeroInventory, merchant, 0, out _) && merchant.GetSlot(0).IsEmpty && Count(zeroInventory, fake) == 98,
+                "Free settlement succeeds without minting zero currency or consuming fake coins");
 
             zeroInventory.TryAdd(CashService.GetCurrency(1), 3, out _);
             Check(report, CashService.TryPayNpc(zeroInventory, 2, out _) && CashService.CarriedTotal(zeroInventory) == 1 &&

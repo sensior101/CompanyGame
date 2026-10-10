@@ -1,0 +1,42 @@
+{
+  "asset": "Office02_SlimGlass",
+  "reference_type": "A",
+  "stage": "First proportional exterior model / review",
+  "building_dimensions_xyz_m": [
+    72.0,
+    62.4,
+    148.0
+  ],
+  "height_relative_to_office01": 1.0,
+  "recipe_xy_scale_baked": 1.2,
+  "units": "metres",
+  "front": "Blender -Y",
+  "meshes": 13,
+  "triangles": 29388,
+  "materials": [
+    "Office02_SlimGlass_Glass",
+    "Office02_SlimGlass_GlassDark",
+    "Office02_SlimGlass_GlassWarm",
+    "Office02_SlimGlass_Green",
+    "Office02_SlimGlass_Metal",
+    "Office02_SlimGlass_MetalLight",
+    "Office02_SlimGlass_Roof",
+    "Office02_SlimGlass_StoneDark"
+  ],
+  "features": [
+    "Constant rectangular glass shaft above a compact two-storey lobby",
+    "Continuous silver vertical fins and restrained three-step crown",
+    "148 m maximum height and a compact ground plinth",
+    "Four modeled elevations, glazed main entry and rear service shutter"
+  ],
+  "source_helpers": [
+    "C:\\서현\\프로젝트\\companyGame\\ArtSource\\WorldDistricts\\HandaeHQ\\v02\\build_handae.py",
+    "C:\\서현\\프로젝트\\companyGame\\ArtSource\\WorldDistricts\\CompanyBuildings\\01_LimestoneTower\\build_office01.py"
+  ],
+  "scope": "Exterior modeling, initial materials and review renders. No Unity scene or gameplay changes.",
+  "pending": [
+    "Final texture and joint detailing",
+    "Company signage",
+    "Unity materials/colliders/LOD and runtime validation"
+  ]
+}

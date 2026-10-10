@@ -1,6 +1,6 @@
 using UnityEngine;
 
-/// <summary>Owns an empty, session-long inventory across single-scene map loads.</summary>
+/// <summary>Owns the session inventory across single-scene map loads.</summary>
 [DefaultExecutionOrder(-400)]
 public class InventoryManager : MonoBehaviour
 {
@@ -32,12 +32,36 @@ public class InventoryManager : MonoBehaviour
         {
             instance = null;
             InventoryManager host = Instance;
-            host.state = state;
+            host.GrantCityBicycles();
             Destroy(this);
             return;
         }
         DontDestroyOnLoad(gameObject);
+        GrantCityBicycles();
+        BookSaveService.RestoreInventory(state);
+        state.Changed += SaveBooks;
+        LibraryCatalog.ConnectLocal(state);
     }
 
-    protected virtual void OnDestroy() { if (instance == this) instance = null; }
+    // Temporary traversal kit requested for this development build. One of each colour per session.
+    public void GrantCityBicycles()
+    {
+        var items = Resources.LoadAll<ItemData>("Inventory/Vehicles/CityBicycle");
+        System.Array.Sort(items, (a,b) => string.CompareOrdinal(a.itemId,b.itemId));
+        foreach (var item in items)
+        {
+            bool owned = false;
+            for (int i = 0; i < State.Capacity; i++)
+                if (State.GetSlot(i).Item == item) { owned = true; break; }
+            if (!owned && !State.TryAdd(item,1,out string error)) Debug.LogWarning(error);
+        }
+    }
+
+    void SaveBooks() => BookSaveService.SaveInventory(state);
+    void OnApplicationQuit() { if (instance == this) SaveBooks(); }
+    protected virtual void OnDestroy()
+    {
+        if (state != null) state.Changed -= SaveBooks;
+        if (instance == this) instance = null;
+    }
 }

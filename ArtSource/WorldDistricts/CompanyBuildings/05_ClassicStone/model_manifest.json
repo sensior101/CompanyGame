@@ -1,0 +1,41 @@
+{
+  "asset": "Office05_ClassicStone",
+  "reference_type": "D",
+  "stage": "First proportional exterior model / review",
+  "building_dimensions_xyz_m": [
+    76.8,
+    64.8,
+    148.0
+  ],
+  "height_relative_to_office01": 1.0,
+  "recipe_xy_scale_baked": 1.2,
+  "units": "metres",
+  "front": "Blender -Y",
+  "meshes": 8,
+  "triangles": 23244,
+  "materials": [
+    "Office05_ClassicStone_Glass",
+    "Office05_ClassicStone_GlassDark",
+    "Office05_ClassicStone_GlassWarm",
+    "Office05_ClassicStone_Metal",
+    "Office05_ClassicStone_Roof",
+    "Office05_ClassicStone_Stone",
+    "Office05_ClassicStone_StoneDark"
+  ],
+  "features": [
+    "Regular cream stone piers and window lintels",
+    "Small set-back crown with restrained classical cornices",
+    "Tall stone colonnade, bronze glazing and paired entrance",
+    "Four complete elevations and rear service entrance"
+  ],
+  "source_helpers": [
+    "C:\\서현\\프로젝트\\companyGame\\ArtSource\\WorldDistricts\\HandaeHQ\\v02\\build_handae.py",
+    "C:\\서현\\프로젝트\\companyGame\\ArtSource\\WorldDistricts\\CompanyBuildings\\01_LimestoneTower\\build_office01.py"
+  ],
+  "scope": "Exterior modeling, initial materials and review renders. No Unity scene or gameplay changes.",
+  "pending": [
+    "Final texture and joint detailing",
+    "Company signage",
+    "Unity materials/colliders/LOD and runtime validation"
+  ]
+}

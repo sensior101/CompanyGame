@@ -18,6 +18,8 @@ public static partial class CashService
     {
         error = null;
 
+        if (!RequireAuthority(out error)) return false;
+
         if (transactionInProgress)
         {
             return Fail(
@@ -37,15 +39,25 @@ public static partial class CashService
                 out error);
         }
 
+        if (quantity <= 0 || quantity > stack.Count)
+            return Fail("거래할 화폐 수량을 확인해 주세요.", out error);
+
         transactionInProgress = true;
 
         try
         {
-            return source.TryTransferTo(
+            long amount = checked(stack.Item.CurrencyValue * (long)quantity);
+            bool transferred = source.TryTransferTo(
                 recipient,
                 sourceIndex,
                 quantity,
                 out error);
+            if (transferred)
+            {
+                NotifyTransaction(source, -amount, MoneyChangeReason.Spent, "현금 전달");
+                NotifyTransaction(recipient, amount, MoneyChangeReason.Earned, "현금 수령");
+            }
+            return transferred;
         }
         finally
         {
@@ -63,6 +75,7 @@ public static partial class CashService
         long amount,
         out string error)
     {
+        if (!RequireAuthority(out error)) return false;
         if (transactionInProgress)
         {
             return Fail(
@@ -85,6 +98,7 @@ public static partial class CashService
 
             inventory.ReplaceWith(draft);
             inventory.NotifyChanged();
+            NotifyTransaction(inventory, -amount, MoneyChangeReason.Purchase, "NPC 거래");
 
             return true;
         }
@@ -101,6 +115,8 @@ public static partial class CashService
         out string error)
     {
         error = null;
+
+        if (!RequireAuthority(out error)) return false;
 
         if (transactionInProgress)
         {
@@ -123,6 +139,7 @@ public static partial class CashService
 
         try
         {
+            if (amount == 0) return payer != null;
             if (!PlanPayment(
                     payer,
                     amount,
@@ -148,6 +165,8 @@ public static partial class CashService
 
             payer.NotifyChanged();
             recipient.NotifyChanged();
+            NotifyTransaction(payer, -amount, MoneyChangeReason.Purchase, "현금 거래 대금");
+            NotifyTransaction(recipient, amount, MoneyChangeReason.Sale, "현금 거래 대금");
 
             return true;
         }
@@ -167,14 +186,16 @@ public static partial class CashService
         draft = null;
         error = null;
 
-        // 0원 화폐는 아이템으로 전달하며, 금액 결제에는 사용할 수 없습니다.
+        // Free transactions require no zero-value currency item.
         if (inventory == null ||
-            amount <= 0)
+            amount < 0)
         {
             return Fail(
-                "결제 금액은 1원 이상이어야 합니다.",
+                "결제 금액은 0원 이상이어야 합니다.",
                 out error);
         }
+
+        if (amount == 0) { draft = inventory.Copy(); return true; }
 
         long available =
             CarriedTotal(inventory);

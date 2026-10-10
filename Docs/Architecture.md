@@ -39,7 +39,7 @@ Gameplay → NPC → UI
 - Economy가 신고 벌점으로 회사 등록을 막을 때: `CompanyManager.RegistrationAllowed` (ReportManager가 채움)
 - World가 플레이어 위치를 알 때: `SceneLoadManager.Traveller` (PlayerSpawner가 채움)
 
-비어 있는 클래스(`SaveManager`, `TaxManager`, NPC 매니저 등)는 자리 잡기용입니다.
+비어 있는 클래스(`TaxManager`, NPC 매니저 등)는 자리 잡기용입니다. `SaveManager.WriteJsonFile`은 기존 저장 소유자가 전달한 JSON을 원자적으로 파일 교체하는 공통 I/O입니다. 콘텐츠의 스키마·파일명·저장 시점은 각 기존 소유자가 유지합니다.
 
 ## 실행 중 구성
 
@@ -74,7 +74,7 @@ Gameplay → NPC → UI
 
 ## NPC 거래
 
-- 모든 NPC가 같은 거래 창(`UI/Interaction/TradeWindow`)을 씁니다. NPC 오브젝트에 `NpcTrader`를 붙이고 거래 목록을 넣으면, 근처에서 Space로 열립니다. 범위가 NPC를 따라가므로 움직이는 NPC도 됩니다.
+- 모든 NPC가 같은 거래 창(`UI/Trade/TradeWindow`)을 씁니다. NPC 오브젝트에 `NpcTrader`를 붙이고 거래 목록을 넣으면, 근처에서 Space로 열립니다. 범위가 NPC를 따라가므로 움직이는 NPC도 됩니다. `DialogueData`와 `openAfterDialogue`를 함께 설정하면 기존 `PlayerInteraction`이 인사 후 같은 창을 엽니다.
 - 거래 한 줄(`TradeOffer`)은 왼쪽 `give`(플레이어가 내는 것)와 오른쪽 `get`(받는 것)입니다. 각 칸은 아이템 에셋이나 화폐 금액(`cash`)과 개수입니다. 화폐도 아이템이라, 돈이 왼쪽이면 사는 거래, 오른쪽이면 파는 거래입니다.
 - 대화·퀘스트 등 코드에서는 `PlayerInteraction.Local.OpenTrade(목록)`으로 엽니다.
 - 편의점 판매 목록은 점원 `ConvenienceClerk`에 있습니다.
@@ -84,6 +84,60 @@ Gameplay → NPC → UI
 - 은행 계좌 = `BankManager.Money`. 주식·쇼핑 앱 결제는 `BankWallet`(`IWallet`)으로 계좌에서 나갑니다.
 - 지갑 현금 = 인벤토리의 지폐·동전 아이템. `CashService`가 합계·지불·거스름돈을 계산합니다.
 - 둘 사이는 출금(권종·장수 지정)과 입금으로만 오갑니다.
+
+## 공통 시스템 로그
+
+- 잔액은 기존 `BankManager.AddMoney/TrySpend`가 변경하고 `MoneyChanged`에 금액과 `MoneyChangeReason`을 전달합니다. 현금은 기존 `CashService`와 `InventoryState`가 처리하며, 성공한 현금 거래는 `CashService.TransactionCompleted`에 소유 인벤토리·증감 금액·사유를 전달합니다.
+- 공통 `TradeSession`은 드래그한 상품을 인벤토리에 놓아 거래가 확정될 때 현금 거래 이벤트를 보냅니다. 취소·실패·0원 거래는 수입/지출 성공 로그를 만들지 않습니다. 일부 수량만 놓아 전체 거래가 확정된 경우에도 한 번만 기록합니다.
+- 기존 `ChatUIManager`가 위 이벤트를 받아 **사유와 금액**을 표시합니다. 통장 잔액과 소지 현금을 구분하며, 해당 로컬 인벤토리의 거래만 표시합니다. 입출금도 이 경로를 사용하고 콘텐츠 UI에서 금액 로그를 중복 호출하지 않습니다. 별도 `TransactionLogManager`는 없습니다.
+- `ShowSystemMessage`가 채팅 기록과 팝업을 함께 출력합니다. 팝업이 사라져도 Enter로 여는 기록은 남습니다. 기존 공개 `ShowSystemMessage(string)`와 `ShowPopup(string,string)` 호출은 유지됩니다.
+- 범죄는 기존 `ReportManager.CrimeOccurred` 및 `ReportResolved` 이벤트로 전달합니다. `PropertyUseController`의 무단침입, `PlayerStats.TakeDamage`의 다른 플레이어에 의한 실제 피해(폭행/치명상), 신고 판정이 이 경로를 사용합니다. `ChatUIManager`는 `CrimeType`이 지정된 시스템 로그만 빨간색으로 표시하며, 뒤의 일반 로그에는 색이 이어지지 않습니다. 관찰 로그 자체는 신고나 벌점을 자동으로 만들지 않습니다.
+- 거래 중 `ControlLock`이 채팅 입력을 잠가도 로그 구독은 유지하고, 채팅 객체가 제거될 때 해제합니다. 씬마다 별도 로그 관리자를 만들지 않습니다.
+- 실제 금전 거래 API와 공통 거래 확정은 `GameSession.IsAuthority`를 검사합니다. `BankManager.SetMoney`는 초기화·수동 조정·상태 반영용으로 유지하며 거래 성공 로그를 만들지 않습니다. 클라이언트 요청/서버 응답 전송은 아직 구현되지 않았습니다.
+
+## 책·거래 책임 정리 (2026-10-10)
+
+### 파일 위치와 어셈블리
+
+| 위치 | 기존 파일과 책임 |
+| --- | --- |
+| `Gameplay/Item/Book` | `BookInstanceData`, `BookSaveService`, `LibraryCatalog`: 책 데이터·저장 내용·도서관 규칙 |
+| `Gameplay/Item/Book/UI` | `BookReader`, `LibraryDesk`: 책 읽기·편집 화면과 도서관 NPC 흐름 |
+| `Gameplay/Item` | `ItemInstance`, `ItemData`, `InventoryState`: 공통 아이템 데이터와 실제 슬롯 변경 |
+| `Gameplay/Item/World/UI` | `WorldDroppedItem`: 월드 드랍·설치·줍기와 현장 상호작용 |
+| `Gameplay/Trade` | `TradeSession`, `RentalTradeSession`: 모든 거래의 커서·확정·취소·대여 가능 여부 |
+| `UI/Trade` | `TradeWindow`, `TradePointer`: 공통 거래 화면·18개 페이지·마우스 입력 |
+| `UI/Inventory` | `InventoryUI`, `InventoryItemSelector`, `InventorySlotPointer` 등 인벤토리 표시·선택·입력 |
+
+이동한 8개 `.cs`는 `.meta` GUID와 클래스명·네임스페이스·어셈블리를 유지합니다. 책/월드 아이템의 `UI` 하위 폴더 두 곳에는 기존 `CompanyGame.UI`를 가리키는 `.asmref`가 있습니다. 콘텐츠 위치를 정리하면서 Player·NPC·UI 참조를 Gameplay 어셈블리로 끌어들여 순환 참조를 만드는 일을 막습니다. 새 런타임 C# 파일이나 관리자는 만들지 않았습니다.
+
+### 공통 흐름과 중복 제거
+
+- 책 표시: `BookInstanceData.Tooltip` → `ItemStack.Tooltip` / `TradeItem.Tooltip` → 인벤토리·선택창·구매·대여·회수 화면. 제목과 `저자 : 이름`을 함께 표시합니다. 빈 책은 기존 아이템명, 저자 정보가 없는 작성된 책은 `저자 : 미상`입니다. 대여 상태는 이 공통 문구 뒤에만 붙습니다.
+- 선택창은 기존 `InventorySlotPointer`의 읽기 전용 호버 모드를 사용합니다. 공통 인벤토리 툴팁은 내용에 맞춰 높이를 늘리고 선택창 위에 표시합니다. 우클릭·드래그로 선택 조건을 우회하지 않습니다.
+- 거래 확정/취소: `TradeSession`의 임시 상태 → `InventoryState.TryPlaceStack` → 성공한 모델 적용 → 기존 `CashService` 이벤트. 거래 코드가 슬롯 필드를 직접 쓰지 않습니다. 고유 식별자 중복·현금 합계 오버플로·슬롯 용량 검사도 인벤토리에서 처리합니다. 일부 스택 배치·취소·정확한 권종 규칙은 유지합니다.
+- 카페: `DialogueData` 인사 → `NpcTrader` 목록 → 기존 `PlayerInteraction.OpenTrade`. 말만 하는 직원은 `DialogueData`만 씁니다. `LibraryDesk`는 책 서비스에 사용합니다. 기존 씬/API 호환을 위해 옛 카페 필드는 유지하며, 옛 컴포넌트가 남은 씬도 `NpcTrader`로 연결합니다.
+- 저장: `BookSaveService`와 `LibraryCatalog`가 저장 내용을 만들고 기존 `SaveManager.WriteJsonFile`을 호출합니다. `books.json`, `library.json` 경로·스키마·오류 처리 정책은 유지합니다.
+- 수입/지출과 시스템 로그는 위의 `BankManager` / `CashService` → `ChatUIManager` 경로를 계속 사용합니다. 콘텐츠에 별도 잔액·로그 관리자를 추가하지 않습니다.
+
+### 전체 점검 범위와 한계
+
+이번 정리에서 수정한 기존 코드:
+
+- `BookInstanceData.cs`, `InventoryState.cs`, `TradeSession.cs`, `TradeWindow.cs`: 공통 책 툴팁, 모델을 통한 배치/취소, 드랍 후 호버 갱신.
+- `InventoryUI.Tooltip.cs`, `InventoryUI.Selection.cs`, `InventorySlotPointer.cs`: 두 줄 툴팁 크기·표시 순서와 선택창 호버 연결.
+- `NpcTrader.cs`, `PlayerInteraction.cs`, `LibraryDesk.cs`: 공통 인사 후 거래 연결 및 기존 직렬화 호환.
+- `SaveManager.cs`, `BookSaveService.cs`, `LibraryCatalog.cs`: 저장 파일 교체 I/O 재사용.
+- 코드 내용 변경 없이 이동한 파일: `BookReader.cs`, `ItemInstance.cs`, `RentalTradeSession.cs`, `TradePointer.cs`, `WorldDroppedItem.cs`. 위에서 수정한 `LibraryDesk.cs`, `TradeSession.cs`, `TradeWindow.cs`도 함께 이동했습니다.
+- `CivicLibraryInterior.unity`: 카페 직원 두 명의 컴포넌트를 기존 `NpcTrader`/`DialogueData`로 정리. `DefaultVolumeProfile.asset`: 누락된 샘플 하위 에셋만 정리.
+- 기존 제작/검증 파일 `ConfigureLibraryServices.cs`, `VerifyLibraryLedger.cs`, `VerifyLibraryInput.cs`, `VerifySharedTradeScenes.cs`와 관련 문서 갱신. 검증 결과·스크린샷은 무시되는 `QA/` 출력이며 런타임에 포함되지 않습니다.
+
+신규 소스 파일은 없습니다. 이동 폴더의 Unity 메타데이터와 기존 UI 어셈블리 연결용 `.asmref` 두 개만 추가되었습니다.
+
+- 프로젝트 C# 157개(런타임 141개, 기존 Editor 도구 16개)의 폴더 책임·호출부·직접 상태 변경·중복 공통 처리를 점검했습니다. 미구현 자리 잡기 클래스와 직렬화 호환 어댑터는 별도 대체 구현으로 판단하지 않았습니다.
+- 씬·프리팹·설정 에셋 1,845개의 스크립트 GUID와 157개 스크립트의 어셈블리 매핑을 검사합니다. 이동 GUID 8개를 이전 값과 대조합니다. 목록·해시는 `ArtSource/WorldDistricts/CivicLibraryV4/QA/ScriptArchitectureAudit.json`, 참조 검사는 `ScriptReferenceAudit.json`에 기록합니다.
+- `DefaultVolumeProfile.asset`에서 설치된 URP 템플릿의 누락된 샘플 참조도 확인했습니다. 미해결 GUID 4개와 빈 스크립트 참조 5개, 총 9개를 Unity의 `AssetDatabase.RemoveScriptableObjectsWithMissingScript`로 정리했습니다. 유효한 볼륨 컴포넌트 19개의 직렬화 값과 프로필 GUID는 전후 동일합니다(`QA/ProfileCleanup.json`).
+- 기존 `InventoryModelQA` 32개, `CashModelQA` 76개, 도서관 모델 64개, 입력 파이프라인을 통한 키보드·마우스 68개, 독립된 두 씬의 공통 거래 13개, 총 253개 검증이 통과했습니다. 입력 검증은 임시 Input System 장치를 사용하며 종료 시 원래 입력 장치와 플레이어 데이터를 복원합니다. 157개 파일의 모든 게임 동작을 실행 검증했다는 의미는 아닙니다. 실제 멀티플레이 전송·클라이언트 복제는 아직 구현되지 않았습니다.
 
 ## 멀티플레이 방향
 

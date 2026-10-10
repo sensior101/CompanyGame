@@ -35,6 +35,8 @@ public static class GameInput
     public static bool CancelPressed => Pressed(Key.Escape);
     public static bool SubmitPressed => Pressed(Key.Enter) || Pressed(Key.NumpadEnter);
     public static bool NextFieldPressed => Pressed(Key.Tab);
+    public static bool NavLeftPressed => Pressed(Key.LeftArrow);
+    public static bool NavRightPressed => Pressed(Key.RightArrow);
     public static bool NavUpPressed => Pressed(Key.UpArrow);
     public static bool NavDownPressed => Pressed(Key.DownArrow);
     public static bool AltHeld => Held(Key.LeftAlt) || Held(Key.RightAlt);
@@ -57,6 +59,7 @@ public static class GameInput
 
     // Mouse
     public static bool AttackPressed => Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame;
+    public static bool DismantleVehiclePressed => Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame;
     public static bool OrbitHeld => Mouse.current != null && Mouse.current.rightButton.isPressed;
     public static Vector2 PointerPosition => Mouse.current != null ? Mouse.current.position.ReadValue() : Vector2.zero;
     public static Vector2 PointerDelta => Mouse.current != null ? Mouse.current.delta.ReadValue() : Vector2.zero;

@@ -2,7 +2,7 @@ using UnityEngine;
 
 // Keep serialized values stable. Accessory is retained only for old item assets.
 public enum ItemCategory { General = 0, Top = 1, Bottom = 2, Socks = 3, Shoes = 4, Accessory = 5, Pet = 6, Bag = 7, Currency = 8, Weapon = 9,
-    Food = 10, Material = 11, Furniture = 12, Vehicle = 13, Fish = 14, Document = 15 }
+    Food = 10, Material = 11, Furniture = 12, Vehicle = 13, Fish = 14, Document = 15, Book = 16 }
 public enum EquipmentSlot { Top = 0, Bottom = 1, Socks = 2, Shoes = 3, Accessory = 4, Pet = 5 }
 public enum WeaponKind { Melee = 0, Firearm = 1 }
 
@@ -30,6 +30,11 @@ public class ItemData : ScriptableObject
     public Vector3 heldLocalEulerAngles = Vector3.zero;
     public Vector3 heldLocalScale = Vector3.one;
 
+    [Header("Portable vehicle")]
+    public GameObject vehiclePrefab;
+    [Min(1f)] public float vehicleSpeed = 8f;
+    public bool IsVehicle => category == ItemCategory.Vehicle;
+
     [Header("Weapon")]
     public WeaponKind weaponKind;
     [Min(0.1f)] public float weaponDamage = 25f;
@@ -41,7 +46,8 @@ public class ItemData : ScriptableObject
     public string propertyName;
 
     public string DisplayName => string.IsNullOrWhiteSpace(displayName) ? name : displayName;
-    public int StackLimit => IsStackable ? Mathf.Max(1, maxStack) : 1;
+    public bool IsBook => category == ItemCategory.Book;
+    public int StackLimit => IsBook ? 99 : IsStackable ? Mathf.Max(1, maxStack) : 1;
     bool IsStackable => IsCurrency || category == ItemCategory.General || category == ItemCategory.Food ||
         category == ItemCategory.Material || category == ItemCategory.Fish;
     public bool IsCurrency => category == ItemCategory.Currency && currencyValue >= 0;

@@ -9,7 +9,7 @@
 - `Exports/RetailPOS.fbx`: 모델과 서랍 애니메이션. 카메라·조명·렌더 바닥 제외.
 - `Exports/Textures/POS_BlackScreen.png`: 기본 검정 화면 이미지.
 - `Exports/RetailPOS.json`: 재질 값, 화면 오브젝트, 서랍 이동 거리와 클립 구간.
-- `Preview/`: 실제 Blender 렌더. 로컬 미리보기이며 Git에서 제외.
+- `Preview/`: 제작 명령으로 다시 생성하는 Blender 렌더 경로. 로컬 미리보기이며 Git에서 제외.
 
 실측 단위는 미터입니다. 현금 서랍 본체는 폭 42cm, 깊이 34cm이며,
 좌우 스캐너·카드 단말기를 포함한 전체 폭은 약 67cm입니다.

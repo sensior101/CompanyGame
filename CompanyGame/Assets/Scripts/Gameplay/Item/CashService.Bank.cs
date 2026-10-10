@@ -33,6 +33,8 @@ public static partial class CashService
     {
         error = null;
 
+        if (!RequireAuthority(out error)) return false;
+
         if (transactionInProgress)
         {
             return Fail(
@@ -160,6 +162,8 @@ public static partial class CashService
         out string error)
     {
         error = null;
+
+        if (!RequireAuthority(out error)) return false;
 
         if (transactionInProgress)
         {

@@ -13,6 +13,8 @@ public sealed class SeatInteraction : MonoBehaviour
     void Update()
     {
         HasNearbySeat = false;
+        var vehicle = GetComponent<PlayerVehicle>();
+        if (vehicle && vehicle.IsRiding) { Hide(); return; }
         if (seating.IsSeated)
         {
             Show("일어나기  (스페이스바 / WASD)");
@@ -25,10 +27,13 @@ public sealed class SeatInteraction : MonoBehaviour
             }
             return;
         }
-        if (SceneLoadManager.IsLoading ||
+        if (SceneLoadManager.IsLoading || DialogueManager.HasNearbyNpc || DialogueManager.OwnsInput || BookReader.BlocksInventoryInput ||
             PlayerInventory.IsAnyOpen || ChatUIManager.IsChatting || UIEventSystem.IsEditingText() ||
             (PhoneManager.Instance && PhoneManager.Instance.IsPhoneOpen) ||
             (PlayerInteraction.Local && PlayerInteraction.Local.IsInteractionMenuOpen)) { Hide(); return; }
+        var inventory = InventoryManager.Instance ? InventoryManager.Instance.State : null;
+        var held = inventory?.GetSlot(inventory.SelectedHotbarIndex);
+        if (held != null && !held.IsEmpty && held.Item.IsVehicle) { Hide(); return; }
         var seat = Seat.FindNearest(transform);
         HasNearbySeat = seat;
         if (!seat) { Hide(); return; }

@@ -1,0 +1,124 @@
+{
+  "asset": "CivicCityHall",
+  "stage": "First proportional exterior model / review",
+  "building_dimensions_xyz_m": [
+    42.0,
+    34.0,
+    15.8
+  ],
+  "site_dimensions_m": [
+    42,
+    34
+  ],
+  "nominal_main_building_m": [
+    34,
+    20,
+    15.8
+  ],
+  "library_reference_site_m": [
+    38,
+    29
+  ],
+  "site_area_increase_percent": 29.58,
+  "storeys": 3,
+  "units": "metres",
+  "front": "Blender -Y",
+  "site_details": {
+    "site_dimensions_xy_m": [
+      42,
+      34
+    ],
+    "paving_top_m": 0.14,
+    "entry_floor_m": 0.92,
+    "stair_count": 6,
+    "stair_riser_m": 0.13,
+    "stair_tread_m": 0.36,
+    "front_stair_extent_y_m": [
+      -10.71,
+      -8.55
+    ],
+    "main_landing_extent_y_m": [
+      -8.55,
+      -5.8
+    ],
+    "ramp_portal_turn_depth_m": 1.43,
+    "ramp_run_m": 9.8,
+    "ramp_rise_per_run_m": 0.39,
+    "ramp_gradient": 0.03979591836734694,
+    "ramp_run_width_m": 1.4,
+    "ramp_between_handrails_m": 1.352,
+    "rear_service_door_width_m": 1.7,
+    "rear_service_landing_width_m": 2.2,
+    "rear_stair_riser_count": 6,
+    "rear_stair_raised_tread_count": 5,
+    "rear_stair_tread_m": 0.28,
+    "rear_stair_ground_approach_y_m": [
+      16.42,
+      16.7
+    ],
+    "rear_stair_planting_clearance_each_side_m": 0.45,
+    "planting_scope": "Six low perimeter beds; fifteen sparse shrubs"
+  },
+  "signage_details": {
+    "features": [
+      "Front portal city hall title and citizen motto",
+      "Front-left stone monument sign with repeated civic leaf symbol",
+      "Two flagpoles with native mesh Korean and civic flags"
+    ],
+    "pole_positions_xy_m": [
+      [
+        -14.8,
+        -8.4
+      ],
+      [
+        -11.8,
+        -8.4
+      ]
+    ],
+    "flag_size_m": [
+      2.1,
+      1.4
+    ],
+    "flag_graphics": "Colored geometry on both sides; no raster image dependency"
+  },
+  "meshes": 30,
+  "triangles": 31198,
+  "materials": [
+    "CityHall_Bark",
+    "CityHall_BenchOak",
+    "CityHall_BlueGlass",
+    "CityHall_CivicBlue",
+    "CityHall_CivicGreen",
+    "CityHall_DarkMetal",
+    "CityHall_Downlight",
+    "CityHall_EntryConcrete",
+    "CityHall_FlagBlue",
+    "CityHall_FlagRed",
+    "CityHall_FlagWhite",
+    "CityHall_FoliageDark",
+    "CityHall_FoliageLight",
+    "CityHall_LobbyGlass",
+    "CityHall_PlazaPaving",
+    "CityHall_RailMetal",
+    "CityHall_Roof",
+    "CityHall_ShadowGlass",
+    "CityHall_SignInk",
+    "CityHall_Soil",
+    "CityHall_StoneEdges",
+    "CityHall_WarmGranite"
+  ],
+  "features": [
+    "Deep central stone portico and round columns",
+    "Three-storey glazed public facade",
+    "Thin entrance canopy",
+    "Central steps and connected return ramp",
+    "Open forecourt, two civic flags and stone city hall sign",
+    "Complete side and rear elevations"
+  ],
+  "scope": "Exterior design model only. No Unity scene or gameplay changes.",
+  "pending": [
+    "Final material detailing",
+    "Unity integration, collision, LOD and lightmaps",
+    "Playable interior"
+  ]
+}

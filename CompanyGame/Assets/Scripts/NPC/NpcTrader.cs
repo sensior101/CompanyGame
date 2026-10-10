@@ -13,6 +13,8 @@ public sealed class NpcTrader : MonoBehaviour
     [Min(.1f)] public float radius = 2f;
     [Min(.1f)] public float heightTolerance = 1f;
     public TradeOffer[] offers = System.Array.Empty<TradeOffer>();
+    [Tooltip("Open the common trade window after this NPC's greeting dialogue.")]
+    public bool openAfterDialogue;
 
     static readonly HashSet<NpcTrader> active = new HashSet<NpcTrader>();
 

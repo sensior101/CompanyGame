@@ -22,6 +22,7 @@ public sealed class PropertyUseController : MonoBehaviour
     State state;
     float held;
     ItemData heldDeed;
+    string heldOwnershipKey;
     bool startingDeedDone;
     float nextGrantTime;
     readonly List<PropertyZone> left = new List<PropertyZone>();
@@ -67,7 +68,7 @@ public sealed class PropertyUseController : MonoBehaviour
         {
             string owner = registry.GetOwner(zone.propertyId);
             if (owner != null && owner != GameSession.LocalPlayerName)
-                Say(NoParse(GameSession.LocalPlayerName) + "님이 " + zone.displayName + "에 무단으로 침입하였습니다.");
+                ReportManager.Instance?.NotifyCrime(CrimeType.Trespass, GameSession.LocalPlayerName, zone.displayName);
         }
     }
 
@@ -99,37 +100,42 @@ public sealed class PropertyUseController : MonoBehaviour
     {
         var inventory = InventoryManager.Instance ? InventoryManager.Instance.State : null;
         var stack = inventory?.GetSlot(inventory.SelectedHotbarIndex);
-        var deed = stack != null && !stack.IsEmpty && stack.Item.IsDeed ? stack.Item : null;
+        var deed = stack != null && !stack.IsEmpty && (stack.Item.IsDeed || stack.Item.IsVehicle) ? stack.Item : null;
+        string key = deed ? (deed.IsVehicle ? stack.OwnershipKey : deed.propertyId) : null;
         var interaction = PlayerInteraction.Local;
-        bool gate = deed && interaction && !PlayerInventory.IsAnyOpen && !ChatUIManager.IsChatting &&
-            !UIEventSystem.IsEditingText() && !interaction.IsInteractionMenuOpen && !interaction.HasNearbyAction &&
-            !(PhoneManager.Instance && PhoneManager.Instance.IsPhoneOpen) && !TransitStop.FindNearest(transform);
+        bool gate = !DialogueManager.OwnsInput && !BookReader.BlocksInventoryInput && deed && !string.IsNullOrEmpty(key) && interaction && !(GetComponent<PlayerVehicle>()?.IsRiding ?? false) &&
+            !PlayerInventory.IsAnyOpen && !ChatUIManager.IsChatting &&
+            !UIEventSystem.IsEditingText() && !interaction.IsInteractionMenuOpen &&
+            !(GetComponent<PlayerSeating>()?.IsSeated ?? false) &&
+            !(PhoneManager.Instance && PhoneManager.Instance.IsPhoneOpen) &&
+            (deed.IsVehicle || (!interaction.HasNearbyAction && !TransitStop.FindNearest(transform)));
         if (state == State.WaitRelease) { if (!GameInput.InteractHeld) state = State.Idle; return; }
-        if (!gate || (state == State.Holding && (deed != heldDeed || !GameInput.InteractHeld ||
-            registry.GetOwner(deed.propertyId) != GameSession.LocalPlayerName))) { Cancel(); return; }
-        if (state == State.Idle) { if (GameInput.InteractPressed) Press(registry, deed); }
-        else Hold(registry, deed);
+        if (!gate || (state == State.Holding && (deed != heldDeed || key != heldOwnershipKey || !GameInput.InteractHeld ||
+            registry.GetOwner(key) != GameSession.LocalPlayerName))) { Cancel(); return; }
+        if (state == State.Idle) { if (GameInput.InteractPressed) Press(registry, deed, key); }
+        else Hold(registry, deed, key);
     }
 
-    void Press(PropertyRegistry registry, ItemData deed)
+    void Press(PropertyRegistry registry, ItemData deed, string key)
     {
-        string owner = registry.GetOwner(deed.propertyId);
+        string owner = registry.GetOwner(key);
+        string label = deed.IsVehicle ? deed.DisplayName : deed.propertyName;
         string me = GameSession.LocalPlayerName;
         PlayerInventory.ConsumeSpaceThisFrame();
-        if (owner == me) { state = State.Holding; heldDeed = deed; held = 0f; return; }
+        if (owner == me) { state = State.Holding; heldDeed = deed; heldOwnershipKey = key; held = 0f; return; }
         state = State.WaitRelease;
-        if (owner != null) Say(deed.propertyName + "은(는) 이미 다른 플레이어(" + NoParse(owner) + ")가 소유하고 있습니다.");
-        else if (registry.TryRegister(deed.propertyId, me)) Say(deed.propertyName + "의 소유권을 등록했습니다.");
+        if (owner != null) Say(label + "은(는) 이미 다른 플레이어(" + NoParse(owner) + ")가 소유하고 있습니다.");
+        else if (registry.TryRegister(key, me)) Say(label + "의 소유권을 등록했습니다.");
     }
 
-    void Hold(PropertyRegistry registry, ItemData deed)
+    void Hold(PropertyRegistry registry, ItemData deed, string key)
     {
         PlayerInventory.ConsumeSpaceThisFrame();
         held += Time.unscaledDeltaTime;
         if (held >= HoldSeconds)
         {
-            registry.TryAbandon(deed.propertyId, GameSession.LocalPlayerName);
-            Say(deed.propertyName + "의 소유권을 포기했습니다.");
+            if (registry.TryAbandon(key, GameSession.LocalPlayerName))
+                Say((deed.IsVehicle ? deed.DisplayName : deed.propertyName) + "의 소유권을 포기했습니다.");
             state = State.WaitRelease;
             HideGauge();
         }
@@ -147,9 +153,8 @@ public sealed class PropertyUseController : MonoBehaviour
 
     static void Say(string message)
     {
-        Debug.Log("[시스템] " + message);
         foreach (var chat in FindObjectsByType<ChatUIManager>())
-            if (chat) chat.ShowPopup("시스템", message);
+            if (chat) chat.ShowSystemMessage(message);
     }
 
     void ShowGauge(float amount)

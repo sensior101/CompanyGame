@@ -25,9 +25,12 @@ public sealed partial class InventoryUI
         tooltipPanel = Panel("ItemTooltip", transform, new Vector2(218f, 44f),
             new Color(.16f, .12f, .10f, .96f), 16f, 7f);
         tooltipPanel.GetComponent<InventoryRoundedGraphic>().raycastTarget = false;
+        var canvas = tooltipPanel.gameObject.AddComponent<Canvas>();
+        canvas.overrideSorting = true; canvas.sortingOrder = 200;
         tooltipText = Label("Text", tooltipPanel, "", 15f, Color.white, new Vector2(202f, 35f));
         tooltipText.alignment = TextAlignmentOptions.Midline;
-        tooltipText.overflowMode = TextOverflowModes.Ellipsis;
+        tooltipText.richText = false;
+        tooltipText.overflowMode = TextOverflowModes.Overflow;
         tooltipPanel.gameObject.SetActive(false);
     }
 
@@ -46,7 +49,11 @@ public sealed partial class InventoryUI
             HideItemTooltip();
             return;
         }
-        tooltipText.text = stack.Item.DisplayName;
+        tooltipText.text = stack.Tooltip + (stack.Item.IsVehicle ? " · 좌클릭 설치" : "");
+        float width = Mathf.Clamp(tooltipText.GetPreferredValues(tooltipText.text).x + 24f, 120f, 360f);
+        float height = Mathf.Max(44f, tooltipText.GetPreferredValues(tooltipText.text, width - 24f, 0f).y + 20f);
+        tooltipPanel.sizeDelta = new Vector2(width, height);
+        tooltipText.rectTransform.sizeDelta = new Vector2(width - 24f, height - 16f);
         tooltipPanel.gameObject.SetActive(true);
         tooltipPanel.SetAsLastSibling();
         MoveItemTooltip(screenPosition);
