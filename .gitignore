@@ -69,3 +69,13 @@ ArtSource/**/*delivery.json
 ArtSource/**/before.json
 ArtSource/**/play-tour.json
 ArtSource/**/*.log
+
+# Regenerable architecture review images, reports and Blender GPU cache.
+/optix7cache.db*
+ArtSource/**/BlockoutRenders/
+ArtSource/**/Validation/*.json
+ArtSource/**/build_result.json
+ArtSource/**/comparison_result.json
+/ArtSource/WorldDistricts/CompanyBuildings/OfficeSet_ABCD/Comparison.blend
+/ArtSource/WorldDistricts/CompanyBuildings/OfficeSet_ABCD/Comparison_ABCD.png
+/ArtSource/Items/Vehicles/CityBicycle/Preview.png
