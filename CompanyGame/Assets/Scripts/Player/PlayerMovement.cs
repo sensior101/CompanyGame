@@ -44,6 +44,14 @@ public class PlayerMovement : MonoBehaviour
 
     protected virtual void Update()
     {
+        // Keep the player stationary through choices, handoffs, replies and the
+        // return blend without disabling the component needed by trade entry.
+        if (viewCamera && viewCamera.TryGetComponent<PlayerCameraController>(out var cameraController) &&
+            cameraController.IsDialogueCameraActive)
+        {
+            verticalSpeed = 0f;
+            return;
+        }
         if (!vehicle) vehicle = GetComponent<PlayerVehicle>();
         Vector2 input = Vector2.zero;
 

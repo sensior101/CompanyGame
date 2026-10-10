@@ -13,6 +13,8 @@ public sealed class DialogueManager : GameSystem<DialogueManager>
     public string CurrentLine { get; private set; }
     public bool HasChoices => visibleOptions.Count > 0;
     bool waitingForResponse;
+    public bool WaitingForResponse => waitingForResponse;
+    public bool IsNotice { get; private set; }
     public IReadOnlyList<DialogueOption> VisibleOptions => visibleOptions;
     public static bool IsDialogueOpen => Instance && Instance.Current;
     public static bool HasNearbyNpc => Instance && Instance.Nearby;
@@ -22,6 +24,7 @@ public sealed class DialogueManager : GameSystem<DialogueManager>
     public Func<bool> HasActiveConstruction = () => false;
     public Func<int> OwnedBuildingCount = () => 0;
     public event Action Changed;
+    public event Action Closed;
     public event Action<DialogueData, string> OptionSelected;
     readonly List<DialogueOption> visibleOptions = new List<DialogueOption>();
     public event Action<DialogueData> Began;
@@ -51,11 +54,14 @@ public sealed class DialogueManager : GameSystem<DialogueManager>
     void Update()
     {
         var player = SceneLoadManager.Traveller;
+        // The selected option can temporarily have no presentation while its
+        // interaction remains open. Escape must still end that interaction.
+        if (GameInput.CancelPressed) { Close(); return; }
         if (!ReferenceEquals(Current, null))
         {
             if (!Current || SceneLoadManager.IsLoading || !Current.InRange(player ? player.transform : null, .6f) ||
-                GameInput.CancelPressed || (!HasChoices && !waitingForResponse && Time.unscaledTime >= dismissAt)) Close();
-            else return;
+                (!HasChoices && !waitingForResponse && Time.unscaledTime >= dismissAt)) Close();
+            else if (!IsNotice) return;
         }
         if (SceneLoadManager.IsLoading || !player || !CanStart() || consumedFrame == Time.frameCount)
         { Nearby = null; return; }
@@ -66,17 +72,26 @@ public sealed class DialogueManager : GameSystem<DialogueManager>
     public bool Begin(DialogueData npc)
     {
         var player = SceneLoadManager.Traveller;
-        if (Current || SceneLoadManager.IsLoading || !player || !CanStart() || !npc || !npc.InRange(player.transform)) return false;
+        if ((Current && !IsNotice) || SceneLoadManager.IsLoading || !player || !CanStart() || !npc || !npc.InRange(player.transform)) return false;
         Present(npc,npc.line,npc.options);
         Began?.Invoke(npc);
         return true;
     }
 
     public bool Present(DialogueData npc, string text, DialogueOption[] options = null, bool waitForResponse = false)
+        => PresentCore(npc, text, options, waitForResponse, false);
+
+    // Final replies remain readable independently of camera/control ownership.
+    // The player may move or start another conversation before this bubble expires.
+    public bool PresentNotice(DialogueData npc, string text)
+        => PresentCore(npc, text, null, false, true);
+
+    bool PresentCore(DialogueData npc, string text, DialogueOption[] options, bool waitForResponse, bool isNotice)
     {
         var player=SceneLoadManager.Traveller;
         if (!npc || !player || SceneLoadManager.IsLoading || !npc.InRange(player.transform,.6f)) return false;
         Current=npc;CurrentLine=text;waitingForResponse=waitForResponse;Nearby=null;consumedFrame=Time.frameCount;
+        IsNotice=isNotice;
         visibleOptions.Clear();
         foreach(var option in options ?? Array.Empty<DialogueOption>())
             if(option!=null && IsAvailable(option))visibleOptions.Add(option);
@@ -90,7 +105,7 @@ public sealed class DialogueManager : GameSystem<DialogueManager>
         var option = visibleOptions.Find(candidate => candidate.id == optionId);
         if (option == null || !IsAvailable(option)) return false;
         var npc = Current;
-        Close();
+        ClearPresentation();
         npc.onSelected?.Invoke(option.id);
         OptionSelected?.Invoke(npc, option.id);
         return true;
@@ -98,8 +113,16 @@ public sealed class DialogueManager : GameSystem<DialogueManager>
 
     public void Close()
     {
+        ClearPresentation();
+        Closed?.Invoke();
+    }
+
+    // Advancing an option hides its old presentation without ending the interaction.
+    void ClearPresentation()
+    {
         bool hadConversation = !ReferenceEquals(Current, null);
         Current = null; CurrentLine=null; waitingForResponse=false; Nearby = null;
+        IsNotice = false;
         visibleOptions.Clear();
         consumedFrame = Time.frameCount;
         if (hadConversation) Changed?.Invoke();

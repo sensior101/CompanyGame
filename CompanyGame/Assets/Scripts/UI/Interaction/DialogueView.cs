@@ -3,6 +3,7 @@ using TMPro;
 using UnityEngine;
 
 /// <summary>Shared dialogue Canvas. The bubble tracks the speaking NPC's head on screen.</summary>
+[DefaultExecutionOrder(50)]
 public sealed class DialogueView : MonoBehaviour
 {
     DialogueManager manager;
@@ -15,9 +16,15 @@ public sealed class DialogueView : MonoBehaviour
     PlayerMovement lockedPlayer;
     int selected, openedFrame;
     bool keyboardArmed;
+    PlayerCameraController dialogueCamera;
+    Transform cameraSpeaker;
+    DialogueData cameraDialogue;
+    NpcTrader cameraTrader;
+    bool dialogueClosed, interactionWindowWasOpen;
 
     void Update()
     {
+        UpdateDialogueCamera();
         if (!manager || !manager.Current || manager.VisibleOptions.Count == 0) return;
         // The Space press that starts a conversation must never choose its first option.
         if (Time.frameCount > openedFrame && !GameInput.InteractHeld) keyboardArmed = true;
@@ -43,12 +50,13 @@ public sealed class DialogueView : MonoBehaviour
         manager = GetComponent<DialogueManager>();
         manager.CanStart = CanStart;
         manager.Changed += Refresh;
+        manager.Closed += ConversationClosed;
     }
 
     bool CanStart()
     {
         var interaction = PlayerInteraction.Local;
-        return interaction && interaction.isActiveAndEnabled && !interaction.IsInteractionMenuOpen &&
+        return isActiveAndEnabled && !cameraSpeaker && interaction && interaction.isActiveAndEnabled && !interaction.IsInteractionMenuOpen &&
             !BookReader.BlocksInventoryInput && !(interaction.GetComponent<PlayerVehicle>()?.IsRiding ?? false) && !PlayerInventory.IsAnyOpen && !PlayerInventory.SpaceConsumedThisFrame && !ChatUIManager.IsChatting &&
             !UIEventSystem.IsEditingText() && !(PhoneManager.Instance && PhoneManager.Instance.IsPhoneOpen) &&
             SceneLoadManager.Traveller && SceneLoadManager.Traveller.isActiveAndEnabled;
@@ -59,7 +67,7 @@ public sealed class DialogueView : MonoBehaviour
         if (!manager) return;
         if (!canvas && (manager.Nearby || manager.Current)) Build();
         if (!canvas) return;
-        prompt.gameObject.SetActive(manager.Nearby && !manager.Current && CanStart());
+        prompt.gameObject.SetActive(manager.Nearby && (!manager.Current || manager.IsNotice) && CanStart());
         if (!manager.Current) return;
         // Other overlays take focus cleanly if opened by an external system.
         if (PlayerInventory.IsAnyOpen || (PhoneManager.Instance && PhoneManager.Instance.IsPhoneOpen) || ChatUIManager.IsChatting)
@@ -78,6 +86,8 @@ public sealed class DialogueView : MonoBehaviour
 
     void Refresh()
     {
+        if (!isActiveAndEnabled) return;
+        UpdateDialogueCamera();
         PlayerInventory.ConsumeSpaceThisFrame();
         if (lockedPlayer)
         {
@@ -128,6 +138,69 @@ public sealed class DialogueView : MonoBehaviour
         bubble.gameObject.SetActive(true);
         UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(content);
         UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(choiceContent);
+    }
+
+    // Presentation lives in the UI layer; the camera only receives a subject and a focus point.
+    void UpdateDialogueCamera()
+    {
+        var interaction = PlayerInteraction.Local;
+        var player = SceneLoadManager.Traveller as PlayerMovement;
+        if (!manager || !interaction || !interaction.isActiveAndEnabled || !player || SceneLoadManager.IsLoading)
+        { ReleaseDialogueCamera(SceneLoadManager.IsLoading); return; }
+        if (PlayerInventory.IsAnyOpen || BookReader.BlocksInventoryInput || ChatUIManager.IsChatting ||
+            (PhoneManager.Instance && PhoneManager.Instance.IsPhoneOpen))
+        { ReleaseDialogueCamera(); return; }
+
+        var current = manager.Current;
+        bool windowOpen = interaction.IsTradeOpen || InventoryItemSelector.IsOpen;
+        // A final reply's reading timer must not keep the player in the shot.
+        // An actual trade/selection window still retains its own interaction.
+        if (current && manager.IsNotice && !windowOpen)
+        { ReleaseDialogueCamera(); return; }
+        var trader = current ? current.GetComponent<NpcTrader>() : null;
+        if (current && !manager.IsNotice && (current.HasChoices || manager.HasChoices || manager.WaitingForResponse ||
+                        (trader && trader.isActiveAndEnabled)))
+            FocusSpeaker(player, current.transform, current, trader);
+        else if (interaction.IsTradeOpen && interaction.TradeSpeaker)
+        {
+            trader = interaction.TradeSpeaker;
+            FocusSpeaker(player, trader.transform, trader.GetComponent<DialogueData>(), trader);
+        }
+        else if (current && current.transform != cameraSpeaker)
+        { ReleaseDialogueCamera(); return; }
+
+        if (!cameraSpeaker || !cameraSpeaker.gameObject.activeInHierarchy ||
+            cameraSpeaker.gameObject.scene != SceneLoadManager.CurrentMap ||
+            (cameraDialogue && !cameraDialogue.InRange(player.transform, .6f)) ||
+            (!cameraDialogue && cameraTrader && !cameraTrader.IsInRange(player.transform)))
+        { ReleaseDialogueCamera(); return; }
+
+        bool windowClosed = interactionWindowWasOpen && !windowOpen;
+        interactionWindowWasOpen = windowOpen;
+        if (current && current.transform == cameraSpeaker) dialogueClosed = false;
+        // A choice may open its next UI asynchronously. Only an actual close (or a
+        // previously opened interaction window closing) can release this session.
+        if (!current && !windowOpen && (dialogueClosed || windowClosed)) ReleaseDialogueCamera();
+    }
+
+    void ConversationClosed() => dialogueClosed = true;
+
+    void FocusSpeaker(PlayerMovement player, Transform speaker, DialogueData dialogue, NpcTrader trader)
+    {
+        var camera = player.viewCamera ? player.viewCamera.GetComponent<PlayerCameraController>() : null;
+        if (!camera || !camera.isActiveAndEnabled) return;
+        if (dialogueCamera && dialogueCamera != camera) dialogueCamera.EndDialogueCamera();
+        if (cameraSpeaker != speaker) { dialogueClosed = false; interactionWindowWasOpen = false; }
+        dialogueCamera = camera;
+        cameraSpeaker = speaker; cameraDialogue = dialogue; cameraTrader = trader;
+        camera.BeginDialogueCamera(speaker, dialogue ? dialogue.head : null, speaker.position + Vector3.up * 1.6f);
+    }
+
+    void ReleaseDialogueCamera(bool immediately = false)
+    {
+        if (dialogueCamera) dialogueCamera.EndDialogueCamera(immediately);
+        dialogueCamera = null; cameraSpeaker = null; cameraDialogue = null; cameraTrader = null;
+        dialogueClosed = false; interactionWindowWasOpen = false;
     }
 
     void Build()
@@ -223,9 +296,15 @@ public sealed class DialogueView : MonoBehaviour
         return text;
     }
 
+    void OnDisable()
+    {
+        ReleaseDialogueCamera(true);
+        if (lockedPlayer) controls.Release(lockedPlayer, !SceneLoadManager.IsLoading);
+        lockedPlayer = null;
+    }
+
     void OnDestroy()
     {
-        if (manager) { manager.Changed -= Refresh; manager.CanStart = () => false; }
-        if (lockedPlayer) controls.Release(lockedPlayer, !SceneLoadManager.IsLoading);
+        if (manager) { manager.Changed -= Refresh; manager.Closed -= ConversationClosed; manager.CanStart = () => false; }
     }
 }

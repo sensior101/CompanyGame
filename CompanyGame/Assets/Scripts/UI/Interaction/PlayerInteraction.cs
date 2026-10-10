@@ -33,6 +33,7 @@ public class PlayerInteraction : MonoBehaviour
     static void ResetVehiclePointer() { worldClickFrame=-1; }
     public StoreInteractionPoint FocusedStore { get; private set; }
     public NpcTrader FocusedTrader { get; private set; }
+    public NpcTrader TradeSpeaker { get; private set; }
     public bool HasNearbyAction => !IsInteractionMenuOpen &&
         ((GetComponent<PlayerVehicle>()?.IsRiding ?? false) || WorldDroppedItem.FindNearestVehicle(GetComponent<PlayerInventory>()) ||
          DialogueManager.HasNearbyNpc || SeatInteraction.HasNearbySeat || StoreInteractionPoint.FindNearest(transform) || NpcTrader.FindNearest(transform));
@@ -74,8 +75,9 @@ public class PlayerInteraction : MonoBehaviour
     System.Collections.IEnumerator OpenNpcTradeNextFrame(NpcTrader trader)
     {
         yield return null;
-        if (trader && trader.openAfterDialogue && trader.IsInRange(transform))
-            OpenTrade(trader.offers, () => trader && trader.IsInRange(transform));
+        if (trader && trader.openAfterDialogue && trader.IsInRange(transform) &&
+            OpenTrade(trader.offers, () => trader && trader.IsInRange(transform)))
+            TradeSpeaker = trader;
     }
 
     void Update()
@@ -344,7 +346,9 @@ public class PlayerInteraction : MonoBehaviour
     public bool TryTradeWithNearest()
     {
         var trader = NpcTrader.FindNearest(transform);
-        return trader && OpenTrade(trader.offers, () => trader && trader.IsInRange(transform));
+        if (!trader || !OpenTrade(trader.offers, () => trader && trader.IsInRange(transform))) return false;
+        TradeSpeaker = trader;
+        return true;
     }
 
     /// <summary>
@@ -379,6 +383,8 @@ public class PlayerInteraction : MonoBehaviour
         if (!tradeUI) return;
         tradeUI.gameObject.SetActive(false);
         Destroy(tradeUI.gameObject); tradeUI = null; tradeStillAvailable = null;
+        TradeSpeaker = null;
+        if (dialogueManager) dialogueManager.Close();
         waitForSpaceRelease = true; restorePending = true;
     }
 
@@ -407,6 +413,7 @@ public class PlayerInteraction : MonoBehaviour
         IsDestinationMenuOpen = false;
         if (tradeUI) { Destroy(tradeUI.gameObject); tradeUI = null; }
         tradeStillAvailable = null; FocusedStore = null; FocusedTrader = null;
+        TradeSpeaker = null;
         FocusedStop = null;
         boardingStop = null;
         restorePending = false;

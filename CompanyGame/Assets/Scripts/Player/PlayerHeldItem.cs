@@ -143,7 +143,7 @@ public sealed class PlayerHeldItem : MonoBehaviour
         }
         bool firstPerson = cameraController && cameraController.firstPerson;
         bool showHands = firstPerson && !InputFocus.InventoryOpen() && !InputFocus.ChatOpen() &&
-            !SceneLoadManager.IsLoading && movement.isActiveAndEnabled;
+            !SceneLoadManager.IsLoading && movement.isActiveAndEnabled && !cameraController.IsDialogueCameraActive;
         viewRig.gameObject.SetActive(showHands && arm);
         handCamera.enabled = showHands && arm;
         handCamera.fieldOfView = viewCamera.fieldOfView;
