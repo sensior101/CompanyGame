@@ -17,6 +17,8 @@ public sealed class ItemStack
         Item == other.Item && !IsUniqueBook && !other.IsUniqueBook;
     public string Tooltip => !IsEmpty && Item.IsBook && BookData != null
         ? BookData.Tooltip(Item.DisplayName) : DisplayName;
+    public string TooltipDetails => !IsEmpty && Item.IsBook && BookData != null
+        ? BookData.TooltipDetails : "";
     public string DisplayName => !IsEmpty && Item.IsBook && !string.IsNullOrWhiteSpace(BookData?.title)
         ? BookData.title : IsEmpty ? "" : Item.DisplayName;
 
