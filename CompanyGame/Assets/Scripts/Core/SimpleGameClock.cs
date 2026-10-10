@@ -40,6 +40,7 @@ public class SimpleGameClock : MonoBehaviour, IGameClock
         }
 
         now = new GameTime(startDay, startHour);
+        if (long.TryParse(PlayerPrefs.GetString("GameClock.TotalMinutes", ""), out long saved)) now = GameTime.FromTotalMinutes(saved);
         GameClock.Current = this;
         if (transform.parent == null) DontDestroyOnLoad(gameObject);
     }
@@ -71,10 +72,18 @@ public class SimpleGameClock : MonoBehaviour, IGameClock
             now = now.AddMinutes(1);
             if (now.hour == before.hour) continue;
 
+            SaveTime();
             HourChanged?.Invoke(now);
             if (now.absoluteDay != before.absoluteDay) DayChanged?.Invoke(now);
         }
     }
+
+    void SaveTime()
+    {
+        if (GameSession.IsAuthority && ReferenceEquals(GameClock.Current, this))
+            PlayerPrefs.SetString("GameClock.TotalMinutes", now.TotalMinutes.ToString(System.Globalization.CultureInfo.InvariantCulture));
+    }
+    void OnApplicationQuit() { SaveTime(); PlayerPrefs.Save(); }
 
     [ContextMenu("Advance 1 hour")]
     private void AdvanceOneHour() => AdvanceMinutes(GameTime.MinutesPerHour);

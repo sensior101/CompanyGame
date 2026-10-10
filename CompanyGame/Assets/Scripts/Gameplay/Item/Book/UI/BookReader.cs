@@ -65,8 +65,8 @@ public sealed class BookReader : MonoBehaviour
             return;
         }
         if (!GameInput.InteractPressed || PlayerInventory.SpaceConsumedThisFrame ||
-            !movement || !movement.isActiveAndEnabled || !playerInventory ||
-            PlayerInventory.IsAnyOpen || ChatUIManager.IsChatting ||
+            !movement || !movement.isActiveAndEnabled || !playerInventory || DialogueManager.HasNearbyNpc ||
+            PlayerInventory.IsAnyOpen || ChatUIManager.IsChatting || DialogueManager.OwnsInput ||
             UIEventSystem.IsEditingText() || SceneLoadManager.IsLoading ||
             (PhoneManager.Instance && PhoneManager.Instance.IsPhoneOpen) ||
             (PlayerSeating.Local && PlayerSeating.Local.IsSeated)) return;

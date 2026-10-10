@@ -38,6 +38,7 @@ public class InventoryManager : MonoBehaviour
         DontDestroyOnLoad(gameObject);
         BookSaveService.RestoreInventory(state);
         state.Changed += SaveBooks;
+        LibraryCatalog.ConnectLocal(state);
     }
 
     void SaveBooks() => BookSaveService.SaveInventory(state);

@@ -70,7 +70,7 @@ public sealed class PlayerInventory : MonoBehaviour
         InputFocus.InventoryOpen = () => IsAnyOpen;
         InputFocus.ChatOpen = () => ChatUIManager.IsChatting;
         InputFocus.ScrollCaptured = () => CurrencyScrollCapturedThisFrame || HotbarScrollCapturedThisFrame;
-        InputFocus.GameplayBlocked = () => BookReader.BlocksInventoryInput || IsAnyOpen || SpaceConsumedThisFrame || ChatUIManager.IsChatting ||
+        InputFocus.GameplayBlocked = () => BookReader.BlocksInventoryInput || DialogueManager.OwnsInput || IsAnyOpen || SpaceConsumedThisFrame || ChatUIManager.IsChatting ||
             (local && (local.IsOpen || local.IsDragging || (local.ui && local.ui.IsWithdrawalOpen))) ||
             (local && local.interaction && local.interaction.IsInteractionMenuOpen);
     }

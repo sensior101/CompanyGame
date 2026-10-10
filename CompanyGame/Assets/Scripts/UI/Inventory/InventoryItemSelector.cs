@@ -60,6 +60,8 @@ public sealed class InventoryItemSelector : MonoBehaviour
         if(closed)return;
         if(Handoff.HasCursorItem && !Handoff.TryCancel(out _))return;
         closed=true;
+        // Release dialogue first when it shares this selector's control ownership.
+        if(DialogueManager.Instance)DialogueManager.Instance.Close();
         controls.Release(player,!SceneLoadManager.IsLoading);if(active==this)active=null;
         gameObject.SetActive(false);Destroy(gameObject);
         PlayerInventory.ConsumeSpaceThisFrame();
