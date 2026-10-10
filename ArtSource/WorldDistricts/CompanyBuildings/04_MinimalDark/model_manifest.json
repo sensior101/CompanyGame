@@ -1,0 +1,44 @@
+{
+  "asset": "Office04_MinimalDark",
+  "reference_type": "C",
+  "stage": "First proportional exterior model / review",
+  "building_dimensions_xyz_m": [
+    74.4,
+    62.4,
+    146.0
+  ],
+  "height_relative_to_office01": 0.9865,
+  "recipe_xy_scale_baked": 1.2,
+  "units": "metres",
+  "front": "Blender -Y",
+  "meshes": 11,
+  "triangles": 74760,
+  "materials": [
+    "Office04_MinimalDark_Glass",
+    "Office04_MinimalDark_GlassDark",
+    "Office04_MinimalDark_GlassWarm",
+    "Office04_MinimalDark_Green",
+    "Office04_MinimalDark_Metal",
+    "Office04_MinimalDark_MetalLight",
+    "Office04_MinimalDark_Roof",
+    "Office04_MinimalDark_StoneDark",
+    "Office04_MinimalDark_Wood"
+  ],
+  "features": [
+    "Constant graphite shaft with deep fins and broad corner posts",
+    "Thin horizontal spandrels; no stone floor bands",
+    "Flush flat roofline without ornamental crown spikes",
+    "Tall warm glazed lobby and human-scaled double entry",
+    "Four complete elevations and rear service access"
+  ],
+  "source_helpers": [
+    "C:\\서현\\프로젝트\\companyGame\\ArtSource\\WorldDistricts\\HandaeHQ\\v02\\build_handae.py",
+    "C:\\서현\\프로젝트\\companyGame\\ArtSource\\WorldDistricts\\CompanyBuildings\\01_LimestoneTower\\build_office01.py"
+  ],
+  "scope": "Exterior modeling, initial materials and review renders. No Unity scene or gameplay changes.",
+  "pending": [
+    "Final texture and joint detailing",
+    "Company signage",
+    "Unity materials/colliders/LOD and runtime validation"
+  ]
+}
