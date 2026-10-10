@@ -1,0 +1,3300 @@
+{
+  "items": [
+    {
+      "id": "CB_01",
+      "revision": 3,
+      "style": "CB_01",
+      "styleLabel": "콘크리트 리본 · 수직 코어",
+      "palette": "CB_01",
+      "paletteLabel": "노출 콘크리트 / 세로 금속 패널",
+      "width": 12,
+      "depth": 8,
+      "floorHeights": [
+        4,
+        3.2,
+        3.2
+      ],
+      "roofSlabHeight": 10.4,
+      "triangles": 21048,
+      "exportBounds": {
+        "min": [
+          -6.190000057220459,
+          -4.223999977111816,
+          -0.11999999731779099
+        ],
+        "max": [
+          6.305000305175781,
+          4.2669997215271,
+          12.444999694824219
+        ]
+      },
+      "signs": [
+        {
+          "name": "Sign_Main_01",
+          "width": 3.7,
+          "height": 0.32,
+          "position": [
+            -3.3499999046325684,
+            -4.28000020980835,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Main_02",
+          "width": 3.7,
+          "height": 0.32,
+          "position": [
+            3.1999998092651367,
+            -4.28000020980835,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Corner",
+          "width": 1.3,
+          "height": 0.32,
+          "position": [
+            6.28000020980835,
+            -3.1500000953674316,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Side",
+          "width": 3.7,
+          "height": 0.32,
+          "position": [
+            6.28000020980835,
+            0.8000001907348633,
+            3.700000047683716
+          ]
+        }
+      ],
+      "blend": "../Models/CB_01.blend",
+      "fbx": "../Exports/CB_01.fbx",
+      "preview": "Previews/CB_01.png",
+      "materials": [
+        {
+          "name": "CB_01_wall",
+          "color": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "metallic": 0.0,
+          "roughness": 0.7900000214576721,
+          "texture": "Textures/Facade_ConcreteGraphite.png",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_01_metal",
+          "color": [
+            0.04500000178813934,
+            0.050999999046325684,
+            0.054999999701976776,
+            1.0
+          ],
+          "metallic": 0.4000000059604645,
+          "roughness": 0.3400000035762787,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_01_frame",
+          "color": [
+            0.024000000208616257,
+            0.028999999165534973,
+            0.03200000151991844,
+            1.0
+          ],
+          "metallic": 0.550000011920929,
+          "roughness": 0.25,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_01_glass",
+          "color": [
+            0.8700000047683716,
+            0.925000011920929,
+            0.9399999976158142,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.054999999701976776,
+          "texture": null,
+          "unitySurface": "Transparent",
+          "unityAlpha": 0.29,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_01_wood",
+          "color": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "metallic": 0.0,
+          "roughness": 0.5799999833106995,
+          "texture": "Textures/Oak.png",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_01_inside",
+          "color": [
+            0.5299999713897705,
+            0.5099999904632568,
+            0.46000000834465027,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.8299999833106995,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_01_floor",
+          "color": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "metallic": 0.0,
+          "roughness": 0.8199999928474426,
+          "texture": "Textures/stone.png",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_01_roof",
+          "color": [
+            0.20999999344348907,
+            0.22499999403953552,
+            0.23000000417232513,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.8799999952316284,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_01_joint",
+          "color": [
+            0.11999999731779099,
+            0.12999999523162842,
+            0.12999999523162842,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.8600000143051147,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_01_steel",
+          "color": [
+            0.3799999952316284,
+            0.4000000059604645,
+            0.4000000059604645,
+            1.0
+          ],
+          "metallic": 0.6499999761581421,
+          "roughness": 0.3199999928474426,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_01_blind",
+          "color": [
+            0.38999998569488525,
+            0.4000000059604645,
+            0.3799999952316284,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.800000011920929,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_01_lamp",
+          "color": [
+            0.8799999952316284,
+            0.8199999928474426,
+            0.6700000166893005,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.3499999940395355,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            0.8799999952316284,
+            0.6700000166893005,
+            1.0
+          ],
+          "emissionStrength": 2.200000047683716
+        },
+        {
+          "name": "CB_01_soil",
+          "color": [
+            0.08500000089406967,
+            0.05999999865889549,
+            0.03700000047683716,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 1.0,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_01_leaf",
+          "color": [
+            0.14000000059604645,
+            0.23499999940395355,
+            0.07400000095367432,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.7200000286102295,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_01_leaf_light",
+          "color": [
+            0.25,
+            0.3400000035762787,
+            0.11999999731779099,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.7200000286102295,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_01_sign",
+          "color": [
+            0.04500000178813934,
+            0.050999999046325684,
+            0.054999999701976776,
+            1.0
+          ],
+          "metallic": 0.15000000596046448,
+          "roughness": 0.41999998688697815,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        }
+      ]
+    },
+    {
+      "id": "CB_02",
+      "revision": 3,
+      "style": "CB_02",
+      "styleLabel": "아이보리 프레임 · 오크 패널",
+      "palette": "CB_02",
+      "paletteLabel": "아이보리 석재 / 세로 오크 / 다크 브론즈",
+      "width": 12,
+      "depth": 8,
+      "floorHeights": [
+        4,
+        3.2,
+        3.2
+      ],
+      "roofSlabHeight": 10.4,
+      "triangles": 23040,
+      "exportBounds": {
+        "min": [
+          -6.190000057220459,
+          -4.28000020980835,
+          -0.11999999731779099
+        ],
+        "max": [
+          6.28000020980835,
+          4.2669997215271,
+          11.864999771118164
+        ]
+      },
+      "signs": [
+        {
+          "name": "Sign_Main_01",
+          "width": 3.7,
+          "height": 0.32,
+          "position": [
+            -3.3499999046325684,
+            -4.28000020980835,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Main_02",
+          "width": 3.7,
+          "height": 0.32,
+          "position": [
+            3.1999998092651367,
+            -4.28000020980835,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Corner",
+          "width": 1.3,
+          "height": 0.32,
+          "position": [
+            6.28000020980835,
+            -3.1500000953674316,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Side",
+          "width": 3.7,
+          "height": 0.32,
+          "position": [
+            6.28000020980835,
+            0.8000001907348633,
+            3.700000047683716
+          ]
+        }
+      ],
+      "blend": "../Models/CB_02.blend",
+      "fbx": "../Exports/CB_02.fbx",
+      "preview": "Previews/CB_02.png",
+      "materials": [
+        {
+          "name": "CB_02_wall",
+          "color": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "metallic": 0.0,
+          "roughness": 0.7900000214576721,
+          "texture": "Textures/Facade_IvoryCharcoal.png",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_02_metal",
+          "color": [
+            0.07500000298023224,
+            0.061000000685453415,
+            0.04699999839067459,
+            1.0
+          ],
+          "metallic": 0.4000000059604645,
+          "roughness": 0.3400000035762787,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_02_frame",
+          "color": [
+            0.024000000208616257,
+            0.028999999165534973,
+            0.03200000151991844,
+            1.0
+          ],
+          "metallic": 0.550000011920929,
+          "roughness": 0.25,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_02_glass",
+          "color": [
+            0.8700000047683716,
+            0.925000011920929,
+            0.9399999976158142,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.054999999701976776,
+          "texture": null,
+          "unitySurface": "Transparent",
+          "unityAlpha": 0.29,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_02_wood",
+          "color": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "metallic": 0.0,
+          "roughness": 0.5799999833106995,
+          "texture": "Textures/Oak.png",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_02_inside",
+          "color": [
+            0.5299999713897705,
+            0.5099999904632568,
+            0.46000000834465027,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.8299999833106995,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_02_floor",
+          "color": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "metallic": 0.0,
+          "roughness": 0.8199999928474426,
+          "texture": "Textures/stone.png",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_02_roof",
+          "color": [
+            0.20999999344348907,
+            0.22499999403953552,
+            0.23000000417232513,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.8799999952316284,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_02_joint",
+          "color": [
+            0.11999999731779099,
+            0.12999999523162842,
+            0.12999999523162842,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.8600000143051147,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_02_steel",
+          "color": [
+            0.3799999952316284,
+            0.4000000059604645,
+            0.4000000059604645,
+            1.0
+          ],
+          "metallic": 0.6499999761581421,
+          "roughness": 0.3199999928474426,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_02_blind",
+          "color": [
+            0.38999998569488525,
+            0.4000000059604645,
+            0.3799999952316284,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.800000011920929,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_02_lamp",
+          "color": [
+            0.8799999952316284,
+            0.8199999928474426,
+            0.6700000166893005,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.3499999940395355,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            0.8799999952316284,
+            0.6700000166893005,
+            1.0
+          ],
+          "emissionStrength": 2.200000047683716
+        },
+        {
+          "name": "CB_02_soil",
+          "color": [
+            0.08500000089406967,
+            0.05999999865889549,
+            0.03700000047683716,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 1.0,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_02_leaf",
+          "color": [
+            0.14000000059604645,
+            0.23499999940395355,
+            0.07400000095367432,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.7200000286102295,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_02_leaf_light",
+          "color": [
+            0.25,
+            0.3400000035762787,
+            0.11999999731779099,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.7200000286102295,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_02_sign",
+          "color": [
+            0.07500000298023224,
+            0.061000000685453415,
+            0.04699999839067459,
+            1.0
+          ],
+          "metallic": 0.15000000596046448,
+          "roughness": 0.41999998688697815,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        }
+      ]
+    },
+    {
+      "id": "CB_03",
+      "revision": 3,
+      "style": "CB_03",
+      "styleLabel": "적벽돌 로프트 · 루프 퍼골라",
+      "palette": "CB_03",
+      "paletteLabel": "적갈색 벽돌 / 검정 철골 격자",
+      "width": 12,
+      "depth": 8,
+      "floorHeights": [
+        4,
+        3.2,
+        3.2
+      ],
+      "roofSlabHeight": 10.4,
+      "triangles": 22920,
+      "exportBounds": {
+        "min": [
+          -6.190000057220459,
+          -4.3000006675720215,
+          -0.11999999731779099
+        ],
+        "max": [
+          6.224000453948975,
+          4.2669997215271,
+          12.4350004196167
+        ]
+      },
+      "signs": [
+        {
+          "name": "Sign_Main_01",
+          "width": 3.7,
+          "height": 0.32,
+          "position": [
+            -3.3499999046325684,
+            -4.28000020980835,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Main_02",
+          "width": 3.7,
+          "height": 0.32,
+          "position": [
+            3.1999998092651367,
+            -4.28000020980835,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Corner",
+          "width": 1.3,
+          "height": 0.32,
+          "position": [
+            6.28000020980835,
+            -3.1500000953674316,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Side",
+          "width": 3.7,
+          "height": 0.32,
+          "position": [
+            6.28000020980835,
+            0.8000001907348633,
+            3.700000047683716
+          ]
+        }
+      ],
+      "blend": "../Models/CB_03.blend",
+      "fbx": "../Exports/CB_03.fbx",
+      "preview": "Previews/CB_03.png",
+      "materials": [
+        {
+          "name": "CB_03_wall",
+          "color": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "metallic": 0.0,
+          "roughness": 0.7900000214576721,
+          "texture": "Textures/Facade_RedBrick.png",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_03_metal",
+          "color": [
+            0.04500000178813934,
+            0.050999999046325684,
+            0.054999999701976776,
+            1.0
+          ],
+          "metallic": 0.4000000059604645,
+          "roughness": 0.3400000035762787,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_03_frame",
+          "color": [
+            0.024000000208616257,
+            0.028999999165534973,
+            0.03200000151991844,
+            1.0
+          ],
+          "metallic": 0.550000011920929,
+          "roughness": 0.25,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_03_glass",
+          "color": [
+            0.8700000047683716,
+            0.925000011920929,
+            0.9399999976158142,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.054999999701976776,
+          "texture": null,
+          "unitySurface": "Transparent",
+          "unityAlpha": 0.29,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_03_wood",
+          "color": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "metallic": 0.0,
+          "roughness": 0.5799999833106995,
+          "texture": "Textures/Oak.png",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_03_inside",
+          "color": [
+            0.5299999713897705,
+            0.5099999904632568,
+            0.46000000834465027,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.8299999833106995,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_03_floor",
+          "color": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "metallic": 0.0,
+          "roughness": 0.8199999928474426,
+          "texture": "Textures/stone.png",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_03_roof",
+          "color": [
+            0.20999999344348907,
+            0.22499999403953552,
+            0.23000000417232513,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.8799999952316284,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_03_joint",
+          "color": [
+            0.11999999731779099,
+            0.12999999523162842,
+            0.12999999523162842,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.8600000143051147,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_03_steel",
+          "color": [
+            0.3799999952316284,
+            0.4000000059604645,
+            0.4000000059604645,
+            1.0
+          ],
+          "metallic": 0.6499999761581421,
+          "roughness": 0.3199999928474426,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_03_blind",
+          "color": [
+            0.38999998569488525,
+            0.4000000059604645,
+            0.3799999952316284,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.800000011920929,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_03_lamp",
+          "color": [
+            0.8799999952316284,
+            0.8199999928474426,
+            0.6700000166893005,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.3499999940395355,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            0.8799999952316284,
+            0.6700000166893005,
+            1.0
+          ],
+          "emissionStrength": 2.200000047683716
+        },
+        {
+          "name": "CB_03_soil",
+          "color": [
+            0.08500000089406967,
+            0.05999999865889549,
+            0.03700000047683716,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 1.0,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_03_leaf",
+          "color": [
+            0.14000000059604645,
+            0.23499999940395355,
+            0.07400000095367432,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.7200000286102295,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_03_leaf_light",
+          "color": [
+            0.25,
+            0.3400000035762787,
+            0.11999999731779099,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.7200000286102295,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_03_sign",
+          "color": [
+            0.04500000178813934,
+            0.050999999046325684,
+            0.054999999701976776,
+            1.0
+          ],
+          "metallic": 0.15000000596046448,
+          "roughness": 0.41999998688697815,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        }
+      ]
+    },
+    {
+      "id": "CB_04",
+      "revision": 3,
+      "style": "CB_04",
+      "styleLabel": "라운드 코너 · 화이트 리본",
+      "palette": "CB_04",
+      "paletteLabel": "밝은 석재 / 곡면 유리 / 루프 가든",
+      "width": 12,
+      "depth": 8,
+      "floorHeights": [
+        4,
+        3.2,
+        3.2
+      ],
+      "roofSlabHeight": 10.4,
+      "triangles": 22072,
+      "exportBounds": {
+        "min": [
+          -6.190000057220459,
+          -4.223999977111816,
+          -0.11999999731779099
+        ],
+        "max": [
+          6.223999977111816,
+          4.2669997215271,
+          12.069999694824219
+        ]
+      },
+      "signs": [
+        {
+          "name": "Sign_Main_01",
+          "width": 3.5,
+          "height": 0.32,
+          "position": [
+            -3.5999999046325684,
+            -4.28000020980835,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Main_02",
+          "width": 3.5,
+          "height": 0.32,
+          "position": [
+            1.5999999046325684,
+            -4.28000020980835,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Corner",
+          "width": 1.3,
+          "height": 0.32,
+          "position": [
+            6.279999732971191,
+            -1.0,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Side",
+          "width": 2.8,
+          "height": 0.32,
+          "position": [
+            6.279999732971191,
+            1.999999761581421,
+            3.700000047683716
+          ]
+        }
+      ],
+      "blend": "../Models/CB_04.blend",
+      "fbx": "../Exports/CB_04.fbx",
+      "preview": "Previews/CB_04.png",
+      "materials": [
+        {
+          "name": "CB_04_wall",
+          "color": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "metallic": 0.0,
+          "roughness": 0.7900000214576721,
+          "texture": "Textures/Facade_IvoryCharcoal.png",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_04_metal",
+          "color": [
+            0.04500000178813934,
+            0.050999999046325684,
+            0.054999999701976776,
+            1.0
+          ],
+          "metallic": 0.4000000059604645,
+          "roughness": 0.3400000035762787,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_04_frame",
+          "color": [
+            0.024000000208616257,
+            0.028999999165534973,
+            0.03200000151991844,
+            1.0
+          ],
+          "metallic": 0.550000011920929,
+          "roughness": 0.25,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_04_glass",
+          "color": [
+            0.8700000047683716,
+            0.925000011920929,
+            0.9399999976158142,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.054999999701976776,
+          "texture": null,
+          "unitySurface": "Transparent",
+          "unityAlpha": 0.29,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_04_wood",
+          "color": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "metallic": 0.0,
+          "roughness": 0.5799999833106995,
+          "texture": "Textures/Oak.png",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_04_inside",
+          "color": [
+            0.5299999713897705,
+            0.5099999904632568,
+            0.46000000834465027,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.8299999833106995,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_04_floor",
+          "color": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "metallic": 0.0,
+          "roughness": 0.8199999928474426,
+          "texture": "Textures/stone.png",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_04_roof",
+          "color": [
+            0.20999999344348907,
+            0.22499999403953552,
+            0.23000000417232513,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.8799999952316284,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_04_joint",
+          "color": [
+            0.11999999731779099,
+            0.12999999523162842,
+            0.12999999523162842,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.8600000143051147,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_04_steel",
+          "color": [
+            0.3799999952316284,
+            0.4000000059604645,
+            0.4000000059604645,
+            1.0
+          ],
+          "metallic": 0.6499999761581421,
+          "roughness": 0.3199999928474426,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_04_blind",
+          "color": [
+            0.38999998569488525,
+            0.4000000059604645,
+            0.3799999952316284,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.800000011920929,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_04_lamp",
+          "color": [
+            0.8799999952316284,
+            0.8199999928474426,
+            0.6700000166893005,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.3499999940395355,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            0.8799999952316284,
+            0.6700000166893005,
+            1.0
+          ],
+          "emissionStrength": 2.200000047683716
+        },
+        {
+          "name": "CB_04_soil",
+          "color": [
+            0.08500000089406967,
+            0.05999999865889549,
+            0.03700000047683716,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 1.0,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_04_leaf",
+          "color": [
+            0.14000000059604645,
+            0.23499999940395355,
+            0.07400000095367432,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.7200000286102295,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_04_leaf_light",
+          "color": [
+            0.25,
+            0.3400000035762787,
+            0.11999999731779099,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.7200000286102295,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_04_sign",
+          "color": [
+            0.04500000178813934,
+            0.050999999046325684,
+            0.054999999701976776,
+            1.0
+          ],
+          "metallic": 0.15000000596046448,
+          "roughness": 0.41999998688697815,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        }
+      ]
+    },
+    {
+      "id": "CB_05",
+      "revision": 3,
+      "style": "CB_05",
+      "styleLabel": "차콜 캐노피 · 깊은 테라스",
+      "palette": "CB_05",
+      "paletteLabel": "차콜 메탈 / 검정 철골 / 우드 천장",
+      "width": 12,
+      "depth": 8,
+      "floorHeights": [
+        4,
+        3.2,
+        3.2
+      ],
+      "roofSlabHeight": 10.4,
+      "triangles": 19664,
+      "exportBounds": {
+        "min": [
+          -6.27500057220459,
+          -4.274999141693115,
+          -0.11999999731779099
+        ],
+        "max": [
+          6.224000453948975,
+          4.2669997215271,
+          12.279999732971191
+        ]
+      },
+      "signs": [
+        {
+          "name": "Sign_Main_01",
+          "width": 3.7,
+          "height": 0.32,
+          "position": [
+            -3.3499999046325684,
+            -4.28000020980835,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Main_02",
+          "width": 3.7,
+          "height": 0.32,
+          "position": [
+            3.1999998092651367,
+            -4.28000020980835,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Corner",
+          "width": 1.3,
+          "height": 0.32,
+          "position": [
+            6.28000020980835,
+            -3.1500000953674316,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Side",
+          "width": 3.7,
+          "height": 0.32,
+          "position": [
+            6.28000020980835,
+            0.8000001907348633,
+            3.700000047683716
+          ]
+        }
+      ],
+      "blend": "../Models/CB_05.blend",
+      "fbx": "../Exports/CB_05.fbx",
+      "preview": "Previews/CB_05.png",
+      "materials": [
+        {
+          "name": "CB_05_wall",
+          "color": [
+            0.06499999761581421,
+            0.07599999755620956,
+            0.08299999684095383,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.7900000214576721,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_05_metal",
+          "color": [
+            0.04500000178813934,
+            0.050999999046325684,
+            0.054999999701976776,
+            1.0
+          ],
+          "metallic": 0.4000000059604645,
+          "roughness": 0.3400000035762787,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_05_frame",
+          "color": [
+            0.024000000208616257,
+            0.028999999165534973,
+            0.03200000151991844,
+            1.0
+          ],
+          "metallic": 0.550000011920929,
+          "roughness": 0.25,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_05_glass",
+          "color": [
+            0.8700000047683716,
+            0.925000011920929,
+            0.9399999976158142,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.054999999701976776,
+          "texture": null,
+          "unitySurface": "Transparent",
+          "unityAlpha": 0.29,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_05_wood",
+          "color": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "metallic": 0.0,
+          "roughness": 0.5799999833106995,
+          "texture": "Textures/Oak.png",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_05_inside",
+          "color": [
+            0.5299999713897705,
+            0.5099999904632568,
+            0.46000000834465027,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.8299999833106995,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_05_floor",
+          "color": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "metallic": 0.0,
+          "roughness": 0.8199999928474426,
+          "texture": "Textures/stone.png",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_05_roof",
+          "color": [
+            0.20999999344348907,
+            0.22499999403953552,
+            0.23000000417232513,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.8799999952316284,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_05_joint",
+          "color": [
+            0.11999999731779099,
+            0.12999999523162842,
+            0.12999999523162842,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.8600000143051147,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_05_steel",
+          "color": [
+            0.3799999952316284,
+            0.4000000059604645,
+            0.4000000059604645,
+            1.0
+          ],
+          "metallic": 0.6499999761581421,
+          "roughness": 0.3199999928474426,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_05_blind",
+          "color": [
+            0.38999998569488525,
+            0.4000000059604645,
+            0.3799999952316284,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.800000011920929,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_05_lamp",
+          "color": [
+            0.8799999952316284,
+            0.8199999928474426,
+            0.6700000166893005,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.3499999940395355,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            0.8799999952316284,
+            0.6700000166893005,
+            1.0
+          ],
+          "emissionStrength": 2.200000047683716
+        },
+        {
+          "name": "CB_05_soil",
+          "color": [
+            0.08500000089406967,
+            0.05999999865889549,
+            0.03700000047683716,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 1.0,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_05_leaf",
+          "color": [
+            0.14000000059604645,
+            0.23499999940395355,
+            0.07400000095367432,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.7200000286102295,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_05_leaf_light",
+          "color": [
+            0.25,
+            0.3400000035762787,
+            0.11999999731779099,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.7200000286102295,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_05_sign",
+          "color": [
+            0.04500000178813934,
+            0.050999999046325684,
+            0.054999999701976776,
+            1.0
+          ],
+          "metallic": 0.15000000596046448,
+          "roughness": 0.41999998688697815,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        }
+      ]
+    },
+    {
+      "id": "CB_06",
+      "revision": 3,
+      "style": "CB_06",
+      "styleLabel": "샌드스톤 박스 · 루프 가든",
+      "palette": "CB_06",
+      "paletteLabel": "밝은 베이지 조적 / 깊은 창 / 옥상 식재",
+      "width": 12,
+      "depth": 8,
+      "floorHeights": [
+        4,
+        3.2,
+        3.2
+      ],
+      "roofSlabHeight": 10.4,
+      "triangles": 30164,
+      "exportBounds": {
+        "min": [
+          -6.190000057220459,
+          -4.24500036239624,
+          -0.11999999731779099
+        ],
+        "max": [
+          6.345000267028809,
+          4.2669997215271,
+          12.225000381469727
+        ]
+      },
+      "signs": [
+        {
+          "name": "Sign_Main_01",
+          "width": 3.7,
+          "height": 0.32,
+          "position": [
+            -3.3499999046325684,
+            -4.28000020980835,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Main_02",
+          "width": 3.7,
+          "height": 0.32,
+          "position": [
+            3.1999998092651367,
+            -4.28000020980835,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Corner",
+          "width": 1.3,
+          "height": 0.32,
+          "position": [
+            6.28000020980835,
+            -3.1500000953674316,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Side",
+          "width": 3.7,
+          "height": 0.32,
+          "position": [
+            6.28000020980835,
+            0.8000001907348633,
+            3.700000047683716
+          ]
+        }
+      ],
+      "blend": "../Models/CB_06.blend",
+      "fbx": "../Exports/CB_06.fbx",
+      "preview": "Previews/CB_06.png",
+      "materials": [
+        {
+          "name": "CB_06_wall",
+          "color": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "metallic": 0.0,
+          "roughness": 0.7900000214576721,
+          "texture": "Textures/CreamBrick.png",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_06_metal",
+          "color": [
+            0.0949999988079071,
+            0.08900000154972076,
+            0.0729999989271164,
+            1.0
+          ],
+          "metallic": 0.4000000059604645,
+          "roughness": 0.3400000035762787,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_06_frame",
+          "color": [
+            0.024000000208616257,
+            0.028999999165534973,
+            0.03200000151991844,
+            1.0
+          ],
+          "metallic": 0.550000011920929,
+          "roughness": 0.25,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_06_glass",
+          "color": [
+            0.8700000047683716,
+            0.925000011920929,
+            0.9399999976158142,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.054999999701976776,
+          "texture": null,
+          "unitySurface": "Transparent",
+          "unityAlpha": 0.29,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_06_wood",
+          "color": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "metallic": 0.0,
+          "roughness": 0.5799999833106995,
+          "texture": "Textures/Oak.png",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_06_inside",
+          "color": [
+            0.5299999713897705,
+            0.5099999904632568,
+            0.46000000834465027,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.8299999833106995,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_06_floor",
+          "color": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "metallic": 0.0,
+          "roughness": 0.8199999928474426,
+          "texture": "Textures/stone.png",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_06_roof",
+          "color": [
+            0.20999999344348907,
+            0.22499999403953552,
+            0.23000000417232513,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.8799999952316284,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_06_joint",
+          "color": [
+            0.11999999731779099,
+            0.12999999523162842,
+            0.12999999523162842,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.8600000143051147,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_06_steel",
+          "color": [
+            0.3799999952316284,
+            0.4000000059604645,
+            0.4000000059604645,
+            1.0
+          ],
+          "metallic": 0.6499999761581421,
+          "roughness": 0.3199999928474426,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_06_blind",
+          "color": [
+            0.38999998569488525,
+            0.4000000059604645,
+            0.3799999952316284,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.800000011920929,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_06_lamp",
+          "color": [
+            0.8799999952316284,
+            0.8199999928474426,
+            0.6700000166893005,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.3499999940395355,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            0.8799999952316284,
+            0.6700000166893005,
+            1.0
+          ],
+          "emissionStrength": 2.200000047683716
+        },
+        {
+          "name": "CB_06_soil",
+          "color": [
+            0.08500000089406967,
+            0.05999999865889549,
+            0.03700000047683716,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 1.0,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_06_leaf",
+          "color": [
+            0.14000000059604645,
+            0.23499999940395355,
+            0.07400000095367432,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.7200000286102295,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_06_leaf_light",
+          "color": [
+            0.25,
+            0.3400000035762787,
+            0.11999999731779099,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.7200000286102295,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_06_sign",
+          "color": [
+            0.0949999988079071,
+            0.08900000154972076,
+            0.0729999989271164,
+            1.0
+          ],
+          "metallic": 0.15000000596046448,
+          "roughness": 0.41999998688697815,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        }
+      ]
+    },
+    {
+      "id": "CB_07",
+      "revision": 3,
+      "style": "CB_07",
+      "styleLabel": "아이보리 포털 · 엇갈린 테라스",
+      "palette": "CB_07",
+      "paletteLabel": "밝은 콘크리트 / 깊은 사각 프레임 / 식재",
+      "width": 12,
+      "depth": 8,
+      "floorHeights": [
+        4,
+        3.2,
+        3.2
+      ],
+      "roofSlabHeight": 10.4,
+      "triangles": 23712,
+      "exportBounds": {
+        "min": [
+          -6.190000057220459,
+          -4.223999977111816,
+          -0.11999999731779099
+        ],
+        "max": [
+          6.224000453948975,
+          4.2669997215271,
+          12.105000495910645
+        ]
+      },
+      "signs": [
+        {
+          "name": "Sign_Main_01",
+          "width": 3.7,
+          "height": 0.32,
+          "position": [
+            -3.3499999046325684,
+            -4.28000020980835,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Main_02",
+          "width": 3.7,
+          "height": 0.32,
+          "position": [
+            3.1999998092651367,
+            -4.28000020980835,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Corner",
+          "width": 1.3,
+          "height": 0.32,
+          "position": [
+            6.28000020980835,
+            -3.1500000953674316,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Side",
+          "width": 3.7,
+          "height": 0.32,
+          "position": [
+            6.28000020980835,
+            0.8000001907348633,
+            3.700000047683716
+          ]
+        }
+      ],
+      "blend": "../Models/CB_07.blend",
+      "fbx": "../Exports/CB_07.fbx",
+      "preview": "Previews/CB_07.png",
+      "materials": [
+        {
+          "name": "CB_07_wall",
+          "color": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "metallic": 0.0,
+          "roughness": 0.7900000214576721,
+          "texture": "Textures/Facade_IvoryCharcoal.png",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_07_metal",
+          "color": [
+            0.04500000178813934,
+            0.050999999046325684,
+            0.054999999701976776,
+            1.0
+          ],
+          "metallic": 0.4000000059604645,
+          "roughness": 0.3400000035762787,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_07_frame",
+          "color": [
+            0.024000000208616257,
+            0.028999999165534973,
+            0.03200000151991844,
+            1.0
+          ],
+          "metallic": 0.550000011920929,
+          "roughness": 0.25,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_07_glass",
+          "color": [
+            0.8700000047683716,
+            0.925000011920929,
+            0.9399999976158142,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.054999999701976776,
+          "texture": null,
+          "unitySurface": "Transparent",
+          "unityAlpha": 0.29,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_07_wood",
+          "color": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "metallic": 0.0,
+          "roughness": 0.5799999833106995,
+          "texture": "Textures/Oak.png",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_07_inside",
+          "color": [
+            0.5299999713897705,
+            0.5099999904632568,
+            0.46000000834465027,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.8299999833106995,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_07_floor",
+          "color": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "metallic": 0.0,
+          "roughness": 0.8199999928474426,
+          "texture": "Textures/stone.png",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_07_roof",
+          "color": [
+            0.20999999344348907,
+            0.22499999403953552,
+            0.23000000417232513,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.8799999952316284,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_07_joint",
+          "color": [
+            0.11999999731779099,
+            0.12999999523162842,
+            0.12999999523162842,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.8600000143051147,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_07_steel",
+          "color": [
+            0.3799999952316284,
+            0.4000000059604645,
+            0.4000000059604645,
+            1.0
+          ],
+          "metallic": 0.6499999761581421,
+          "roughness": 0.3199999928474426,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_07_blind",
+          "color": [
+            0.38999998569488525,
+            0.4000000059604645,
+            0.3799999952316284,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.800000011920929,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_07_lamp",
+          "color": [
+            0.8799999952316284,
+            0.8199999928474426,
+            0.6700000166893005,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.3499999940395355,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            0.8799999952316284,
+            0.6700000166893005,
+            1.0
+          ],
+          "emissionStrength": 2.200000047683716
+        },
+        {
+          "name": "CB_07_soil",
+          "color": [
+            0.08500000089406967,
+            0.05999999865889549,
+            0.03700000047683716,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 1.0,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_07_leaf",
+          "color": [
+            0.14000000059604645,
+            0.23499999940395355,
+            0.07400000095367432,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.7200000286102295,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_07_leaf_light",
+          "color": [
+            0.25,
+            0.3400000035762787,
+            0.11999999731779099,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.7200000286102295,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_07_sign",
+          "color": [
+            0.04500000178813934,
+            0.050999999046325684,
+            0.054999999701976776,
+            1.0
+          ],
+          "metallic": 0.15000000596046448,
+          "roughness": 0.41999998688697815,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        }
+      ]
+    },
+    {
+      "id": "CB_08",
+      "revision": 3,
+      "style": "CB_08",
+      "styleLabel": "그레이 조적 · 스텝드 로지아",
+      "palette": "CB_08",
+      "paletteLabel": "회갈색 벽돌 / 돌출 발코니 / 후퇴 옥탑",
+      "width": 12,
+      "depth": 8,
+      "floorHeights": [
+        4,
+        3.2,
+        3.2
+      ],
+      "roofSlabHeight": 10.4,
+      "triangles": 22256,
+      "exportBounds": {
+        "min": [
+          -6.190000057220459,
+          -4.619999885559082,
+          -0.11999999731779099
+        ],
+        "max": [
+          6.230000019073486,
+          4.2669997215271,
+          12.454999923706055
+        ]
+      },
+      "signs": [
+        {
+          "name": "Sign_Main_01",
+          "width": 3.7,
+          "height": 0.32,
+          "position": [
+            -3.3499999046325684,
+            -4.28000020980835,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Main_02",
+          "width": 3.7,
+          "height": 0.32,
+          "position": [
+            3.1999998092651367,
+            -4.28000020980835,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Corner",
+          "width": 1.3,
+          "height": 0.32,
+          "position": [
+            6.28000020980835,
+            -3.1500000953674316,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Side",
+          "width": 3.7,
+          "height": 0.32,
+          "position": [
+            6.28000020980835,
+            0.8000001907348633,
+            3.700000047683716
+          ]
+        }
+      ],
+      "blend": "../Models/CB_08.blend",
+      "fbx": "../Exports/CB_08.fbx",
+      "preview": "Previews/CB_08.png",
+      "materials": [
+        {
+          "name": "CB_08_wall",
+          "color": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "metallic": 0.0,
+          "roughness": 0.7900000214576721,
+          "texture": "Textures/CharcoalBrick.png",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_08_metal",
+          "color": [
+            0.052000001072883606,
+            0.05000000074505806,
+            0.04699999839067459,
+            1.0
+          ],
+          "metallic": 0.4000000059604645,
+          "roughness": 0.3400000035762787,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_08_frame",
+          "color": [
+            0.024000000208616257,
+            0.028999999165534973,
+            0.03200000151991844,
+            1.0
+          ],
+          "metallic": 0.550000011920929,
+          "roughness": 0.25,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_08_glass",
+          "color": [
+            0.8700000047683716,
+            0.925000011920929,
+            0.9399999976158142,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.054999999701976776,
+          "texture": null,
+          "unitySurface": "Transparent",
+          "unityAlpha": 0.29,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_08_wood",
+          "color": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "metallic": 0.0,
+          "roughness": 0.5799999833106995,
+          "texture": "Textures/Oak.png",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_08_inside",
+          "color": [
+            0.5299999713897705,
+            0.5099999904632568,
+            0.46000000834465027,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.8299999833106995,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_08_floor",
+          "color": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "metallic": 0.0,
+          "roughness": 0.8199999928474426,
+          "texture": "Textures/stone.png",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_08_roof",
+          "color": [
+            0.20999999344348907,
+            0.22499999403953552,
+            0.23000000417232513,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.8799999952316284,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_08_joint",
+          "color": [
+            0.11999999731779099,
+            0.12999999523162842,
+            0.12999999523162842,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.8600000143051147,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_08_steel",
+          "color": [
+            0.3799999952316284,
+            0.4000000059604645,
+            0.4000000059604645,
+            1.0
+          ],
+          "metallic": 0.6499999761581421,
+          "roughness": 0.3199999928474426,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_08_blind",
+          "color": [
+            0.38999998569488525,
+            0.4000000059604645,
+            0.3799999952316284,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.800000011920929,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_08_lamp",
+          "color": [
+            0.8799999952316284,
+            0.8199999928474426,
+            0.6700000166893005,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.3499999940395355,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            0.8799999952316284,
+            0.6700000166893005,
+            1.0
+          ],
+          "emissionStrength": 2.200000047683716
+        },
+        {
+          "name": "CB_08_soil",
+          "color": [
+            0.08500000089406967,
+            0.05999999865889549,
+            0.03700000047683716,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 1.0,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_08_leaf",
+          "color": [
+            0.14000000059604645,
+            0.23499999940395355,
+            0.07400000095367432,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.7200000286102295,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_08_leaf_light",
+          "color": [
+            0.25,
+            0.3400000035762787,
+            0.11999999731779099,
+            1.0
+          ],
+          "metallic": 0.0,
+          "roughness": 0.7200000286102295,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        },
+        {
+          "name": "CB_08_sign",
+          "color": [
+            0.052000001072883606,
+            0.05000000074505806,
+            0.04699999839067459,
+            1.0
+          ],
+          "metallic": 0.15000000596046448,
+          "roughness": 0.41999998688697815,
+          "texture": null,
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "emissionColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "emissionStrength": 0.0
+        }
+      ]
+    }
+  ]
+}
