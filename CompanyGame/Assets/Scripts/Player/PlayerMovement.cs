@@ -20,6 +20,7 @@ public class PlayerMovement : MonoBehaviour
     private PlayerStats stats;
     private float verticalSpeed;
     private Vector3 lastSafePosition;
+    private bool settling;
 
     protected virtual void Awake()
     {
@@ -42,8 +43,22 @@ public class PlayerMovement : MonoBehaviour
             viewCamera = Camera.main;
     }
 
+    // Re-enabled after a map load: the first frame carries the whole load hitch
+    // in deltaTime, so let it pass before applying gravity again.
+    protected virtual void OnEnable()
+    {
+        verticalSpeed = 0f;
+        settling = true;
+    }
+
     protected virtual void Update()
     {
+        if (settling)
+        {
+            settling = false;
+            return;
+        }
+
         // Keep the player stationary through choices, handoffs, replies and the
         // return blend without disabling the component needed by trade entry.
         if (viewCamera && viewCamera.TryGetComponent<PlayerCameraController>(out var cameraController) &&
@@ -143,7 +158,9 @@ public class PlayerMovement : MonoBehaviour
 
         motor.enabled = false;
 
-        transform.position = position;
+        // Spawn points sit exactly on the floor; lift a little so the capsule
+        // never starts inside a one-sided mesh collider and drops through.
+        transform.position = position + Vector3.up * .1f;
 
         motor.enabled = true;
 
