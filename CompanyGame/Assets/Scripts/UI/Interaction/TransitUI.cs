@@ -18,11 +18,15 @@ public sealed class TransitUI : MonoBehaviour
     TMP_Text status;
     UnityEngine.UI.Button close;
     RectTransform vehiclePopup;
-    TMP_Text vehicleOwnerText, vehicleAccessText, vehicleLockText;
-    UnityEngine.UI.Button vehicleLockButton;
+    TMP_Text vehicleTitleText, vehicleRegisterText, vehicleMountText, vehiclePermissionsText,
+        vehicleDismantleText, vehicleRideLockText, vehicleDismantleLockText;
+    UnityEngine.UI.Button vehicleRegisterButton, vehicleMountButton, vehiclePermissionsButton,
+        vehicleDismantleButton, vehicleRideLockButton, vehicleDismantleLockButton;
     WorldDroppedItem menuVehicle;
+    bool vehiclePermissionsExpanded;
     GameObject ridingHints;
     Action closeVehicleMenu;
+    Action<WorldDroppedItem> registerVehicle, mountVehicle, dismantleVehicle;
     public bool IsVehicleMenuOpen => vehiclePopup && vehiclePopup.gameObject.activeSelf;
     public WorldDroppedItem MenuVehicle => menuVehicle;
     readonly List<UnityEngine.UI.Button> destinationButtons = new List<UnityEngine.UI.Button>();
@@ -134,37 +138,40 @@ public sealed class TransitUI : MonoBehaviour
         if(ridingHints)ridingHints.SetActive(visible);
     }
 
-    public void ShowVehicleMenu(WorldDroppedItem vehicle, Vector2 screenPosition, Action onClose)
+    public void ShowVehicleMenu(WorldDroppedItem vehicle, Vector2 screenPosition, Action onClose,
+        Action<WorldDroppedItem> onRegister, Action<WorldDroppedItem> onMount, Action<WorldDroppedItem> onDismantle)
     {
-        closeVehicleMenu=onClose;menuVehicle=vehicle;
+        closeVehicleMenu=onClose;registerVehicle=onRegister;mountVehicle=onMount;dismantleVehicle=onDismantle;
+        menuVehicle=vehicle;vehiclePermissionsExpanded=false;
         if(!vehiclePopup)
         {
-            vehiclePopup=Panel("VehiclePermissions",transform,new Vector2(310,232),Ink);
+            vehiclePopup=Panel("VehiclePermissions",transform,new Vector2(320,240),Ink);
             vehiclePopup.GetComponent<UnityEngine.UI.Image>().raycastTarget=true;
             vehiclePopup.anchorMin=vehiclePopup.anchorMax=new Vector2(.5f,.5f);vehiclePopup.pivot=new Vector2(0,1);
-            // Children keep centered anchors; the popup alone follows the click.
-            var heading=Label("Title",vehiclePopup,"탈것 권한 설정",23,Paper,new Vector2(244,36));
-            heading.rectTransform.anchoredPosition=new Vector2(-15,88);
-            vehicleOwnerText=Label("Owner",vehiclePopup,"",16,Paper,new Vector2(270,32));
-            vehicleOwnerText.rectTransform.anchoredPosition=new Vector2(0,48);
-            vehicleAccessText=Label("Access",vehiclePopup,"",16,new Color(.7f,.79f,.82f),new Vector2(278,38));
-            vehicleAccessText.rectTransform.anchoredPosition=new Vector2(0,12);
-            var toggle=Panel("ToggleVehicleLock",vehiclePopup,new Vector2(270,42),new Color(.18f,.31f,.33f));
-            toggle.anchoredPosition=new Vector2(0,-36);toggle.GetComponent<UnityEngine.UI.Image>().raycastTarget=true;
-            vehicleLockButton=toggle.gameObject.AddComponent<UnityEngine.UI.Button>();
-            vehicleLockButton.onClick.AddListener(()=>{
+            vehicleTitleText=Label("Title",vehiclePopup,"",22,Paper,new Vector2(266,44));
+            vehicleTitleText.alignment=TextAlignmentOptions.MidlineLeft;
+            PositionVehicleRow(vehicleTitleText.rectTransform,12);
+            vehicleRegisterButton=VehicleButton("Register",()=>registerVehicle?.Invoke(menuVehicle),out vehicleRegisterText);
+            vehicleMountButton=VehicleButton("Mount",()=>mountVehicle?.Invoke(menuVehicle),out vehicleMountText);
+            vehiclePermissionsButton=VehicleButton("Permissions",()=>{vehiclePermissionsExpanded=!vehiclePermissionsExpanded;RefreshVehicleMenu();},out vehiclePermissionsText);
+            vehicleRideLockButton=VehicleButton("RideLock",()=>{
                 if(menuVehicle)menuVehicle.TrySetVehicleLocked(GameSession.LocalPlayerName,!menuVehicle.VehicleLocked);
                 RefreshVehicleMenu();
-            });
-            vehicleLockText=Label("Label",toggle,"",19,Paper,new Vector2(266,40));
-            var note=Label("Hint",vehiclePopup,"자전거 우클릭 : 해체 · F : 줍기",15,new Color(.7f,.79f,.82f),new Vector2(280,30));
-            note.rectTransform.anchoredPosition=new Vector2(0,-87);
-            var exit=Panel("Close",vehiclePopup,new Vector2(28,28),new Color(.2f,.27f,.3f));exit.anchoredPosition=new Vector2(132,88);
+            },out vehicleRideLockText);
+            vehicleDismantleLockButton=VehicleButton("DismantleLock",()=>{
+                if(menuVehicle)menuVehicle.TrySetVehicleDismantleUnlocked(GameSession.LocalPlayerName,!menuVehicle.VehicleDismantleUnlocked);
+                RefreshVehicleMenu();
+            },out vehicleDismantleLockText);
+            vehicleDismantleButton=VehicleButton("Dismantle",()=>dismantleVehicle?.Invoke(menuVehicle),out vehicleDismantleText);
+            var exit=Panel("Close",vehiclePopup,new Vector2(28,28),new Color(.2f,.27f,.3f));
+            exit.anchorMin=exit.anchorMax=new Vector2(.5f,1f);exit.pivot=new Vector2(.5f,1f);
+            exit.anchoredPosition=new Vector2(137,-12);
             exit.GetComponent<UnityEngine.UI.Image>().raycastTarget=true;
             exit.gameObject.AddComponent<UnityEngine.UI.Button>().onClick.AddListener(()=>closeVehicleMenu?.Invoke());
             Label("Label",exit,"X",20,Paper,new Vector2(28,28));
         }
         vehiclePopup.gameObject.SetActive(true);vehiclePopup.SetAsLastSibling();
+        RefreshVehicleMenu();
         var canvasRect=(RectTransform)transform;
         RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect,screenPosition,null,out var point);
         var bounds=canvasRect.rect;var size=vehiclePopup.sizeDelta;
@@ -172,23 +179,71 @@ public sealed class TransitUI : MonoBehaviour
         if(x+size.x>bounds.xMax-8)x=point.x-size.x-12;
         if(y-size.y<bounds.yMin+8)y=point.y+size.y+12;
         vehiclePopup.anchoredPosition=new Vector2(Mathf.Clamp(x,bounds.xMin+8,bounds.xMax-size.x-8),Mathf.Clamp(y,bounds.yMin+size.y+8,bounds.yMax-8));
-        RefreshVehicleMenu();
     }
 
     public void RefreshVehicleMenu()
     {
         if(!IsVehicleMenuOpen || !menuVehicle)return;
         string owner=menuVehicle.VehicleOwner;
-        vehicleOwnerText.text="소유자 : <noparse>"+(owner??"미등록")+"</noparse>";
-        vehicleAccessText.text=menuVehicle.VehicleLocked?"다른 플레이어 탑승 : 허용 안 함":"다른 플레이어 탑승 : 허용";
-        vehicleLockButton.interactable=owner==GameSession.LocalPlayerName && !menuVehicle.IsOccupied;
-        vehicleLockText.text=owner==null?"손에 들고 Space로 소유권 등록":owner!=GameSession.LocalPlayerName?"소유자만 권한 변경 가능":menuVehicle.VehicleLocked?"잠금 해제":"잠금";
+        bool mine=owner!=null && owner==GameSession.LocalPlayerName;
+        bool unowned=owner==null;
+        var registry=PropertyRegistry.Instance;
+        string itemName=menuVehicle.Item ? menuVehicle.Item.DisplayName : "탈것";
+        vehicleTitleText.text=unowned ? "<noparse>"+itemName+"</noparse>" :
+            "<noparse>"+owner+"의 "+itemName+"</noparse>";
+        vehicleRegisterText.text=mine?"소유권 포기":"소유권 등록하기";
+        vehicleMountText.text="탑승하기";
+        vehiclePermissionsText.text=vehiclePermissionsExpanded?"권한 설정 닫기":"권한 설정";
+        vehicleDismantleText.text="해체하기";
+        vehicleRideLockText.text="다른 플레이어 탑승: "+(menuVehicle.VehicleLocked?"잠금":"잠금해제");
+        vehicleDismantleLockText.text="다른 플레이어 해체: "+(menuVehicle.VehicleDismantleUnlocked?"잠금해제":"잠금");
+        vehicleRegisterButton.interactable=(unowned || mine) && !menuVehicle.IsOccupied;
+        vehicleMountButton.interactable=!menuVehicle.IsOccupied && registry &&
+            registry.CanRideVehicle(menuVehicle.VehicleOwnershipKey,GameSession.LocalPlayerName);
+        vehicleDismantleButton.interactable=!menuVehicle.IsOccupied && registry &&
+            registry.CanDismantleVehicle(menuVehicle.VehicleOwnershipKey,GameSession.LocalPlayerName);
+        vehiclePermissionsButton.interactable=mine && !menuVehicle.IsOccupied;
+        vehicleRideLockButton.interactable=vehicleDismantleLockButton.interactable=mine && !menuVehicle.IsOccupied;
+        float y=64;
+        ShowVehicleRow(vehicleRegisterButton,unowned || mine,ref y);
+        ShowVehicleRow(vehicleMountButton,true,ref y);
+        ShowVehicleRow(vehiclePermissionsButton,mine,ref y);
+        ShowVehicleRow(vehicleRideLockButton,mine && vehiclePermissionsExpanded,ref y);
+        ShowVehicleRow(vehicleDismantleLockButton,mine && vehiclePermissionsExpanded,ref y);
+        ShowVehicleRow(vehicleDismantleButton,unowned || mine || menuVehicle.VehicleDismantleUnlocked,ref y);
+        vehiclePopup.sizeDelta=new Vector2(320,y+8);
+        var bounds=((RectTransform)transform).rect;
+        var position=vehiclePopup.anchoredPosition;
+        vehiclePopup.anchoredPosition=new Vector2(position.x,
+            Mathf.Clamp(position.y,bounds.yMin+vehiclePopup.sizeDelta.y+8,bounds.yMax-8));
+    }
+    UnityEngine.UI.Button VehicleButton(string name, Action action, out TMP_Text label)
+    {
+        var row=Panel(name,vehiclePopup,new Vector2(286,40),new Color(.18f,.31f,.33f));
+        row.GetComponent<UnityEngine.UI.Image>().raycastTarget=true;
+        var button=row.gameObject.AddComponent<UnityEngine.UI.Button>();
+        button.onClick.AddListener(()=>action());
+        label=Label("Label",row,"",18,Paper,new Vector2(278,38));
+        return button;
+    }
+    static void PositionVehicleRow(RectTransform row,float top)
+    {
+        row.anchorMin=row.anchorMax=new Vector2(.5f,1f);
+        row.pivot=new Vector2(.5f,1f);
+        row.anchoredPosition=new Vector2(0,-top);
+    }
+    static void ShowVehicleRow(UnityEngine.UI.Button button,bool visible,ref float top)
+    {
+        button.gameObject.SetActive(visible);
+        if(!visible)return;
+        PositionVehicleRow((RectTransform)button.transform,top);
+        top+=46;
     }
     public bool PointerInVehicleMenu(Vector2 point) => IsVehicleMenuOpen && RectTransformUtility.RectangleContainsScreenPoint(vehiclePopup,point,null);
     public void HideVehicleMenu()
     {
         if(vehiclePopup)vehiclePopup.gameObject.SetActive(false);
-        menuVehicle=null;
+        menuVehicle=null;registerVehicle=mountVehicle=dismantleVehicle=null;
     }
 
     public void ShowDestinations(TransitKind kind, string currentName,

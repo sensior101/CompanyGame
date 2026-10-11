@@ -36,7 +36,8 @@ public class PlayerInteraction : MonoBehaviour
     public NpcTrader TradeSpeaker { get; private set; }
     public bool HasNearbyAction => !IsInteractionMenuOpen &&
         ((GetComponent<PlayerVehicle>()?.IsRiding ?? false) || WorldDroppedItem.FindNearestVehicle(GetComponent<PlayerInventory>()) ||
-         DialogueManager.HasNearbyNpc || SeatInteraction.HasNearbySeat || StoreInteractionPoint.FindNearest(transform) || NpcTrader.FindNearest(transform));
+         DialogueManager.HasNearbyNpc || SeatInteraction.HasNearbySeat || StoreInteractionPoint.FindNearest(transform) ||
+         MapPortal.HasNearbyPortal(transform) || NpcTrader.FindNearest(transform));
     public TradeWindow TradeUI => tradeUI;
     public TransitStop FocusedStop { get; private set; }
     public bool IsMenuReady => IsDestinationMenuOpen && menuArmed;
@@ -160,14 +161,6 @@ public class PlayerInteraction : MonoBehaviour
             if (ui) ui.HidePrompt();
             return;
         }
-        var inventoryState = GetComponent<PlayerInventory>().Inventory;
-        var heldStack = inventoryState?.GetSlot(inventoryState.SelectedHotbarIndex);
-        if (heldStack != null && !heldStack.IsEmpty && heldStack.Item.IsVehicle)
-        {
-            FocusedStop = null; FocusedStore = null; FocusedTrader = null;
-            if (ui) ui.HidePrompt();
-            return;
-        }
         var placedVehicle = WorldDroppedItem.FindNearestVehicle(GetComponent<PlayerInventory>());
         if (placedVehicle)
         {
@@ -232,17 +225,6 @@ public class PlayerInteraction : MonoBehaviour
         }
         var highlighted=overUI && menu ? ui.MenuVehicle : hitVehicle;
         if(hoveredVehicle!=highlighted){ClearVehicleHover();hoveredVehicle=highlighted;if(hoveredVehicle)hoveredVehicle.SetVehicleHover(true);}
-        if(GameInput.DismantleVehiclePressed && !overUI && hitVehicle)
-        {
-            worldClickFrame=Time.frameCount;
-            if(hitVehicle.TryDismantleVehicle(GameSession.LocalPlayerName,out var error))
-            {
-                CloseVehicleMenu();ClearVehicleHover();
-                inventory.SetStatus("탈것을 해체했습니다. 드롭 아이템을 F로 주워 주세요.");
-            }
-            else if(!string.IsNullOrEmpty(error))inventory.SetStatus(error);
-            return true;
-        }
         if(GameInput.AttackPressed && !overUI)
         {
             if(hitVehicle)
@@ -250,12 +232,55 @@ public class PlayerInteraction : MonoBehaviour
                 worldClickFrame=Time.frameCount;
                 EnsureUI();ui.HidePrompt();
                 if(!menu)SuspendControls();
-                ui.ShowVehicleMenu(hitVehicle,pointer,CloseVehicleMenu);
+                ui.ShowVehicleMenu(hitVehicle,pointer,CloseVehicleMenu,ChangeVehicleOwnershipFromMenu,
+                    MountVehicleFromMenu,DismantleVehicleFromMenu);
                 return true;
             }
             if(menu){worldClickFrame=Time.frameCount;CloseVehicleMenu();return true;}
         }
         return menu;
+    }
+
+    void ChangeVehicleOwnershipFromMenu(WorldDroppedItem target)
+    {
+        if(!target || !target.IsReachableFrom(GetComponent<PlayerInventory>(),3f))return;
+        var inventory=GetComponent<PlayerInventory>();
+        if(target.VehicleOwner==GameSession.LocalPlayerName)
+        {
+            if(target.TryAbandonVehicle(GameSession.LocalPlayerName))
+                PropertyUseController.Say(target.Item.DisplayName+"의 소유권을 포기했습니다.");
+            else inventory.SetStatus("지금은 소유권을 포기할 수 없습니다.");
+        }
+        else if(target.VehicleOwner==null && target.TryRegisterVehicle(GameSession.LocalPlayerName))
+            PropertyUseController.Say(target.Item.DisplayName+"의 소유권을 등록했습니다.");
+        else inventory.SetStatus("이미 소유권이 등록된 탈것입니다.");
+        ui.RefreshVehicleMenu();
+    }
+
+    void MountVehicleFromMenu(WorldDroppedItem target)
+    {
+        if(!target || !target.IsReachableFrom(GetComponent<PlayerInventory>(),3f))return;
+        CloseVehicleMenu();
+        StartCoroutine(MountVehicleAfterMenuCloses(target));
+    }
+
+    System.Collections.IEnumerator MountVehicleAfterMenuCloses(WorldDroppedItem target)
+    {
+        yield return null;
+        if(target && !target.TryMount(GetComponent<PlayerInventory>()))
+            GetComponent<PlayerInventory>().SetStatus("지금은 탑승할 수 없습니다.");
+    }
+
+    void DismantleVehicleFromMenu(WorldDroppedItem target)
+    {
+        if(!target || !target.IsReachableFrom(GetComponent<PlayerInventory>(),3f))return;
+        var inventory=GetComponent<PlayerInventory>();
+        if(target.TryDismantleVehicle(GameSession.LocalPlayerName,out var error))
+        {
+            CloseVehicleMenu();ClearVehicleHover();
+            inventory.SetStatus("탈것을 해체했습니다. 드롭 아이템을 F로 주워 주세요.");
+        }
+        else if(!string.IsNullOrEmpty(error))inventory.SetStatus(error);
     }
 
     public void CloseVehicleMenu()

@@ -59,6 +59,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
     public string VehicleOwnershipKey => record?.contents.GetSlot(0)?.OwnershipKey;
     public string VehicleOwner => PropertyRegistry.Instance ? PropertyRegistry.Instance.GetOwner(VehicleOwnershipKey) : null;
     public bool VehicleLocked => PropertyRegistry.Instance && PropertyRegistry.Instance.IsVehicleLocked(VehicleOwnershipKey);
+    public bool VehicleDismantleUnlocked => PropertyRegistry.Instance && PropertyRegistry.Instance.IsVehicleDismantleUnlocked(VehicleOwnershipKey);
     public bool IsHighlighted => hoverOutline && hoverOutline.activeSelf;
 
     public bool CanManageVehicle(string actor) => IsPlacedVehicle && !IsOccupied && PropertyRegistry.Instance &&
@@ -68,13 +69,23 @@ public sealed class WorldDroppedItem : MonoBehaviour
         return IsPlacedVehicle && !IsOccupied && PropertyRegistry.Instance &&
             PropertyRegistry.Instance.TrySetVehicleLocked(VehicleOwnershipKey,actor,locked);
     }
+    public bool TrySetVehicleDismantleUnlocked(string actor, bool unlocked) =>
+        IsPlacedVehicle && !IsOccupied && PropertyRegistry.Instance &&
+        PropertyRegistry.Instance.TrySetVehicleDismantleUnlocked(VehicleOwnershipKey, actor, unlocked);
+    public bool TryRegisterVehicle(string actor) =>
+        IsPlacedVehicle && !IsOccupied && PropertyRegistry.Instance &&
+        PropertyRegistry.Instance.TryRegister(VehicleOwnershipKey, actor);
+    public bool TryAbandonVehicle(string actor) =>
+        IsPlacedVehicle && !IsOccupied && PropertyRegistry.Instance &&
+        PropertyRegistry.Instance.TryAbandon(VehicleOwnershipKey, actor);
 
     // The same instance moves from installed geometry to the existing dropped-item representation.
     public bool TryDismantleVehicle(string actor, out string error)
     {
         error = null;
         if (!IsPlacedVehicle || IsOccupied) return false;
-        if (!CanManageVehicle(actor)) { error="소유자만 탈것을 해체할 수 있습니다."; return false; }
+        if (!PropertyRegistry.Instance || !PropertyRegistry.Instance.CanDismantleVehicle(VehicleOwnershipKey,actor))
+        { error="소유자가 해체를 허용하지 않았습니다."; return false; }
         record.placedVehicle=false;
         foreach (var collider in GetComponents<Collider>()) { collider.enabled=false; Destroy(collider); }
         foreach (Transform child in transform) { child.gameObject.SetActive(false); Destroy(child.gameObject); }
@@ -288,7 +299,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
     public bool TryPickUp(PlayerInventory owner, out string error)
     {
         error = null;
-        if (IsPlacedVehicle) { error="설치된 탈것은 우클릭으로 해체한 다음 F로 주워 주세요."; return false; }
+        if (IsPlacedVehicle) { error="설치된 탈것은 좌클릭 메뉴에서 해체한 다음 F로 주워 주세요."; return false; }
         if (IsOccupied || !owner || !owner.CanPickUpWorldItems || record == null ||
             !records.ContainsKey(record.id) || gameObject.scene != SceneLoadManager.CurrentMap)
         { error = "지금은 주울 수 없습니다."; return false; }
@@ -789,7 +800,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
 
     string PickupPromptText()
     {
-        return (record?.contents.GetSlot(0)?.DisplayName ?? "아이템") + (IsPlacedVehicle ? (VehicleLocked ? "   [잠금 / Space 탑승]" : "   [Space 탑승]") : "   [줍기 F]");
+        return (record?.contents.GetSlot(0)?.DisplayName ?? "아이템") + (IsPlacedVehicle ? "   [좌클릭 메뉴]" : "   [줍기 F]");
     }
 
     void BuildItemIcon()

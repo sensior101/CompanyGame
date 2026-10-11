@@ -306,7 +306,12 @@ public sealed class PlayerInventory : MonoBehaviour
         {
             if (!Inventory.GetSlot(index).IsEmpty) SelectedInventorySlot = index;
             if (SelectedInventorySlot >= 0 && Inventory.GetSlot(index).Item.IsVehicle)
-                StatusMessage = "손에 들고 Space 소유권 등록 · 5초 길게 소유권 포기 · 좌클릭 설치";
+            {
+                var owner = PropertyRegistry.Instance ? PropertyRegistry.Instance.GetOwner(Inventory.GetSlot(index).OwnershipKey) : null;
+                StatusMessage = owner == GameSession.LocalPlayerName
+                    ? "좌클릭으로 설치한 뒤 자전거 메뉴에서 소유권 포기"
+                    : owner == null ? "좌클릭으로 설치한 뒤 자전거 메뉴에서 소유권 등록" : "타인 소유 탈것 · 좌클릭 설치";
+            }
         }
         else if (SelectedInventorySlot == index) SelectedInventorySlot = -1;
         else
@@ -496,7 +501,7 @@ public sealed class PlayerInventory : MonoBehaviour
     bool TryPlaceSelectedVehicle()
     {
         bool success = WorldDroppedItem.TryPlaceVehicle(this, out string error);
-        SetStatus(success ? "자전거를 설치했습니다. Space 탑승 · 좌클릭 권한 설정 · 우클릭 해체" : error);
+        SetStatus(success ? "자전거를 설치했습니다. 좌클릭으로 메뉴를 열어 탑승하거나 해체하세요." : error);
         return success;
     }
 

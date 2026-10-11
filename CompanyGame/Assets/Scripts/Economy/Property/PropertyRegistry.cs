@@ -8,6 +8,7 @@ public class PropertySave
     public string id;
     public string owner;
     public bool vehicleLocked;
+    public bool vehicleDismantleUnlocked;
 }
 
 /// <summary>
@@ -19,12 +20,22 @@ public class PropertyRegistry : GameSystem<PropertyRegistry>
     // 포기 = 키 유지 + 값 "" (포기한 id는 SeedOwner로 다시 시드되지 않는다)
     private readonly Dictionary<string, string> owners = new Dictionary<string, string>();
     readonly HashSet<string> lockedVehicles = new HashSet<string>();
+    readonly HashSet<string> dismantleUnlockedVehicles = new HashSet<string>();
     static bool IsVehicle(string id) => id != null && id.StartsWith("vehicle:",StringComparison.Ordinal);
     public bool IsVehicleLocked(string id) => IsVehicle(id) && GetOwner(id)!=null && lockedVehicles.Contains(id);
     public bool CanRideVehicle(string id, string player) => IsVehicle(id) && !string.IsNullOrEmpty(player) &&
         (GetOwner(id)==null || GetOwner(id)==player || !IsVehicleLocked(id));
     public bool CanManageVehicle(string id, string player) => IsVehicle(id) && !string.IsNullOrEmpty(player) &&
         (GetOwner(id)==null || GetOwner(id)==player);
+    public bool IsVehicleDismantleUnlocked(string id) => IsVehicle(id) && GetOwner(id)!=null && dismantleUnlockedVehicles.Contains(id);
+    public bool CanDismantleVehicle(string id, string player) => IsVehicle(id) && !string.IsNullOrEmpty(player) &&
+        (GetOwner(id)==null || GetOwner(id)==player || IsVehicleDismantleUnlocked(id));
+    public bool TrySetVehicleDismantleUnlocked(string id, string player, bool unlocked)
+    {
+        if (!IsVehicle(id) || string.IsNullOrEmpty(player) || GetOwner(id)!=player) return false;
+        if (unlocked) dismantleUnlockedVehicles.Add(id); else dismantleUnlockedVehicles.Remove(id);
+        return true;
+    }
     public bool TrySetVehicleLocked(string id, string player, bool locked)
     {
         if (!IsVehicle(id) || string.IsNullOrEmpty(player) || GetOwner(id)!=player) return false;
@@ -40,6 +51,7 @@ public class PropertyRegistry : GameSystem<PropertyRegistry>
         if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(owner) || GetOwner(id) != null) return false;
         owners[id] = owner;
         if (IsVehicle(id)) lockedVehicles.Add(id);
+        dismantleUnlockedVehicles.Remove(id);
         return true;
     }
 
@@ -48,6 +60,7 @@ public class PropertyRegistry : GameSystem<PropertyRegistry>
         if (string.IsNullOrEmpty(owner) || GetOwner(id) != owner) return false;
         owners[id] = "";
         lockedVehicles.Remove(id);
+        dismantleUnlockedVehicles.Remove(id);
         return true;
     }
 
@@ -60,7 +73,8 @@ public class PropertyRegistry : GameSystem<PropertyRegistry>
     public List<PropertySave> CaptureState()
     {
         var list = new List<PropertySave>();
-        foreach (var kv in owners) list.Add(new PropertySave { id = kv.Key, owner = kv.Value, vehicleLocked = IsVehicleLocked(kv.Key) });
+        foreach (var kv in owners) list.Add(new PropertySave { id = kv.Key, owner = kv.Value,
+            vehicleLocked = IsVehicleLocked(kv.Key), vehicleDismantleUnlocked = IsVehicleDismantleUnlocked(kv.Key) });
         return list;
     }
 
@@ -68,12 +82,14 @@ public class PropertyRegistry : GameSystem<PropertyRegistry>
     {
         owners.Clear();
         lockedVehicles.Clear();
+        dismantleUnlockedVehicles.Clear();
         if (saved == null) return;
         foreach (var s in saved)
             if (s != null && !string.IsNullOrEmpty(s.id))
             {
                 owners[s.id] = s.owner ?? "";
                 if(IsVehicle(s.id) && s.vehicleLocked && !string.IsNullOrEmpty(s.owner))lockedVehicles.Add(s.id);
+                if(IsVehicle(s.id) && s.vehicleDismantleUnlocked && !string.IsNullOrEmpty(s.owner))dismantleUnlockedVehicles.Add(s.id);
             }
     }
 }

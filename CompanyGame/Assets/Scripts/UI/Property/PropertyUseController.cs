@@ -100,15 +100,15 @@ public sealed class PropertyUseController : MonoBehaviour
     {
         var inventory = InventoryManager.Instance ? InventoryManager.Instance.State : null;
         var stack = inventory?.GetSlot(inventory.SelectedHotbarIndex);
-        var deed = stack != null && !stack.IsEmpty && (stack.Item.IsDeed || stack.Item.IsVehicle) ? stack.Item : null;
-        string key = deed ? (deed.IsVehicle ? stack.OwnershipKey : deed.propertyId) : null;
+        var deed = stack != null && !stack.IsEmpty && stack.Item.IsDeed ? stack.Item : null;
+        string key = deed ? deed.propertyId : null;
         var interaction = PlayerInteraction.Local;
         bool gate = !DialogueManager.OwnsInput && !BookReader.BlocksInventoryInput && deed && !string.IsNullOrEmpty(key) && interaction && !(GetComponent<PlayerVehicle>()?.IsRiding ?? false) &&
             !PlayerInventory.IsAnyOpen && !ChatUIManager.IsChatting &&
             !UIEventSystem.IsEditingText() && !interaction.IsInteractionMenuOpen &&
             !(GetComponent<PlayerSeating>()?.IsSeated ?? false) &&
             !(PhoneManager.Instance && PhoneManager.Instance.IsPhoneOpen) &&
-            (deed.IsVehicle || (!interaction.HasNearbyAction && !TransitStop.FindNearest(transform)));
+            !interaction.HasNearbyAction && !TransitStop.FindNearest(transform);
         if (state == State.WaitRelease) { if (!GameInput.InteractHeld) state = State.Idle; return; }
         if (!gate || (state == State.Holding && (deed != heldDeed || key != heldOwnershipKey || !GameInput.InteractHeld ||
             registry.GetOwner(key) != GameSession.LocalPlayerName))) { Cancel(); return; }
@@ -119,7 +119,7 @@ public sealed class PropertyUseController : MonoBehaviour
     void Press(PropertyRegistry registry, ItemData deed, string key)
     {
         string owner = registry.GetOwner(key);
-        string label = deed.IsVehicle ? deed.DisplayName : deed.propertyName;
+        string label = deed.propertyName;
         string me = GameSession.LocalPlayerName;
         PlayerInventory.ConsumeSpaceThisFrame();
         if (owner == me) { state = State.Holding; heldDeed = deed; heldOwnershipKey = key; held = 0f; return; }
@@ -135,7 +135,7 @@ public sealed class PropertyUseController : MonoBehaviour
         if (held >= HoldSeconds)
         {
             if (registry.TryAbandon(key, GameSession.LocalPlayerName))
-                Say((deed.IsVehicle ? deed.DisplayName : deed.propertyName) + "의 소유권을 포기했습니다.");
+                Say(deed.propertyName + "의 소유권을 포기했습니다.");
             state = State.WaitRelease;
             HideGauge();
         }
@@ -151,7 +151,7 @@ public sealed class PropertyUseController : MonoBehaviour
     // The chat popup renders TMP rich text; keep names literal.
     static string NoParse(string name) => "<noparse>" + name + "</noparse>";
 
-    static void Say(string message)
+    public static void Say(string message)
     {
         foreach (var chat in FindObjectsByType<ChatUIManager>())
             if (chat) chat.ShowSystemMessage(message);
