@@ -58,9 +58,11 @@ Gameplay → NPC → UI
 ## 고시원과 소유권
 
 - 고시원 내부 씬은 `Scenes/Interiors/GoshiwonInterior.unity`입니다. 달동네 고시원 정문(`Goshiwon Entrance`)으로 들어가고, 1층 출구로 나오면 `goshiwon_exit`에 섭니다.
-- 씬은 메뉴 `CompanyGame/Setup/Build Goshiwon Interior`(`Editor/Goshiwon/GoshiwonInteriorBuilder`)가 원시 도형으로 만듭니다. 다시 실행하면 씬을 통째로 덮어쓰므로, 손으로 꾸미기 시작한 뒤에는 실행하지 않습니다. 집문서 아이템·스프라이트·달동네 출입문은 `Run Goshiwon Setup`(`GoshiwonSetup`)이 만듭니다.
-- 1~4층, 방 20개(101·102, 201~206, 301~306, 401~406). 1층에는 접수대와 주인아주머니가 있습니다. 층은 위아래로 쌓여 있고 계단은 걷지 않습니다. `FloorStairs` 근처에 서면 `FloorStairsMenu`가 윗층/아래층 메뉴를 띄우고 ↑↓+Enter 또는 클릭으로 `floor_N` 스폰에 순간이동합니다. 메뉴가 떠 있는 동안 Enter는 채팅을 열지 않습니다.
-- 스폰 ID: `goshiwon_entry`, `floor_1~4`, `room_201`(방 안), `door_201`(복도 문 앞).
+- 씬은 메뉴 `CompanyGame/Setup/Build Goshiwon Interior`(`Editor/Goshiwon/GoshiwonInteriorBuilder`)가 상자 도형으로 만들고, 벽지·카펫·마루 등 텍스처도 같은 메뉴가 `Art/Goshiwon/Textures`에 코드로 생성합니다(다시 돌려도 같은 결과). 다시 실행하면 씬을 통째로 덮어쓰므로, 손으로 꾸미기 시작한 뒤에는 실행하지 않습니다. 집문서 아이템·스프라이트·달동네 출입문은 `Run Goshiwon Setup`(`GoshiwonSetup`)이 만듭니다.
+- 1~4층(층고 3m), 가구 없는 빈 방 20개(101·102, 201~206, 301~306, 401~406). 복도는 덩굴 벽지·나무 징두리·카펫, 방은 크림색 벽·나무 마루·커튼 창입니다. 1층 로비에는 접수대와 고시원 주인이 있습니다. 주인은 편의점 점원과 같은 구성(`MaleVisual` + 앞치마 + 명찰)이고 `DialogueData`로 말을 겁니다.
+- 층 사이는 복도 남쪽 끝 계단을 걸어서 오르내립니다(층 선택 메뉴 없음). 각 층 계단 홀에서 오른쪽 절반은 올라가고 왼쪽 절반은 내려가며, 한 층은 9단씩 두 번 꺾입니다. 계단 디딤판은 보이기만 하고, 밟는 것은 계단마다 하나씩 있는 보이지 않는 경사 충돌체(`Walk Ramp`, 29°)입니다. 1층 계단 밑은 벽, 4층 빈 쪽은 난간으로 막습니다. `FloorStairs`/`FloorStairsMenu`는 이제 한대 로비에서만 씁니다.
+- 방 문은 지금처럼 Space로 순간이동합니다(`door_201` ↔ `room_201`).
+- 스폰 ID: `goshiwon_entry`, `floor_1~4`(각 층 계단 홀), `room_201`(방 안), `door_201`(복도 문 앞).
 
 ### 소유권 (집문서·땅문서)
 
