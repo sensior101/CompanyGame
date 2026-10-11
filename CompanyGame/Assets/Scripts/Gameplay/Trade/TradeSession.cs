@@ -62,7 +62,7 @@ public interface ITradeFulfillment
     void Complete(ItemStack received);
 }
 
-public class TradeSession
+public partial class TradeSession
 {
     static readonly HashSet<TradeSession> pending = new HashSet<TradeSession>();
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -85,7 +85,7 @@ public class TradeSession
     public ItemStack HeldStack => !CursorItem ? null : new ItemStack(CursorItem, CursorCount, CursorInstanceId) { BookData = CursorBookData?.Clone() };
     public virtual bool IsOfferAvailable(int index) => HasOffer(index) && (Offers[index].fulfillment == null || Offers[index].fulfillment.CanTake(out _));
     public virtual string OutputTooltip(int index) => HasOffer(index) ? Offers[index].get.Tooltip : null;
-    public void RefreshOffers() { if (offerProvider != null) Offers = offerProvider() ?? Array.Empty<TradeOffer>(); }
+    public void RefreshOffers() { if (offerProvider != null) { Offers = offerProvider() ?? Array.Empty<TradeOffer>(); PruneCart(); } }
     public ItemData CursorItem { get; private set; }
     public int CursorCount { get; private set; }
     public string CursorInstanceId { get; private set; }
@@ -166,6 +166,12 @@ public class TradeSession
         {error="커서의 아이템을 먼저 놓아 주세요.";return false;}
         var draft=Inventory.Copy();
         if(!TryPay(draft,trade.give,out int firstSlot,out var paid,out error))return false;
+        if(paid!=null && firstSlot<0)
+        {
+            // Change may take the freed slot; cancel must still be able to refund the cash paid.
+            var refundCheck=draft.Copy();
+            if(!refundCheck.TryAdd(paid.Item,(HasCursorItem?originalCount:0)+trade.give.Count,out _)){error="인벤토리에 빈 칸이 필요합니다.";return false;}
+        }
         if(paid!=null){originalInstanceId=paid.InstanceId;originalBookData=paid.BookData?.Clone();}
         if(!HasCursorItem)
         {
@@ -173,7 +179,7 @@ public class TradeSession
             CursorInstanceId=trade.get.IsBookTemplate || received.IsVehicle ? Guid.NewGuid().ToString("N") : null;
             CursorBookData=trade.get.IsBookTemplate?trade.get.bookTemplate.Clone():null;
         }
-        CursorCount+=trade.get.Count;originalCount+=trade.give.IsFree?0:trade.give.Count;
+        CursorCount+=trade.get.Count;originalCount+=paid==null?0:trade.give.Count;
         cursorTrade=trade;cursorTradeCount++;
         pending.Add(this);
         Inventory.ReplaceWith(draft);Inventory.NotifyChanged();return true;
@@ -248,6 +254,16 @@ public class TradeSession
     static bool TryPay(InventoryState inventory, TradeItem payment, out int firstSlot, out ItemStack firstPaid, out string error)
     {
         error=null;firstSlot=-1;firstPaid=null;if(payment.IsFree)return true;
+        if(!payment.item || payment.item.IsCurrency)
+        {
+            // Cash is a value, not a denomination: pay from any notes and take change.
+            long unit=payment.item?payment.item.CurrencyValue:payment.cash;
+            if(!CashService.PlanPayment(inventory,checked(unit*payment.Count),out var paidDraft,out error))return false;
+            inventory.ReplaceWith(paidDraft);
+            // Cancel refunds notes of the unit value; no original slot to return to.
+            if(unit>0)firstPaid=new ItemStack(CashService.GetCurrency(unit),1);
+            return true;
+        }
         int need=payment.Count;
         for(int i=0;i<inventory.Capacity && need>0;i++)
         {

@@ -176,8 +176,68 @@ public static partial class CashService
         }
     }
 
+    /// <summary>
+    /// Cart checkout: pays the total from carried cash (change included)
+    /// and adds the items to the same draft. All or nothing.
+    /// </summary>
+    public static bool TryPurchase(
+        InventoryState inventory,
+        long amount,
+        (ItemData item, int count)[] items,
+        out string error)
+    {
+        if (!RequireAuthority(out error)) return false;
+
+        if (inventory == null ||
+            amount <= 0 ||
+            items == null ||
+            items.Length == 0)
+        {
+            return Fail(
+                "결제 금액을 확인해 주세요.",
+                out error);
+        }
+
+        if (transactionInProgress)
+        {
+            return Fail(
+                "이전 거래를 처리 중입니다.",
+                out error);
+        }
+
+        transactionInProgress = true;
+
+        try
+        {
+            if (!PlanPayment(
+                    inventory,
+                    amount,
+                    out InventoryState draft,
+                    out error))
+            {
+                return false;
+            }
+
+            foreach ((ItemData item, int count) in items)
+            {
+                if (!draft.TryAdd(item, count, out error))
+                    return false;
+            }
+
+            inventory.ReplaceWith(draft);
+            inventory.NotifyChanged();
+            NotifyTransaction(inventory, -amount, MoneyChangeReason.Purchase, "장바구니 구매");
+
+            return true;
+        }
+        finally
+        {
+            transactionInProgress = false;
+        }
+    }
+
     // 실제 현금 결제 계산
-    static bool PlanPayment(
+    internal static bool PlanPayment(
         InventoryState inventory,
         long amount,
         out InventoryState draft,

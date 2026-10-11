@@ -8,8 +8,13 @@ public sealed class TradePointer : MonoBehaviour, IBeginDragHandler, IDragHandle
     public Kind kind;
     public int index;
     bool movedSincePress;
-    public void OnPointerDown(PointerEventData e){if(e.button==PointerEventData.InputButton.Left)movedSincePress=false;}
-    public void OnPointerClick(PointerEventData e){if(!owner || e.button!=PointerEventData.InputButton.Left || movedSincePress)return;if(kind==Kind.Output)owner.ClickOffer(index,e.position);}
+    public void OnPointerDown(PointerEventData e){movedSincePress=false;}
+    public void OnPointerClick(PointerEventData e)
+    {
+        if(!owner || movedSincePress || kind!=Kind.Output)return;
+        if(e.button==PointerEventData.InputButton.Left)owner.ClickOffer(index,e.position);
+        else if(e.button==PointerEventData.InputButton.Right)owner.AddOfferToCart(index);
+    }
     public void OnPointerEnter(PointerEventData e){if(owner)owner.ShowTooltip(this,e.position);}
     public void OnPointerMove(PointerEventData e){if(owner)owner.ShowTooltip(this,e.position);}
     public void OnPointerExit(PointerEventData e){if(owner)owner.HideTooltip();}

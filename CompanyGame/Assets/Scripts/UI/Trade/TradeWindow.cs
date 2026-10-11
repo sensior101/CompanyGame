@@ -47,6 +47,7 @@ public sealed partial class TradeWindow : MonoBehaviour
         var trades=Panel("TradeWindow",window,new Vector2(672,416),Paper);trades.anchoredPosition=new Vector2(0,90);
         Border(trades);
         SymbolButton("Close",window,new Vector2(351,282),()=>onClose(),0);
+        BuildCart();
         previousOffers=SymbolButton("PreviousOffers",window,new Vector2(-288,316),()=>ChangeOfferPage(-1),-1);
         nextOffers=SymbolButton("NextOffers",window,new Vector2(288,316),()=>ChangeOfferPage(1),1);
         // The reference has three columns, each containing six vertical trades.
@@ -115,6 +116,7 @@ public sealed partial class TradeWindow : MonoBehaviour
             v.count.text="";payment.count.text="";
             payment.image.enabled=present;payment.image.sprite=present?Icon(offer.give):null;
         }
+        RefreshCart();
         RefreshCursor();
     }
     public void ChangeOfferPage(int amount)
@@ -204,6 +206,7 @@ public sealed partial class TradeWindow : MonoBehaviour
         else if(HasOffer(pointer.index))
         {
             var side=Session.Offers[pointer.index].give;
+            if(pointer.kind==TradePointer.Kind.Output && Session.IsCartable(pointer.index))details="우클릭: 장바구니에 담기";
             name=pointer.kind==TradePointer.Kind.Output?Session.OutputTooltip(pointer.index):
                 (!side.item || side.item.IsCurrency)?((side.item?side.item.CurrencyValue:side.cash)*side.Count).ToString("N0")+"원":side.Tooltip;
         }
