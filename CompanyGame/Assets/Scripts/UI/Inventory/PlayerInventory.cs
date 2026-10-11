@@ -216,6 +216,13 @@ public sealed class PlayerInventory : MonoBehaviour
         return true;
     }
 
+    // Door/clerk/NPC prompts own Space in their range, whatever item is held.
+    bool PromptOwnsSpace => !IsOpen && interaction && interaction.HasNearbyAction;
+
+    /// <summary>Shared gate for every held-item Space use (cash deposit, book reading, ...).</summary>
+    public bool CanUseHeldItem() => !PromptOwnsSpace && CanDepositCurrency() && !DialogueManager.OwnsInput &&
+        !(PhoneManager.Instance && PhoneManager.Instance.IsPhoneOpen) && !(PlayerSeating.Local && PlayerSeating.Local.IsSeated);
+
     bool CanDepositCurrency() => !SeatInteraction.HasNearbySeat && !FurnitureLightInteraction.HasNearbyLight && !DialogueManager.HasNearbyNpc && !DialogueManager.IsDialogueOpen && Application.isPlaying && isActiveAndEnabled && Inventory != null && !restorePending &&
         closedFrame != Time.frameCount && !IsDragging && !SceneLoadManager.IsLoading && !ChatUIManager.IsChatting &&
         !UIEventSystem.IsEditingText() && !(ui && ui.IsWithdrawalOpen) && !(interaction && interaction.IsInteractionMenuOpen) &&
@@ -226,7 +233,7 @@ public sealed class PlayerInventory : MonoBehaviour
     /// <summary>Deposit one selected currency unit by default; other stacks remain untouched.</summary>
     public bool TryDepositSelectedCurrency(int quantity = 1)
     {
-        if (!CanDepositCurrency() || SpaceConsumedThisFrame) return false;
+        if (!CanUseHeldItem() || SpaceConsumedThisFrame) return false;
         return DepositCurrency(SelectedCurrencySlot, quantity);
     }
 
@@ -246,8 +253,7 @@ public sealed class PlayerInventory : MonoBehaviour
 
     bool HandleCurrencyDepositInput()
     {
-        // Door/clerk prompts own Space in their range, even with cash selected.
-        if (!IsOpen && interaction && interaction.HasNearbyAction)
+        if (PromptOwnsSpace)
         {
             ResetCurrencyDepositGesture();
             return false;
@@ -256,7 +262,7 @@ public sealed class PlayerInventory : MonoBehaviour
         if (pressed)
         {
             ResetCurrencyDepositGesture();
-            if (!CanDepositCurrency() || SpaceConsumedThisFrame) return false;
+            if (!CanUseHeldItem() || SpaceConsumedThisFrame) return false;
             int index = SelectedCurrencySlot;
             ItemStack selected = Inventory.GetSlot(index);
             if (selected == null || selected.IsEmpty || !selected.Item.IsCurrency) return false;

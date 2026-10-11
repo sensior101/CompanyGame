@@ -64,12 +64,9 @@ public sealed class BookReader : MonoBehaviour
             else if (GameInput.NavRightPressed) Turn(2);
             return;
         }
-        if (!GameInput.InteractPressed || PlayerInventory.SpaceConsumedThisFrame ||
-            !movement || !movement.isActiveAndEnabled || !playerInventory || DialogueManager.HasNearbyNpc ||
-            PlayerInventory.IsAnyOpen || ChatUIManager.IsChatting || DialogueManager.OwnsInput ||
-            UIEventSystem.IsEditingText() || SceneLoadManager.IsLoading ||
-            (PhoneManager.Instance && PhoneManager.Instance.IsPhoneOpen) ||
-            (PlayerSeating.Local && PlayerSeating.Local.IsSeated)) return;
+        // Same gate as every held item: nearby prompts (exit doors, clerks, NPCs) keep Space.
+        if (!GameInput.InteractPressed || PlayerInventory.SpaceConsumedThisFrame || PlayerInventory.IsAnyOpen ||
+            !playerInventory || !playerInventory.CanUseHeldItem()) return;
         var inventory = playerInventory.Inventory;
         var stack = inventory?.GetSlot(inventory.SelectedHotbarIndex);
         if (stack == null || stack.IsEmpty || !stack.Item.IsBook || !held || held.HeldItem != stack.Item) return;
