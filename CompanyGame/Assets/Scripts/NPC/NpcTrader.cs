@@ -10,6 +10,8 @@ using UnityEngine.SceneManagement;
 public sealed class NpcTrader : MonoBehaviour
 {
     public string prompt = "거래하기";
+    [Tooltip("Shown above the head. Empty falls back to DialogueData.displayName, then \"NPC\".")]
+    public string displayName;
     [Min(.1f)] public float radius = 2f;
     [Min(.1f)] public float heightTolerance = 1f;
     public TradeOffer[] offers = System.Array.Empty<TradeOffer>();
@@ -21,7 +23,7 @@ public sealed class NpcTrader : MonoBehaviour
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     static void ResetStatics() => active.Clear();
 
-    void OnEnable() => active.Add(this);
+    void OnEnable() { active.Add(this); NameTag.Ensure(gameObject, DialogueData.ResolveName(gameObject)); }
     void OnDisable() => active.Remove(this);
 
     public bool IsInRange(Transform player)
