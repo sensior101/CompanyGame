@@ -144,8 +144,10 @@ public sealed class PlayerHeldItem : MonoBehaviour
         bool firstPerson = cameraController && cameraController.firstPerson;
         bool showHands = firstPerson && !InputFocus.InventoryOpen() && !InputFocus.ChatOpen() &&
             !SceneLoadManager.IsLoading && movement.isActiveAndEnabled && !cameraController.IsDialogueCameraActive;
-        viewRig.gameObject.SetActive(showHands && arm);
-        handCamera.enabled = showHands && arm;
+        // An empty first-person hand only appears while punching; at rest it would look like a grip.
+        bool showArm = showHands && arm && (heldItem || Time.time - attackStarted < .3f || punchAmount > .02f);
+        viewRig.gameObject.SetActive(showArm);
+        handCamera.enabled = showArm;
         handCamera.fieldOfView = viewCamera.fieldOfView;
         handCamera.aspect = viewCamera.aspect;
         handCamera.rect = viewCamera.rect;

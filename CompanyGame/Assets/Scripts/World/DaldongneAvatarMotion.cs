@@ -86,10 +86,13 @@ namespace CompanyGame.Daldongne
             rightLeg.localRotation = legR.thigh.rotation * Quaternion.Euler(-90f, 0f, 0f);
             leftKnee.localRotation = legL.knee.rotation * Quaternion.Euler(90f, 0f, 0f);
             rightKnee.localRotation = legR.knee.rotation * Quaternion.Euler(90f, 0f, 0f);
-            leftArm.localRotation = armL.rotation * Quaternion.Euler(-20f, 0f, 0f);
-            rightArm.localRotation = armR.rotation * Quaternion.Euler(-20f, 0f, 0f);
-            if (leftForearm) leftForearm.localRotation = forearmL.rotation * Quaternion.Euler(-60f, 0f, 0f);
-            if (rightForearm) rightForearm.localRotation = forearmR.rotation * Quaternion.Euler(-60f, 0f, 0f);
+            // Hands rest on the thighs. A forearm level with the hips read as gripping a steering wheel.
+            // ponytail: angles tuned by eye, adjust here if a rig's hands sink into the legs.
+            float upper = leftForearm ? -10f : -28f;
+            leftArm.localRotation = armL.rotation * Quaternion.Euler(upper, 0f, -6f);
+            rightArm.localRotation = armR.rotation * Quaternion.Euler(upper, 0f, 6f);
+            if (leftForearm) leftForearm.localRotation = forearmL.rotation * Quaternion.Euler(-38f, 0f, 0f);
+            if (rightForearm) rightForearm.localRotation = forearmR.rotation * Quaternion.Euler(-38f, 0f, 0f);
             CacheArmPose();
         }
         public Quaternion RightArmPose { get; private set; } = Quaternion.identity;
