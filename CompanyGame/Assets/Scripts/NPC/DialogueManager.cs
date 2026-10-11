@@ -138,17 +138,19 @@ public sealed class DialogueManager : GameSystem<DialogueManager>
     {
         DialogueData result = null;
         float best = float.PositiveInfinity;
-        var camera = Camera.main;
         foreach (var npc in DialogueData.Active)
         {
             if (!npc || !npc.InRange(player)) continue;
             float distance = (npc.transform.position - player.position).sqrMagnitude;
             if (distance >= best) continue;
-            if (camera)
+            // Third-person cameras can be outside a building while the player is inside.
+            // Test visibility from the player instead of through exterior glass behind them.
+            Vector3 from = player.position + Vector3.up * 1.6f;
+            Vector3 ray = npc.BubblePosition - from;
+            if (ray.sqrMagnitude > .0001f)
             {
-                Vector3 ray = npc.BubblePosition - camera.transform.position;
                 bool blocked = false;
-                foreach (var hit in Physics.RaycastAll(camera.transform.position, ray.normalized, ray.magnitude, ~0, QueryTriggerInteraction.Ignore))
+                foreach (var hit in Physics.RaycastAll(from, ray.normalized, ray.magnitude, ~0, QueryTriggerInteraction.Ignore))
                 {
                     if (hit.transform.IsChildOf(player) || hit.transform.IsChildOf(npc.transform)) continue;
                     blocked = true; break;

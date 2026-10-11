@@ -140,5 +140,11 @@ public sealed class PlayerVehicle : MonoBehaviour
         }
         point = default; return false;
     }
-    void OnDisable() { SceneLoadManager.LoadStarted -= StopForTravel; Dismount(false); }
+    void OnDisable()
+    {
+        SceneLoadManager.LoadStarted -= StopForTravel;
+        // Scene travel dismounts through LoadStarted. During Player deactivation Unity
+        // forbids reparenting the model out of its hierarchy, so leave teardown alone.
+        if (gameObject.activeInHierarchy) Dismount(false);
+    }
 }

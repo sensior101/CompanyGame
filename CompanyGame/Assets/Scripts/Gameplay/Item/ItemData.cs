@@ -67,7 +67,7 @@ public class ItemData : ScriptableObject
     public string propertyName;
 
     public string DisplayName => string.IsNullOrWhiteSpace(displayName) ? name : displayName;
-    public bool IsBook => category == ItemCategory.Book;
+    public bool IsBook => isBook || legacyCategory == ItemCategory.Book;
     public int StackLimit => IsBook ? 99 : IsStackable ? Mathf.Max(1, maxStack) : 1;
     bool IsStackable => IsCurrency || category == ItemCategory.General || category == ItemCategory.Food ||
         category == ItemCategory.Material || category == ItemCategory.Fish;
@@ -103,6 +103,7 @@ public class ItemData : ScriptableObject
     {
         get
         {
+            if (IsBook) return ItemCategory.Book;
             switch (itemType)
             {
                 case ItemType.Consumable: return ItemCategory.Food;
@@ -120,6 +121,7 @@ public class ItemData : ScriptableObject
         set
         {
             legacyCategory = value;
+            isBook = value == ItemCategory.Book;
             isBag = value == ItemCategory.Bag;
             isWeapon = value == ItemCategory.Weapon;
             switch (value)

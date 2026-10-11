@@ -364,7 +364,6 @@ public sealed class InventoryCharacterPreview : MonoBehaviour
             {
                 var skin = destination.gameObject.AddComponent<SkinnedMeshRenderer>();
                 skin.sharedMesh = skinned.sharedMesh;
-                skin.localBounds = skinned.localBounds;
                 skin.updateWhenOffscreen = true;
                 skin.quality = skinned.quality;
                 var bones = skinned.bones;
@@ -373,6 +372,7 @@ public sealed class InventoryCharacterPreview : MonoBehaviour
                     if (bones[i] && transforms.TryGetValue(bones[i], out var bone)) copiedBones[i] = bone;
                 skin.bones = copiedBones;
                 if (skinned.rootBone && transforms.TryGetValue(skinned.rootBone, out var rootBone)) skin.rootBone = rootBone;
+                skin.localBounds = skinned.localBounds;
                 copy = skin;
             }
             else if (original is MeshRenderer && original.TryGetComponent<MeshFilter>(out var mesh) && mesh.sharedMesh)

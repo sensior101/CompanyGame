@@ -5,6 +5,7 @@ using UnityEngine;
 public class InventoryManager : MonoBehaviour
 {
     static InventoryManager instance;
+    static bool quitting;
     InventoryState state;
     public InventoryState State => state ?? (state = new InventoryState());
 
@@ -12,14 +13,14 @@ public class InventoryManager : MonoBehaviour
     {
         get
         {
-            if (!instance && Application.isPlaying)
+            if (!instance && Application.isPlaying && !quitting)
                 instance = new GameObject("Inventory Session").AddComponent<InventoryManager>();
             return instance;
         }
     }
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-    static void ResetStatics() { instance = null; }
+    static void ResetStatics() { instance = null; quitting = false; }
 
     protected virtual void Awake()
     {
@@ -58,7 +59,7 @@ public class InventoryManager : MonoBehaviour
     }
 
     void SaveBooks() => BookSaveService.SaveInventory(state);
-    void OnApplicationQuit() { if (instance == this) SaveBooks(); }
+    void OnApplicationQuit() { quitting = true; if (instance == this) SaveBooks(); }
     protected virtual void OnDestroy()
     {
         if (state != null) state.Changed -= SaveBooks;

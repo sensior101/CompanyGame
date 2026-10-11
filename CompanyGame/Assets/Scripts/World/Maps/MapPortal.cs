@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace CompanyGame.World.Maps
@@ -14,6 +15,7 @@ namespace CompanyGame.World.Maps
         [Min(.5f)] public float interactionRadius = 2.5f;
 
         static MapPortal focused;
+        static readonly HashSet<MapPortal> active = new HashSet<MapPortal>();
         static int selectionFrame = -1;
         static float closestDistance;
         Behaviour player;
@@ -22,9 +24,22 @@ namespace CompanyGame.World.Maps
         static void ResetStatics()
         {
             focused = null;
+            active.Clear();
             selectionFrame = -1;
             closestDistance = float.PositiveInfinity;
         }
+
+        public static bool HasNearbyPortal(Transform player)
+        {
+            if (!player) return false;
+            foreach (var portal in active)
+                if (portal && portal.isActiveAndEnabled && portal.gameObject.scene == SceneLoadManager.CurrentMap &&
+                    (portal.transform.position - player.position).sqrMagnitude <= portal.interactionRadius * portal.interactionRadius)
+                    return true;
+            return false;
+        }
+
+        void OnEnable() => active.Add(this);
 
         void Update()
         {
@@ -51,7 +66,7 @@ namespace CompanyGame.World.Maps
             if (GameInput.InteractPressed) SceneLoadManager.TryLoadMap(targetScenePath, targetSpawnId, player);
         }
 
-        void OnDisable() { if (focused == this) focused = null; }
+        void OnDisable() { active.Remove(this); if (focused == this) focused = null; }
 
         void OnValidate()
         {

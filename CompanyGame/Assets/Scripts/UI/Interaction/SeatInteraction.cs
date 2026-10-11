@@ -31,9 +31,6 @@ public sealed class SeatInteraction : MonoBehaviour
             PlayerInventory.IsAnyOpen || ChatUIManager.IsChatting || UIEventSystem.IsEditingText() ||
             (PhoneManager.Instance && PhoneManager.Instance.IsPhoneOpen) ||
             (PlayerInteraction.Local && PlayerInteraction.Local.IsInteractionMenuOpen)) { Hide(); return; }
-        var inventory = InventoryManager.Instance ? InventoryManager.Instance.State : null;
-        var held = inventory?.GetSlot(inventory.SelectedHotbarIndex);
-        if (held != null && !held.IsEmpty && held.Item.IsVehicle) { Hide(); return; }
         var seat = Seat.FindNearest(transform);
         HasNearbySeat = seat;
         if (!seat) { Hide(); return; }
