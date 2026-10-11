@@ -55,7 +55,24 @@ public class PlayerInteraction : MonoBehaviour
     bool waitForSpaceRelease = true;
     int menuOpenedFrame;
 
-    void Awake() { movement = GetComponent<PlayerMovement>(); Local = this; }
+    void Awake() { movement = GetComponent<PlayerMovement>(); Local = this; EnsureNameTag(); }
+
+    // Local player's tag: hidden in first person and during the dialogue camera.
+    void EnsureNameTag()
+    {
+        NameTag.Font = uiFont;
+        var tag = NameTag.Ensure(gameObject, GameSession.LocalPlayerName);
+        tag.nameSource = () =>
+        {
+            string nick = PlayerData.Instance ? PlayerData.Instance.Profile?.nickname : null;
+            return string.IsNullOrEmpty(nick) ? GameSession.LocalPlayerName : nick;
+        };
+        tag.hideWhen = () =>
+        {
+            var cam = movement && movement.viewCamera ? movement.viewCamera.GetComponent<PlayerCameraController>() : null;
+            return cam && (cam.firstPerson || cam.IsDialogueCameraActive);
+        };
+    }
 
     DialogueManager dialogueManager;
     void Start()
