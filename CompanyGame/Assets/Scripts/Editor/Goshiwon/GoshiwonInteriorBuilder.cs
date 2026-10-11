@@ -11,7 +11,11 @@ using Object = UnityEngine.Object;
 
 namespace CompanyGame.Editor.Goshiwon
 {
-    /// <summary>Builds Assets/Scenes/Interiors/GoshiwonInterior.unity from boxes (4 stacked floors, 20 empty rooms).
+    /// <summary>Builds Assets/Scenes/Interiors/GoshiwonInterior.unity (4 stacked floors, 20 empty rooms) from prefabs it
+    /// regenerates in Art/Goshiwon/Prefabs: GoshiwonRoom (one empty room), GoshiwonFloor (a guest floor numbered as 2F; the
+    /// 3F and 4F instances are renumbered), GoshiwonGroundFloor (lobby, exit, rooms 101-102), GoshiwonStairs (one storey of
+    /// the stair), GoshiwonShell (slabs and stair shaft) and GoshiwonOwner. Their box meshes are sub-assets of
+    /// Art/Goshiwon/Meshes/GoshiwonBoxes.asset. Room doors, zones and spawns stay in the scene.
     /// Per floor (y0 = (floor-1)*3, ceiling 2.5): corridor x -0.8..0.8, z 1.2..11.1 (window at the north end), 3x3 m rooms
     /// on both sides (right = +x), stair hall z -0.2..1.2. A walkable U-stair fills the shaft z -3.8..-0.2: from each hall the
     /// right half climbs to a mid landing (y0+1.5) and the left half comes up from the floor below. Room doors teleport.
@@ -21,8 +25,10 @@ namespace CompanyGame.Editor.Goshiwon
         public const string ScenePath = "Assets/Scenes/Interiors/GoshiwonInterior.unity";
         public const string VillagePath = "Assets/Scenes/daldongnaemap.unity";
         const string ArtRoot = "Assets/Art/Goshiwon";
+        const string PrefabRoot = ArtRoot + "/Prefabs";
+        const string MeshPath = ArtRoot + "/Meshes/GoshiwonBoxes.asset";
         const string FontPath = "Assets/Art/font/NotoSansKR-Regular SDF.asset";
-        const string OwnerVisualPath = "Assets/Art/Daldongne/Players/MaleVisual.prefab"; // the convenience-store clerk's avatar
+        const string OwnerVisualPath = "Assets/Art/Daldongne/Players/FemaleVisual.prefab";
         const int Floors = 4, Risers = 9;
         // Risers stay under the player's 0.23 m step offset and the 29 degree walk ramp under its 45 degree slope limit.
         const float FloorGap = 3f, H = 2.5f, RailH = .9f, Rise = FloorGap / 2 / Risers, Tread = .3f, FlightW = 1.25f;
@@ -32,7 +38,9 @@ namespace CompanyGame.Editor.Goshiwon
         static readonly Color TubeLight = new Color(.92f, 1f, .94f), WarmLight = new Color(1f, .9f, .78f);
         static readonly Vector2[] BerryOffsets = { new Vector2(6, -3), new Vector2(10, 1), new Vector2(6, 4) };
         static readonly Dictionary<Vector3, Mesh> boxes = new Dictionary<Vector3, Mesh>();
-        static Transform world, gameplay, doors, spawns, npcs;
+        static readonly Dictionary<string, Mesh> storedBoxes = new Dictionary<string, Mesh>();
+        static Transform doors, spawns;
+        static GameObject roomPrefab;
         static TMP_FontAsset font;
         static Material wallpaper, wainscot, trim, carpet, ceiling, roomWall, roomFloor, roomTrim, crown, doorWood, doorFrame,
             brass, plate, terrazzo, nosing, stairWall, tube, housing, lamp, cityView, frosted, curtain, chrome, apron, badge;
@@ -47,22 +55,41 @@ namespace CompanyGame.Editor.Goshiwon
         {
             EnsureFolder(ArtRoot + "/Materials");
             EnsureFolder(ArtRoot + "/Textures");
+            EnsureFolder(ArtRoot + "/Meshes");
+            EnsureFolder(PrefabRoot);
             EnsureFolder("Assets/Scenes/Interiors");
             font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontPath);
-            boxes.Clear();
+            LoadBoxes();
             CreateMaterials();
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            // Each prefab is assembled in the empty scene, saved and removed. Rooms nest in both floor prefabs.
+            roomPrefab = SavePrefab(BuildRoom());
+            var shell = SavePrefab(BuildShell());
+            var groundFloor = SavePrefab(BuildFloor(1));
+            var guestFloor = SavePrefab(BuildFloor(2));
+            var stairs = SavePrefab(BuildStairs());
+            var owner = SavePrefab(BuildOwner());
+            RemoveUnusedBoxes();
+
             var root = new GameObject("Map_GoshiwonInterior").transform;
             new GameObject("00_Systems").transform.SetParent(root, false);
-            world = Child(root, "10_World");
-            gameplay = Child(root, "20_Gameplay");
-            npcs = Child(gameplay, "NPCs");
+            var world = Child(root, "10_World");
+            var gameplay = Child(root, "20_Gameplay");
+            var npcs = Child(gameplay, "NPCs");
             doors = Child(gameplay, "Doors");
             spawns = Child(gameplay, "SpawnPoints");
             var presentation = Child(root, "30_Presentation");
-            BuildShell();
-            for (int floor = 1; floor <= Floors; floor++) BuildFloor(floor);
-            BuildStairs();
+            Place(shell, world, "Shell", Vector3.zero, 0f);
+            for (int n = 1; n <= Floors; n++)
+            {
+                float y0 = (n - 1) * FloorGap;
+                var floor = Place(n == 1 ? groundFloor : guestFloor, world, "Floor_" + n, new Vector3(0, y0, 0), 0f);
+                if (n > 2) FloorTexts(floor, n);
+                FloorGameplay(n, y0);
+            }
+            for (int n = 1; n < Floors; n++)
+                Place(stairs, world, "Stairs " + n + "F-" + (n + 1) + "F", new Vector3(0, (n - 1) * FloorGap, 0), 0f);
+            Place(owner, npcs, "Goshiwon Owner", new Vector3(-3.1f, 0, 5.7f), 90f);
             BuildCamera(Child(presentation, "Cameras"));
             SetupLighting();
             if (!EditorSceneManager.SaveScene(scene, ScenePath)) throw new IOException("Could not save " + ScenePath);
@@ -70,114 +97,155 @@ namespace CompanyGame.Editor.Goshiwon
             Debug.Log("[Goshiwon] Interior built: " + ScenePath);
         }
 
-        static void BuildShell()
+        static Transform BuildShell()
         {
-            // Each slab is the floor above and, from below, the ceiling.
-            var shell = Child(world, "Shell");
+            // Each slab is the floor above and, from below, the ceiling. The stair shaft runs the full height.
+            var shell = new GameObject("GoshiwonShell").transform;
             float top = Floors * FloorGap;
             for (int level = 0; level <= Floors; level++)
                 Span(shell, "Slab " + level, -4.2f, 4.2f, level * FloorGap - .5f, level * FloorGap, HallZ, 11.3f, ceiling, true);
             Span(shell, "Shaft Ground", -1.5f, 1.5f, -.5f, 0, ShaftZ - .2f, HallZ, ceiling, true);
             Span(shell, "Shaft Roof", -1.5f, 1.5f, top - .5f, top, ShaftZ - .2f, HallZ, ceiling, true);
+            foreach (int s in new[] { -1, 1 })
+                Span(shell, "Shaft Wall", s * 1.3f, s * 1.5f, -.5f, top, ShaftZ - .2f, HallZ, stairWall, true);
+            Span(shell, "Shaft Wall South", -1.5f, 1.5f, -.5f, top, ShaftZ - .2f, ShaftZ, stairWall, true);
+            Span(shell, "Center Wall", -.05f, .05f, 0, top - .5f, MidZ, HallZ, stairWall, true);
+            // Floor 1: closed cupboard under the first return flight. Top floor: rail along the open right half.
+            DressedWall(shell, "Under-stair Wall", -1.3f, -.05f, HallZ - .1f, HallZ, Vector3.forward);
+            float yTop = (Floors - 1) * FloorGap;
+            Span(shell, "Top Balustrade", .05f, 1.3f, yTop, yTop + .95f, HallZ, HallZ + .08f, wainscot, true);
+            Span(shell, "Top Balustrade Cap", .05f, 1.3f, yTop + .95f, yTop + 1.01f, HallZ - .015f, HallZ + .095f, trim, false);
+            return shell;
         }
 
-        static void BuildFloor(int n)
+        /// <summary>A floor at y 0: n = 1 is the ground floor, any other n the guest floor numbered n.</summary>
+        static Transform BuildFloor(int n)
         {
-            float y0 = (n - 1) * FloorGap;
-            var fw = Child(world, "Floor_" + n);
-            var fd = Child(doors, "Floor_" + n);
-            Span(fw, "Corridor Carpet", -.8f, .8f, y0, y0 + .02f, CorridorZ, EndZ, carpet, false);
-            Span(fw, "Hall Carpet", -1.3f, 1.3f, y0, y0 + .02f, HallZ, CorridorZ, carpet, false);
+            var fw = new GameObject(n == 1 ? "GoshiwonGroundFloor" : "GoshiwonFloor").transform;
+            Span(fw, "Corridor Carpet", -.8f, .8f, 0, .02f, CorridorZ, EndZ, carpet, false);
+            Span(fw, "Hall Carpet", -1.3f, 1.3f, 0, .02f, HallZ, CorridorZ, carpet, false);
             foreach (int s in new[] { -1, 1 })
             {
-                if (n == 1 && s < 0) BuildLobby(fw, y0);
+                if (n == 1 && s < 0) BuildLobby(fw);
                 else
                 {
-                    DressedWall(fw, "Corridor Wall", s * .8f, s * .9f, CorridorZ, EndZ, y0, new Vector3(-s, 0, 0));
-                    Span(fw, "Room Side Wall", s * .9f, s * 1f, y0, y0 + H, CorridorZ + .1f, EndZ, roomWall, true);
+                    DressedWall(fw, "Corridor Wall", s * .8f, s * .9f, CorridorZ, EndZ, new Vector3(-s, 0, 0));
+                    Span(fw, "Room Side Wall", s * .9f, s * 1f, 0, H, CorridorZ + .1f, EndZ, roomWall, true);
                     foreach (float z in new[] { 1.4f, 4.6f, 7.8f, 11f })
-                        Span(fw, "Divider", s * 1f, s * 4f, y0, y0 + H, z - .1f, z + .1f, roomWall, true);
+                        Span(fw, "Divider", s * 1f, s * 4f, 0, H, z - .1f, z + .1f, roomWall, true);
                 }
-                Span(fw, "Outer Wall", s * 4f, s * 4.2f, y0, y0 + H, HallZ, 11.3f, roomWall, true);
-                DressedWall(fw, "Hall Wall", s * 1.3f, s * 1.5f, HallZ, CorridorZ + .1f, y0, new Vector3(-s, 0, 0));
-                DressedWall(fw, "Hall Return", s * .9f, s * 1.3f, CorridorZ, CorridorZ + .1f, y0, Vector3.back);
+                Span(fw, "Outer Wall", s * 4f, s * 4.2f, 0, H, HallZ, 11.3f, roomWall, true);
+                DressedWall(fw, "Hall Wall", s * 1.3f, s * 1.5f, HallZ, CorridorZ + .1f, new Vector3(-s, 0, 0));
+                DressedWall(fw, "Hall Return", s * .9f, s * 1.3f, CorridorZ, CorridorZ + .1f, Vector3.back);
             }
-            DressedWall(fw, "End Wall", -1f, 1f, EndZ, EndZ + .2f, y0, Vector3.back);
-            CityWindow(Anchor(fw, "End Window", new Vector3(0, y0, EndZ), 180f), .9f, 1.05f, 1.05f);
-            foreach (float z in RoomZ) Fixture(fw, new Vector3(0, y0 + H, z));
-            Fixture(fw, new Vector3(0, y0 + H, .55f));
-            HallSigns(fw, n, y0);
-            Spawn("floor_" + n, new Vector3(0, y0 + .05f, .6f), 0f);
-            if (n == 1) BuildGroundFloor(fw, fd, y0);
-            else for (int k = 0; k < 3; k++)
+            DressedWall(fw, "End Wall", -1f, 1f, EndZ, EndZ + .2f, Vector3.back);
+            CityWindow(Anchor(fw, "End Window", new Vector3(0, 0, EndZ), 180f), .9f, 1.05f, 1.05f);
+            foreach (float z in RoomZ) Fixture(fw, new Vector3(0, H, z));
+            Fixture(fw, new Vector3(0, H, .55f));
+            HallSigns(fw, n);
+            if (n == 1)
             {
-                Room(fw, fd, n * 100 + k + 1, 1, k, y0);
-                Room(fw, fd, n * 100 + k + 4, -1, k, y0);
+                var exit = Anchor(fw, "Exit Door", new Vector3(.8f, 0, RoomZ[2] - .9f), -90f);
+                DoorVisual(exit, false);
+                Span(exit, "Exit Plate", -.2f, .2f, 2.2f, 2.36f, 0, .02f, plate, false);
+                Label(exit, "Exit Text", "출구", new Vector3(0, 2.28f, .025f), 180f, 1.3f);
+            }
+            // Left-hand rooms are the right-hand room turned around its centre.
+            foreach (var (no, s, k) in Rooms(n))
+                Place(roomPrefab, fw, "Room " + no, new Vector3(s * 2.5f, 0, RoomZ[k]), s > 0 ? 0f : 180f);
+            FloorTexts(fw, n);
+            return fw;
+        }
+
+        /// <summary>Rooms of floor n as (number, side, slot): floor 1 has 101-102 on the right (the exit takes the third
+        /// slot and the lobby the left side); other floors have n01-n03 on the right and n04-n06 on the left.</summary>
+        static IEnumerable<(int no, int s, int k)> Rooms(int n)
+        {
+            for (int k = 0; k < 3; k++)
+            {
+                if (n == 1 && k == 2) yield break;
+                yield return (n * 100 + k + 1, 1, k);
+                if (n > 1) yield return (n * 100 + k + 4, -1, k);
             }
         }
 
-        static void HallSigns(Transform fw, int n, float y0)
+        static void HallSigns(Transform fw, int n)
         {
             // Wood header over the stair openings (up on the right half, down on the left) and a post on the centre wall end.
-            Span(fw, "Stair Header", -1.3f, 1.3f, y0 + 2.2f, y0 + H, HallZ, HallZ + .1f, doorFrame, false);
-            Span(fw, "Stair Post", -.08f, .08f, y0, y0 + 2.2f, HallZ - .04f, HallZ + .04f, doorFrame, false);
-            var header = Anchor(fw, "Stair Signs", new Vector3(0, y0, HallZ + .1f), 0f);
-            if (n < Floors) Label(header, "↑ " + (n + 1) + "층", new Vector3(FlightW / 2 + .05f, 2.35f, .005f), 180f, 1.5f, Gold);
-            if (n > 1) Label(header, "↓ " + (n - 1) + "층", new Vector3(-FlightW / 2 - .05f, 2.35f, .005f), 180f, 1.5f, Gold);
-            var plaque = Anchor(fw, "Floor Plaque", new Vector3(-1.3f, y0, .5f), 90f);
+            Span(fw, "Stair Header", -1.3f, 1.3f, 2.2f, H, HallZ, HallZ + .1f, doorFrame, false);
+            Span(fw, "Stair Post", -.08f, .08f, 0, 2.2f, HallZ - .04f, HallZ + .04f, doorFrame, false);
+            var header = Anchor(fw, "Stair Signs", new Vector3(0, 0, HallZ + .1f), 0f);
+            Label(header, "Up Sign", "", new Vector3(FlightW / 2 + .05f, 2.35f, .005f), 180f, 1.5f);
+            if (n > 1) Label(header, "Down Sign", "", new Vector3(-FlightW / 2 - .05f, 2.35f, .005f), 180f, 1.5f);
+            var plaque = Anchor(fw, "Floor Plaque", new Vector3(-1.3f, 0, .5f), 90f);
             Span(plaque, "Plate", -.3f, .3f, 1.45f, 1.85f, 0, .02f, plate, false);
-            Label(plaque, n + "층", new Vector3(0, 1.65f, .025f), 180f, 2.6f, Gold);
+            Label(plaque, "Floor Number", "", new Vector3(0, 1.65f, .025f), 180f, 2.6f);
         }
 
-        static void BuildGroundFloor(Transform fw, Transform fd, float y0)
+        /// <summary>Writes floor n's numbers on the stair signs, the plaque and the room doors. The 3F and 4F instances of
+        /// the 2F-numbered floor prefab get the same call, which stores the new numbers as overrides.</summary>
+        static void FloorTexts(Transform floor, int n)
         {
-            Room(fw, fd, 101, 1, 0, y0);
-            Room(fw, fd, 102, 1, 1, y0);
+            var up = floor.Find("Stair Signs/Up Sign");
+            if (n < Floors) SetText(up, "↑ " + (n + 1) + "층");
+            else { up.gameObject.SetActive(false); Record(up.gameObject); }
+            if (n > 1) SetText(floor.Find("Stair Signs/Down Sign"), "↓ " + (n - 1) + "층");
+            SetText(floor.Find("Floor Plaque/Floor Number"), n + "층");
+            foreach (Transform room in floor)
+            {
+                if (!PrefabUtility.IsAnyPrefabInstanceRoot(room.gameObject)) continue; // only rooms nest in a floor
+                string no = (n * 100 + int.Parse(room.name.Substring("Room ".Length)) % 100).ToString();
+                room.name = "Room " + no;
+                Record(room.gameObject);
+                SetText(room.Find("Corridor Door/Number"), no);
+            }
+        }
+
+        static void FloorGameplay(int n, float y0)
+        {
+            var fd = Child(doors, "Floor_" + n);
+            Spawn("floor_" + n, new Vector3(0, y0 + .05f, .6f), 0f);
+            foreach (var (no, s, k) in Rooms(n)) RoomGameplay(fd, no, s, k, y0);
+            if (n > 1) return;
             float dz = RoomZ[2] - .9f;
-            var exit = Anchor(fw, "Exit Door", new Vector3(.8f, y0, dz), -90f);
-            DoorVisual(exit, null);
-            Span(exit, "Exit Plate", -.2f, .2f, 2.2f, 2.36f, 0, .02f, plate, false);
-            Label(exit, "출구", new Vector3(0, 2.28f, .025f), 180f, 1.3f, Gold);
             DoorPoint(fd, "Exit Door", new Vector3(.7f, y0, dz), "나가기", VillagePath, "goshiwon_exit", 1.2f);
             Spawn("goshiwon_entry", new Vector3(-.2f, y0 + .05f, dz), 180f);
             Spawn("default", new Vector3(-.2f, y0 + .05f, dz), 180f);
-            BuildOwner(y0);
         }
 
-        static void BuildLobby(Transform fw, float y0)
+        static void BuildLobby(Transform fw)
         {
             // Floor 1 left: the reception lobby opens to the corridor (z 4.2..7.2) and is dressed like the corridor.
             foreach (var (z0, z1) in new[] { (CorridorZ, 4.2f), (7.2f, EndZ) })
             {
-                DressedWall(fw, "Corridor Wall", -.8f, -.9f, z0, z1, y0, Vector3.right);
-                DressedWall(fw, "Lobby Wall", -.9f, -1f, Mathf.Max(z0, CorridorZ + .1f), z1, y0, Vector3.left);
+                DressedWall(fw, "Corridor Wall", -.8f, -.9f, z0, z1, Vector3.right);
+                DressedWall(fw, "Lobby Wall", -.9f, -1f, Mathf.Max(z0, CorridorZ + .1f), z1, Vector3.left);
             }
-            Span(fw, "Lobby Lintel", -.8f, -1f, y0 + 2.1f, y0 + H, 4.2f, 7.2f, wallpaper, true);
-            Span(fw, "Lobby Casing Head", -.77f, -1.03f, y0 + 2.08f, y0 + 2.16f, 4.12f, 7.28f, doorFrame, false);
-            Span(fw, "Lobby Casing", -.77f, -1.03f, y0, y0 + 2.08f, 4.12f, 4.22f, doorFrame, false);
-            Span(fw, "Lobby Casing", -.77f, -1.03f, y0, y0 + 2.08f, 7.18f, 7.28f, doorFrame, false);
-            foreach (float z in new[] { 1.4f, 11f }) Span(fw, "Divider", -1f, -4f, y0, y0 + H, z - .1f, z + .1f, roomWall, true);
-            DressedWall(fw, "Lobby Back Wall", -3.9f, -4f, 1.5f, 10.9f, y0, Vector3.right);
-            DressedWall(fw, "Lobby South Wall", -1f, -3.9f, 1.5f, 1.6f, y0, Vector3.forward);
-            DressedWall(fw, "Lobby North Wall", -1f, -3.9f, 10.8f, 10.9f, y0, Vector3.back);
-            Span(fw, "Lobby Carpet", -.8f, -3.9f, y0, y0 + .02f, 1.6f, 10.8f, carpet, false); // runs under the opening
-            Span(fw, "Front Desk", -2.5f, -1.9f, y0, y0 + 1f, 4.5f, 6.9f, doorWood, true);
-            Span(fw, "Front Desk Top", -2.56f, -1.84f, y0 + 1f, y0 + 1.05f, 4.44f, 6.96f, doorFrame, false);
-            var sign = Anchor(fw, "Reception Sign", new Vector3(-3.9f, y0, 5.7f), 90f);
+            Span(fw, "Lobby Lintel", -.8f, -1f, 2.1f, H, 4.2f, 7.2f, wallpaper, true);
+            Span(fw, "Lobby Casing Head", -.77f, -1.03f, 2.08f, 2.16f, 4.12f, 7.28f, doorFrame, false);
+            Span(fw, "Lobby Casing", -.77f, -1.03f, 0, 2.08f, 4.12f, 4.22f, doorFrame, false);
+            Span(fw, "Lobby Casing", -.77f, -1.03f, 0, 2.08f, 7.18f, 7.28f, doorFrame, false);
+            foreach (float z in new[] { 1.4f, 11f }) Span(fw, "Divider", -1f, -4f, 0, H, z - .1f, z + .1f, roomWall, true);
+            DressedWall(fw, "Lobby Back Wall", -3.9f, -4f, 1.5f, 10.9f, Vector3.right);
+            DressedWall(fw, "Lobby South Wall", -1f, -3.9f, 1.5f, 1.6f, Vector3.forward);
+            DressedWall(fw, "Lobby North Wall", -1f, -3.9f, 10.8f, 10.9f, Vector3.back);
+            Span(fw, "Lobby Carpet", -.8f, -3.9f, 0, .02f, 1.6f, 10.8f, carpet, false); // runs under the opening
+            Span(fw, "Front Desk", -2.5f, -1.9f, 0, 1f, 4.5f, 6.9f, doorWood, true);
+            Span(fw, "Front Desk Top", -2.56f, -1.84f, 1f, 1.05f, 4.44f, 6.96f, doorFrame, false);
+            var sign = Anchor(fw, "Reception Sign", new Vector3(-3.9f, 0, 5.7f), 90f);
             Span(sign, "Plate", -.35f, .35f, 2.1f, 2.34f, 0, .02f, plate, false); // above the owner's head
-            Label(sign, "접수", new Vector3(0, 2.22f, .025f), 180f, 2f, Gold);
-            CityWindow(Anchor(fw, "Lobby Window", new Vector3(-3.9f, y0, 8.6f), 90f), 1.2f, 1f, 1.1f);
-            Fixture(fw, new Vector3(-2.45f, y0 + H, 5.7f));
+            Label(sign, "Reception Text", "접수", new Vector3(0, 2.22f, .025f), 180f, 2f);
+            CityWindow(Anchor(fw, "Lobby Window", new Vector3(-3.9f, 0, 8.6f), 90f), 1.2f, 1f, 1.1f);
+            Fixture(fw, new Vector3(-2.45f, H, 5.7f));
         }
 
-        static void BuildOwner(float y0)
+        static Transform BuildOwner()
         {
             var visual = AssetDatabase.LoadAssetAtPath<GameObject>(OwnerVisualPath);
             if (!visual) throw new FileNotFoundException("Owner avatar missing", OwnerVisualPath);
-            // Same make-up as ConvenienceStoreInterior's ConvenienceClerk: avatar, apron and name badge on a 1.0138 root.
-            var owner = Child(npcs, "Goshiwon Owner");
-            owner.position = new Vector3(-3.1f, y0, 5.7f);
-            owner.rotation = Quaternion.Euler(0, 90, 0);
+            // ConvenienceStoreInterior's ConvenienceClerk make-up (avatar, apron and name badge on a 1.0138 root) on the
+            // female avatar. Both avatars are 1.8 tall and keep their front within the apron's back face.
+            var owner = new GameObject("GoshiwonOwner").transform;
             owner.localScale = Vector3.one * 1.0138f;
             var avatar = (GameObject)PrefabUtility.InstantiatePrefab(visual, owner);
             Primitive(owner, PrimitiveType.Cube, "Staff Apron", new Vector3(0, 1f, .17f), new Vector3(.4f, .47f, .045f), apron);
@@ -193,22 +261,30 @@ namespace CompanyGame.Editor.Goshiwon
             data.head = head;
             data.headOffset = Vector3.zero;
             data.radius = 2.5f;
+            return owner;
         }
 
-        static void Room(Transform fw, Transform fd, int no, int s, int k, float y0)
+        /// <summary>One empty room around its centre at floor level with the door side toward -x (a right-hand room).
+        /// The door number stays blank here; each placed room writes its own.</summary>
+        static Transform BuildRoom()
+        {
+            var room = new GameObject("GoshiwonRoom").transform;
+            Span(room, "Floor", -1.5f, 1.5f, 0, .02f, -1.5f, 1.5f, roomFloor, false);
+            Span(room, "Ceiling", -1.5f, 1.5f, H - .02f, H, -1.5f, 1.5f, roomWall, false);
+            Perimeter(room, "Baseboard", -1.5f, 1.5f, -1.5f, 1.5f, .02f, .1f, .015f, roomTrim);
+            Perimeter(room, "Crown", -1.5f, 1.5f, -1.5f, 1.5f, H - .09f, .07f, .025f, crown);
+            RoomWindow(Anchor(room, "Window", new Vector3(1.5f, 0, 0), -90f));
+            Primitive(room, PrimitiveType.Cylinder, "Ceiling Lamp", new Vector3(0, H - .05f, 0), new Vector3(.38f, .03f, .38f), lamp);
+            AddLight(room, new Vector3(0, 1.7f, 0), WarmLight, 1f, 4.5f);
+            DoorVisual(Anchor(room, "Corridor Door", new Vector3(-1.7f, 0, -.9f), -90f), true);
+            DoorVisual(Anchor(room, "Inner Door", new Vector3(-1.5f, 0, -.9f), 90f), false);
+            return room;
+        }
+
+        static void RoomGameplay(Transform fd, int no, int s, int k, float y0)
         {
             float c = RoomZ[k], dz = s > 0 ? c - .9f : c + .9f;
             string id = no.ToString();
-            var room = Child(fw, "Room " + id);
-            Span(room, "Floor", s * 1f, s * 4f, y0, y0 + .02f, c - 1.5f, c + 1.5f, roomFloor, false);
-            Span(room, "Ceiling", s * 1f, s * 4f, y0 + H - .02f, y0 + H, c - 1.5f, c + 1.5f, roomWall, false);
-            Perimeter(room, "Baseboard", s * 1f, s * 4f, c - 1.5f, c + 1.5f, y0 + .02f, .1f, .015f, roomTrim);
-            Perimeter(room, "Crown", s * 1f, s * 4f, c - 1.5f, c + 1.5f, y0 + H - .09f, .07f, .025f, crown);
-            RoomWindow(Anchor(room, "Window", new Vector3(s * 4f, y0, c), -s * 90f));
-            Primitive(room, PrimitiveType.Cylinder, "Ceiling Lamp", new Vector3(s * 2.5f, y0 + H - .05f, c), new Vector3(.38f, .03f, .38f), lamp);
-            AddLight(room, new Vector3(s * 2.5f, y0 + 1.7f, c), WarmLight, 1f, 4.5f);
-            DoorVisual(Anchor(room, "Corridor Door", new Vector3(s * .8f, y0, dz), -s * 90f), id);
-            DoorVisual(Anchor(room, "Inner Door", new Vector3(s * 1f, y0, dz), s * 90f), null);
             DoorPoint(fd, "Door_" + id, new Vector3(s * .7f, y0, dz), id + "호 들어가기", "", "room_" + id, 1.2f);
             Spawn("door_" + id, new Vector3(-s * .2f, y0 + .05f, dz), 0f);
             Spawn("room_" + id, new Vector3(s * 3f, y0 + .05f, c), s > 0 ? 90f : -90f);
@@ -222,33 +298,21 @@ namespace CompanyGame.Editor.Goshiwon
             if (no == 202) pz.seedOwner = "이웃";
         }
 
-        static void BuildStairs()
+        /// <summary>One storey of the U-stair from a floor at y 0 to the next: up flight, mid landing, return flight.</summary>
+        static Transform BuildStairs()
         {
-            var sw = Child(world, "Stairwell");
-            float top = Floors * FloorGap;
-            foreach (int s in new[] { -1, 1 })
-                Span(sw, "Shaft Wall", s * 1.3f, s * 1.5f, -.5f, top, ShaftZ - .2f, HallZ, stairWall, true);
-            Span(sw, "Shaft Wall South", -1.5f, 1.5f, -.5f, top, ShaftZ - .2f, ShaftZ, stairWall, true);
-            Span(sw, "Center Wall", -.05f, .05f, 0, top - .5f, MidZ, HallZ, stairWall, true);
-            for (int n = 1; n < Floors; n++)
-            {
-                float y0 = (n - 1) * FloorGap, ym = y0 + FloorGap / 2;
-                var level = Child(sw, "Stairs " + n + "F-" + (n + 1) + "F");
-                Flight(level, "Flight Up", FlightW / 2 + .05f, HallZ, -1, y0);
-                Flight(level, "Flight Return", -FlightW / 2 - .05f, MidZ, 1, ym);
-                Span(level, "Mid Landing", -1.3f, 1.3f, ym - .2f, ym, ShaftZ, MidZ, terrazzo, true);
-                Span(level, "Mid Landing Nosing", -1.3f, 1.3f, ym, ym + .008f, MidZ - .05f, MidZ, nosing, false);
-                var wall = Anchor(level, "Landing Wall", new Vector3(0, ym, ShaftZ), 0f);
-                CityWindow(wall, .8f, .9f, 1f);
-                Block(wall, "Bulkhead Lamp", new Vector3(0, 2.25f, .04f), new Vector3(.3f, .14f, .08f), housing, false);
-                Block(wall, "Bulkhead Glow", new Vector3(0, 2.25f, .083f), new Vector3(.24f, .09f, .006f), lamp, false);
-                AddLight(wall, new Vector3(0, 2f, .5f), WarmLight, 1f, 4.5f);
-            }
-            // Floor 1: closed cupboard under the first return flight. Top floor: rail along the open right half.
-            DressedWall(sw, "Under-stair Wall", -1.3f, -.05f, HallZ - .1f, HallZ, 0f, Vector3.forward);
-            float yTop = (Floors - 1) * FloorGap;
-            Span(sw, "Top Balustrade", .05f, 1.3f, yTop, yTop + .95f, HallZ, HallZ + .08f, wainscot, true);
-            Span(sw, "Top Balustrade Cap", .05f, 1.3f, yTop + .95f, yTop + 1.01f, HallZ - .015f, HallZ + .095f, trim, false);
+            var level = new GameObject("GoshiwonStairs").transform;
+            float ym = FloorGap / 2;
+            Flight(level, "Flight Up", FlightW / 2 + .05f, HallZ, -1, 0);
+            Flight(level, "Flight Return", -FlightW / 2 - .05f, MidZ, 1, ym);
+            Span(level, "Mid Landing", -1.3f, 1.3f, ym - .2f, ym, ShaftZ, MidZ, terrazzo, true);
+            Span(level, "Mid Landing Nosing", -1.3f, 1.3f, ym, ym + .008f, MidZ - .05f, MidZ, nosing, false);
+            var wall = Anchor(level, "Landing Wall", new Vector3(0, ym, ShaftZ), 0f);
+            CityWindow(wall, .8f, .9f, 1f);
+            Block(wall, "Bulkhead Lamp", new Vector3(0, 2.25f, .04f), new Vector3(.3f, .14f, .08f), housing, false);
+            Block(wall, "Bulkhead Glow", new Vector3(0, 2.25f, .083f), new Vector3(.24f, .09f, .006f), lamp, false);
+            AddLight(wall, new Vector3(0, 2f, .5f), WarmLight, 1f, 4.5f);
+            return level;
         }
 
         /// <summary>A 9-riser flight going up along z*dir: visual steps over a sloped soffit, walked on through one invisible
@@ -280,22 +344,22 @@ namespace CompanyGame.Editor.Goshiwon
                     new Vector3(.05f, .05f, 7 * Tread * along / run), trim, false, rot);
         }
 
-        /// <summary>Wood wainscot under a chair rail and wallpaper above; trims stand proud on the `face` side.</summary>
-        static void DressedWall(Transform p, string name, float x0, float x1, float z0, float z1, float y0, Vector3 face)
+        /// <summary>Wood wainscot under a chair rail and wallpaper above, from the floor up; trims stand proud on the `face` side.</summary>
+        static void DressedWall(Transform p, string name, float x0, float x1, float z0, float z1, Vector3 face)
         {
-            Span(p, name + " Wainscot", x0, x1, y0, y0 + RailH, z0, z1, wainscot, true);
-            Span(p, name + " Paper", x0, x1, y0 + RailH, y0 + H, z0, z1, wallpaper, true);
+            Span(p, name + " Wainscot", x0, x1, 0, RailH, z0, z1, wainscot, true);
+            Span(p, name + " Paper", x0, x1, RailH, H, z0, z1, wallpaper, true);
             if (face.x != 0)
             {
                 float fx = face.x > 0 ? Mathf.Max(x0, x1) : Mathf.Min(x0, x1);
-                Span(p, name + " Rail", fx, fx + face.x * .03f, y0 + RailH - .03f, y0 + RailH + .03f, z0, z1, trim, false);
-                Span(p, name + " Base", fx, fx + face.x * .02f, y0, y0 + .12f, z0, z1, trim, false);
+                Span(p, name + " Rail", fx, fx + face.x * .03f, RailH - .03f, RailH + .03f, z0, z1, trim, false);
+                Span(p, name + " Base", fx, fx + face.x * .02f, 0, .12f, z0, z1, trim, false);
             }
             else
             {
                 float fz = face.z > 0 ? Mathf.Max(z0, z1) : Mathf.Min(z0, z1);
-                Span(p, name + " Rail", x0, x1, y0 + RailH - .03f, y0 + RailH + .03f, fz, fz + face.z * .03f, trim, false);
-                Span(p, name + " Base", x0, x1, y0, y0 + .12f, fz, fz + face.z * .02f, trim, false);
+                Span(p, name + " Rail", x0, x1, RailH - .03f, RailH + .03f, fz, fz + face.z * .03f, trim, false);
+                Span(p, name + " Base", x0, x1, 0, .12f, fz, fz + face.z * .02f, trim, false);
             }
         }
 
@@ -310,7 +374,7 @@ namespace CompanyGame.Editor.Goshiwon
 
         // Wall fittings below are built in an anchor frame: origin on the wall face at floor level, +z out of the wall.
 
-        static void DoorVisual(Transform a, string number)
+        static void DoorVisual(Transform a, bool numbered)
         {
             const float w = .86f, h = 2f;
             Block(a, "Door Leaf", new Vector3(0, h / 2, .02f), new Vector3(w, h, .04f), doorWood, false);
@@ -318,9 +382,9 @@ namespace CompanyGame.Editor.Goshiwon
                 Block(a, "Casing", new Vector3(side * (w / 2 + .04f), h / 2, .03f), new Vector3(.08f, h, .06f), doorFrame, false);
             Block(a, "Casing Head", new Vector3(0, h + .04f, .03f), new Vector3(w + .16f, .08f, .06f), doorFrame, false);
             Primitive(a, PrimitiveType.Sphere, "Knob", new Vector3(w / 2 - .1f, .95f, .07f), Vector3.one * .065f, brass);
-            if (number == null) return;
+            if (!numbered) return;
             Block(a, "Number Plate", new Vector3(0, 1.6f, .045f), new Vector3(.2f, .085f, .01f), plate, false);
-            Label(a, number, new Vector3(0, 1.6f, .052f), 180f, .7f, Gold);
+            Label(a, "Number", "", new Vector3(0, 1.6f, .052f), 180f, .7f);
         }
 
         static void RoomWindow(Transform a)
@@ -372,17 +436,24 @@ namespace CompanyGame.Editor.Goshiwon
             l.intensity = intensity; l.range = range; l.shadows = LightShadows.None;
         }
 
-        static void Label(Transform parent, string text, Vector3 p, float yaw, float size, Color color)
+        static void Label(Transform parent, string name, string text, Vector3 p, float yaw, float size)
         {
-            var go = Child(parent, "Label " + text);
+            var go = Child(parent, name);
             go.localPosition = p;
             go.localRotation = Quaternion.Euler(0, yaw, 0);
             var t = go.gameObject.AddComponent<TextMeshPro>();
             if (font) t.font = font;
-            t.text = text; t.fontSize = size; t.color = color;
+            t.text = text; t.fontSize = size; t.color = Gold;
             t.alignment = TextAlignmentOptions.Center;
             t.textWrappingMode = TextWrappingModes.NoWrap;
             t.rectTransform.sizeDelta = new Vector2(1f, .3f);
+        }
+
+        static void SetText(Transform label, string text)
+        {
+            var t = label.GetComponent<TextMeshPro>();
+            t.text = text;
+            Record(t);
         }
 
         static void DoorPoint(Transform parent, string name, Vector3 p, string prompt, string path, string spawnId, float radius)
@@ -424,6 +495,34 @@ namespace CompanyGame.Editor.Goshiwon
             RenderSettings.skybox = null;
         }
 
+        // ---- prefabs ----
+
+        static GameObject SavePrefab(Transform root)
+        {
+            string path = PrefabRoot + "/" + root.name + ".prefab";
+            var prefab = PrefabUtility.SaveAsPrefabAsset(root.gameObject, path, out bool saved);
+            Object.DestroyImmediate(root.gameObject);
+            if (!saved) throw new IOException("Could not save " + path);
+            return prefab;
+        }
+
+        static Transform Place(GameObject prefab, Transform parent, string name, Vector3 pos, float yaw)
+        {
+            var t = ((GameObject)PrefabUtility.InstantiatePrefab(prefab, parent)).transform;
+            t.name = name;
+            t.localPosition = pos;
+            t.localRotation = Quaternion.Euler(0, yaw, 0);
+            Record(t.gameObject);
+            Record(t);
+            return t;
+        }
+
+        /// <summary>Keeps a scripted edit on a placed prefab as an override (plain objects need nothing).</summary>
+        static void Record(Object o)
+        {
+            if (PrefabUtility.IsPartOfPrefabInstance(o)) PrefabUtility.RecordPrefabInstancePropertyModifications(o);
+        }
+
         // ---- geometry ----
 
         static GameObject Span(Transform p, string name, float x0, float x1, float y0, float y1, float z0, float z1, Material m, bool collider)
@@ -441,6 +540,23 @@ namespace CompanyGame.Editor.Goshiwon
             go.AddComponent<MeshRenderer>().sharedMaterial = mat;
             if (collider) go.AddComponent<BoxCollider>().size = size;
             return go;
+        }
+
+        static void LoadBoxes()
+        {
+            boxes.Clear();
+            storedBoxes.Clear();
+            if (!AssetDatabase.LoadMainAssetAtPath(MeshPath))
+                AssetDatabase.CreateAsset(new Mesh { name = "GoshiwonBoxes" }, MeshPath); // empty main object; the boxes are sub-assets
+            foreach (var o in AssetDatabase.LoadAllAssetRepresentationsAtPath(MeshPath))
+                if (o is Mesh m) storedBoxes[m.name] = m;
+        }
+
+        static void RemoveUnusedBoxes()
+        {
+            var used = new HashSet<Mesh>(boxes.Values);
+            foreach (var m in storedBoxes.Values)
+                if (!used.Contains(m)) { AssetDatabase.RemoveObjectFromAsset(m); Object.DestroyImmediate(m, true); }
         }
 
         static Mesh BoxMesh(Vector3 s)
@@ -464,9 +580,17 @@ namespace CompanyGame.Editor.Goshiwon
             Face(Vector3.back, Vector3.right, Vector3.up, s.x, s.y);
             Face(Vector3.up, Vector3.right, Vector3.forward, s.x, s.z);
             Face(Vector3.down, Vector3.right, Vector3.back, s.x, s.z);
-            mesh = new Mesh { name = $"Box {s.x:0.###}x{s.y:0.###}x{s.z:0.###}" };
+            // Refills the stored mesh of this size in place, so prefabs keep their mesh references across rebuilds.
+            string name = FormattableString.Invariant($"Box {s.x:0.###}x{s.y:0.###}x{s.z:0.###}");
+            if (!storedBoxes.TryGetValue(name, out mesh))
+            {
+                mesh = new Mesh { name = name };
+                AssetDatabase.AddObjectToAsset(mesh, MeshPath);
+            }
+            mesh.Clear();
             mesh.SetVertices(v); mesh.SetNormals(n); mesh.SetUVs(0, uv); mesh.SetTriangles(t, 0);
             mesh.RecalculateBounds(); mesh.RecalculateTangents();
+            EditorUtility.SetDirty(mesh);
             boxes[s] = mesh;
             return mesh;
         }
