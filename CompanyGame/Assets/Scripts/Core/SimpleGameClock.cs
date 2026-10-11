@@ -10,8 +10,8 @@ public class SimpleGameClock : MonoBehaviour, IGameClock
     [SerializeField, Min(0)]
     private int startDay;
 
-    [SerializeField, Range(0, 23)]
-    private int startHour = 8;
+    [SerializeField, Range(GameTime.DayStartHour, 23)]
+    private int startHour = GameTime.DayStartHour;
 
     [SerializeField]
     private bool paused;
@@ -41,6 +41,8 @@ public class SimpleGameClock : MonoBehaviour, IGameClock
 
         now = new GameTime(startDay, startHour);
         if (long.TryParse(PlayerPrefs.GetString("GameClock.TotalMinutes", ""), out long saved)) now = GameTime.FromTotalMinutes(saved);
+        // Saves from the old 24h rule can land in 00-05; those hours no longer exist, so start that day at 06:00.
+        if (now.hour < GameTime.DayStartHour) now = new GameTime(now.absoluteDay, GameTime.DayStartHour);
         GameClock.Current = this;
         if (transform.parent == null) DontDestroyOnLoad(gameObject);
     }
@@ -69,7 +71,7 @@ public class SimpleGameClock : MonoBehaviour, IGameClock
         for (int i = 0; i < minutes; i++)
         {
             GameTime before = now;
-            now = now.AddMinutes(1);
+            now = now.NextMinute();
             if (now.hour == before.hour) continue;
 
             SaveTime();
@@ -89,5 +91,5 @@ public class SimpleGameClock : MonoBehaviour, IGameClock
     private void AdvanceOneHour() => AdvanceMinutes(GameTime.MinutesPerHour);
 
     [ContextMenu("Advance 1 day")]
-    private void AdvanceOneDay() => AdvanceMinutes(GameTime.HoursPerDay * GameTime.MinutesPerHour);
+    private void AdvanceOneDay() => AdvanceMinutes((GameTime.HoursPerDay - GameTime.DayStartHour) * GameTime.MinutesPerHour);
 }

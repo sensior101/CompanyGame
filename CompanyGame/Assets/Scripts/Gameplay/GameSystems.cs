@@ -14,6 +14,7 @@ static class GameSystems
         // Order matters: the clock first, then the systems that read it or each other on startup.
         BankManager.EnsureInstance();
         Spawn<SimpleGameClock>();
+        Spawn<DayNightManager>();
         Spawn<ReportManager>();
         Spawn<CompanyManager>();
         Spawn<StockMarketManager>();
