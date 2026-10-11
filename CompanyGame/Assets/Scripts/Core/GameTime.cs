@@ -6,6 +6,7 @@ public struct GameTime : IEquatable<GameTime>, IComparable<GameTime>
 {
     public const int MinutesPerHour = 60;
     public const int HoursPerDay = 24;
+    public const int DayStartHour = 6;
     public const int DaysPerSeason = 20;
     public const int SeasonsPerYear = 4;
     public const int DaysPerYear = DaysPerSeason * SeasonsPerYear;
@@ -41,6 +42,12 @@ public struct GameTime : IEquatable<GameTime>, IComparable<GameTime>
     }
 
     public GameTime AddMinutes(long minutes) => FromTotalMinutes(TotalMinutes + minutes);
+
+    /// <summary>One minute forward; 23:59 jumps to 06:00 of the next day (00-05 are skipped).</summary>
+    public GameTime NextMinute() =>
+        hour == HoursPerDay - 1 && minute == MinutesPerHour - 1
+            ? new GameTime(absoluteDay + 1, DayStartHour)
+            : AddMinutes(1);
 
     public GameTime AddHours(int hours) => AddMinutes((long)hours * MinutesPerHour);
 
