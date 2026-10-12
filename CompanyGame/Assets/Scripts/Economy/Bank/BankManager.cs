@@ -147,7 +147,7 @@ public class BankManager : MonoBehaviour
 
     public bool AddMoney(long amount, MoneyChangeReason reason)
     {
-        if (!GameSession.IsAuthority || amount <= 0 || currentMoney > long.MaxValue - amount) return false;
+        if (amount <= 0 || currentMoney > long.MaxValue - amount) return false;
         ApplyBalance(currentMoney + amount, amount, reason);
         return true;
     }
@@ -156,7 +156,7 @@ public class BankManager : MonoBehaviour
 
     public bool TrySpend(long amount, MoneyChangeReason reason)
     {
-        if (!GameSession.IsAuthority || amount <= 0 || currentMoney < amount) return false;
+        if (amount <= 0 || currentMoney < amount) return false;
         ApplyBalance(currentMoney - amount, -amount, reason);
         return true;
     }
@@ -168,12 +168,21 @@ public class BankManager : MonoBehaviour
         return true;
     }
 
+    /// <summary>Restores a saved personal balance (PersonalSave). Raises MoneyChanged so HUDs refresh.</summary>
+    public void RestoreBalance(long amount)
+    {
+        long next = Math.Max(0L, amount);
+        long delta = next - currentMoney;
+        currentMoney = next;
+        NotifyMoneyChanged(delta, MoneyChangeReason.ManualAdjustment);
+    }
+
     public CurrencyBreakdown GetCurrencyBreakdown() => CurrentCurrency;
 
     // Used by CashService to debit/credit and publish in one transaction.
     public bool TryDebitSilently(long amount)
     {
-        if (!GameSession.IsAuthority || !CanAfford(amount)) return false;
+        if (!CanAfford(amount)) return false;
         currentMoney -= amount;
         return true;
     }
@@ -182,7 +191,7 @@ public class BankManager : MonoBehaviour
 
     public bool TryCreditSilently(long amount)
     {
-        if (!GameSession.IsAuthority || amount <= 0 || currentMoney > long.MaxValue - amount) return false;
+        if (amount <= 0 || currentMoney > long.MaxValue - amount) return false;
         currentMoney += amount;
         return true;
     }

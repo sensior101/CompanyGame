@@ -1,0 +1,567 @@
+using System;
+using System.Collections.Generic;
+using TMPro;
+using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.UI;
+
+/// <summary>
+/// The title menu (Scenes/Title.unity): 방 만들기 / 참가하기 / 설정, plus the small screens they lead to
+/// (name sign-up, room code entry, room list, errors, confirmations). Built in code with uGUI; keyboard (arrows/Tab/Enter/Esc) and mouse both work.
+/// All real work is in <see cref="TitleFlow"/>.
+/// </summary>
+public sealed class TitleScreen : MonoBehaviour
+{
+    const float RoomRefreshSeconds = 3f;
+    const int MaxRoomRows = 8;
+
+    public static TitleScreen Current { get; private set; }
+
+    Canvas canvas;
+    RectTransform content, logo;
+    TMP_Text footer;
+    Action back;
+    bool busy, worldReady, pendingNew;
+    string screen = "";
+    RectTransform roomList;
+    TMP_Text roomHint;
+    RoomInfo[] shownRooms;
+    float nextRefresh, nextHide;
+    readonly List<Canvas> hiddenCanvases = new List<Canvas>();
+
+    public RectTransform Content => content;
+    public string Screen => screen;
+    public bool Busy => busy;
+
+    void Awake()
+    {
+        Current = this;
+        canvas = TitleUi.NewCanvas("TitleCanvas", 5000);
+        canvas.transform.SetParent(transform, false);
+        BuildChrome();
+        HideOtherCanvases();
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+    }
+
+    void Start() { HideOtherCanvases(); ShowMain(); }
+
+    void OnDestroy()
+    {
+        foreach (var c in hiddenCanvases) if (c) c.enabled = true;
+        if (Current == this) Current = null;
+    }
+
+    /// <summary>Draw the menu through a camera instead of as an overlay (used to render screenshots without a window).</summary>
+    public void UseCamera(Camera camera)
+    {
+        canvas.renderMode = RenderMode.ScreenSpaceCamera;
+        canvas.worldCamera = camera;
+        canvas.planeDistance = 1f;
+    }
+
+    // Other game UI (phone, chat) lives in overlay canvases that persist across scenes; the title covers them.
+    void HideOtherCanvases()
+    {
+        foreach (var c in FindObjectsByType<Canvas>())
+            if (c != canvas && c.isRootCanvas && c.renderMode == RenderMode.ScreenSpaceOverlay && c.enabled)
+            { c.enabled = false; hiddenCanvases.Add(c); }
+    }
+
+    void BuildChrome()
+    {
+        var root = (RectTransform)canvas.transform;
+        logo = TitleUi.Column(root, "Logo", 1200, 0);
+        logo.anchoredPosition = new Vector2(0, -90);
+        var title = TitleUi.Label(logo, "달동네", 150, TitleUi.Cream, TextAlignmentOptions.Center, FontStyles.Bold);
+        title.outlineWidth = 0.18f; title.outlineColor = new Color32(0x3B, 0x2A, 0x20, 255);
+        TitleUi.Label(logo, "작은 동네에서 회사를 키우는 이야기", 34, TitleUi.Amber);
+
+        content = TitleUi.Column(root, "Content", 640, 14);
+        content.anchoredPosition = new Vector2(0, -420);
+
+        footer = TitleUi.Label(root, "", 22, TitleUi.Muted, TextAlignmentOptions.BottomLeft);
+        var rt = (RectTransform)footer.transform;
+        rt.anchorMin = Vector2.zero; rt.anchorMax = new Vector2(1, 0); rt.pivot = new Vector2(0, 0);
+        rt.offsetMin = new Vector2(32, 20); rt.offsetMax = new Vector2(-32, 70);
+    }
+
+    // Opens a screen: clears the content, shows or hides the logo, moves the content under it.
+    void Begin(string name, bool withLogo, float width, Action onBack)
+    {
+        screen = name; busy = false; back = onBack; roomList = null;
+        TitleUi.Clear(content);
+        logo.gameObject.SetActive(withLogo);
+        content.sizeDelta = new Vector2(width, 0);
+        content.anchoredPosition = new Vector2(0, withLogo ? -420 : -60);
+        // The server address is only worth showing when it is not the built-in one (or the built-in one is still a placeholder).
+        bool steam = NetMode.IsSteam;
+        string server = steam ? "   ·   Steam 개발 모드" : LocalAccount.IsCustomUrl ? "   ·   서버 " + LocalAccount.ServerUrl : ServerConfig.IsPlaceholder ? "   ·   서버 주소 미설정" : "";
+        string nick = TitleFlow.HasAccount ? TitleFlow.Account.nickname : "";
+        footer.text = "프로필 슬롯 " + ProfileSlot.Slot + server
+            + (string.IsNullOrEmpty(nick) ? "   ·   이름 미설정" : "   ·   이름 " + nick);
+    }
+
+    // A rounded dark panel (title + children) for every sub screen.
+    RectTransform Panel(string heading, string sub = null)
+    {
+        var panel = TitleUi.Column(content, "Panel", 0, 14, TitleUi.Panel, 32, false);
+        TitleUi.Label(panel, heading, 46, TitleUi.Cream, TextAlignmentOptions.Center, FontStyles.Bold);
+        if (!string.IsNullOrEmpty(sub)) TitleUi.Label(panel, sub, 25, TitleUi.Muted);
+        return panel;
+    }
+
+    void Focus() { TitleUi.FocusFirst(content); }
+
+    void Update()
+    {
+        if (GameInput.CancelPressed && back != null && !busy) back();
+        // Keep a focus target: a click on empty background would otherwise leave the keyboard with nothing selected.
+        if (!busy && EventSystem.current && !EventSystem.current.currentSelectedGameObject) Focus();
+        if (screen == "rooms" || screen == "join") UpdateConnected();
+        if (Time.unscaledTime >= nextHide) { nextHide = Time.unscaledTime + 1f; HideOtherCanvases(); } // HUDs created after this scene loaded
+    }
+
+    // ---- main ----
+
+    public void ShowMain()
+    {
+        Begin("main", true, 560, null);
+        worldReady = false;
+        var net = NetSession.Instance;
+        if (net && net.Connected) net.Disconnect();
+        TitleUi.Button(content, "방 만들기", ShowCreate, 76, true, 36);
+        TitleUi.Button(content, "참가하기", StartJoin, 76, true, 36);
+        TitleUi.Button(content, "설정", () => ShowSettings(), 76, true, 36);
+        TitleUi.Button(content, "종료", Quit, 60, false, 28);
+        TitleUi.Button(content, "연결 방식: " + NetMode.Label + " (바꾸기)", () => { NetMode.IsSteam = !NetMode.IsSteam; ShowMain(); }, 44, false, 22);
+        Focus();
+    }
+
+    // ---- Steam friend invite ----
+
+    /// <summary>An invite was accepted (Steam overlay or +connect_lobby): join that lobby from wherever the title screen is.</summary>
+    public async void JoinFromInvite(ulong lobbyId)
+    {
+        if (busy) return;
+        ShowBusy("친구의 방에 들어가는 중…");
+        string error = await TitleFlow.JoinInvite(lobbyId);
+        if (!this) return;
+        if (error != null) ShowError(error, () => JoinFromInvite(lobbyId), ShowMain, null);
+    }
+
+    static void Quit()
+    {
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#else
+        Application.Quit();
+#endif
+    }
+
+    // ---- 방 만들기 ----
+
+    public void ShowCreate()
+    {
+        Begin("create", true, 700, ShowMain);
+        worldReady = false;
+        var panel = Panel("방 만들기", "새 월드를 시작하거나, 저장된 월드를 이어서 합니다.");
+        TitleUi.Button(panel, "신규 월드 시작", OnNewWorld, 76, true, 32);
+        bool has = WorldSave.TryPeek(out DateTime savedAt, out long minutes);
+        string label = has
+            ? "기존 월드 이어하기\n<size=22>" + savedAt.ToString("yyyy-MM-dd HH:mm") + " 저장 · 게임 " + (GameTime.FromTotalMinutes(minutes).absoluteDay + 1) + "일째</size>"
+            : "저장된 월드가 없습니다";
+        var existing = TitleUi.Button(panel, label, () => BeginCreate(false), 96, true, 32);
+        existing.interactable = has;
+        TitleUi.Button(panel, "뒤로", ShowMain, 56, false, 26);
+        Focus();
+    }
+
+    void OnNewWorld()
+    {
+        if (!WorldSave.HasLocalWorld) { BeginCreate(true); return; }
+        ShowConfirm("이미 저장된 월드가 있습니다.\n새로 시작하면 기존 월드는 지워지지 않고 백업 파일(world.backup-날짜.json)로 보관되며, 새 월드가 시작됩니다.",
+            "새로 시작", () => BeginCreate(true), ShowCreate);
+    }
+
+    void BeginCreate(bool newWorld)
+    {
+        pendingNew = newWorld; worldReady = false;
+        if (TitleFlow.HasAccount) RunCreate(null, null);
+        else ShowName("이름을 정하면 서버에 계정이 자동으로 만들어집니다.", RunCreate, ShowCreate);
+    }
+
+    async void RunCreate(string name, string gender)
+    {
+        ShowBusy("서버에 접속하는 중…");
+        string error = await TitleFlow.SignIn(name, gender);
+        if (!this) return;
+        if (error == null) error = await TitleFlow.Connect();
+        if (!this) return;
+        if (error == null && !worldReady) { error = TitleFlow.PrepareWorld(pendingNew); worldReady = error == null; }
+        if (error == null)
+        {
+            ShowBusy("방을 만드는 중…");
+            error = await TitleFlow.HostOnline(RoomName());
+            if (!this) return;
+        }
+        if (error == null) { ShowBusy("맵을 불러오는 중…"); if (!TitleFlow.EnterGame()) error = "load_failed"; }
+        if (error != null) FailCreate(error, name, gender);
+    }
+
+    string RoomName() => (TitleFlow.Account?.nickname ?? "플레이어") + "의 방";
+
+    void FailCreate(string error, string name, string gender)
+    {
+        if (NeedsNewName(error)) { ShowName(TitleFlow.Message(error), RunCreate, ShowCreate); return; }
+        ShowError(error, () => RunCreate(name, gender), ShowCreate, () => OfflineStart(name));
+    }
+
+    void OfflineStart(string name)
+    {
+        ShowBusy("오프라인으로 시작하는 중…");
+        string error = TitleFlow.StartOffline(pendingNew, name ?? TitleFlow.Account?.nickname, worldReady);
+        if (error == null) return;
+        worldReady = false;
+        ShowError(error, () => OfflineStart(name), ShowCreate, null);
+    }
+
+    static bool NeedsNewName(string error) => error == "invalid_name" || error == "nickname_taken" || error == "invalid_input";
+
+    // ---- 참가하기 ----
+
+    public void StartJoin()
+    {
+        if (TitleFlow.HasAccount) RunJoin(null, null);
+        else ShowName("이름을 정하면 서버에 계정이 자동으로 만들어집니다.", RunJoin, ShowMain);
+    }
+
+    async void RunJoin(string name, string gender)
+    {
+        ShowBusy("서버에 접속하는 중…");
+        string error = await TitleFlow.SignIn(name, gender);
+        if (!this) return;
+        if (error == null) error = await TitleFlow.Connect();
+        if (!this) return;
+        if (error == null) { TitleFlow.PrepareForJoin(); ShowJoin(); return; }
+        if (NeedsNewName(error)) ShowName(TitleFlow.Message(error), RunJoin, ShowMain);
+        else ShowError(error, () => RunJoin(name, gender), ShowMain, null);
+    }
+
+    void LeaveJoin()
+    {
+        var net = NetSession.Instance;
+        if (net) net.Disconnect();
+        ShowMain();
+    }
+
+    /// <summary>The main join screen: type (or paste) the 6-character room code. The room list is the secondary option.</summary>
+    public void ShowJoin()
+    {
+        Begin("join", true, 700, LeaveJoin);
+        var panel = Panel("참가하기", NetMode.IsSteam
+            ? "친구에게 받은 방 코드를 입력하세요.\nSteam 친구 초대를 받았다면 Steam 오버레이(Shift+Tab)에서 수락하면 바로 들어갑니다."
+            : "친구에게 받은 방 코드를 입력하세요.");
+        var input = TitleUi.Input(panel, "방 코드", 24, null, 96);
+        StyleCodeInput(input);
+        var hint = TitleUi.Label(panel, " ", 24, TitleUi.Warn);
+        input.onValueChanged.AddListener(v =>
+        {
+            string code = RoomCode.Normalize(v);
+            if (code.Length > RoomCode.Length) code = code.Substring(0, RoomCode.Length);
+            if (code != v) input.text = code; // upper case, no spaces or hyphens, also for pasted text
+            hint.text = " ";
+        });
+        Action submit = () =>
+        {
+            string code = RoomCode.Normalize(input.text);
+            if (code.Length != RoomCode.Length) { hint.text = TitleFlow.Message("invalid_code"); return; }
+            EnterRoom(code, ShowJoin);
+        };
+        input.onSubmit.AddListener(_ => submit());
+        TitleUi.Button(panel, "참가", () => submit(), 72, true, 34);
+        TitleUi.Button(panel, "방 목록 보기", ShowRooms, 56, false, 26);
+        TitleUi.Button(panel, "뒤로", LeaveJoin, 56, false, 26);
+        if (EventSystem.current) EventSystem.current.SetSelectedGameObject(input.gameObject);
+        input.ActivateInputField();
+    }
+
+    // A big centred field with wide letter gaps: a code is read from a friend's message and typed once.
+    static void StyleCodeInput(TMP_InputField input)
+    {
+        input.pointSize = 56;
+        var text = input.textComponent;
+        text.fontSize = 56; text.alignment = TextAlignmentOptions.Center; text.characterSpacing = 14;
+        var hint = (TMP_Text)input.placeholder;
+        hint.fontSize = 40; hint.alignment = TextAlignmentOptions.Center;
+    }
+
+    public void ShowRooms()
+    {
+        Begin("rooms", false, 980, ShowJoin);
+        var panel = Panel("방 목록");
+        roomHint = TitleUi.Label(panel, "", 25, TitleUi.Muted);
+        roomList = TitleUi.Column(panel, "Rooms", 0, 10, null, 0, false);
+        var row = TitleUi.Row(panel, 60);
+        TitleUi.Button(row, "새로고침", RefreshRooms, 60, true, 28);
+        TitleUi.Button(row, "뒤로", ShowJoin, 60, false, 28);
+        shownRooms = null; nextRefresh = 0f;
+        RefreshRooms();
+        BuildRoomRows();
+        Focus();
+    }
+
+    void RefreshRooms()
+    {
+        var net = NetSession.Instance;
+        if (net && net.Connected) net.RefreshRooms();
+        nextRefresh = Time.unscaledTime + RoomRefreshSeconds;
+    }
+
+    // The join and room-list screens need the server connection; if it drops, say so instead of leaving dead buttons.
+    void UpdateConnected()
+    {
+        var net = NetSession.Instance;
+        if (!net || busy) return;
+        if (!net.Connected)
+        {
+            string error = string.IsNullOrEmpty(net.LastError) ? "disconnected" : net.LastError;
+            ShowError(error, () => RunJoin(null, null), ShowMain, null);
+            return;
+        }
+        if (screen != "rooms") return;
+        if (Time.unscaledTime >= nextRefresh) RefreshRooms();
+        if (!ReferenceEquals(net.Rooms, shownRooms)) BuildRoomRows();
+    }
+
+    void BuildRoomRows()
+    {
+        var net = NetSession.Instance;
+        shownRooms = net ? net.Rooms : new RoomInfo[0];
+        bool hadFocus = EventSystem.current && EventSystem.current.currentSelectedGameObject
+            && EventSystem.current.currentSelectedGameObject.transform.IsChildOf(roomList);
+        TitleUi.Clear(roomList);
+        roomHint.text = shownRooms.Length == 0 ? "열려 있는 방이 없습니다. 다른 사람이 방을 만들면 여기에 나타납니다." : "참가할 방을 고르세요. (3초마다 자동 새로고침)";
+        for (int i = 0; i < shownRooms.Length && i < MaxRoomRows; i++)
+        {
+            var room = shownRooms[i];
+            var row = TitleUi.Row(roomList, 64, 12, false);
+            var text = TitleUi.Label(row, room.room + "   <size=22><color=#C9C3D9>방장 " + room.hostName + " · " + room.count + "/" + room.max + "명</color></size>", 30, TitleUi.Cream, TextAlignmentOptions.MidlineLeft);
+            TitleUi.Width(text, 0, 1);
+            var join = TitleUi.Button(row, room.count >= room.max ? "가득 참" : "참가", () => EnterRoom(room.rid, ShowRooms), 64, true, 28);
+            join.interactable = room.count < room.max;
+            TitleUi.Width(join, 170);
+        }
+        if (shownRooms.Length > MaxRoomRows) TitleUi.Label(roomList, "외 " + (shownRooms.Length - MaxRoomRows) + "개 (표시 한도)", 22, TitleUi.Muted);
+        if (hadFocus) Focus();
+    }
+
+    // Joins a room by its id (the typed code or a list entry), then loads the map. `from` is the screen to return to on an error.
+    async void EnterRoom(string rid, Action from)
+    {
+        ShowBusy("방에 들어가는 중…");
+        string error = await TitleFlow.JoinOnline(rid);
+        if (!this) return;
+        if (error == null) { ShowBusy("맵을 불러오는 중…"); if (!TitleFlow.EnterGame()) error = "load_failed"; }
+        if (error == null) return;
+        Action back = () => { var n = NetSession.Instance; if (n && n.Connected) from(); else ShowMain(); };
+        ShowError(error, error == "room_not_found" ? null : (Action)(() => EnterRoom(rid, from)), back, null);
+    }
+
+    // ---- name sign-up ----
+
+    void ShowName(string sub, Action<string, string> next, Action onBack)
+    {
+        Begin("name", true, 700, onBack);
+        var panel = Panel("플레이어 이름", sub);
+        var input = TitleUi.Input(panel, "이름 (한글·영문·숫자·_ 2~12자)", 12, null);
+        string gender = "male";
+        var row = TitleUi.Row(panel, 60);
+        var male = TitleUi.Button(row, "● 남자", null, 60, true, 28);
+        var female = TitleUi.Button(row, "○ 여자", null, 60, false, 28);
+        male.onClick.AddListener(() => { gender = "male"; SetLabel(male, "● 남자"); SetLabel(female, "○ 여자"); });
+        female.onClick.AddListener(() => { gender = "female"; SetLabel(male, "○ 남자"); SetLabel(female, "● 여자"); });
+        var error = TitleUi.Label(panel, "", 24, TitleUi.Warn);
+        Action submit = () =>
+        {
+            string name = input.text.Trim();
+            if (!TitleFlow.IsValidName(name)) { error.text = TitleFlow.Message("invalid_name"); return; }
+            next(name, gender);
+        };
+        input.onSubmit.AddListener(_ => submit());
+        TitleUi.Button(panel, "확인", () => submit(), 64, true, 30);
+        TitleUi.Button(panel, "뒤로", () => onBack?.Invoke(), 56, false, 26);
+        if (EventSystem.current) EventSystem.current.SetSelectedGameObject(input.gameObject);
+        input.ActivateInputField();
+    }
+
+    static void SetLabel(Button button, string text) { button.GetComponentInChildren<TMP_Text>().text = text; }
+
+    // ---- busy / error / confirm ----
+
+    void ShowBusy(string message)
+    {
+        Begin("busy", true, 700, null);
+        busy = true;
+        var panel = Panel(message);
+        TitleUi.Label(panel, "잠시만 기다려 주세요.", 24, TitleUi.Muted);
+    }
+
+    void ShowError(string code, Action retry, Action onBack, Action offline)
+    {
+        Begin("error", true, 760, onBack);
+        var panel = Panel("문제가 생겼어요");
+        TitleUi.Label(panel, TitleFlow.Message(code), 27, TitleUi.Warn);
+        TitleUi.Spacer(panel, 6);
+        if (retry != null) TitleUi.Button(panel, "다시 시도", retry, 64, true, 30);
+        if (offline != null) TitleUi.Button(panel, "오프라인으로 시작", offline, 64, true, 30);
+        bool unreachable = code == "network" || code == "timeout" || code == "connect_failed" || code == "bad_url";
+        if (code == ServerBudget.Code || code.StartsWith("steam_"))
+            TitleUi.Button(panel, NetMode.IsSteam ? "Cloudflare 서버 모드로 바꾸기" : "Steam 모드로 바꾸기", () => { NetMode.IsSteam = !NetMode.IsSteam; ShowMain(); }, 56, false, 26);
+        if (unreachable && !NetMode.IsSteam && (LocalAccount.IsCustomUrl || ServerConfig.IsPlaceholder)) // with the built-in server the address is not the player's problem
+            TitleUi.Button(panel, "서버 주소 설정", () => ShowSettings(() => onBack?.Invoke(), true), 56, false, 26);
+        TitleUi.Button(panel, "뒤로", () => onBack?.Invoke(), 56, false, 26);
+        Focus();
+    }
+
+    void ShowConfirm(string message, string yesText, Action yes, Action no)
+    {
+        Begin("confirm", true, 780, no);
+        var panel = Panel("확인");
+        TitleUi.Label(panel, message, 27, TitleUi.Cream);
+        TitleUi.Spacer(panel, 6);
+        var row = TitleUi.Row(panel, 64);
+        TitleUi.Button(row, "취소", () => no?.Invoke(), 64, false, 28);
+        TitleUi.Button(row, yesText, () => yes?.Invoke(), 64, true, 28);
+        Focus();
+        if (EventSystem.current) EventSystem.current.SetSelectedGameObject(row.GetChild(0).gameObject); // the safe choice is focused
+    }
+
+    // ---- 설정 ----
+
+    public void ShowSettings(Action onBack = null, bool advanced = false)
+    {
+        Action leave = onBack ?? ShowMain;
+        Begin("settings", false, 860, leave);
+        var panel = Panel("설정");
+
+        bool steam = NetMode.IsSteam;
+        var account = TitleFlow.Account;
+        TitleUi.Label(panel, "연결 방식: " + NetMode.Label, 24, TitleUi.Muted, TextAlignmentOptions.MidlineLeft);
+        TitleUi.Button(panel, steam ? "Cloudflare 서버 모드로 바꾸기" : "Steam 개발 모드로 바꾸기", () => { NetMode.IsSteam = !steam; ShowSettings(onBack, advanced); }, 56, false, 26);
+        TitleUi.Label(panel, steam
+            ? "플레이어 이름: " + (account != null && account.HasName ? account.nickname + " (Steam 계정 이름)" : "Steam이 켜져 있지 않아 확인할 수 없음")
+            : "플레이어 이름: " + (account != null && account.HasName ? account.nickname : "아직 정하지 않음 (방 만들기·참가하기 때 정합니다)"),
+            24, TitleUi.Muted, TextAlignmentOptions.MidlineLeft);
+        if (!steam && account != null && account.HasName)
+        {
+            var nameRow = TitleUi.Row(panel, 56, 12, false);
+            var nameInput = TitleUi.Input(nameRow, "새 이름", 12, null, 56);
+            nameInput.text = account.nickname;
+            TitleUi.Width(nameInput, 0, 1);
+            var rename = TitleUi.Button(nameRow, "이름 변경", () => Rename(nameInput.text, nameResult), 56, true, 26);
+            TitleUi.Width(rename, 200);
+        }
+        nameResult = TitleUi.Label(panel, " ", 24, TitleUi.Muted, TextAlignmentOptions.MidlineLeft);
+
+        TitleUi.Label(panel, "프로필 슬롯 (한 PC에서 게임 2개를 켜는 테스트용)", 24, TitleUi.Muted, TextAlignmentOptions.MidlineLeft);
+        var slotRow = TitleUi.Row(panel, 56, 12, false);
+        var prev = TitleUi.Button(slotRow, "◀", () => SwitchSlot(ProfileSlot.Slot - 1, onBack, advanced), 56, false, 26);
+        var slotLabel = TitleUi.Label(slotRow, "슬롯 " + ProfileSlot.Slot + " / " + ProfileSlot.Max, 28, TitleUi.Cream);
+        var next = TitleUi.Button(slotRow, "▶", () => SwitchSlot(ProfileSlot.Slot + 1, onBack, advanced), 56, false, 26);
+        TitleUi.Width(prev, 90); TitleUi.Width(next, 90); TitleUi.Width(slotLabel, 0, 1);
+        prev.interactable = next.interactable = !ProfileSlot.FromCommandLine;
+        TitleUi.Label(panel, ProfileSlot.FromCommandLine
+            ? "실행 인자 -profile " + ProfileSlot.Slot + " 로 고정되어 있습니다."
+            : "슬롯마다 계정·토큰·월드 저장 폴더가 따로입니다. 두 번째 창은 다른 슬롯(또는 -profile 2)으로 실행하세요.", 22, TitleUi.Muted, TextAlignmentOptions.MidlineLeft);
+
+        if (!steam)
+        {
+            TitleUi.Button(panel, "계정 초기화", ConfirmReset, 56, false, 26);
+            TitleUi.Button(panel, advanced ? "고급 접기" : "고급 ▶", () => ShowSettings(onBack, !advanced), 56, false, 26);
+            if (advanced) BuildAdvanced(panel, onBack);
+        }
+        TitleUi.Button(panel, "뒤로", () => leave(), 56, false, 26);
+        Focus();
+    }
+
+    TMP_Text nameResult;
+
+    // Settings > 고급: the server address. Players use the built-in server and never need this; it is for the local test server.
+    void BuildAdvanced(RectTransform panel, Action onBack)
+    {
+        bool fixedByArg = ServerConfig.CommandLineUrl != null;
+        string origin = fixedByArg ? "실행 인자 -server 로 고정" : LocalAccount.IsCustomUrl ? "직접 지정한 주소" : "기본 서버";
+        TitleUi.Label(panel, "서버 주소 (" + origin + ")", 24, TitleUi.Muted, TextAlignmentOptions.MidlineLeft);
+        var url = TitleUi.Input(panel, "비워 두면 기본 서버", 120, null, 56);
+        url.text = LocalAccount.IsCustomUrl ? LocalAccount.ServerUrl : "";
+        var result = TitleUi.Label(panel, " ", 24, TitleUi.Muted, TextAlignmentOptions.MidlineLeft);
+        var row = TitleUi.Row(panel, 56);
+        var apply = TitleUi.Button(row, "적용", () => { LocalAccount.ServerUrl = url.text; ShowSettings(onBack, true); }, 56, true, 26);
+        TitleUi.Button(row, "연결 테스트", () => TestServer(url.text, result), 56, true, 26);
+        var local = TitleUi.Button(panel, "로컬 테스트 서버 (" + ServerConfig.LocalUrl + ")", () => url.text = ServerConfig.LocalUrl, 52, false, 24);
+        var reset = TitleUi.Button(panel, "기본 서버로 되돌리기", () => { LocalAccount.ServerUrl = ""; ShowSettings(onBack, true); }, 52, false, 24);
+        apply.interactable = local.interactable = reset.interactable = !fixedByArg;
+        if (fixedByArg) TitleUi.Label(panel, "주소: " + LocalAccount.ServerUrl, 22, TitleUi.Muted, TextAlignmentOptions.MidlineLeft);
+    }
+
+    async void TestServer(string url, TMP_Text result)
+    {
+        result.color = TitleUi.Muted; result.text = "확인하는 중…";
+        string normalized = LocalAccount.Normalize(url);
+        bool ok = await TitleFlow.TestServer(normalized);
+        if (!this || !result) return;
+        result.color = ok ? TitleUi.Good : TitleUi.Warn;
+        result.text = ok ? "연결됨: " + normalized : "연결할 수 없습니다: " + normalized;
+    }
+
+    async void Rename(string newName, TMP_Text result)
+    {
+        result.color = TitleUi.Muted; result.text = "이름을 바꾸는 중…";
+        string error = await TitleFlow.Rename(newName.Trim());
+        if (!this || !result) return;
+        result.color = error == null ? TitleUi.Good : TitleUi.Warn;
+        result.text = error == null ? "이름을 바꿨습니다." : TitleFlow.Message(error);
+    }
+
+    void SwitchSlot(int slot, Action onBack, bool advanced)
+    {
+        if (slot < 1 || slot > ProfileSlot.Max) return;
+        TitleFlow.ChangeSlot(slot);
+        ShowSettings(onBack, advanced);
+    }
+
+    void ConfirmReset()
+    {
+        ShowConfirm("이 슬롯에 저장된 계정 정보를 이 PC에서 지웁니다.\n서버의 계정과 월드 파일은 남지만, 이 PC는 더 이상 그 계정으로 자동 접속하지 않습니다. 계속할까요?",
+            "계정 초기화", () => { TitleFlow.ResetAccount(); ShowSettings(); }, () => ShowSettings());
+    }
+
+    // ---- test support ----
+
+    /// <summary>Invokes the first enabled button whose text contains <paramref name="text"/>. Used by the headless QA.</summary>
+    public bool Click(string text)
+    {
+        return TitleUi.ClickButton(content, text);
+    }
+
+    /// <summary>Opens a screen by name with sample content (screenshots and QA only).</summary>
+    public void Open(string which)
+    {
+        switch (which)
+        {
+            case "main": ShowMain(); break;
+            case "create": ShowCreate(); break;
+            case "settings": ShowSettings(); break;
+            case "settings-advanced": ShowSettings(null, true); break;
+            case "join": ShowJoin(); break;
+            case "rooms": ShowRooms(); break;
+            case "name": ShowName("이름을 정하면 서버에 계정이 자동으로 만들어집니다.", (n, g) => { }, ShowMain); break;
+            case "error": ShowError("network", () => { }, ShowMain, () => { }); break;
+            case "confirm": OnNewWorld(); break;
+            case "busy": ShowBusy("서버에 접속하는 중…"); break;
+        }
+    }
+
+    public TMP_InputField FirstInput() => content.GetComponentInChildren<TMP_InputField>();
+}

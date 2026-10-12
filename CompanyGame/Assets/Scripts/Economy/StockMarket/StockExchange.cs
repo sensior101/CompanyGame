@@ -57,7 +57,7 @@ public class StockExchangeState
 {
     public List<StockState> states = new List<StockState>();
     public List<StockData> ipoListings = new List<StockData>();
-    public StockPortfolio portfolio = new StockPortfolio();
+    public StockPortfolio portfolio; // legacy field, unused: personal data lives in PersonalSave
 }
 
 /// <summary>Stock market rules and simulation with no scene dependencies. Driven by hour ticks and trade calls.</summary>
@@ -143,6 +143,8 @@ public class StockExchange
 
     public void OnHourChanged(GameTime time)
     {
+        // Participants never simulate prices; they apply the host snapshot via RestoreState.
+        if (!GameSession.IsAuthority) return;
         if (time.hour == settings.newsHour) PublishNews(time);
         if (time.hour < settings.openHour || time.hour > settings.closeHour) return;
 
@@ -238,9 +240,16 @@ public class StockExchange
         return new StockExchangeState
         {
             states = new List<StockState>(states),
-            ipoListings = new List<StockData>(ipoListings),
-            portfolio = portfolio
+            ipoListings = new List<StockData>(ipoListings)
+            // portfolio is personal (PersonalSave), not part of the shared world state
         };
+    }
+
+    public StockPortfolio CapturePortfolio() => portfolio;
+
+    public void RestorePortfolio(StockPortfolio saved)
+    {
+        portfolio = saved ?? new StockPortfolio();
     }
 
     public void RestoreState(StockExchangeState state)
@@ -260,7 +269,8 @@ public class StockExchange
             if (index >= 0) states[index] = saved;
         }
 
-        portfolio = state.portfolio ?? new StockPortfolio();
+        // The local portfolio is personal and is never overwritten by a shared restore.
+        PricesUpdated?.Invoke();
     }
 
     private StockState NewState(StockData data)

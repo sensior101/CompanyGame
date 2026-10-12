@@ -31,7 +31,7 @@ public class ReportManager : GameSystem<ReportManager>
         }
     }
 
-    public string LocalPlayerId => settings.localPlayerId;
+    public string LocalPlayerId => SharedWriteGate.ActorId(settings.localPlayerId);
 
     protected override void OnSystemAwake()
     {
@@ -45,8 +45,19 @@ public class ReportManager : GameSystem<ReportManager>
     }
 
     public ReportSubmitResult Submit(CrimeType type, string suspectId, string evidenceId,
-        long stolenValue, out CrimeReport report) =>
-        Service.Submit(settings.localPlayerId, suspectId, type, evidenceId, stolenValue, out report);
+        long stolenValue, out CrimeReport report)
+    {
+        report = null;
+        string reporter = LocalPlayerId;
+        if (SharedWriteGate.InRoom)
+        {
+            if (string.IsNullOrEmpty(suspectId) || suspectId == reporter) return ReportSubmitResult.InvalidSuspect;
+            if (string.IsNullOrEmpty(evidenceId)) return ReportSubmitResult.MissingEvidence;
+            bool sent = SharedWriteGate.TrySend("report.sub", new SharedOpArgs { a = suspectId, b = evidenceId, c = reporter, n = stolenValue, d = ((int)type).ToString() });
+            return sent ? ReportSubmitResult.Submitted : ReportSubmitResult.OnCooldown; // not sent: the gate already told the player
+        }
+        return Service.Submit(reporter, suspectId, type, evidenceId, stolenValue, out report);
+    }
 
     public bool CanRegisterBusiness(string playerId) => Service.CanRegisterBusiness(playerId);
 

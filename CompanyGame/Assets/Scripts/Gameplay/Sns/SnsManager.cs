@@ -38,11 +38,28 @@ public class SnsManager : GameSystem<SnsManager>
         base.OnDestroy();
     }
 
-    public SnsPostResult Post(string text) =>
-        Feed.TryPost(Now, settings.localUserId, settings.localUserName, text, out _);
+    public SnsPostResult Post(string text)
+    {
+        if (SharedWriteGate.InRoom)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return SnsPostResult.EmptyText;
+            bool sent = SharedWriteGate.TrySend("sns.post", new SharedOpArgs { a = text, b = GameSession.LocalPlayerId, c = GameSession.LocalPlayerName });
+            return sent ? SnsPostResult.Success : SnsPostResult.OnCooldown; // not sent: the gate already told the player; "try again later"
+        }
+        return PostAs(settings.localUserId, settings.localUserName, text);
+    }
 
-    public bool ToggleLike(string postId) =>
-        Feed.ToggleLike(postId, settings.localUserId, out bool liked) && liked;
+    public SnsPostResult PostAs(string userId, string userName, string text) =>
+        Feed.TryPost(Now, userId, userName, text, out _);
+
+    public bool ToggleLike(string postId)
+    {
+        if (SharedWriteGate.InRoom)
+            return SharedWriteGate.TrySend("sns.like", new SharedOpArgs { a = postId, b = GameSession.LocalPlayerId });
+        return LikeAs(postId, settings.localUserId);
+    }
+
+    public bool LikeAs(string postId, string userId) => Feed.ToggleLike(postId, userId, out bool liked) && liked;
 
     private void EnsureInitialized()
     {

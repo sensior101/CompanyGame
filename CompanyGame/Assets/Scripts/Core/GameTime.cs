@@ -75,6 +75,8 @@ public interface IGameClock
     GameTime Now { get; }
     event Action<GameTime> HourChanged;
     event Action<GameTime> DayChanged;
+    /// <summary>Jumps to a time received from the host. Raises no events.</summary>
+    void SetNow(GameTime time);
 }
 
 /// <summary>Whichever clock is active registers itself here so systems need no scene references.</summary>

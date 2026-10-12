@@ -22,33 +22,52 @@ public class PropertyRegistry : GameSystem<PropertyRegistry>
     readonly HashSet<string> lockedVehicles = new HashSet<string>();
     readonly HashSet<string> dismantleUnlockedVehicles = new HashSet<string>();
     static bool IsVehicle(string id) => id != null && id.StartsWith("vehicle:",StringComparison.Ordinal);
-    public bool IsVehicleLocked(string id) => IsVehicle(id) && GetOwner(id)!=null && lockedVehicles.Contains(id);
+
+    // Identity: with a server account the owner is stored as the account id (what the server attaches as `from`).
+    // The UI still passes/compares LocalPlayerName, so entry points translate name -> id and GetOwner id -> name.
+    // Applying a received op passes ids already and must not be translated.
+    static string ToKey(string player) =>
+        !SharedWriteGate.Applying && GameSession.HasAccount && player == GameSession.LocalPlayerName ? GameSession.LocalPlayerId : player;
+    string ToShown(string owner) =>
+        owner == null || !GameSession.HasAccount ? owner : owner == GameSession.LocalPlayerId ? GameSession.LocalPlayerName : SharedWriteGate.NameOf(owner);
+    string Raw(string id) =>
+        id != null && owners.TryGetValue(id, out var o) && !string.IsNullOrEmpty(o) ? o : null;
+    bool IsOwner(string id, string player) => Raw(id) != null && Raw(id) == ToKey(player);
+    bool OwnerOrNone(string id, string player) => Raw(id) == null || Raw(id) == ToKey(player);
+
+    public bool IsVehicleLocked(string id) => IsVehicle(id) && Raw(id)!=null && lockedVehicles.Contains(id);
     public bool CanRideVehicle(string id, string player) => IsVehicle(id) && !string.IsNullOrEmpty(player) &&
-        (GetOwner(id)==null || GetOwner(id)==player || !IsVehicleLocked(id));
-    public bool CanManageVehicle(string id, string player) => IsVehicle(id) && !string.IsNullOrEmpty(player) &&
-        (GetOwner(id)==null || GetOwner(id)==player);
-    public bool IsVehicleDismantleUnlocked(string id) => IsVehicle(id) && GetOwner(id)!=null && dismantleUnlockedVehicles.Contains(id);
+        (OwnerOrNone(id, player) || !IsVehicleLocked(id));
+    public bool CanManageVehicle(string id, string player) => IsVehicle(id) && !string.IsNullOrEmpty(player) && OwnerOrNone(id, player);
+    public bool IsVehicleDismantleUnlocked(string id) => IsVehicle(id) && Raw(id)!=null && dismantleUnlockedVehicles.Contains(id);
     public bool CanDismantleVehicle(string id, string player) => IsVehicle(id) && !string.IsNullOrEmpty(player) &&
-        (GetOwner(id)==null || GetOwner(id)==player || IsVehicleDismantleUnlocked(id));
+        (OwnerOrNone(id, player) || IsVehicleDismantleUnlocked(id));
     public bool TrySetVehicleDismantleUnlocked(string id, string player, bool unlocked)
     {
-        if (!IsVehicle(id) || string.IsNullOrEmpty(player) || GetOwner(id)!=player) return false;
+        if (!IsVehicle(id) || string.IsNullOrEmpty(player) || !IsOwner(id, player)) return false;
+        if (SharedWriteGate.TrySend("prop.dis", new SharedOpArgs { a = id, b = ToKey(player), f = unlocked })) return true;
+        if (SharedWriteGate.SendFailed) return false;
         if (unlocked) dismantleUnlockedVehicles.Add(id); else dismantleUnlockedVehicles.Remove(id);
         return true;
     }
     public bool TrySetVehicleLocked(string id, string player, bool locked)
     {
-        if (!IsVehicle(id) || string.IsNullOrEmpty(player) || GetOwner(id)!=player) return false;
+        if (!IsVehicle(id) || string.IsNullOrEmpty(player) || !IsOwner(id, player)) return false;
+        if (SharedWriteGate.TrySend("prop.lock", new SharedOpArgs { a = id, b = ToKey(player), f = locked })) return true;
+        if (SharedWriteGate.SendFailed) return false;
         if (locked) lockedVehicles.Add(id); else lockedVehicles.Remove(id);
         return true;
     }
 
-    public string GetOwner(string id) =>
-        id != null && owners.TryGetValue(id, out var o) && !string.IsNullOrEmpty(o) ? o : null;
+    /// <summary>Owner as the UI should see it: the local player's name for own records, a peer's name or id otherwise.</summary>
+    public string GetOwner(string id) => ToShown(Raw(id));
 
     public bool TryRegister(string id, string owner)
     {
-        if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(owner) || GetOwner(id) != null) return false;
+        owner = ToKey(owner);
+        if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(owner) || Raw(id) != null) return false;
+        if (SharedWriteGate.TrySend("prop.reg", new SharedOpArgs { a = id, b = owner })) return true;
+        if (SharedWriteGate.SendFailed) return false;
         owners[id] = owner;
         if (IsVehicle(id)) lockedVehicles.Add(id);
         dismantleUnlockedVehicles.Remove(id);
@@ -57,11 +76,26 @@ public class PropertyRegistry : GameSystem<PropertyRegistry>
 
     public bool TryAbandon(string id, string owner)
     {
-        if (string.IsNullOrEmpty(owner) || GetOwner(id) != owner) return false;
+        owner = ToKey(owner);
+        if (string.IsNullOrEmpty(owner) || Raw(id) != owner) return false;
+        if (SharedWriteGate.TrySend("prop.ab", new SharedOpArgs { a = id, b = owner })) return true;
+        if (SharedWriteGate.SendFailed) return false;
         owners[id] = "";
         lockedVehicles.Remove(id);
         dismantleUnlockedVehicles.Remove(id);
         return true;
+    }
+
+    /// <summary>Replaces owner values (legacy GUID/name -> account id). Returns how many records changed.</summary>
+    public int RemapOwners(Func<string, string> map)
+    {
+        int changed = 0;
+        foreach (var key in new List<string>(owners.Keys))
+        {
+            string now = map(owners[key]);
+            if (now != owners[key]) { owners[key] = now; changed++; }
+        }
+        return changed;
     }
 
     public void SeedOwner(string id, string owner)

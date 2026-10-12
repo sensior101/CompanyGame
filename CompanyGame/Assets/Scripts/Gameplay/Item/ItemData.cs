@@ -54,7 +54,11 @@ public class ItemData : ScriptableObject
     [Header("Portable vehicle")]
     public GameObject vehiclePrefab;
     [Min(1f)] public float vehicleSpeed = 8f;
+    [Tooltip("Cars only: performance grade. Empty keeps the bicycle model (vehicleSpeed).")]
+    public VehicleGrade grade;
+    [Min(.1f)] public float wheelRadius = .34f;
     public bool IsVehicle => category == ItemCategory.Vehicle;
+    public bool IsCar => IsVehicle && grade;
 
     [Header("Weapon")]
     public WeaponKind weaponKind;

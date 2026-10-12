@@ -32,8 +32,7 @@ public partial class TradeSession
     bool CanEditCart(out string error)
     {
         error = null;
-        if (!GameSession.IsAuthority) error = "거래는 호스트의 승인이 필요합니다.";
-        else if (HasCursorItem) error = "커서의 아이템을 먼저 놓아 주세요.";
+        if (HasCursorItem) error = "커서의 아이템을 먼저 놓아 주세요.";
         return error == null;
     }
 

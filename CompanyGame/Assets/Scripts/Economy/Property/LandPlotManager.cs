@@ -20,7 +20,9 @@ public enum LandPlotResult
     NotEnoughMoney,
     InvalidName,
     InvalidInitials,
-    NameTaken
+    NameTaken,
+    SendFailed, // in a room but the op could not be sent; nothing was charged
+    NotOwner    // the plot belongs to someone else
 }
 
 /// <summary>저장·복원용 부지 상태. 상태가 Available인 부지는 저장하지 않는다.</summary>
@@ -31,6 +33,7 @@ public class LandPlotSave
     public LandPlotState state;
     public string companyName;
     public string initials;
+    public string owner; // account id of the buyer (empty in worlds from before owners existed)
 }
 
 /// <summary>
@@ -47,6 +50,12 @@ public class LandPlotManager : GameSystem<LandPlotManager>
 
     /// <summary>부지 상태가 바뀔 때 발생한다. UI 갱신과 건축 시스템이 받는다.</summary>
     public event Action<string> PlotChanged;
+
+    // Price this client paid for a plot whose purchase op is in flight. A lost race refunds exactly this, never an op field.
+    readonly Dictionary<string, long> pendingPayments = new Dictionary<string, long>();
+
+    /// <summary>A new room starts: payments of the old room's unanswered ops are gone with it.</summary>
+    public void ClearPending() => pendingPayments.Clear();
 
     public LandPlotState GetState(string plotId) =>
         states.TryGetValue(plotId, out var s) ? s.state : LandPlotState.Available;
@@ -66,15 +75,59 @@ public class LandPlotManager : GameSystem<LandPlotManager>
         if (wallet == null) return LandPlotResult.NoWallet;
         if (!wallet.TrySpend(plot.Price, MoneyChangeReason.Purchase)) return LandPlotResult.NotEnoughMoney;
 
-        states[plot.Id] = new LandPlotSave { id = plot.Id, state = LandPlotState.Owned };
-        PlotChanged?.Invoke(plot.Id);
+        // In a room the payment is personal and made now; WorldOps refunds it if the op loses the race.
+        if (SharedWriteGate.TrySend("land.buy", new SharedOpArgs { a = plot.Id })) { pendingPayments[plot.Id] = plot.Price; return LandPlotResult.Ok; }
+        if (SharedWriteGate.SendFailed) { wallet.AddMoney(plot.Price, MoneyChangeReason.Purchase); return LandPlotResult.SendFailed; }
+        ApplyPurchase(plot.Id, GameSession.LocalPlayerId);
         return LandPlotResult.Ok;
+    }
+
+    /// <summary>Gives back what this client paid for a lost purchase op. False when no payment is pending (e.g. a replayed old op).</summary>
+    public bool RefundPending(string plotId)
+    {
+        if (!pendingPayments.Remove(plotId, out long price) || !BankManager.Instance) return false;
+        BankManager.Instance.AddMoney(price, MoneyChangeReason.Purchase);
+        return true;
+    }
+
+    /// <summary>Shared part of a purchase (no payment). False when the plot is not available. The owner is the op's `from`.</summary>
+    public bool ApplyPurchase(string plotId, string owner)
+    {
+        if (string.IsNullOrEmpty(plotId) || string.IsNullOrEmpty(owner) || GetState(plotId) != LandPlotState.Available) return false;
+        states[plotId] = new LandPlotSave { id = plotId, state = LandPlotState.Owned, owner = owner };
+        if (owner == GameSession.LocalPlayerId) pendingPayments.Remove(plotId);
+        PlotChanged?.Invoke(plotId);
+        return true;
+    }
+
+    public string GetOwner(string plotId) => states.TryGetValue(plotId, out var s) ? s.owner : null;
+
+    /// <summary>Own-world migration: plots without an owner, or owned by the old per-PC id, belong to the local player.</summary>
+    public void ClaimUnowned(string owner)
+    {
+        foreach (var s in states.Values) if (string.IsNullOrEmpty(s.owner) || s.owner == GameSession.OfflinePlayerId) s.owner = owner;
     }
 
     public LandPlotResult TryRegisterBusiness(LandPlot plot, string companyName, string initials)
     {
         if (plot == null || string.IsNullOrEmpty(plot.Id)) return LandPlotResult.NotFound;
-        if (GetState(plot.Id) != LandPlotState.Owned) return LandPlotResult.WrongState;
+        string actor = SharedWriteGate.InRoom ? GameSession.LocalPlayerId : null;
+        var check = ApplyRegisterBusiness(plot.Id, companyName, initials, false, actor);
+        if (check != LandPlotResult.Ok) return check;
+        if (SharedWriteGate.TrySend("land.reg", new SharedOpArgs { a = plot.Id, b = companyName, c = initials })) return LandPlotResult.Ok;
+        if (SharedWriteGate.SendFailed) return LandPlotResult.SendFailed;
+        return ApplyRegisterBusiness(plot.Id, companyName, initials, true);
+    }
+
+    /// <summary>
+    /// Validates (commit=false) or applies a business registration by plot id. With an actor (the op's `from`)
+    /// only the plot's owner may register; null skips the check (single player).
+    /// </summary>
+    public LandPlotResult ApplyRegisterBusiness(string plotId, string companyName, string initials, bool commit = true, string actor = null)
+    {
+        if (string.IsNullOrEmpty(plotId)) return LandPlotResult.NotFound;
+        if (GetState(plotId) != LandPlotState.Owned) return LandPlotResult.WrongState;
+        if (actor != null && GetOwner(plotId) != actor) return LandPlotResult.NotOwner;
 
         companyName = (companyName ?? "").Trim();
         initials = (initials ?? "").Trim().ToUpperInvariant();
@@ -82,11 +135,12 @@ public class LandPlotManager : GameSystem<LandPlotManager>
         if (!InitialsRule.IsMatch(initials)) return LandPlotResult.InvalidInitials;
         if (IsNameTaken(companyName)) return LandPlotResult.NameTaken;
 
-        var s = states[plot.Id];
+        if (!commit) return LandPlotResult.Ok;
+        var s = states[plotId];
         s.state = LandPlotState.Registered;
         s.companyName = companyName;
         s.initials = initials;
-        PlotChanged?.Invoke(plot.Id);
+        PlotChanged?.Invoke(plotId);
         return LandPlotResult.Ok;
     }
 
@@ -97,7 +151,7 @@ public class LandPlotManager : GameSystem<LandPlotManager>
     {
         var list = new List<LandPlotSave>(states.Count);
         foreach (var s in states.Values)
-            list.Add(new LandPlotSave { id = s.id, state = s.state, companyName = s.companyName, initials = s.initials });
+            list.Add(new LandPlotSave { id = s.id, state = s.state, companyName = s.companyName, initials = s.initials, owner = s.owner });
         return list;
     }
 
@@ -107,7 +161,7 @@ public class LandPlotManager : GameSystem<LandPlotManager>
         foreach (var s in saved)
         {
             if (s == null || string.IsNullOrEmpty(s.id) || s.state == LandPlotState.Available) continue;
-            states[s.id] = new LandPlotSave { id = s.id, state = s.state, companyName = s.companyName, initials = s.initials };
+            states[s.id] = new LandPlotSave { id = s.id, state = s.state, companyName = s.companyName, initials = s.initials, owner = s.owner };
             PlotChanged?.Invoke(s.id);
         }
     }

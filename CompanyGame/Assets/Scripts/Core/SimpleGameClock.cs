@@ -66,6 +66,12 @@ public class SimpleGameClock : MonoBehaviour, IGameClock
         }
     }
 
+    public void SetNow(GameTime time)
+    {
+        now = time;
+        carrySeconds = 0f;
+    }
+
     public void AdvanceMinutes(int minutes)
     {
         for (int i = 0; i < minutes; i++)

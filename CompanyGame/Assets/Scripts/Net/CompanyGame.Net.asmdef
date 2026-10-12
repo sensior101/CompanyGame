@@ -2,7 +2,8 @@
     "name": "CompanyGame.Net",
     "rootNamespace": "",
     "references": [
-        "CompanyGame.Core"
+        "CompanyGame.Core",
+        "com.rlabrecque.steamworks.net"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
@@ -11,6 +12,12 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": [],
+    "versionDefines": [
+        {
+            "name": "com.rlabrecque.steamworks.net",
+            "expression": "",
+            "define": "STEAMWORKS_NET"
+        }
+    ],
     "noEngineReferences": false
 }

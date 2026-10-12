@@ -92,7 +92,7 @@ public class ReportScreenView : MonoBehaviour
         switch (result)
         {
             case ReportSubmitResult.Submitted:
-                messageText.text = Describe(report);
+                messageText.text = report == null ? "처리 중…" : Describe(report); // in a room the result arrives with the op echo
                 suspectInput.text = string.Empty;
                 evidenceInput.text = string.Empty;
                 valueInput.text = string.Empty;

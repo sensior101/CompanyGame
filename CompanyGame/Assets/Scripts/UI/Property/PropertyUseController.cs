@@ -125,7 +125,7 @@ public sealed class PropertyUseController : MonoBehaviour
         if (owner == me) { state = State.Holding; heldDeed = deed; heldOwnershipKey = key; held = 0f; return; }
         state = State.WaitRelease;
         if (owner != null) Say(label + "은(는) 이미 다른 플레이어(" + NoParse(owner) + ")가 소유하고 있습니다.");
-        else if (registry.TryRegister(key, me)) Say(label + "의 소유권을 등록했습니다.");
+        else if (registry.TryRegister(key, me)) Say(SharedWriteGate.InRoom ? "처리 중…" : label + "의 소유권을 등록했습니다.");
     }
 
     void Hold(PropertyRegistry registry, ItemData deed, string key)
@@ -135,7 +135,7 @@ public sealed class PropertyUseController : MonoBehaviour
         if (held >= HoldSeconds)
         {
             if (registry.TryAbandon(key, GameSession.LocalPlayerName))
-                Say(deed.propertyName + "의 소유권을 포기했습니다.");
+                Say(SharedWriteGate.InRoom ? "처리 중…" : deed.propertyName + "의 소유권을 포기했습니다.");
             state = State.WaitRelease;
             HideGauge();
         }

@@ -29,6 +29,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
     readonly List<Mesh> effectMeshes = new List<Mesh>();
     float floatPhase;
     RectTransform pickupPopup;
+    const float PromptScalePerMeter = .0036f; // same on-screen size for every item and vehicle prompt (.009 at 2.5 m)
     TMP_Text pickupText;
     GameObject vehicleModel;
     Collider vehicleCollider;
@@ -165,9 +166,9 @@ public sealed class WorldDroppedItem : MonoBehaviour
             InputFocus.GameplayBlocked() || source == null || source.IsEmpty || !source.Item.IsVehicle || !source.Item.vehiclePrefab)
         { error = "지금은 탈것을 설치할 수 없습니다."; return false; }
         if (SceneLoadManager.CurrentMap.path.Contains("/Interiors/"))
-        { error = "자전거는 실외에서 설치해 주세요."; return false; }
-        if (!TryFindVehiclePoint(owner, out var point, out var rotation))
-        { error = "앞쪽에 자전거를 설치할 평평한 공간이 부족합니다."; return false; }
+        { error = "탈것은 실외에서 설치해 주세요."; return false; }
+        if (!TryFindVehiclePoint(owner, source.Item, out var point, out var rotation))
+        { error = "앞쪽에 탈것을 설치할 평평한 공간이 부족합니다."; return false; }
         var drop = new DropRecord { id = Guid.NewGuid().ToString("N"), scenePath = SceneLoadManager.CurrentMap.path,
             position = point, rotation = rotation, placedVehicle = true, font = owner.uiFont };
         if (!owner.Inventory.TryTransferTo(drop.contents, owner.Inventory.SelectedHotbarIndex, 1, out error)) return false;
@@ -175,14 +176,18 @@ public sealed class WorldDroppedItem : MonoBehaviour
         return true;
     }
 
-    static bool TryFindVehiclePoint(PlayerInventory owner, out Vector3 point, out Quaternion rotation)
+    static bool TryFindVehiclePoint(PlayerInventory owner, ItemData item, out Vector3 point, out Quaternion rotation)
     {
         point = default; rotation = Quaternion.identity;
         var motor = owner.GetComponent<PlayerMovement>();
         var forward = Vector3.ProjectOnPlane(motor.viewCamera ? motor.viewCamera.transform.forward : owner.transform.forward, Vector3.up).normalized;
         if (forward.sqrMagnitude < .5f) forward = owner.transform.forward;
         rotation = Quaternion.LookRotation(forward);
-        var target = owner.transform.position + forward * 1.85f;
+        // The prefab pivot need not be the body centre (a car pivots at the driver's seat), so work from the measured body.
+        var bounds = VehicleBounds.Measure(item.vehiclePrefab);
+        float reach = bounds.extents.z + 1f, rise = -Mathf.Min(0f, bounds.min.y), top = bounds.max.y + rise;
+        var pivotToBody = rotation * new Vector3(bounds.center.x, 0f, bounds.center.z);
+        var target = owner.transform.position + forward * reach;
         var floors = Physics.RaycastAll(target + Vector3.up * 1.4f, Vector3.down, 2.8f, ~0, QueryTriggerInteraction.Ignore);
         Array.Sort(floors, (a,b) => a.distance.CompareTo(b.distance));
         foreach (var floor in floors)
@@ -190,16 +195,17 @@ public sealed class WorldDroppedItem : MonoBehaviour
             if (floor.transform.IsChildOf(owner.transform) || floor.normal.y < .94f || Mathf.Abs(floor.point.y-owner.transform.position.y) > .6f) continue;
             var candidate = floor.point + Vector3.up * .025f;
             bool blocked = false;
-            foreach (float end in new[] { -.72f, .72f })
+            foreach (float end in new[] { -(bounds.extents.z - .2f), bounds.extents.z - .2f })
             {
                 if (!Physics.Raycast(candidate + forward * end + Vector3.up * .4f, Vector3.down, out var support, .8f, ~0, QueryTriggerInteraction.Ignore) ||
                     support.normal.y < .94f || Mathf.Abs(support.point.y-floor.point.y) > .12f) { blocked = true; break; }
             }
-            foreach (var hit in Physics.OverlapBox(candidate + Vector3.up * .82f, new Vector3(.42f,.68f,1.03f), rotation, ~0, QueryTriggerInteraction.Ignore))
+            var half = new Vector3(bounds.extents.x + .05f, Mathf.Max(.1f, (top - .14f) * .5f), bounds.extents.z + .05f);
+            foreach (var hit in Physics.OverlapBox(candidate + Vector3.up * (.14f + half.y), half, rotation, ~0, QueryTriggerInteraction.Ignore))
                 if (!hit.transform.IsChildOf(owner.transform) && hit.bounds.max.y > candidate.y + .15f) { blocked = true; break; }
-            foreach (var hit in Physics.SphereCastAll(owner.transform.position + Vector3.up * .8f, .25f, forward, 1.85f, ~0, QueryTriggerInteraction.Ignore))
+            foreach (var hit in Physics.SphereCastAll(owner.transform.position + Vector3.up * .8f, .25f, forward, reach, ~0, QueryTriggerInteraction.Ignore))
                 if (!hit.transform.IsChildOf(owner.transform) && hit.normal.y < .7f) { blocked = true; break; }
-            if (!blocked) { point = candidate; return true; }
+            if (!blocked) { point = candidate - pivotToBody + Vector3.up * rise; return true; }
         }
         return false;
     }
@@ -409,7 +415,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
             vehicleCollider = gameObject.AddComponent<MeshCollider>();
             RebuildVehicleCollider();
             billboard = new GameObject("VehiclePrompt").transform;
-            billboard.SetParent(transform,false); billboard.localPosition = Vector3.up * 1.5f;
+            billboard.SetParent(transform,false); billboard.localPosition = Vector3.up * (VehicleBounds.Measure(vehicleModel).max.y + .45f);
             BuildPickupPopup();
             return;
         }
@@ -737,8 +743,8 @@ public sealed class WorldDroppedItem : MonoBehaviour
         canvas.overrideSorting = true;
         canvas.sortingOrder = 25;
         pickupPopup = canvasObject.GetComponent<RectTransform>();
-        pickupPopup.sizeDelta = new Vector2(IsPlacedVehicle ? 380f : 240f, 42f);
-        pickupPopup.localScale = Vector3.one * (IsPlacedVehicle ? .003f : .009f);
+        pickupPopup.sizeDelta = new Vector2(320f, 42f);
+        pickupPopup.localScale = Vector3.one * .009f;
 
         var panelObject = new GameObject("Panel", typeof(RectTransform), typeof(InventoryRoundedGraphic));
         var panel = panelObject.GetComponent<RectTransform>();
@@ -795,6 +801,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
             break;
         }
         if (pickupText && visible) pickupText.text = PickupPromptText();
+        if (visible && camera) pickupPopup.localScale = Vector3.one * (PromptScalePerMeter * Mathf.Max(1.5f, Vector3.Distance(camera.transform.position, pickupPopup.position)));
         if (pickupPopup.gameObject.activeSelf != visible) pickupPopup.gameObject.SetActive(visible);
     }
 

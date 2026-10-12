@@ -506,8 +506,10 @@ public sealed class PlayerInventory : MonoBehaviour
 
     bool TryPlaceSelectedVehicle()
     {
+        var item = Inventory?.GetSlot(Inventory.SelectedHotbarIndex)?.Item;
+        string name = item ? item.DisplayName : "탈것";
         bool success = WorldDroppedItem.TryPlaceVehicle(this, out string error);
-        SetStatus(success ? "자전거를 설치했습니다. 좌클릭으로 메뉴를 열어 탑승하거나 해체하세요." : error);
+        SetStatus(success ? name + "을(를) 설치했습니다. 좌클릭으로 메뉴를 열어 탑승하거나 해체하세요." : error);
         return success;
     }
 

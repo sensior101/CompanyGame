@@ -3,6 +3,19 @@ using System.Text;
 using UnityEngine;
 using UnityEngine.Networking;
 
+/// <summary>Body of GET/PUT /me/state. Field names match the server's JSON.</summary>
+[Serializable]
+public class PlayerState
+{
+    public string map;
+    public float x, y, z, ry;
+    public string inventory_json;
+    public string personal_json;
+    public long updated_at;
+
+    public bool IsSaved => updated_at > 0;
+}
+
 [Serializable]
 public class PlayerProfile
 {
@@ -30,7 +43,7 @@ public readonly struct ApiResult
 /// </summary>
 public class PlayerData : MonoBehaviour
 {
-    private const string TokenKey = "auth_token";
+    private static string TokenKey => ProfileSlot.Key("auth_token");
 
     public static PlayerData Instance { get; private set; }
 
@@ -39,6 +52,10 @@ public class PlayerData : MonoBehaviour
 
     public PlayerProfile Profile { get; private set; }
     public bool IsLoggedIn => !string.IsNullOrEmpty(token);
+    public string Token => token;
+
+    /// <summary>HTTP base address of the server. Set before Login/Register (the title screen does).</summary>
+    public string BaseUrl { get => baseUrl; set => baseUrl = (value ?? "").Trim().TrimEnd('/'); }
 
     private string token;
 
@@ -58,9 +75,34 @@ public class PlayerData : MonoBehaviour
         }
 
         Instance = this;
+        ProfileSlot.Changed += ReloadToken;
         DontDestroyOnLoad(gameObject);
         // ponytail: 토큰을 PlayerPrefs에 평문 저장. 7일 만료 토큰이라 허용, 필요하면 암호화한다.
         token = PlayerPrefs.GetString(TokenKey, "");
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this) ProfileSlot.Changed -= ReloadToken;
+    }
+
+    /// <summary>The profile slot changed: the token of the new slot (if any) replaces the old one.</summary>
+    public void ReloadToken()
+    {
+        token = PlayerPrefs.GetString(TokenKey, "");
+        Profile = null;
+    }
+
+    /// <summary>Is a server answering at <paramref name="url"/>? Any HTTP answer counts (a 401 is fine); no answer is false.</summary>
+    public async Awaitable<bool> Ping(string url)
+    {
+        if (ServerBudget.Blocked) return true; // the server answered recently (with its budget message): no new request today
+        using var request = UnityWebRequest.Get((url ?? "").Trim().TrimEnd('/') + "/me");
+        request.timeout = 5;
+        var operation = request.SendWebRequest();
+        while (!operation.isDone)
+            await Awaitable.NextFrameAsync();
+        return request.responseCode > 0;
     }
 
     public Awaitable<ApiResult> Register(string username, string password) => Authenticate("/auth/register", username, password);
@@ -98,6 +140,21 @@ public class PlayerData : MonoBehaviour
         return default;
     }
 
+    /// <summary>Loads the saved position, inventory and personal economy. Nothing saved yet: UpdatedAt == 0.</summary>
+    public async Awaitable<(ApiResult result, PlayerState state)> GetState()
+    {
+        var (code, body) = await Send("GET", "/me/state");
+        if (code != 200) return (Fail(code, body), null);
+        try { return (default, JsonUtility.FromJson<PlayerState>(body)); }
+        catch (Exception) { return (new ApiResult("network"), null); }
+    }
+
+    public async Awaitable<ApiResult> PutState(PlayerState state)
+    {
+        var (code, body) = await Send("PUT", "/me/state", JsonUtility.ToJson(state));
+        return code == 200 ? default : Fail(code, body);
+    }
+
     private async Awaitable<ApiResult> Authenticate(string path, string username, string password)
     {
         var json = JsonUtility.ToJson(new Credentials { username = username, password = password });
@@ -111,6 +168,7 @@ public class PlayerData : MonoBehaviour
 
     private async Awaitable<(long code, string body)> Send(string method, string path, string json = null)
     {
+        if (ServerBudget.Blocked) return (503, "{\"error\":\"" + ServerBudget.Code + "\"}"); // no request at all until the next UTC day
         using var request = new UnityWebRequest(baseUrl + path, method);
         request.downloadHandler = new DownloadHandlerBuffer();
         request.timeout = timeoutSeconds;
@@ -127,15 +185,23 @@ public class PlayerData : MonoBehaviour
         while (!operation.isDone)
             await Awaitable.NextFrameAsync();
 
+        string text = request.downloadHandler.text;
+        if (ServerBudget.IsBudgetResponse(request.responseCode, text))
+        {
+            int.TryParse(request.GetResponseHeader("Retry-After"), out int retryAfter);
+            ServerBudget.Trip(retryAfter);
+        }
         // 연결 실패는 responseCode가 0이므로 아래 Fail에서 network로 처리된다.
-        return (request.responseCode, request.downloadHandler.text);
+        return (request.responseCode, text);
     }
 
     private ApiResult Fail(long code, string body)
     {
         if (code == 0) return new ApiResult("network");
+        if (ServerBudget.IsBudgetResponse(code, body)) return new ApiResult(ServerBudget.Code);
         if (code == 401 && IsLoggedIn && !body.Contains("invalid_credentials")) Logout(); // 만료된 토큰
         if (code == 400) return new ApiResult("invalid_input");
+        if (code == 429) return new ApiResult("rate_limited");
 
         // 프록시 등이 JSON이 아닌 본문(HTML)을 돌려주면 파싱하지 않고 network로 본다.
         if (!body.TrimStart().StartsWith("{")) return new ApiResult("network");

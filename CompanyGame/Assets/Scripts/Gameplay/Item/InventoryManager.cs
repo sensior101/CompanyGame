@@ -47,8 +47,9 @@ public class InventoryManager : MonoBehaviour
     // Temporary traversal kit requested for this development build. One of each colour per session.
     public void GrantCityBicycles()
     {
-        var items = Resources.LoadAll<ItemData>("Inventory/Vehicles/CityBicycle");
-        System.Array.Sort(items, (a,b) => string.CompareOrdinal(a.itemId,b.itemId));
+        var items = new System.Collections.Generic.List<ItemData>(Resources.LoadAll<ItemData>("Inventory/Vehicles/CityBicycle"));
+        items.AddRange(Resources.LoadAll<ItemData>("Inventory/Vehicles/Cars"));
+        items.Sort((a,b) => string.CompareOrdinal(a.itemId,b.itemId));
         foreach (var item in items)
         {
             bool owned = false;

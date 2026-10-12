@@ -57,6 +57,8 @@ public class CompanyManager : GameSystem<CompanyManager>
             return false;
         }
 
+        if (SharedWriteGate.TrySend("company.add", new SharedOpArgs { a = JsonUtility.ToJson(data), b = ownerId })) return true;
+        if (SharedWriteGate.SendFailed) { failReason = "Could not reach the server."; return false; }
         if (!Market.AddCompany(CompanyState.FromData(data, ownerId, true)))
         {
             failReason = "A company with this id already exists.";
@@ -64,6 +66,22 @@ public class CompanyManager : GameSystem<CompanyManager>
         }
         return true;
     }
+
+    /// <summary>Limits numbers of a company that came over the network (JsonUtility ignores [Min]). Null when unusable.</summary>
+    public static CompanyData Sanitize(CompanyData d)
+    {
+        if (d == null || string.IsNullOrWhiteSpace(d.companyId) || string.IsNullOrWhiteSpace(d.displayName)) return null;
+        d.companyId = Cut(d.companyId, 40); d.displayName = Cut(d.displayName, 40); d.sector = Cut(d.sector ?? "", 24);
+        d.level = Mathf.Clamp(d.level, 1, 10); d.productionLevel = Mathf.Clamp(d.productionLevel, 1, 10);
+        d.qualityLevel = Mathf.Clamp(d.qualityLevel, 1, 10); d.marketingLevel = Mathf.Clamp(d.marketingLevel, 1, 10);
+        d.productPrice = Math.Min(Math.Max(d.productPrice, 1L), 100000000L);
+        d.referencePrice = Math.Min(Math.Max(d.referencePrice, 1L), 100000000L);
+        d.purchaseRateScale = Finite(d.purchaseRateScale, 0f, 10f); d.baseAppeal = Finite(d.baseAppeal, 0f, 10f);
+        return d;
+    }
+
+    static string Cut(string s, int max) => s.Length <= max ? s : s.Substring(0, max);
+    static float Finite(float v, float min, float max) => float.IsNaN(v) || float.IsInfinity(v) ? min : Mathf.Clamp(v, min, max);
 
     private void EnsureInitialized()
     {

@@ -29,9 +29,9 @@ public class PlayerMovement : MonoBehaviour
         motor.radius = 0.35f;
         motor.height = 1.8f;
         motor.center = Vector3.up * 0.9f;
-        motor.stepOffset = 0.23f;
+        motor.stepOffset = 0.5f;
         motor.slopeLimit = 45f;
-        motor.skinWidth = 0.02f;
+        motor.skinWidth = 0.03f;
         motor.minMoveDistance = 0f;
 
         lastSafePosition = spawn;
@@ -115,7 +115,10 @@ public class PlayerMovement : MonoBehaviour
         Vector3 beforeMove = transform.position;
         bool riding = vehicle && vehicle.IsRiding;
         Vector3 horizontal = riding ? vehicle.RideMotion(motion, sprint, Time.deltaTime) : motion * speed;
-        motor.Move(
+        // A car drives itself with its body box while the CharacterController is off.
+        bool driving = riding && vehicle.IsCar;
+        if (driving) verticalSpeed = 0f;
+        else motor.Move(
             (
                 horizontal +
                 Vector3.up * verticalSpeed
@@ -162,7 +165,7 @@ public class PlayerMovement : MonoBehaviour
         // never starts inside a one-sided mesh collider and drops through.
         transform.position = position + Vector3.up * .1f;
 
-        motor.enabled = true;
+        motor.enabled = !(vehicle && vehicle.IsCar);
 
         verticalSpeed = 0f;
 

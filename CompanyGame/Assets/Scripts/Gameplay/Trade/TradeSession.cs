@@ -122,7 +122,7 @@ public partial class TradeSession
     {
         error=null;
         var stack=Inventory.GetSlot(source);
-        if(!GameSession.IsAuthority || Offers.Length!=0 || offerProvider!=null || filter==null ||
+        if(Offers.Length!=0 || offerProvider!=null || filter==null ||
             stack==null || stack.IsEmpty || !filter(stack))
         { error="전달할 수 없는 아이템입니다.";return false; }
         return PickUp(source,out error,true,true);
@@ -146,7 +146,6 @@ public partial class TradeSession
     public bool TryTakeOffer(int offer,out string error)
     {
         error=null;
-        if(!GameSession.IsAuthority){error="거래는 호스트의 승인이 필요합니다.";return false;}
         if(!HasOffer(offer)){error="거래할 항목을 확인해 주세요.";return false;}
         var trade=Offers[offer];var received=trade.get.Resolve();
         if (!IsOfferAvailable(offer)) { error="지금은 거래할 수 없는 아이템입니다."; return false; }
@@ -187,7 +186,6 @@ public partial class TradeSession
     public bool TryPlace(int destination,out string error)
     {
         error=null;if(!CursorItem){error="커서에 아이템이 없습니다.";return false;}
-        if(HasExchanged && !GameSession.IsAuthority){error="거래는 호스트의 승인이 필요합니다.";return false;}
         if (cursorTrade?.fulfillment != null)
         {
             if (!cursorTrade.fulfillment.CanTake(out error)) return false;
