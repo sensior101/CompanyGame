@@ -3,6 +3,12 @@ import { promisify } from 'node:util';
 import type { DatabaseSync } from 'node:sqlite';
 import Fastify from 'fastify';
 import jwt from '@fastify/jwt';
+import websocket from '@fastify/websocket';
+import { loadState, saveState } from './db.ts';
+import { DEFAULT_LIMITS, WindowLimiter, type Limits } from './limit.ts';
+import { MAX_FRAME } from './protocol.ts';
+import { Rooms } from './rooms.ts';
+import { registerWs } from './ws.ts';
 
 const scryptAsync = promisify(scrypt) as (pw: string, salt: Buffer, len: number) => Promise<Buffer>;
 
@@ -37,11 +43,39 @@ const profile = {
   },
 } as const;
 
+const coord = { type: 'number', minimum: -1e6, maximum: 1e6 } as const;
+const STATE_BODY_LIMIT = 64 * 1024;
+const playerState = {
+  type: 'object',
+  required: ['map', 'x', 'y', 'z', 'ry'],
+  additionalProperties: false,
+  properties: {
+    map: { type: 'string', maxLength: 200 },
+    x: coord, y: coord, z: coord, ry: coord,
+    inventory_json: { type: 'string', maxLength: STATE_BODY_LIMIT },
+    personal_json: { type: 'string', maxLength: STATE_BODY_LIMIT },
+  },
+} as const;
+
+// "" means "nothing"; anything else must at least be valid JSON.
+const isJsonOrEmpty = (s: string | undefined) => {
+  if (!s) return true;
+  try { JSON.parse(s); return true; } catch { return false; }
+};
+
 type Row = { id: number; username: string; pw_hash: string; nickname: string | null; gender: string | null };
 
-export function buildApp(db: DatabaseSync, jwtSecret: string) {
-  const app = Fastify();
+export function buildApp(db: DatabaseSync, jwtSecret: string, over: Partial<Limits> = {}) {
+  const lim = { ...DEFAULT_LIMITS, ...over };
+  const regIp = new WindowLimiter(lim.registerPerIpPerMin, 60_000);
+  const loginIp = new WindowLimiter(lim.loginPerIpPerMin, 60_000);
+  const loginUser = new WindowLimiter(lim.loginPerUserPerMin, 60_000);
+  // behind a tunnel/proxy every client shares its IP: TRUST_PROXY=1 makes req.ip use X-Forwarded-For
+  const app = Fastify({ trustProxy: process.env.TRUST_PROXY === '1' });
   app.register(jwt, { secret: jwtSecret, sign: { expiresIn: '7d' } });
+  // room messages stay <= 8KB, only `state` may use the full 512KB (checked per message in ws.ts)
+  app.register(websocket, { options: { maxPayload: MAX_FRAME } });
+  const rooms = new Rooms();
 
   const isUnique = (e: unknown) => String((e as Error).message).includes('UNIQUE');
   const auth = async (req: any, reply: any) => {
@@ -50,6 +84,7 @@ export function buildApp(db: DatabaseSync, jwtSecret: string) {
 
   app.post('/auth/register', { schema: { body: credentials } }, async (req, reply) => {
     const { username, password } = req.body as { username: string; password: string };
+    if (!regIp.hit(req.ip)) return reply.code(429).send({ error: 'rate_limited' });
     try {
       const { lastInsertRowid } = db
         .prepare('INSERT INTO players (username, pw_hash) VALUES (?, ?)')
@@ -63,6 +98,7 @@ export function buildApp(db: DatabaseSync, jwtSecret: string) {
 
   app.post('/auth/login', { schema: { body: credentials } }, async (req, reply) => {
     const { username, password } = req.body as { username: string; password: string };
+    if (!loginIp.hit(req.ip) || !loginUser.hit(username)) return reply.code(429).send({ error: 'rate_limited' });
     const row = db.prepare('SELECT id, pw_hash FROM players WHERE username = ?').get(username) as Row | undefined;
     // same error for unknown user and wrong password, so usernames can't be probed
     if (!row || !(await verifyPassword(password, row.pw_hash))) {
@@ -89,5 +125,24 @@ export function buildApp(db: DatabaseSync, jwtSecret: string) {
     }
   });
 
+  app.get('/me/state', { preHandler: auth }, async (req) => {
+    const { id } = req.user as { id: number };
+    return loadState(db, id);
+  });
+
+  app.put('/me/state', { preHandler: auth, bodyLimit: STATE_BODY_LIMIT, schema: { body: playerState } }, async (req, reply) => {
+    const { id } = req.user as { id: number };
+    const b = req.body as { map: string; x: number; y: number; z: number; ry: number; inventory_json?: string; personal_json?: string };
+    if (!isJsonOrEmpty(b.inventory_json) || !isJsonOrEmpty(b.personal_json)) {
+      return reply.code(400).send({ error: 'invalid_json' });
+    }
+    if (!db.prepare('SELECT 1 FROM players WHERE id = ?').get(id)) return reply.code(404).send({ error: 'not_found' });
+    saveState(db, id, b, b.inventory_json ?? null, b.personal_json ?? null);
+    return loadState(db, id);
+  });
+
+  app.get('/rooms', { preHandler: auth }, async () => ({ rooms: rooms.list() }));
+
+  registerWs(app, rooms, db, lim);
   return app;
 }

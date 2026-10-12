@@ -1,0 +1,24 @@
+# Multiplayer server on Cloudflare Workers + Durable Objects (free plan: SQLite-backed objects only).
+# Deploy steps and limits: Docs/Server.md "Cloudflare 배포". Secret: `npx wrangler secret put JWT_SECRET` (never put it here).
+name = "companygame-server"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["nodejs_compat"] # node:crypto scrypt for password hashes
+
+[[durable_objects.bindings]]
+name = "ACCOUNTS" # accounts + saved player state + auth rate limits
+class_name = "Accounts"
+
+[[durable_objects.bindings]]
+name = "LOBBY" # every room and every realtime WebSocket (hibernation API)
+class_name = "Lobby"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Accounts", "Lobby"]
+
+# Self-imposed daily limits (UTC day) so this site can not eat the shared free quota (Pages Functions of
+# companygame-admin share the 100k/day Workers requests). Details: Docs/Server.md "한도".
+[vars]
+WORKER_DAILY_BUDGET = 20000 # HTTP requests/day of this Worker (20% of 100k). 75% for REST, 25% for WS upgrades + /rooms
+DO_DAILY_BUDGET = 60000 # Durable Object requests/day (60% of 100k); a received WebSocket message counts 1/20
