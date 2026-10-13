@@ -13,6 +13,8 @@ using System.Text;
 /// Characters (12.5): every account has one character in the <see cref="World"/>, sent right after Welcome; a connection
 /// without one can only make it (no Spawn or Claim). The server runs the world clock and the character clocks itself
 /// and saves the world every 60 seconds and on <see cref="Stop"/>.
+/// Peer names (12.7) are character names, never the Hello's: "" until the character exists; making it sends that
+/// connection's Peer(in) again with the name (clients read a second Peer(in) of one number as a rename).
 /// </summary>
 public sealed class GameServer
 {
@@ -202,14 +204,16 @@ public sealed class GameServer
         ushort version = r.ReadUInt16();
         // Before the rest: another version's Hello has another layout (version 1 has no password).
         if (version != SyncProtocol.Version) { Kick(c, RejectReason.Version, "version " + version); return; }
-        string account = SyncProtocol.ReadStr(r), name = SyncProtocol.ReadStr(r), map = SyncProtocol.ReadStr(r), password = SyncProtocol.ReadStr(r);
+        string account = SyncProtocol.ReadStr(r);
+        SyncProtocol.ReadStr(r); // the client's own name: shown to nobody, Peer carries the character name
+        string map = SyncProtocol.ReadStr(r), password = SyncProtocol.ReadStr(r);
         SyncProtocol.End(r);
         if (!PasswordMatches(password)) { Kick(c, RejectReason.Password, "password"); return; }
         // One connection per account: two copies of one character could each change and save it (duplicated items and money).
         if (HasAccount(account)) { Kick(c, RejectReason.AlreadyConnected, "account already connected"); return; }
         if (PlayerCount >= MaxPlayers) { Kick(c, RejectReason.Full, "full"); return; }
         c.number = nextNumber++;
-        c.account = account; c.name = name; c.map = map;
+        c.account = account; c.map = map;
         PlayerCount++;
         Send(c, Msg(ToClient.Welcome, () => { w.Write(c.number); w.Write((ushort)Math.Min(MaxPlayers, ushort.MaxValue)); SyncProtocol.WriteStr(w, Name); }));
         Play(c, World.Find(account));
@@ -322,8 +326,11 @@ public sealed class GameServer
         string name = SyncProtocol.ReadStr(r), gender = SyncProtocol.ReadStr(r);
         SyncProtocol.End(r);
         var result = c.character != null ? CharacterResult.AlreadyExists : World.Create(c.account, name, gender, out _);
-        if (result == CharacterResult.Ok) Play(c, World.Find(c.account));
         Send(c, Msg(ToClient.CharacterResult, () => w.Write((byte)result)));
+        if (result != CharacterResult.Ok) return;
+        Play(c, World.Find(c.account));
+        byte[] renamed = PeerMsg(true, c);
+        foreach (var other in conns.Values) if (other.Welcomed && other != c) Send(other, renamed);
     }
 
     // The content is the client's own until stage 4 (bank, stocks, inventory, position): kept as it comes.
@@ -340,6 +347,7 @@ public sealed class GameServer
         if (character == null) return;
         RunClocks(); // the time before this belongs to nobody
         c.character = character;
+        c.name = character.name;
         character.online = true;
     }
 

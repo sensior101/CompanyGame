@@ -46,7 +46,10 @@ public sealed class SyncClient : MonoBehaviour
     /// <summary>The answer to the last CreateCharacter, null while waiting (or none sent).</summary>
     public CharacterResult? LastCharacterResult { get; private set; }
 
-    /// <summary>(joined, connection number, account id, name). Sent for everyone already there right after Welcome.</summary>
+    /// <summary>
+    /// (joined, connection number, account id, character name). Sent for everyone already there right after Welcome. The
+    /// name is "" until that player has a character; a second joined=true of the same number carries the new name.
+    /// </summary>
     public event Action<bool, uint, string, string> PeerChanged;
 
     readonly Dictionary<ulong, NetEntity> entities = new Dictionary<ulong, NetEntity>();

@@ -307,6 +307,18 @@ public sealed class PlayerHeldItem : MonoBehaviour
         BuildItem(firstPersonItem, HandLayer);
     }
 
+    /// <summary>
+    /// Builds <paramref name="item"/>'s third-person model under <paramref name="parent"/>, the same one this hand shows.
+    /// RemoteAvatarView keeps a disabled PlayerHeldItem only for this (it never runs Start or LateUpdate); the materials die with it.
+    /// </summary>
+    internal void BuildWorldModel(ItemData item, Transform parent)
+    {
+        foreach (var material in materials) if (material) Destroy(material);
+        materials.Clear();
+        heldItem = item;
+        BuildItem(parent, 0);
+    }
+
     void BuildItem(Transform parent, int layer)
     {
         Transform model;

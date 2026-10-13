@@ -8,15 +8,13 @@ using UnityEngine;
 /// Resources/Net/RemotePlayer avatars (built by CompanyGame/Net/Build RemotePlayer Prefab).
 /// The position message also carries the character name (NameTag above the head), the look (male/female),
 /// the vehicle being ridden (its model is shown under the avatar) and an attack counter (a change = one punch).
-/// Attaches itself at startup; DaldongneAvatarMotion animates the walk, the punch is layered on top here.
+/// Attaches itself at startup; RemoteAvatarView shows all that (shared with the sync-layer AvatarState), this moves it.
 /// </summary>
-[DefaultExecutionOrder(500)] // after DaldongneAvatarMotion's LateUpdate, so the punch overrides the walk arm
 public sealed class NetPlayerSync : MonoBehaviour
 {
     const float SendInterval = .1f;
     const float Follow = 12f;
     const float SnapDistance = 10f;
-    const float PunchTime = .3f;
     const string PrefabPath = "Net/RemotePlayer";
 
     /// <summary>(id, last position, last yaw) of a member who left the room; vehicles they drove are parked there.</summary>
@@ -24,13 +22,12 @@ public sealed class NetPlayerSync : MonoBehaviour
 
     sealed class Remote
     {
-        public GameObject avatar, car;
-        public Transform male, female;
-        public NameTag tag;
-        public string map, name = "", veh = "", carItem = "";
+        public GameObject avatar;
+        public RemoteAvatarView view;
+        public string map, name = "", veh = "";
         public Vector3 target;
-        public float ry, speed, pedal, punchAt = -10f;
-        public bool isFemale, isCar;
+        public float ry, speed;
+        public bool isFemale;
         public int act;
     }
 
@@ -67,12 +64,6 @@ public sealed class NetPlayerSync : MonoBehaviour
         SendOwnPosition();
         string map = SceneLoadManager.CurrentMap.path;
         foreach (var remote in remotes.Values) Move(remote, map);
-    }
-
-    void LateUpdate()
-    {
-        foreach (var remote in remotes.Values)
-            if (remote.avatar && remote.avatar.activeSelf) Punch(remote);
     }
 
     void OnDestroy()
@@ -139,17 +130,10 @@ public sealed class NetPlayerSync : MonoBehaviour
         remote.target = new Vector3(m.x, m.y, m.z);
         remote.ry = m.ry;
         remote.speed = m.sp;
-        remote.name = CleanName(m.nm);
+        remote.name = RemoteAvatarView.CleanName(m.nm); // Steam rooms relay pos unchecked
         remote.isFemale = m.g == 1;
         remote.veh = m.veh ?? "";
-        if (m.act != remote.act) { remote.act = m.act; remote.punchAt = Time.time; }
-    }
-
-    // Steam rooms relay pos unchecked: keep the label plain text and short.
-    static string CleanName(string name)
-    {
-        name = (name ?? "").Replace("<", "").Replace(">", "").Trim();
-        return name.Length > 12 ? name.Substring(0, 12) : name;
+        if (m.act != remote.act) { remote.act = m.act; if (remote.view) remote.view.Punch(); }
     }
 
     void Move(Remote remote, string currentMap)
@@ -163,51 +147,11 @@ public sealed class NetPlayerSync : MonoBehaviour
         float k = 1f - Mathf.Exp(-Follow * Time.deltaTime);
         t.position = Vector3.Lerp(t.position, remote.target, k);
         t.rotation = Quaternion.Slerp(t.rotation, Quaternion.Euler(0f, remote.ry, 0f), k);
-        UpdateVehicle(remote);
-        // In a car only the car is seen (same as the local driver); on foot or on a bicycle the body shows.
-        if (remote.male) remote.male.gameObject.SetActive(!remote.isCar && !remote.isFemale);
-        if (remote.female) remote.female.gameObject.SetActive(!remote.isCar && remote.isFemale);
-        var motion = Motion(remote);
-        if (motion && remote.car && !remote.isCar)
-        {
-            var item = InventorySnapshot.Find(remote.carItem);
-            remote.pedal += remote.speed * Time.deltaTime / Mathf.Max(.1f, item ? item.wheelRadius : .35f) * .45f;
-            motion.SetCycling(true, remote.pedal);
-        }
-        remote.tag.Text = remote.name;
-    }
-
-    void UpdateVehicle(Remote remote)
-    {
-        if (remote.veh == remote.carItem) return;
-        if (remote.car) Destroy(remote.car);
-        remote.car = null; remote.isCar = false; remote.carItem = remote.veh;
-        foreach (var motion in remote.avatar.GetComponentsInChildren<DaldongneAvatarMotion>(true)) motion.SetCycling(false, 0f);
-        var item = InventorySnapshot.Find(remote.veh);
-        if (!item || !item.vehiclePrefab) return;
-        // The local driver's pivot is the car's pivot (driver's seat), so the model sits at the avatar's origin.
-        remote.car = Instantiate(item.vehiclePrefab, remote.avatar.transform, false);
-        foreach (var collider in remote.car.GetComponentsInChildren<Collider>(true)) Destroy(collider);
-        foreach (var child in remote.car.GetComponentsInChildren<Transform>(true))
-            if (child.name == "Kickstand") child.gameObject.SetActive(false);
-        remote.isCar = item.IsCar;
-    }
-
-    DaldongneAvatarMotion Motion(Remote remote)
-    {
-        var visual = remote.isFemale ? remote.female : remote.male;
-        return visual ? visual.GetComponentInChildren<DaldongneAvatarMotion>() : null;
-    }
-
-    // The same swing as the local third-person punch (PlayerHeldItem): right arm forward, then back.
-    void Punch(Remote remote)
-    {
-        float elapsed = Time.time - remote.punchAt;
-        if (elapsed >= PunchTime || remote.isCar) return;
-        var motion = Motion(remote);
-        if (!motion || !motion.rightArm) return;
-        float amount = Mathf.Sin(elapsed / PunchTime * Mathf.PI);
-        motion.rightArm.localRotation = Quaternion.Slerp(motion.rightArm.localRotation, motion.RightArmRest * Quaternion.Euler(-76f, 0f, -3f), amount);
+        var view = remote.view;
+        view.female = remote.isFemale;
+        view.vehicle = remote.veh;
+        view.speed = remote.speed;
+        view.playerName = remote.name;
     }
 
     bool Spawn(Remote remote)
@@ -221,9 +165,7 @@ public sealed class NetPlayerSync : MonoBehaviour
         }
         remote.avatar = Instantiate(prefab, remote.target, Quaternion.Euler(0f, remote.ry, 0f));
         DontDestroyOnLoad(remote.avatar);
-        remote.male = remote.avatar.transform.Find("MaleVisual");
-        remote.female = remote.avatar.transform.Find("FemaleVisual");
-        remote.tag = NameTag.Ensure(remote.avatar, remote.name); // same billboard as the local player's tag
+        remote.view = remote.avatar.AddComponent<RemoteAvatarView>();
         return true;
     }
 

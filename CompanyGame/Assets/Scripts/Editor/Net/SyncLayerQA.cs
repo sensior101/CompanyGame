@@ -54,7 +54,7 @@ public static class SyncLayerQA
         var a = Join("A", "m1"); var b = Join("B", "m1");
         Check(a.number != 0 && b.number != 0 && a.number != b.number, "1 Hello → Welcome with different connection numbers (" + a.number + ", " + b.number + ")");
         Step(a, b);
-        Check(a.Has(m => m.kind == ToClient.Peer && m.joined && m.number == b.number && m.name == "B"), "1 the first player hears Peer(in) for the second");
+        Check(a.Has(m => m.kind == ToClient.Peer && m.joined && m.number == b.number && m.name == "QA_B"), "1 the first player hears Peer(in) for the second, named after its character");
         Check(b.Has(m => m.kind == ToClient.Peer && m.joined && m.number == a.number), "1 the newcomer hears Peer(in) for who is already there");
 
         var old = Connect();
@@ -668,9 +668,9 @@ public static class SyncLayerQA
     }
 
     /// <summary>A NetTransform blob: 3 floats + u16 yaw.</summary>
-    static byte[] Pos(Vector3 p, float yaw) => Blob(w => { w.Write(p.x); w.Write(p.y); w.Write(p.z); w.Write(NetTransform.EncodeYaw(yaw)); });
+    internal static byte[] Pos(Vector3 p, float yaw) => Blob(w => { w.Write(p.x); w.Write(p.y); w.Write(p.z); w.Write(NetTransform.EncodeYaw(yaw)); });
 
-    static Vector3 PosOf(byte[] blob)
+    internal static Vector3 PosOf(byte[] blob)
     {
         using var r = SyncProtocol.Reader(blob);
         return new Vector3(r.ReadSingle(), r.ReadSingle(), r.ReadSingle());
@@ -702,7 +702,7 @@ public static class SyncLayerQA
     }
 
     /// <summary>A fake client: raw protocol over any client transport.</summary>
-    sealed class QaPeer
+    internal sealed class QaPeer
     {
         public readonly IClientTransport client;
         public readonly List<QaMsg> inbox = new List<QaMsg>();
@@ -735,7 +735,7 @@ public static class SyncLayerQA
     }
 
     /// <summary>Any server → client message, parsed strictly (a malformed one fails the QA).</summary>
-    sealed class QaMsg
+    internal sealed class QaMsg
     {
         public ToClient kind;
         public int size;
