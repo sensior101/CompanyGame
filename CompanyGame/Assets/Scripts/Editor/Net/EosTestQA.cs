@@ -21,6 +21,9 @@ using Debug = UnityEngine.Debug;
 ///   -executeMethod EosTestQA.RunProcess   builds Builds/EosTest, runs a windowless -eostest server and a windowed -eostest client of the
 ///                                         same OS user (tests 2 build, 3, 4, 5, P2P to the same PUID recorded), then writes the bat files
 ///                                         and README and zips Builds/EosTest.zip for a teammate (with -quit)
+///   -executeMethod EosTestQA.RunMac       builds Builds/EosTestMac (needs Mac Build Support), checks the EOS library and config in the .app,
+///                                         adds the .command scripts and README, zips Builds/EosTestMac.zip (with -quit)
+/// Scripts and READMEs for the bundles are in EosTestBundle~ next to this file (Unity skips folders ending in ~).
 /// </summary>
 [InitializeOnLoad]
 public static class EosTestQA
@@ -69,6 +72,13 @@ public static class EosTestQA
         windows.isServer = false; // the server process logs in with a Device ID like a player; that is what is being tested
         windows.platformOptionsFlags = WrappedPlatformFlags.DisableOverlay | WrappedPlatformFlags.DisableSocialOverlay; // no overlay in a windowless server
         windows.Write();
+
+        var mac = PlayEveryWare.EpicOnlineServices.Config.Get<MacOSConfig>(); // the same settings for the macOS bundle
+        mac.deployment = deployment;
+        mac.clientCredentials = credentials;
+        mac.isServer = false;
+        mac.platformOptionsFlags = windows.platformOptionsFlags;
+        mac.Write();
         AssetDatabase.Refresh();
         Debug.Log("[EosTestQA] wrote EOS config to " + Path.GetDirectoryName(product.FilePath) + " (values not logged)");
     }
@@ -192,78 +202,115 @@ public static class EosTestQA
         Debug.Log("[EosTestQA] RESULT process passed, checks=" + checks + " (logs: " + qa + ", bundle: " + zip + " " + new FileInfo(zip).Length / (1024 * 1024) + "MB)");
     }
 
-    /// <summary>Bat files and README for the teammate, then everything shippable in Builds/EosTest into Builds/EosTest.zip.</summary>
+    /// <summary>Scripts and README for the teammate (from EosTestBundle~ next to this file), then Builds/EosTest into Builds/EosTest.zip.
+    /// The bat files run eos_test.ps1, which keeps the game process in a kill-on-close job: closing the window ends the server or client.</summary>
     static string Bundle(string dir)
     {
-        var utf8 = new UTF8Encoding(false);
-        File.WriteAllText(Path.Combine(dir, "eos_test.bat"), string.Join("\r\n",
-            "@echo off",
-            "chcp 65001 >nul",
-            "cd /d \"%~dp0\"",
-            "set PUID=",
-            "set /p PUID=서버 PUID를 붙여 넣고 Enter: ",
-            "if \"%PUID%\"==\"\" (echo PUID가 비어 있습니다. & pause & exit /b 1)",
-            "if exist eos_test_log.txt del eos_test_log.txt",
-            "echo 시험 중입니다. 1~2분 걸립니다...",
-            "start \"\" /wait " + Exe + " -batchmode -nographics -eostest client %PUID% -logFile unity_client_log.txt",
-            "echo.",
-            "type eos_test_log.txt",
-            "echo.",
-            "echo 결과 파일: %~dp0eos_test_log.txt",
-            "echo 이 파일을 보내 주세요.",
-            "pause", ""), utf8);
-        File.WriteAllText(Path.Combine(dir, "eos_test_server.bat"), string.Join("\r\n",
-            "@echo off",
-            "chcp 65001 >nul",
-            "cd /d \"%~dp0\"",
-            "if exist eos_test_log.txt del eos_test_log.txt",
-            "echo EOS 시험 서버를 켭니다. 잠시 기다려 주세요...",
-            "start \"\" /b " + Exe + " -batchmode -nographics -eostest server -eostest-minutes 60 -logFile unity_server_log.txt",
-            "set /a tries=0",
-            ":wait",
-            "ping -n 2 127.0.0.1 >nul", // a 1 s wait that, unlike timeout, also works with redirected input
-            "set /a tries+=1",
-            "findstr /c:\"FAILED\" eos_test_log.txt >nul 2>&1 && goto failed",
-            "findstr /c:\"SESSION=\" eos_test_log.txt >nul 2>&1 && goto ready",
-            "if %tries% lss 90 goto wait",
-            ":failed",
-            "echo.",
-            "echo 서버를 켜지 못했습니다. eos_test_log.txt 와 unity_server_log.txt 를 보내 주세요.",
-            "if exist eos_test_log.txt type eos_test_log.txt",
-            "pause",
-            "exit /b 1",
-            ":ready",
-            "for /f \"tokens=2 delims==\" %%a in ('findstr /c:\"PUID=\" eos_test_log.txt') do set PUID=%%a",
-            "for /f \"tokens=2 delims==\" %%a in ('findstr /c:\"PID=\" eos_test_log.txt') do set SPID=%%a",
-            "echo.",
-            "echo ============================================================",
-            "echo.",
-            "echo     서버 PUID:  %PUID%",
-            "echo.",
-            "echo ============================================================",
-            "echo  위 PUID를 팀원에게 알려 주세요. (eos_test_log.txt 에도 있습니다)",
-            "echo  서버는 60분 동안 켜져 있습니다. 끝내려면 이 창에서 아무 키나 누르세요.",
-            "pause >nul",
-            "taskkill /pid %SPID% /f >nul 2>&1",
-            "echo 서버를 껐습니다. eos_test_log.txt 를 보내 주세요.",
-            "pause", ""), utf8);
-        File.WriteAllText(Path.Combine(dir, "README_팀원.txt"), string.Join("\r\n",
-            "EOS 연결 시험 (CompanyGame)",
-            "1. 압축을 풀고 eos_test.bat 를 더블클릭합니다. (보안 경고는 \"추가 정보 > 실행\", 방화벽 창은 \"허용\")",
-            "2. 받은 서버 PUID를 붙여 넣고 Enter를 누릅니다. 1~2분 뒤 결과가 나옵니다.",
-            "3. 같은 폴더의 eos_test_log.txt 를 보내 주세요.",
-            "(서버를 여는 쪽은 eos_test_server.bat 를 실행하고 화면에 나온 PUID를 알려 줍니다. 창을 닫지 말고 키를 눌러 끕니다.)", ""), utf8);
+        CopyTemplates(dir, "eos_test.bat", "eos_test_server.bat", "eos_test.ps1", "README_팀원.txt");
+        return Zip(dir, "EosTest", _ => false);
+    }
 
-        string zip = Path.Combine(Path.GetDirectoryName(dir), "EosTest.zip");
+    static string Templates => Path.Combine(Application.dataPath, "Scripts/Editor/Net/EosTestBundle~");
+
+    /// <summary>Copies scripts with the line ends their OS needs (git may have changed them); .ps1 gets a BOM so Windows PowerShell 5.1 reads Korean.</summary>
+    static void CopyTemplates(string dir, params string[] names)
+    {
+        foreach (string name in names)
+        {
+            string text = File.ReadAllText(Path.Combine(Templates, name)).Replace("\r\n", "\n");
+            if (!name.EndsWith(".command")) text = text.Replace("\n", "\r\n");
+            File.WriteAllText(Path.Combine(dir, name), text, new UTF8Encoding(name.EndsWith(".ps1")));
+        }
+    }
+
+    /// <summary>Everything shippable in <paramref name="dir"/> into Builds/&lt;name&gt;.zip under the folder &lt;name&gt;/.
+    /// Files for which <paramref name="executable"/> holds get Unix mode 0755 (others 0644) and the zip is marked as made on Unix, so macOS keeps the bits.</summary>
+    static string Zip(string dir, string name, Func<string, bool> executable)
+    {
+        string zip = Path.Combine(Path.GetDirectoryName(dir), name + ".zip");
         File.Delete(zip);
         using (var archive = ZipFile.Open(zip, ZipArchiveMode.Create))
             foreach (string file in Directory.GetFiles(dir, "*", SearchOption.AllDirectories))
             {
                 string rel = file.Substring(dir.Length + 1).Replace('\\', '/');
                 if (rel.Contains("DoNotShip") || rel.EndsWith("_log.txt")) continue; // Burst debug info, logs of a local run
-                archive.CreateEntryFromFile(file, "EosTest/" + rel, System.IO.Compression.CompressionLevel.Optimal);
+                var entry = archive.CreateEntryFromFile(file, name + "/" + rel, System.IO.Compression.CompressionLevel.Optimal);
+                entry.ExternalAttributes = (executable(rel) ? 0x81ED : 0x81A4) << 16; // S_IFREG | 0755 or 0644
             }
+
+        // "version made by" host = 3 (Unix) in every central directory header, or unzip tools ignore the mode bits
+        byte[] bytes = File.ReadAllBytes(zip);
+        int end = bytes.Length - 22;
+        while (end >= 0 && BitConverter.ToUInt32(bytes, end) != 0x06054b50) end--;
+        int count = BitConverter.ToUInt16(bytes, end + 10), at = (int)BitConverter.ToUInt32(bytes, end + 16);
+        for (int i = 0; i < count; i++)
+        {
+            if (BitConverter.ToUInt32(bytes, at) != 0x02014b50) throw new Exception("[EosTestQA] unexpected zip layout in " + zip);
+            bytes[at + 5] = 3;
+            at += 46 + BitConverter.ToUInt16(bytes, at + 28) + BitConverter.ToUInt16(bytes, at + 30) + BitConverter.ToUInt16(bytes, at + 32);
+        }
+        File.WriteAllBytes(zip, bytes);
         return zip;
+    }
+
+    // ================= macOS bundle (built here, run on a Mac) =================
+
+    /// <summary>Builds Builds/EosTestMac/CompanyGame.app (Mono, Intel + Apple Silicon), checks that the EOS library and config are inside,
+    /// adds the .command scripts and README, and zips Builds/EosTestMac.zip with the executable bits set (with -quit).</summary>
+    public static void RunMac()
+    {
+        checks = 0;
+        WriteConfig();
+        string dir = Path.GetFullPath(Path.Combine(Application.dataPath, "../Builds/EosTestMac"));
+        if (Directory.Exists(dir)) Directory.Delete(dir, true); // the plugin notes that building over an old .app misbehaves
+        Directory.CreateDirectory(dir);
+        string app = Path.Combine(dir, "CompanyGame.app");
+        string scene = Array.Find(EditorBuildSettings.scenes, s => s.enabled).path;
+        var activeTarget = EditorUserBuildSettings.activeBuildTarget;
+        // by reflection: the type exists only with Mac Build Support, and this file must compile without it
+        var archProperty = Type.GetType("UnityEditor.OSXStandalone.UserBuildSettings, UnityEditor.OSXStandalone.Extensions")?.GetProperty("architecture");
+        if (archProperty == null) throw new Exception("[EosTestQA] FAIL: Mac Build Support is not installed");
+        object arch = archProperty.GetValue(null);
+        try
+        {
+            archProperty.SetValue(null, UnityEditor.Build.OSArchitecture.x64ARM64); // every EOS dylib in the plugin is universal
+            var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
+            {
+                scenes = new[] { scene }, locationPathName = app, target = BuildTarget.StandaloneOSX, options = BuildOptions.None,
+            });
+            Check(report.summary.result == BuildResult.Succeeded, "macOS player built to " + app + " (" + report.summary.result + ", arch was " + arch + ")");
+        }
+        finally
+        {
+            archProperty.SetValue(null, arch);
+            if (EditorUserBuildSettings.activeBuildTarget != activeTarget)
+                EditorUserBuildSettings.SwitchActiveBuildTarget(BuildPipeline.GetBuildTargetGroup(activeTarget), activeTarget);
+        }
+
+        string[] files = Directory.GetFiles(app, "*", SearchOption.AllDirectories);
+        string Find(string file) => files.FirstOrDefault(f => Path.GetFileName(f) == file);
+        string exe = Path.Combine(app, "Contents/MacOS/CompanyGame");
+        Check(File.Exists(exe) && Universal(exe), "the app executable is Contents/MacOS/CompanyGame, universal (x86_64 + arm64)");
+        // only the EOS SDK: a macOS player binds it with DllImport; the plugin's libDynamicLibraryLoaderHelper is for editor-style dynamic loading
+        string eos = Find("libEOSSDK-Mac-Shipping.dylib");
+        Check(eos != null && Universal(eos), "libEOSSDK-Mac-Shipping.dylib is in the app, universal: " + eos?.Substring(app.Length + 1));
+        foreach (string config in new[] { "eos_product_config.json", "eos_macos_config.json" })
+            Check(Find(config) != null, config + " is in the app: " + Find(config)?.Substring(app.Length + 1));
+
+        CopyTemplates(dir, "eos_test.command", "eos_test_server.command", "README_맥.txt");
+        string zip = Zip(dir, "EosTestMac", rel => rel.EndsWith(".command") || rel.StartsWith("CompanyGame.app/Contents/MacOS/"));
+        Debug.Log("[EosTestQA] RESULT mac passed, checks=" + checks + " (bundle: " + zip + " " + new FileInfo(zip).Length / (1024 * 1024) + "MB)");
+    }
+
+    /// <summary>A Mach-O fat binary holding both x86_64 and arm64.</summary>
+    static bool Universal(string path)
+    {
+        byte[] head = new byte[64];
+        using (var stream = File.OpenRead(path)) stream.Read(head, 0, head.Length);
+        uint Big(int at) => (uint)(head[at] << 24 | head[at + 1] << 16 | head[at + 2] << 8 | head[at + 3]);
+        if (Big(0) != 0xCAFEBABE) return false;
+        var cpus = Enumerable.Range(0, (int)Big(4)).Select(i => Big(8 + i * 20)).ToArray();
+        return cpus.Contains(0x01000007u) && cpus.Contains(0x0100000Cu);
     }
 
     // ================= helpers =================
