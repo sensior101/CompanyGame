@@ -483,3 +483,57 @@ SyncClient.Instance.Spawn(prefabKey: "Net/Door", instance, flags);
 - 게임을 완전히 종료한 뒤에도 PC 서버 프로세스가 살아 있는지는 QA로 확인할 수 없음. 빌드에서 직접 확인 필요
 - 공개/비공개 설정은 저장만 되고 아직 쓰이지 않음(2b)
 - 서버 끄기는 프로세스를 바로 종료하는 방식임. 저장 후 정상 종료는 3단계
+
+### 12.4 2b-1단계: EOS 시험 (1~5 완료 2026-10-13, 6은 팀원 PC 대기)
+
+**목적.** 4.1에서 확인하지 못한 것을 실제로 돌려 봅니다. 결과에 따라 2b-2(EosTransport, 공개 목록, 서버 코드, ID 토큰 검증) 설계를 정합니다. 시험이 목적이라 게임 흐름은 바꾸지 않습니다.
+
+**새로 넣을 것**
+
+| 대상 | 내용 |
+| --- | --- |
+| PlayEveryWare EOS 플러그인 | UPM으로 **버전을 고정**해 추가(v6.2.0 stable). git URL이나 릴리스 tgz 중 이 PC에서 되는 쪽(LFS 필요 여부 확인) |
+| EOS 설정 | 플러그인 설정 파일은 `CompanyGame/eos.local.json`에서 만들고, ClientSecret이 든 생성 파일은 git이 무시하게 함. 저장소에는 비밀값이 없는 틀만 둠 |
+| `Net/Eos/EosProbe.cs` | 명령줄 `-eostest` 시험 모드(게임 흐름과 분리, 인자가 없으면 아무것도 안 함). 결과를 로그와 `eos_test_log.txt`에 남김 |
+| | `-eostest server`: Device ID 로그인 → PUID 출력 → P2P 소켓 `eostest`에서 연결을 받아 메시지를 되돌려 보냄 → 세션 생성(이름·인원·비밀번호 여부 속성, 세션 ID 직접 지정) |
+| | `-eostest client <서버 PUID>`: Device ID 로그인 → 서버로 P2P 연결 → 핑 20번(왕복 시간) → 연결 종류(직접/중계) 기록 → 세션 검색(속성으로, 세션 ID로) |
+| `Editor/Net/EosTestQA.cs` | 에디터에서 할 수 있는 시험과 팀원용 묶음 만들기 |
+| 팀원용 묶음 | `CompanyGame/Builds/EosTest/`(git 무시): Windows 빌드, `eos_test.bat`(PUID를 물어보고 client로 실행), `eos_test_server.bat`, `README_팀원.txt`(한국어 3줄 안내). 압축 파일 하나로 만듦 |
+
+**판정 (시험 항목)**
+
+| # | 항목 | 이 PC에서 | 팀원 PC 필요 |
+| --- | --- | --- | --- |
+| 1 | 플러그인을 넣어도 컴파일 오류가 없고, 에디터 플레이 모드에 두 번 연속 들어가도 멈추지 않음. 기존 QA 회귀 없음 | O | |
+| 2 | Device ID 로그인으로 PUID를 받음(에디터, Windows 빌드) | O | |
+| 3 | 화면 없는 서버 프로세스(`-batchmode -nographics -eostest server`)가 PUID를 받음 | O | |
+| 4 | 같은 OS 사용자로 두 프로세스가 동시에 로그인하면 PUID가 같은지, 둘 다 살아 있는지(4.2-1 확인) | O | |
+| 5 | 세션 생성, 속성 검색, 세션 ID 검색 | O | |
+| 6 | 서버 프로세스와 다른 PC의 클라이언트가 P2P로 연결되고, 핑이 오가며, 연결 종류가 기록됨 | | O |
+| 7 | Android | Android 모듈이 없어서 못 함으로 보고 | |
+
+**사용자가 할 것:** 6번만 해당합니다. 묶음 파일을 팀원에게 전달하고, 사용자 PC에서 `eos_test_server.bat`를 실행한 뒤 PUID를 팀원에게 알려 줍니다. 팀원이 `eos_test.bat`를 실행하면, 양쪽 `eos_test_log.txt`를 총괄에게 줍니다.
+
+**지울 코드: 없음.** 기존 흐름은 고치지 않습니다.
+
+**2026-10-13 결정:** 플러그인 v6.2.0의 에디터 전용 Steam 유틸리티 어셈블리가 Steamworks.NET 2025.163.0 이후에 없어진 상수(`STEAMGAMESEARCH_INTERFACE_VERSION`, `STEAMMUSICREMOTE_INTERFACE_VERSION`)를 참조해서 컴파일되지 않습니다. 그래서 Steamworks.NET을 2025.164.1에서 **2025.162.1로 내립니다**. 플러그인 수정판이 나오면 다시 올립니다.
+
+**완료 기준:** 1~5 결과(수치·PUID 앞자리·오류 메시지)가 문서에 기록되고, 팀원용 묶음이 만들어짐. 6은 사용자가 팀원과 돌린 뒤 총괄이 로그를 읽고 기록함.
+
+#### 12.4 결과 (총괄 검수, 2026-10-13)
+
+| # | 결과 |
+| --- | --- |
+| 1 | 통과. 컴파일 오류 0. 플레이 모드 연속 2회 진입 정상(Device ID 로그인 약 9초). 기존 QA 전부 회귀 없음. SteamHostRoomQA 42개는 Steam 클라이언트 없이 도는 시험이라, Steam 실기 확인은 안 함 |
+| 2 | 통과. 에디터와 Windows 빌드 모두 Device ID로 PUID를 받음 |
+| 3 | 통과. **화면 없는 서버 프로세스(`-batchmode -nographics`)도 Device ID로 PUID를 받고 세션을 만듦** |
+| 4 | 같은 OS 사용자의 두 프로세스는 **PUID가 같고**, 둘 다 로그인 상태를 유지함. 같은 PUID끼리 P2P는 성립하지 않음(핑 0/20, ConnectionFailed) → 4.2-1(내 PC 서버에는 로컬 127.0.0.1로 붙음)이 맞음 |
+| 5 | 통과. 세션 생성, 세션 ID 직접 지정, 속성 검색, 세션 ID 검색 모두 Success. 속성(이름, 최대 인원, 비밀번호 여부, 빈자리)이 맞게 옴 |
+| 6 | 대기. 팀원 PC 필요. 묶음은 `CompanyGame/Builds/EosTest.zip`(약 103MB, git 무시) |
+| 7 | 못 함. Android 모듈이 없음 |
+
+**2b-2에 반영할 것**
+- 강제 종료된 서버의 세션이 2~5분 동안 검색에 남음 → 목록에서 오래된 세션을 거르는 장치가 필요함(예: 서버가 주기적으로 속성을 갱신하고, 클라이언트는 오래된 것을 숨김)
+- 이 PC의 NAT 종류는 Moderate
+- 플러그인 설정 파일은 `StreamingAssets/EOS/`에 있어야 함. Windows 네이티브가 Unity보다 먼저 읽기 때문이고, git은 이 폴더를 무시함. `EosTestQA.WriteConfig`가 `eos.local.json`에서 이 파일을 만듦
+- Steamworks.NET 2025.162.1 고정(플러그인 수정판이 나오면 다시 올림). git URL로 설치하려면 git-lfs가 필요함

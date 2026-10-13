@@ -1,11 +1,21 @@
 {
   "dependencies": {
+    "com.playeveryware.eos": {
+      "version": "https://github.com/EOS-Contrib/eos_plugin_for_unity_upm.git#v6.2.0",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {
+        "com.unity.nuget.newtonsoft-json": "3.0.2",
+        "com.unity.editorcoroutines": "1.0.0"
+      },
+      "hash": "2eeb6d4e25e7c654fcfab057fa47649b29516c95"
+    },
     "com.rlabrecque.steamworks.net": {
-      "version": "https://github.com/rlabrecque/Steamworks.NET.git?path=/com.rlabrecque.steamworks.net#2025.164.1",
+      "version": "https://github.com/rlabrecque/Steamworks.NET.git?path=/com.rlabrecque.steamworks.net#2025.162.1",
       "depth": 0,
       "source": "git",
       "dependencies": {},
-      "hash": "c21a8f0e31c56ae8707130967faf491f7dd7c0d8"
+      "hash": "af710043b9097e8ffedf74d67503c3a7eb498260"
     },
     "com.unity.ai.inference": {
       "version": "2.6.1",
@@ -68,6 +78,13 @@
         "com.unity.modules.uielements": "1.0.0",
         "com.unity.modules.screencapture": "1.0.0"
       },
+      "url": "https://packages.unity.com"
+    },
+    "com.unity.editorcoroutines": {
+      "version": "1.1.0",
+      "depth": 1,
+      "source": "registry",
+      "dependencies": {},
       "url": "https://packages.unity.com"
     },
     "com.unity.ext.nunit": {
