@@ -3,10 +3,10 @@ using System.IO;
 using System.Text;
 
 /// <summary>Client → server message kinds (first byte of a frame).</summary>
-public enum ToServer : byte { Hello = 1, Spawn = 2, State = 3, Despawn = 4, Event = 5, Map = 6, Claim = 7 }
+public enum ToServer : byte { Hello = 1, Spawn = 2, State = 3, Despawn = 4, Event = 5, Map = 6, Claim = 7, CharacterCreate = 8, CharacterSave = 9 }
 
 /// <summary>Server → client message kinds (first byte of a frame).</summary>
-public enum ToClient : byte { Welcome = 101, Reject = 102, Spawn = 103, State = 104, Despawn = 105, Event = 106, Owner = 107, Peer = 108 }
+public enum ToClient : byte { Welcome = 101, Reject = 102, Spawn = 103, State = 104, Despawn = 105, Event = 106, Owner = 107, Peer = 108, Character = 109, CharacterResult = 110 }
 
 [Flags]
 public enum EntityFlags : byte
@@ -23,17 +23,23 @@ public enum EntityFlags : byte
 /// <summary>Who receives an entity event: its owner, everyone on its map (sender included), or the server's ServerEvent.</summary>
 public enum EventTarget : byte { Owner = 0, Map = 1, Server = 2 }
 
-public enum RejectReason : byte { Version = 1, Full = 2, Malformed = 3, Rate = 4, Password = 5 }
+public enum RejectReason : byte { Version = 1, Full = 2, Malformed = 3, Rate = 4, Password = 5, AlreadyConnected = 6 }
+
+/// <summary>Answer to CharacterCreate (12.5).</summary>
+public enum CharacterResult : byte { Ok = 0, NameTaken = 1, Invalid = 2, AlreadyExists = 3 }
 
 /// <summary>
-/// Binary sync protocol (Docs/Multiplayer_Redesign.md 12.1; version 2 adds the Hello password and the Welcome server name, 12.3). Little-endian; str = u16 byte length + UTF-8, blob = u16 length + bytes.
+/// Binary sync protocol (Docs/Multiplayer_Redesign.md 12.1; version 2 adds the Hello password and the Welcome server name, 12.3;
+/// version 3 the character messages, 12.5). Little-endian; str = u16 byte length + UTF-8, blob = u16 length + bytes,
+/// blob32 = u32 length + bytes (only the character content, up to <see cref="MaxCharacter"/>).
 /// Entity id = (connection number u32 &lt;&lt; 32) | serial u32, so a client makes ids without a round trip.
 /// The builders below write the client → server messages (SyncClient and the QA fake clients share them).
 /// </summary>
 public static class SyncProtocol
 {
-    public const ushort Version = 2;
-    public const int MaxFrame = 16 * 1024, MaxBlob = 4 * 1024, MaxFramesPerSecond = 300, MaxEntitiesPerConnection = 256;
+    public const ushort Version = 3;
+    // The frame limit is 64KB for the 48KB character content; entity blobs stay at 4KB.
+    public const int MaxFrame = 64 * 1024, MaxBlob = 4 * 1024, MaxCharacter = 48 * 1024, MaxFramesPerSecond = 300, MaxEntitiesPerConnection = 256;
 
     public static ulong MakeId(uint connection, uint serial) => (ulong)connection << 32 | serial;
     public static uint ConnectionOf(ulong id) => (uint)(id >> 32);
@@ -61,6 +67,21 @@ public static class SyncProtocol
         int length = r.ReadUInt16();
         if (length > MaxBlob) throw new InvalidDataException("blob over " + MaxBlob + " bytes");
         return ReadExactly(r, length);
+    }
+
+    public static void WriteBlob32(BinaryWriter w, byte[] blob)
+    {
+        blob ??= Array.Empty<byte>();
+        if (blob.Length > MaxCharacter) throw new InvalidDataException("character over " + MaxCharacter + " bytes");
+        w.Write((uint)blob.Length);
+        w.Write(blob);
+    }
+
+    public static byte[] ReadBlob32(BinaryReader r)
+    {
+        uint length = r.ReadUInt32();
+        if (length > MaxCharacter) throw new InvalidDataException("character over " + MaxCharacter + " bytes");
+        return ReadExactly(r, (int)length);
     }
 
     static byte[] ReadExactly(BinaryReader r, int count)
@@ -111,4 +132,9 @@ public static class SyncProtocol
     public static byte[] Map(string map) => Build((byte)ToServer.Map, w => WriteStr(w, map));
 
     public static byte[] Claim(ulong id) => Build((byte)ToServer.Claim, w => w.Write(id));
+
+    public static byte[] CharacterCreate(string name, string gender) =>
+        Build((byte)ToServer.CharacterCreate, w => { WriteStr(w, name); WriteStr(w, gender); });
+
+    public static byte[] CharacterSave(byte[] content) => Build((byte)ToServer.CharacterSave, w => WriteBlob32(w, content));
 }

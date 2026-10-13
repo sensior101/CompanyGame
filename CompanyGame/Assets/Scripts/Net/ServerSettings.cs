@@ -6,7 +6,8 @@ using UnityEngine;
 /// <summary>
 /// "서버 열기" settings (Docs/Multiplayer_Redesign.md 12.3): name, players, public, password, port. One file per profile
 /// slot at <see cref="FilePath"/>; the PC server process gets that path as <c>-serversettings</c>. Values are always kept
-/// in range by <see cref="Clamp"/>: players 2..50 on PC, 2..10 on mobile.
+/// in range by <see cref="Clamp"/>: players 2..50 on PC, 2..10 on mobile. <see cref="world"/> picks the world under
+/// <see cref="WorldsFolder"/> (12.5; empty = a new one). 혼자 하기 uses <see cref="Solo"/> instead: 1 player, never clamped.
 /// </summary>
 [Serializable]
 public sealed class ServerSettings
@@ -20,6 +21,8 @@ public sealed class ServerSettings
     public bool isPublic;
     public string password = "";
     public int port = DefaultPort;
+    /// <summary>World id (folder under <see cref="WorldsFolder"/>); empty = make a new world when the server starts.</summary>
+    public string world = "";
 
     /// <summary>QA only: pretend to be (or not to be) a phone.</summary>
     public static bool? ForceMobile;
@@ -28,6 +31,11 @@ public sealed class ServerSettings
 
     public static string Folder => Path.Combine(ProfileSlot.DataRoot, "server");
     public static string FilePath => Path.Combine(Folder, "settings.json");
+    /// <summary>The worlds of this slot's servers: worlds/&lt;id&gt;/world.dat (서버 열기 and 혼자 하기 share them).</summary>
+    public static string WorldsFolder => Path.Combine(Folder, "worlds");
+
+    /// <summary>혼자 하기 (9장-4): my PC server, private, 1 player, any free port (bound to 127.0.0.1 by the caller).</summary>
+    public static ServerSettings Solo(string world) => new ServerSettings { name = "혼자 하기", maxPlayers = 1, port = 0, world = world ?? "" };
 
     public ServerSettings Clamp()
     {
@@ -38,6 +46,7 @@ public sealed class ServerSettings
         if (password.Length > PasswordMax) password = password.Substring(0, PasswordMax);
         maxPlayers = Mathf.Clamp(maxPlayers, MinPlayers, PlayerLimit);
         if (port < 1024 || port > 65535) port = DefaultPort;
+        world = WorldStore.IsValidId(world) ? world : "";
         return this;
     }
 

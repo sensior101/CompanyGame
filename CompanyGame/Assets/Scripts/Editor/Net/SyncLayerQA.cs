@@ -14,7 +14,8 @@ using Debug = UnityEngine.Debug;
 using Object = UnityEngine.Object;
 
 /// <summary>
-/// QA of the sync layer (Docs/Multiplayer_Redesign.md 12.1, password and server name 12.3).
+/// QA of the sync layer (Docs/Multiplayer_Redesign.md 12.1, password and server name 12.3). Since 12.5 a connection
+/// needs a character before it can spawn, so every joining fake client makes one (CharacterQA tests that part).
 ///   -executeMethod SyncLayerQA.Run         in-memory server, checklist 1-12, the position State size and the password (with -quit)
 ///   -executeMethod SyncLayerQA.RunLoad     49 and 9 in-memory fake clients at 10Hz for 10s, numbers only (with -quit)
 ///   -executeMethod SyncLayerQA.RunProcess  builds a Windows player to Builds/SyncLayerQA, runs it as -gameserver,
@@ -233,7 +234,7 @@ public static class SyncLayerQA
         Bad("trailing bytes", RejectReason.Malformed, Concat(SyncProtocol.Map("m1"), new byte[] { 0 }));
         Bad("blob over 4KB", RejectReason.Malformed, SyncProtocol.Build((byte)ToServer.State, w => { w.Write(box); w.Write((byte)0); w.Write((ushort)5000); w.Write(new byte[5000]); }));
         Bad("event target 3", RejectReason.Malformed, SyncProtocol.Build((byte)ToServer.Event, w => { w.Write(box); w.Write((byte)0); w.Write((byte)0); w.Write((byte)3); w.Write((ushort)0); }));
-        Bad("frame over 16KB", RejectReason.Malformed, new byte[SyncProtocol.MaxFrame + 1]);
+        Bad("frame over 64KB", RejectReason.Malformed, new byte[SyncProtocol.MaxFrame + 1]);
         var flood = new byte[SyncProtocol.MaxFramesPerSecond][];
         for (int i = 0; i < flood.Length; i++) flood[i] = SyncProtocol.Map(i % 2 == 0 ? "x" : "y");
         Bad("301 frames in a second", RejectReason.Rate, flood);
@@ -387,7 +388,9 @@ public static class SyncLayerQA
 
         int port = FreePort();
         string log = Path.Combine(dir, "server.log");
-        var process = Process.Start(new ProcessStartInfo(exe, $"-batchmode -nographics -gameserver {port} -maxplayers 4 -bind 127.0.0.1 -logFile \"{log}\"")
+        // -serversettings keeps the server's world (12.5) in the build folder instead of a profile slot's.
+        string settings = Path.Combine(dir, "qa-server", "settings.json");
+        var process = Process.Start(new ProcessStartInfo(exe, $"-batchmode -nographics -gameserver {port} -maxplayers 4 -bind 127.0.0.1 -serversettings \"{settings}\" -logFile \"{log}\"")
         {
             UseShellExecute = false, CreateNoWindow = true,
         });
@@ -400,6 +403,10 @@ public static class SyncLayerQA
             a.number = WaitSync(a, m => m.kind == ToClient.Welcome, "A welcome").number;
             b.number = WaitSync(b, m => m.kind == ToClient.Welcome, "B welcome").number;
             Check(a.number != b.number, "both fake clients welcomed by the server process (" + a.number + ", " + b.number + ")");
+            a.Send(SyncProtocol.CharacterCreate("QA_a", "male"));
+            b.Send(SyncProtocol.CharacterCreate("QA_b", "female"));
+            Check(WaitSync(a, m => m.kind == ToClient.CharacterResult, "A character").result == CharacterResult.Ok
+                  && WaitSync(b, m => m.kind == ToClient.CharacterResult, "B character").result == CharacterResult.Ok, "both made a character in the process's world");
             ulong ea = SyncProtocol.MakeId(a.number, 1), eb = SyncProtocol.MakeId(b.number, 1);
             a.Send(SyncProtocol.Spawn(ea, ProbeKey, "qa", EntityFlags.None, new[] { Pos(Vector3.one, 0) }));
             b.Send(SyncProtocol.Spawn(eb, ProbeKey, "qa", EntityFlags.None, new[] { Pos(Vector3.up, 0) }));
@@ -506,13 +513,17 @@ public static class SyncLayerQA
         const string earlyMap = "QA/EarlyMap";
         client.SetMap(earlyMap);
         host.enabled = true;
-        await WaitFor(() => client.Connected, 5, "SyncClient welcomed by the in-app server");
+        await WaitFor(() => client.Connected && client.CharacterKnown, 5, "SyncClient welcomed by the in-app server");
         Check(host.Port > 0 && client.MyConnection != 0, "the real SyncClient joined the in-app server on 127.0.0.1:" + host.Port);
+        string worldFolder = host.Server.World.Folder;
+        client.CreateCharacter("QA_Unity", "male");
+        await WaitFor(() => client.HasCharacter, 5, "the Unity client's character");
         var earlySocket = new TcpClientTransport();
         await earlySocket.Connect("127.0.0.1", host.Port);
         var early = new QaPeer(earlySocket);
         early.Send(SyncProtocol.Hello("qa-early", "early", earlyMap));
         early.number = (await WaitMsg(early, m => m.kind == ToClient.Welcome, "early fake welcome")).number;
+        early.Send(SyncProtocol.CharacterCreate("QA_early", "male"));
         ulong earlyId = SyncProtocol.MakeId(early.number, 1);
         early.Send(SyncProtocol.Spawn(earlyId, ProbeKey, earlyMap, EntityFlags.None, new[] { Pos(Vector3.zero, 0), new byte[0] }));
         await WaitFor(() => client.Find(earlyId), 5, "the entity made on the early map");
@@ -526,6 +537,7 @@ public static class SyncLayerQA
         var fake = new QaPeer(socket);
         fake.Send(SyncProtocol.Hello("qa-fake", "가짜", map));
         fake.number = (await WaitMsg(fake, m => m.kind == ToClient.Welcome, "fake welcome")).number;
+        fake.Send(SyncProtocol.CharacterCreate("QA_fake", "male"));
         await WaitMsg(fake, m => m.kind == ToClient.Peer && m.joined && m.number == client.MyConnection, "Peer(in) for the Unity client");
         Check(true, "a fake TCP client joined and hears the Unity client as a peer");
 
@@ -578,6 +590,7 @@ public static class SyncLayerQA
         client.Disconnect();
         host.Stop();
         await Awaitable.NextFrameAsync();
+        if (Directory.Exists(worldFolder)) Directory.Delete(worldFolder, true); // the QA's world, not a player's
     }
 
     static async Task<QaMsg> WaitMsg(QaPeer p, Func<QaMsg, bool> match, string what, float seconds = 5f)
@@ -630,6 +643,10 @@ public static class SyncLayerQA
         var welcome = p.Take(m => m.kind == ToClient.Welcome);
         if (welcome == null) throw new Exception("[SyncLayerQA] FAIL: " + name + " was not welcomed");
         p.number = welcome.number;
+        p.Send(SyncProtocol.CharacterCreate("QA_" + name, "male"));
+        server.Tick();
+        if (p.Take(m => m.kind == ToClient.CharacterResult)?.result != CharacterResult.Ok) throw new Exception("[SyncLayerQA] FAIL: " + name + " could not make a character");
+        p.Take(m => m.kind == ToClient.Character);
         return p;
     }
 
@@ -728,7 +745,10 @@ public static class SyncLayerQA
         public RejectReason reason;
         public string key, map, account, name;
         public EntityFlags flags;
-        public bool joined;
+        public bool joined, has;
+        public string gender;
+        public uint minutes, worldMinutes;
+        public CharacterResult result;
         public byte[] blob;
         public byte[][] blobs;
 
@@ -754,6 +774,11 @@ public static class SyncLayerQA
                 case ToClient.Peer:
                     m.joined = r.ReadByte() == 1; m.number = r.ReadUInt32(); m.account = SyncProtocol.ReadStr(r); m.name = SyncProtocol.ReadStr(r);
                     break;
+                case ToClient.Character:
+                    m.has = r.ReadByte() == 1; m.name = SyncProtocol.ReadStr(r); m.gender = SyncProtocol.ReadStr(r);
+                    m.minutes = r.ReadUInt32(); m.worldMinutes = r.ReadUInt32(); m.blob = SyncProtocol.ReadBlob32(r);
+                    break;
+                case ToClient.CharacterResult: m.result = (CharacterResult)r.ReadByte(); break;
                 default: throw new Exception("[SyncLayerQA] FAIL: unknown message kind " + (byte)m.kind);
             }
             SyncProtocol.End(r);

@@ -6,7 +6,8 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 /// <summary>
-/// The title menu (Scenes/Title.unity): 서버 열기 / 참가하기 / 설정 (the sync layer, Docs/Multiplayer_Redesign.md 12.3) and,
+/// The title menu (Scenes/Title.unity): 혼자 하기 / 서버 열기 / 참가하기 / 설정 (the sync layer, Docs/Multiplayer_Redesign.md
+/// 12.3, 12.5: worlds and characters live on the server, 혼자 하기 is my PC server for one) and,
 /// under 옛 방식(개발용), the old Cloudflare/Steam rooms (방 만들기 / 참가하기 / 연결 방식) until stage 4, plus the small screens
 /// they lead to (name sign-up, room code entry, room list, errors, confirmations). Built in code with uGUI; keyboard (arrows/Tab/Enter/Esc) and mouse both work.
 /// All real work is in <see cref="TitleFlow"/>.
@@ -133,6 +134,7 @@ public sealed class TitleScreen : MonoBehaviour
         worldReady = false;
         var net = NetSession.Instance;
         if (net && net.Connected) net.Disconnect();
+        TitleUi.Button(content, "혼자 하기", ShowSolo, 76, true, 36);
         TitleUi.Button(content, "서버 열기", () => ShowServerOpen(), 76, true, 36);
         TitleUi.Button(content, "참가하기", () => ShowServerJoin(), 76, true, 36);
         TitleUi.Button(content, "설정", () => ShowSettings(), 76, true, 36);
@@ -156,6 +158,82 @@ public sealed class TitleScreen : MonoBehaviour
         Focus();
     }
 
+    // ---- 혼자 하기 / worlds / the server's character (12.5) ----
+
+    const int MaxWorldRows = 6;
+    const string ServerCharacterHint = "이 월드에서 살아갈 캐릭터의 이름과 성별을 정하세요.\n월드마다 캐릭터가 따로이고, 다시 들어오면 이 캐릭터로 이어서 합니다.";
+
+    /// <summary>혼자 하기: pick a world, then my PC server for one opens on it.</summary>
+    public void ShowSolo() => ShowWorlds("혼자 하기", "이 PC에서 혼자 합니다. 같은 월드를 나중에 서버 열기로 열면 친구도 들어올 수 있습니다.", RunSolo, ShowMain);
+
+    // The worlds of this slot (shared by 혼자 하기 and 서버 열기): 새 월드, then the saved ones, newest first.
+    void ShowWorlds(string heading, string sub, Action<string> pick, Action onBack)
+    {
+        Begin("worlds", false, 820, onBack);
+        var panel = Panel(heading, sub);
+        TitleUi.Button(panel, "새 월드 만들기", () => pick(""), 72, true, 32);
+        var worlds = WorldStore.List(ServerSettings.WorldsFolder);
+        var running = LocalServerProcess.CanStart ? LocalServerProcess.Running() : null;
+        TitleUi.Label(panel, worlds.Count == 0 ? "저장된 월드가 없습니다." : "저장된 월드", 22, TitleUi.Muted, TextAlignmentOptions.MidlineLeft);
+        for (int i = 0; i < worlds.Count && i < MaxWorldRows; i++)
+        {
+            var w = worlds[i];
+            bool busyWorld = running != null && running.world == w.id;
+            var button = TitleUi.Button(panel, WorldName(w) + "\n<size=22>마지막 저장 " + w.savedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm") + " · 캐릭터 " + w.characters + "명"
+                + (busyWorld ? " · 서버에서 실행 중" : "") + "</size>", () => pick(w.id), 88, false, 28);
+            button.interactable = !busyWorld; // one world file, one server
+        }
+        if (worlds.Count > MaxWorldRows) TitleUi.Label(panel, "외 " + (worlds.Count - MaxWorldRows) + "개 (표시 한도)", 22, TitleUi.Muted);
+        TitleUi.Button(panel, "뒤로", () => onBack(), 56, false, 26);
+        Focus();
+    }
+
+    // A world has no name of its own: it is called by when it was made.
+    static string WorldName(WorldStore.Summary w) => "월드 " + w.createdAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
+
+    static string WorldLabel(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return "새 월드";
+        foreach (var w in WorldStore.List(ServerSettings.WorldsFolder)) if (w.id == id) return WorldName(w);
+        return "새 월드"; // made but never saved yet
+    }
+
+    async void RunSolo(string world)
+    {
+        ShowBusy("혼자 하기를 준비하는 중…");
+        string error = await TitleFlow.OpenSolo(world);
+        if (!this) return;
+        if (error != null) { ShowError(error, () => RunSolo(world), ShowSolo, null); return; }
+        AfterConnect(ShowMain);
+    }
+
+    // Connected and the server said whether I have a character there: make one, or go in.
+    void AfterConnect(Action back)
+    {
+        Action leave = () => { TitleFlow.LeaveServer(); back(); };
+        if (SyncClient.Instance.HasCharacter) { EnterServer(back); return; }
+        ShowName(ServerCharacterHint, (name, gender) => RunCreateCharacter(name, gender, back), leave);
+    }
+
+    async void RunCreateCharacter(string name, string gender, Action back)
+    {
+        ShowBusy("캐릭터를 만드는 중…");
+        string error = await TitleFlow.CreateServerCharacter(name, gender);
+        if (!this) return;
+        Action leave = () => { TitleFlow.LeaveServer(); back(); };
+        if (error == "character_name_taken" || error == "invalid_name")
+            ShowName(ServerCharacterHint, (n, g) => RunCreateCharacter(n, g, back), leave, TitleFlow.Message(error), name, gender);
+        else if (error != null) ShowError(error, null, leave, null);
+        else EnterServer(back);
+    }
+
+    void EnterServer(Action back)
+    {
+        ShowBusy("맵을 불러오는 중…");
+        string error = TitleFlow.EnterServerWorld();
+        if (error != null) ShowError(error, null, back, null);
+    }
+
     // ---- 서버 열기 ----
 
     ServerSettings draft;
@@ -177,6 +255,18 @@ public sealed class TitleScreen : MonoBehaviour
         TitleUi.Label(panel, "서버 이름", 24, TitleUi.Muted, TextAlignmentOptions.MidlineLeft);
         var nameInput = TitleUi.Input(panel, "서버 이름 (1~30자)", ServerSettings.NameMax);
         nameInput.text = draft.name;
+        TMP_InputField passwordInput = null, portInput = null;
+        Action capture = () =>
+        {
+            draft.name = nameInput.text; draft.password = passwordInput.text;
+            if (portInput && int.TryParse(portInput.text, out int port)) draft.port = port;
+        };
+
+        TitleUi.Button(panel, "월드: " + WorldLabel(draft.world) + " (바꾸기)", () =>
+        {
+            capture();
+            ShowWorlds("월드 선택", "서버에서 쓸 월드를 고르세요. 캐릭터는 월드마다 따로입니다.", id => { draft.world = id; ShowServerOpen(draft); }, () => ShowServerOpen(draft));
+        }, 52, false, 24);
 
         var countRow = TitleUi.Row(panel, 56, 12, false);
         var less = TitleUi.Button(countRow, "◀", null, 56, false, 26);
@@ -198,15 +288,9 @@ public sealed class TitleScreen : MonoBehaviour
         TitleUi.Label(panel, "공개 서버 목록은 아직 준비 중입니다. 지금은 공개여도 주소로만 들어올 수 있습니다.", 22, TitleUi.Muted, TextAlignmentOptions.MidlineLeft);
 
         TitleUi.Label(panel, "비밀번호 (비워 두면 누구나 들어옴)", 24, TitleUi.Muted, TextAlignmentOptions.MidlineLeft);
-        var passwordInput = TitleUi.Input(panel, "비밀번호 (선택, 32자까지)", ServerSettings.PasswordMax);
+        passwordInput = TitleUi.Input(panel, "비밀번호 (선택, 32자까지)", ServerSettings.PasswordMax);
         passwordInput.text = draft.password;
 
-        TMP_InputField portInput = null;
-        Action capture = () =>
-        {
-            draft.name = nameInput.text; draft.password = passwordInput.text;
-            if (portInput && int.TryParse(portInput.text, out int port)) draft.port = port;
-        };
         TitleUi.Button(panel, openAdvanced ? "고급 접기" : "고급 ▶", () => { capture(); openAdvanced = !openAdvanced; ShowServerOpen(draft); }, 48, false, 24);
         if (openAdvanced)
         {
@@ -240,6 +324,7 @@ public sealed class TitleScreen : MonoBehaviour
         string error = await TitleFlow.OpenServer(settings);
         if (!this) return;
         if (error != null) ShowError(error, () => RunOpenServer(settings), () => ShowServerOpen(settings), null);
+        else AfterConnect(() => ShowServerOpen());
     }
 
     // ---- 참가하기 (server address) ----
@@ -282,6 +367,7 @@ public sealed class TitleScreen : MonoBehaviour
         string error = await TitleFlow.JoinServer(address, password, remember);
         if (!this) return;
         if (error != null) ShowError(error, error == "Password" ? null : (Action)(() => RunJoinServer(address, password, from, remember)), from, null);
+        else AfterConnect(from);
     }
 
     // ---- Steam friend invite ----
@@ -528,18 +614,20 @@ public sealed class TitleScreen : MonoBehaviour
 
     // ---- name sign-up ----
 
-    void ShowName(string sub, Action<string, string> next, Action onBack)
+    // shownError/name/gender: the server refused the name (taken in this world), shown again with what was typed.
+    void ShowName(string sub, Action<string, string> next, Action onBack, string shownError = null, string typed = null, string chosenGender = null)
     {
         Begin("name", true, 700, onBack);
         var panel = Panel("캐릭터 만들기", sub);
         var input = TitleUi.Input(panel, "이름 (한글·영문·숫자·_ 2~12자)", 12, null);
-        string gender = "male";
+        input.text = typed ?? "";
+        string gender = chosenGender == "female" ? "female" : "male";
         var row = TitleUi.Row(panel, 60);
-        var male = TitleUi.Button(row, "● 남자", null, 60, true, 28);
-        var female = TitleUi.Button(row, "○ 여자", null, 60, false, 28);
+        var male = TitleUi.Button(row, gender == "male" ? "● 남자" : "○ 남자", null, 60, true, 28);
+        var female = TitleUi.Button(row, gender == "female" ? "● 여자" : "○ 여자", null, 60, false, 28);
         male.onClick.AddListener(() => { gender = "male"; SetLabel(male, "● 남자"); SetLabel(female, "○ 여자"); });
         female.onClick.AddListener(() => { gender = "female"; SetLabel(male, "○ 남자"); SetLabel(female, "● 여자"); });
-        var error = TitleUi.Label(panel, "", 24, TitleUi.Warn);
+        var error = TitleUi.Label(panel, shownError ?? "", 24, TitleUi.Warn);
         Action submit = () =>
         {
             string name = input.text.Trim();
@@ -684,6 +772,7 @@ public sealed class TitleScreen : MonoBehaviour
         switch (which)
         {
             case "main": ShowMain(); break;
+            case "worlds": ShowSolo(); break;
             case "legacy": ShowLegacy(); break;
             case "serveropen": ShowServerOpen(); break;
             case "serverjoin": ShowServerJoin(); break;

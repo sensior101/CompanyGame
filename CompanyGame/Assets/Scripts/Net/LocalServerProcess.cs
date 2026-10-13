@@ -8,7 +8,8 @@ using Debug = UnityEngine.Debug;
 /// "My PC server" (Docs/Multiplayer_Redesign.md 12.3): this game's own exe started as a windowless server process
 /// (<c>-batchmode -nographics -gameserver &lt;port&gt; -serversettings &lt;path&gt;</c>) that keeps running after the game closes.
 /// The server writes <see cref="RunningPath"/> (pid, port) when it listens; that file is how the title finds it again.
-/// Stopping kills only a process whose name and path are this exe's, never whatever now has that pid.
+/// Stopping (12.5) writes <see cref="StopRequestPath"/>: the server saves its world and quits; after 5 seconds it is killed,
+/// and only a process whose name and path are this exe's, never whatever now has that pid.
 /// The editor has no exe to start (<see cref="CanStart"/> false): it uses the in-app server instead, and QA sets <see cref="ExePath"/>.
 /// </summary>
 public static class LocalServerProcess
@@ -19,6 +20,8 @@ public static class LocalServerProcess
         public int pid;
         public int port;
         public string startedAt;
+        /// <summary>The world it serves (혼자 하기 must not open the same one).</summary>
+        public string world;
     }
 
     /// <summary>The server exe. Null in the editor unless QA points it at a build.</summary>
@@ -27,6 +30,8 @@ public static class LocalServerProcess
     public static bool CanStart => !string.IsNullOrEmpty(ExePath) && File.Exists(ExePath);
 
     public static string RunningPath => Path.Combine(ServerSettings.Folder, "running.json");
+    public static string StopRequestPath => Path.Combine(ServerSettings.Folder, StopRequestName);
+    public const string StopRequestName = "stop.request";
 
     static string DefaultExe()
     {
@@ -50,6 +55,7 @@ public static class LocalServerProcess
         {
             settings.Save();
             File.Delete(RunningPath); // a stale one would look like the new server
+            File.Delete(StopRequestPath); // a stale one would stop it at once
             string log = Path.Combine(ServerSettings.Folder, "server.log");
             return Process.Start(new ProcessStartInfo(ExePath,
                 $"-batchmode -nographics -gameserver {settings.port} -serversettings \"{ServerSettings.FilePath}\" -logFile \"{log}\"")
@@ -75,7 +81,10 @@ public static class LocalServerProcess
         catch (Exception) { return null; }
     }
 
-    /// <summary>Kills the running server of this slot after checking the pid is our exe, then removes the running file.</summary>
+    /// <summary>
+    /// Asks the running server of this slot to save and quit (stop.request), kills it if it is still there after 5 seconds
+    /// (only after checking the pid is our exe), then removes the running file.
+    /// </summary>
     public static bool Stop()
     {
         var info = Running();
@@ -84,11 +93,16 @@ public static class LocalServerProcess
         if (process == null || !IsOurs(process)) return false;
         try
         {
-            process.Kill();
-            process.WaitForExit(5000);
+            File.WriteAllText(StopRequestPath, "");
+            if (!process.WaitForExit(5000))
+            {
+                Debug.LogWarning("[LocalServer] the server did not stop in 5 seconds, killing it");
+                process.Kill();
+                process.WaitForExit(5000);
+            }
         }
         catch (Exception e) { Debug.LogWarning("[LocalServer] stop failed: " + e.Message); return false; }
-        try { File.Delete(RunningPath); } catch (Exception) { /* the next Running() deletes it */ }
+        try { File.Delete(RunningPath); File.Delete(StopRequestPath); } catch (Exception) { /* the next Running() deletes it */ }
         return true;
     }
 

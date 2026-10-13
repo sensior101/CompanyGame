@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using UnityEngine;
 
@@ -10,6 +11,9 @@ public sealed class WorldSaveRunner : MonoBehaviour
     const float WorldInterval = 60f, PersonalInterval = 5f, DebounceSeconds = 2f;
 
     public static WorldSaveRunner Instance { get; private set; }
+
+    /// <summary>True while the character lives on a sync-layer server (12.5): nothing personal is written to this PC. Set by CharacterSync.</summary>
+    public static Func<bool> OnServer;
 
     float worldTimer, personalTimer, debounce = -1f;
     string lastPersonal;
@@ -83,6 +87,7 @@ public sealed class WorldSaveRunner : MonoBehaviour
     {
         // In a room the money is the room character's; it is saved per world by NetPlayerSave, never into this PC's own file.
         if (SharedWriteGate.InRoomCheck != null && SharedWriteGate.InRoomCheck()) return;
+        if (OnServer != null && OnServer()) return; // the server's world file keeps it
         string json = PersonalSave.Export();
         if (!force && json == lastPersonal) return;
         if (PersonalSave.SaveToDisk()) lastPersonal = json;

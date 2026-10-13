@@ -10,10 +10,18 @@ using System.Text;
 /// map interest, late-join snapshots, leave handling, claims, size and rate limits. No Unity; driven by <see cref="Tick"/>
 /// on one thread. Clients are not trusted: a bad frame rejects and drops that connection only, never throws out of Tick.
 /// Owners never get their own entities echoed back (they made them). With a password set, a Hello must carry it (12.3).
+/// Characters (12.5): every account has one character in the <see cref="World"/>, sent right after Welcome; a connection
+/// without one can only make it (no Spawn or Claim). The server runs the world clock and the character clocks itself
+/// and saves the world every 60 seconds and on <see cref="Stop"/>.
 /// </summary>
 public sealed class GameServer
 {
-    const long HelloTimeoutMs = 10000;
+    const long HelloTimeoutMs = 10000, SaveIntervalMs = 60000;
+    /// <summary>
+    /// Real seconds per game hour, the same as SimpleGameClock.realSecondsPerGameHour (Core/SimpleGameClock.cs, 300).
+    /// NetCore cannot read Unity components, so the value is copied here; change both together.
+    /// </summary>
+    public const double RealSecondsPerGameHour = 300;
 
     sealed class Conn
     {
@@ -23,6 +31,7 @@ public sealed class GameServer
         public long openedAt, windowStart;
         public int windowCount, warnings;
         public readonly HashSet<ulong> owned = new HashSet<ulong>();
+        public WorldStore.Character character;
         public bool Welcomed => number != 0;
     }
 
@@ -44,7 +53,7 @@ public sealed class GameServer
     readonly BinaryWriter w;
     readonly byte[] passwordHash; // null = no password
     uint nextNumber = 1;
-    long nextTimeoutCheck;
+    long nextTimeoutCheck, clockOffset, lastClockAt, nextSaveAt = SaveIntervalMs;
 
     public int MaxPlayers { get; }
     /// <summary>Sent in every Welcome.</summary>
@@ -54,15 +63,21 @@ public sealed class GameServer
     /// <summary>Message bytes sent (frame headers not included) and messages sent, for load measurement.</summary>
     public long BytesSent { get; private set; }
     public long FramesSent { get; private set; }
+    /// <summary>The world file: clocks and characters.</summary>
+    public WorldStore World { get; }
+    /// <summary>World saves done (the periodic ones and the last one on Stop), for QA.</summary>
+    public int Saves { get; private set; }
 
     /// <summary>(sender, entity id, component, event id, payload) of events sent to the server (target 2). Server game logic hooks here.</summary>
     public event Action<uint, ulong, byte, byte, byte[]> ServerEvent;
     /// <summary>Warnings (rejects, ignored requests). The Unity host forwards them to the console.</summary>
     public event Action<string> Log;
 
-    public GameServer(IServerTransport transport, int maxPlayers, string name = "", string password = "")
+    /// <summary><paramref name="world"/> null: a world in memory only.</summary>
+    public GameServer(IServerTransport transport, int maxPlayers, string name = "", string password = "", WorldStore world = null)
     {
         this.transport = transport;
+        World = world ?? WorldStore.InMemory();
         MaxPlayers = maxPlayers;
         Name = name ?? "";
         if (!string.IsNullOrEmpty(password)) passwordHash = Hash(password);
@@ -85,13 +100,18 @@ public sealed class GameServer
         return diff == 0;
     }
 
+    long Now => clock.ElapsedMilliseconds + clockOffset;
+
+    /// <summary>QA: pretend <paramref name="ms"/> more real time has passed (clocks, save timer, rate windows).</summary>
+    public void AdvanceClock(long ms) => clockOffset += ms;
+
     public void Tick()
     {
         while (transport.TryReceive(out var e))
         {
             if (e.Kind == TransportEventKind.Connected)
             {
-                long now = clock.ElapsedMilliseconds;
+                long now = Now;
                 conns[e.Connection] = new Conn { handle = e.Connection, openedAt = now, windowStart = now };
             }
             else if (conns.TryGetValue(e.Connection, out var c))
@@ -101,14 +121,41 @@ public sealed class GameServer
             }
         }
         DropSilentConnections();
+        RunClocks();
+        if (Now >= nextSaveAt) { nextSaveAt = Now + SaveIntervalMs; SaveWorld(); }
     }
 
-    public void Stop() => transport.Stop();
+    /// <summary>Stops listening and saves the world (the players still here are marked as having left now).</summary>
+    public void Stop()
+    {
+        RunClocks();
+        foreach (var c in World.Characters) if (c.online) c.lastSeenWorldMinutes = World.WorldMinutes;
+        SaveWorld();
+        transport.Stop();
+    }
+
+    // The world clock runs while the server runs; a character clock only while that account is connected (6.2).
+    void RunClocks()
+    {
+        long now = Now;
+        double minutes = (now - lastClockAt) / 1000.0 * 60.0 / RealSecondsPerGameHour;
+        lastClockAt = now;
+        if (minutes <= 0) return;
+        World.WorldMinutes += minutes;
+        foreach (var c in World.Characters) if (c.online) c.minutes += minutes;
+    }
+
+    // ponytail: the whole file is written on the server thread every minute (about 50 x 48KB at most); move to a writer thread if it shows in a tick.
+    void SaveWorld()
+    {
+        try { World.Save(); Saves++; }
+        catch (Exception e) { Log?.Invoke("world save failed: " + e.Message); }
+    }
 
     // A socket that never says Hello holds a slot; give it 10 seconds.
     void DropSilentConnections()
     {
-        long now = clock.ElapsedMilliseconds;
+        long now = Now;
         if (now < nextTimeoutCheck) return;
         nextTimeoutCheck = now + 1000;
         scratch.Clear();
@@ -118,7 +165,7 @@ public sealed class GameServer
 
     void Receive(Conn c, byte[] frame)
     {
-        long now = clock.ElapsedMilliseconds;
+        long now = Now;
         if (now - c.windowStart >= 1000) { c.windowStart = now; c.windowCount = 0; }
         if (++c.windowCount > SyncProtocol.MaxFramesPerSecond) { Kick(c, RejectReason.Rate, "rate"); return; }
         if (frame == null || frame.Length == 0 || frame.Length > SyncProtocol.MaxFrame) { Kick(c, RejectReason.Malformed, "frame size"); return; }
@@ -140,6 +187,8 @@ public sealed class GameServer
                 case ToServer.Event: OnEvent(c, r); break;
                 case ToServer.Map: OnMap(c, r); break;
                 case ToServer.Claim: OnClaim(c, r); break;
+                case ToServer.CharacterCreate: OnCharacterCreate(c, r); break;
+                case ToServer.CharacterSave: OnCharacterSave(c, r); break;
                 default: throw new InvalidDataException("kind " + (byte)kind);
             }
         }
@@ -156,11 +205,15 @@ public sealed class GameServer
         string account = SyncProtocol.ReadStr(r), name = SyncProtocol.ReadStr(r), map = SyncProtocol.ReadStr(r), password = SyncProtocol.ReadStr(r);
         SyncProtocol.End(r);
         if (!PasswordMatches(password)) { Kick(c, RejectReason.Password, "password"); return; }
+        // One connection per account: two copies of one character could each change and save it (duplicated items and money).
+        if (HasAccount(account)) { Kick(c, RejectReason.AlreadyConnected, "account already connected"); return; }
         if (PlayerCount >= MaxPlayers) { Kick(c, RejectReason.Full, "full"); return; }
         c.number = nextNumber++;
         c.account = account; c.name = name; c.map = map;
         PlayerCount++;
         Send(c, Msg(ToClient.Welcome, () => { w.Write(c.number); w.Write((ushort)Math.Min(MaxPlayers, ushort.MaxValue)); SyncProtocol.WriteStr(w, Name); }));
+        Play(c, World.Find(account));
+        Send(c, CharacterMsg(c.character));
         byte[] joined = PeerMsg(true, c);
         foreach (var other in conns.Values)
         {
@@ -179,6 +232,7 @@ public sealed class GameServer
         var blobs = new byte[r.ReadByte()][];
         for (int i = 0; i < blobs.Length; i++) blobs[i] = SyncProtocol.ReadBlob(r);
         SyncProtocol.End(r);
+        if (c.character == null) { Warn(c, "spawn without a character"); return; }
         if (SyncProtocol.ConnectionOf(id) != c.number) { Warn(c, "spawn with another connection's id"); return; }
         if (entities.ContainsKey(id)) { Warn(c, "duplicate spawn id"); return; }
         if (c.owned.Count >= SyncProtocol.MaxEntitiesPerConnection) { Warn(c, "entity limit"); return; }
@@ -253,13 +307,50 @@ public sealed class GameServer
         ulong id = r.ReadUInt64();
         SyncProtocol.End(r);
         if (!entities.TryGetValue(id, out var e)) return;
-        bool ok = e.owner == 0 && (e.flags & EntityFlags.Claimable) != 0 && e.map == c.map
+        bool ok = c.character != null && e.owner == 0 && (e.flags & EntityFlags.Claimable) != 0 && e.map == c.map
                   && c.owned.Count < SyncProtocol.MaxEntitiesPerConnection;
         if (!ok) { Send(c, OwnerMsg(e)); return; }
         e.owner = c.number;
         c.owned.Add(id);
         SendToMap(e.map, OwnerMsg(e), null);
     }
+
+    // ---- characters (12.5) ----
+
+    void OnCharacterCreate(Conn c, BinaryReader r)
+    {
+        string name = SyncProtocol.ReadStr(r), gender = SyncProtocol.ReadStr(r);
+        SyncProtocol.End(r);
+        var result = c.character != null ? CharacterResult.AlreadyExists : World.Create(c.account, name, gender, out _);
+        if (result == CharacterResult.Ok) Play(c, World.Find(c.account));
+        Send(c, Msg(ToClient.CharacterResult, () => w.Write((byte)result)));
+    }
+
+    // The content is the client's own until stage 4 (bank, stocks, inventory, position): kept as it comes.
+    void OnCharacterSave(Conn c, BinaryReader r)
+    {
+        byte[] content = SyncProtocol.ReadBlob32(r); // over 48KB throws: Reject(Malformed)
+        SyncProtocol.End(r);
+        if (c.character == null) { Warn(c, "save without a character"); return; }
+        c.character.content = content;
+    }
+
+    void Play(Conn c, WorldStore.Character character)
+    {
+        if (character == null) return;
+        RunClocks(); // the time before this belongs to nobody
+        c.character = character;
+        character.online = true;
+    }
+
+    byte[] CharacterMsg(WorldStore.Character ch) => Msg(ToClient.Character, () =>
+    {
+        w.Write((byte)(ch != null ? 1 : 0));
+        SyncProtocol.WriteStr(w, ch?.name ?? ""); SyncProtocol.WriteStr(w, ch?.gender ?? "");
+        w.Write(ch != null ? (uint)Math.Min(ch.minutes, uint.MaxValue) : 0u);
+        w.Write((uint)Math.Min(World.WorldMinutes, uint.MaxValue));
+        SyncProtocol.WriteBlob32(w, ch?.content);
+    });
 
     // ---- leaving ----
 
@@ -275,6 +366,13 @@ public sealed class GameServer
     {
         if (!conns.Remove(c.handle) || !c.Welcomed) return;
         PlayerCount--;
+        if (c.character != null)
+        {
+            RunClocks();
+            c.character.online = false;
+            c.character.lastSeenWorldMinutes = World.WorldMinutes;
+            c.character = null;
+        }
         foreach (ulong id in c.owned)
         {
             var e = entities[id];
@@ -297,6 +395,13 @@ public sealed class GameServer
     {
         c.warnings++;
         Log?.Invoke("ignored from " + c.number + ": " + what + " (warnings " + c.warnings + ")");
+    }
+
+    /// <summary>A welcomed connection of <paramref name="account"/> is still here.</summary>
+    public bool HasAccount(string account)
+    {
+        foreach (var c in conns.Values) if (c.Welcomed && c.account == account) return true;
+        return false;
     }
 
     Conn FindByNumber(uint number)

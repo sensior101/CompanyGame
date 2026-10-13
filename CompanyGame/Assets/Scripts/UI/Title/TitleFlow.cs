@@ -268,26 +268,47 @@ public static class TitleFlow
 
     public static bool EnterGame() => SceneLoadManager.TryLoadMap(GameScene, SceneLoadManager.DefaultSpawnId);
 
-    // ---- 서버 열기 / 참가하기 (sync layer, Docs/Multiplayer_Redesign.md 12.3) ----
-    // Until the game moves onto the sync layer (stage 4) a joined server only proves the connection: everyone plays
-    // their own PC's world, entered like the offline start.
+    // ---- 혼자 하기 / 서버 열기 / 참가하기 (sync layer, Docs/Multiplayer_Redesign.md 12.3, 12.5) ----
+    // Each step ends connected with the server's answer about my character (SyncClient.CharacterKnown). Without one the
+    // title asks for a name (CreateServerCharacter), then EnterServerWorld. Until stage 4 the world itself (companies,
+    // land, prices) is still each PC's own, entered like the offline start; only the character lives on the server.
+
+    /// <summary>
+    /// 혼자 하기 (9장-4): the in-app server on 127.0.0.1 only, private, 1 player, on <paramref name="world"/> of this slot
+    /// ("" = a new world). Null or an error code.
+    /// </summary>
+    public static async Awaitable<string> OpenSolo(string world)
+    {
+        var running = LocalServerProcess.CanStart ? LocalServerProcess.Running() : null;
+        if (running != null && !string.IsNullOrEmpty(world) && running.world == world) return "world_in_use"; // two writers of one world file
+        SyncClient.Instance.Disconnect();
+        string error = StartInApp(ServerSettings.Solo(world), true) ?? await WaitSync();
+        if (error != null) StopInAppServer();
+        return error;
+    }
+
+    static string StartInApp(ServerSettings settings, bool localOnly)
+    {
+        try { SyncHost.StartInApp(settings, localOnly); return null; }
+        catch (System.IO.InvalidDataException e) { Debug.LogWarning("[TitleFlow] world unreadable: " + e.Message); return "world_unreadable"; }
+        catch (Exception e) { Debug.LogWarning("[TitleFlow] in-app server failed: " + e.Message); return "server_start_failed"; }
+    }
 
     /// <summary>
     /// Opens my server and joins it. PC: the separate server process (kept if already running) at 127.0.0.1.
-    /// Phone and editor: the in-app server. Then enters my world. Null or an error code.
+    /// Phone and editor: the in-app server. A new world gets its id here so the next start opens the same one. Null or an error code.
     /// </summary>
     public static async Awaitable<string> OpenServer(ServerSettings settings)
     {
         settings.Clamp();
+        if (string.IsNullOrEmpty(settings.world)) settings.world = WorldStore.NewId();
         if (ServerSettings.IsMobile || !LocalServerProcess.CanStart)
         {
             settings.Save();
             SyncClient.Instance.Disconnect();
-            try { SyncHost.StartInApp(settings); }
-            catch (Exception e) { Debug.LogWarning("[TitleFlow] in-app server failed: " + e.Message); return "server_start_failed"; }
-            string error = await WaitSync();
-            if (error != null) { StopInAppServer(); return error; }
-            return EnterOwnWorld();
+            string error = StartInApp(settings, false) ?? await WaitSync();
+            if (error != null) StopInAppServer();
+            return error;
         }
         var running = LocalServerProcess.Running();
         if (running == null)
@@ -300,7 +321,7 @@ public static class TitleFlow
         return await JoinServer("127.0.0.1:" + running.port, ServerSettings.Load().password, false);
     }
 
-    /// <summary>Joins a server by "host" or "host:port" (default port 7777), then enters my world. Null or an error code.</summary>
+    /// <summary>Joins a server by "host" or "host:port" (default port 7777). Null or an error code.</summary>
     public static async Awaitable<string> JoinServer(string address, string password, bool remember = true)
     {
         if (!TryParseAddress(address, out string host, out int port)) return "bad_address";
@@ -310,7 +331,7 @@ public static class TitleFlow
         string error = await WaitSync();
         if (error != null) return error;
         if (remember) ServerSettings.Remember(address.Trim());
-        return EnterOwnWorld();
+        return null;
     }
 
     public static bool TryParseAddress(string address, out string host, out int port)
@@ -328,16 +349,51 @@ public static class TitleFlow
     static async Awaitable<string> WaitSync()
     {
         var client = SyncClient.Instance;
-        if (!await Until(() => client.Connected || !string.IsNullOrEmpty(client.LastError), StepTimeout)) { client.Disconnect(); return "server_unreachable"; }
+        if (!await Until(() => client.Connected && client.CharacterKnown || !string.IsNullOrEmpty(client.LastError), StepTimeout)) { client.Disconnect(); return "server_unreachable"; }
         if (client.Connected) return null;
         return client.LastError == "connect_failed" || client.LastError == "disconnected" ? "server_unreachable" : client.LastError;
     }
 
-    static string EnterOwnWorld()
+    /// <summary>Asks the server for my character in its world. Null, or character_name_taken / invalid_name / an error code.</summary>
+    public static async Awaitable<string> CreateServerCharacter(string name, string gender)
     {
-        string error = StartOffline(!WorldSave.HasLocalWorld, null, false);
-        if (error != null) { SyncClient.Instance.Disconnect(); StopInAppServer(); }
+        if (!IsValidName(name)) return "invalid_name";
+        var client = SyncClient.Instance;
+        client.CreateCharacter(name, gender);
+        if (!await Until(() => client.LastCharacterResult != null || !client.Connected, StepTimeout)) { LeaveServer(); return "server_unreachable"; }
+        if (!client.Connected) return Code(client.LastError, "disconnected");
+        switch (client.LastCharacterResult)
+        {
+            case CharacterResult.Ok: return null;
+            case CharacterResult.NameTaken: return "character_name_taken";
+            case CharacterResult.Invalid: return "invalid_name";
+            default: return "character_exists";
+        }
+    }
+
+    /// <summary>
+    /// Enters as the server's character: my PC's world as the offline start does (until stage 4), at the character's saved
+    /// map (CharacterSync puts it back where it was), else the game map. Leaves the server on an error.
+    /// </summary>
+    public static string EnterServerWorld()
+    {
+        var client = SyncClient.Instance;
+        GameSession.SetCharacter(client.CharacterName, client.CharacterGender);
+        var net = NetSession.Instance;
+        if (net) net.Disconnect();
+        string error = PrepareWorld(!WorldSave.HasLocalWorld);
+        string map = CharacterSync.SavedMap(client.CharacterContent);
+        if (error == null && !(map != null && SceneLoadManager.TryLoadMap(map, SceneLoadManager.DefaultSpawnId)) && !EnterGame()) error = "load_failed";
+        if (error != null) LeaveServer();
         return error;
+    }
+
+    /// <summary>Back out of a server before entering it (the name screen's 뒤로): disconnect, and an in-app server stops.</summary>
+    public static void LeaveServer()
+    {
+        SyncClient.Instance.Disconnect();
+        StopInAppServer();
+        GameSession.ClearCharacter();
     }
 
     /// <summary>The in-app server dies with its owner leaving (phone: 서버 종료). A PC server process is never stopped here.</summary>
@@ -366,6 +422,7 @@ public static class TitleFlow
         await Awaitable.NextFrameAsync();
         WorldSaveRunner.SaveNow();
         if (net) net.Disconnect();
+        CharacterSync.SaveNow(); // before the disconnect: the socket sends it, then closes
         if (SyncClient.Instance) SyncClient.Instance.Disconnect();
         StopInAppServer();
         SceneLoadManager.TryLoadMap(TitleScene, SceneLoadManager.DefaultSpawnId);
@@ -412,11 +469,16 @@ public static class TitleFlow
             case "Version": return "서버와 게임 버전이 달라 들어갈 수 없습니다. 같은 빌드를 받아 실행해 주세요.";
             case "Full": return "서버가 가득 찼습니다. 자리가 나면 다시 시도해 주세요.";
             case "Password": return "비밀번호가 틀렸습니다. 서버를 연 사람에게 비밀번호를 다시 확인해 주세요.";
+            case "AlreadyConnected": return "이 캐릭터가 이미 서버에 접속해 있습니다. 다른 창이나 기기를 닫고 다시 시도해 주세요. (한 PC에서 게임을 두 개 켜려면 설정에서 서로 다른 프로필 슬롯을 쓰세요.)";
             case "Malformed": return "서버가 연결을 거부했습니다(잘못된 메시지). 게임을 다시 시작한 뒤 시도해 주세요.";
             case "Rate": return "메시지를 너무 많이 보내 서버가 연결을 끊었습니다. 잠시 후 다시 시도해 주세요.";
             case "server_start_failed": return "서버를 시작하지 못했습니다. 다른 프로그램이 같은 포트를 쓰고 있을 수 있습니다. 서버 열기 > 고급에서 포트를 바꿔 보세요.";
             case "bad_address": return "주소 형식이 올바르지 않습니다. 예: 192.168.0.5 또는 192.168.0.5:7777";
             case "server_unreachable": return "서버에 연결할 수 없습니다. 주소와 포트가 맞는지, 서버가 켜져 있는지 확인해 주세요. 다른 PC의 서버라면 그쪽 방화벽과 포트 열기도 확인해 주세요.";
+            case "world_in_use": return "이 월드는 지금 내 서버(서버 열기)에서 돌고 있습니다. 서버를 끈 뒤 혼자 하기로 열거나, 서버에 접속해 주세요.";
+            case "world_unreadable": return "월드 파일을 읽지 못했습니다(world.dat와 world.prev.dat 모두). 파일은 그대로 두었습니다. 다른 월드를 고르거나 새 월드를 만들어 주세요.";
+            case "character_name_taken": return "이 월드에 같은 이름의 캐릭터가 이미 있습니다(대소문자만 달라도 같은 이름). 다른 이름을 입력해 주세요.";
+            case "character_exists": return "이 서버에는 이미 내 캐릭터가 있습니다. 다시 접속해 주세요.";
             case "host_has_peers": return "다른 플레이어가 있는 방의 방장은 나갈 수 없습니다. 먼저 방장 넘기기를 해 주세요.";
             default: return "알 수 없는 오류입니다: " + code;
         }

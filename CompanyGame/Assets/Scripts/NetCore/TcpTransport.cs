@@ -104,10 +104,14 @@ public sealed class TcpClientTransport : IClientTransport
         return false;
     }
 
+    /// <summary>Closes once the frames already sent are out (the last character save), at most 2 seconds later.</summary>
     public void Close()
     {
         open = false;
-        link?.Close();
+        var closing = link;
+        if (closing == null) return;
+        closing.CloseAfterSend();
+        Task.Delay(2000).ContinueWith(_ => closing.Close());
     }
 }
 

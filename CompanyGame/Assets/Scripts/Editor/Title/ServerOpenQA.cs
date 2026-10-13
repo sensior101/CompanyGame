@@ -22,6 +22,7 @@ using Debug = UnityEngine.Debug;
 ///   -executeMethod ServerOpenQA.RunProcess  builds a Windows player to Builds/ServerOpenQA, then LocalServerProcess starts it,
 ///                                           참가하기 with 127.0.0.1:port and the password, the process outlives the game, 끄기 ends it;
 ///                                           then the same from the buttons: 서버 열기 → 서버 시작, leave, 접속 again, 끄기
+/// Since 12.5 a first visit to a server's world asks for a character (캐릭터 만들기): <see cref="EnterGame"/> makes one.
 /// </summary>
 [InitializeOnLoad]
 public static class ServerOpenQA
@@ -170,7 +171,7 @@ public static class ServerOpenQA
         for (int i = 0; i < 15; i++) Check(Screen.Click("▶"), "players ▶");
         Check(TextOf(Screen.Content).Contains("인원 10명"), "phone: ▶ stops at 10 players");
         await Click("서버 시작");
-        await WaitFor(() => InGame, 90, "entering the game map from my server");
+        await EnterGame("QA앱");
         var client = SyncClient.Instance;
         var host = SyncHost.Instance;
         Check(client.Connected && client.ServerName == "QA 앱 서버", "the SyncClient is in my server, named '" + client.ServerName + "'");
@@ -229,7 +230,7 @@ public static class ServerOpenQA
         Check(Screen.Screen == "serverjoin" && Screen.FirstInput().text == "127.0.0.1:" + port, "back on the join screen with the address kept");
         Inputs()[1].text = "pc비번";
         await Click("접속");
-        await WaitFor(() => InGame, 90, "entering the game map through the server process");
+        await EnterGame("QA프로세스");
         var client = SyncClient.Instance;
         Check(client.Connected && client.ServerName == "QA 프로세스 서버" && !SyncHost.Instance, "joined the server process (no in-app server), named '" + client.ServerName + "'");
         Check(ServerSettings.Recent.Count == 1 && ServerSettings.Recent[0] == "127.0.0.1:" + port, "the address is remembered for this slot");
@@ -260,7 +261,7 @@ public static class ServerOpenQA
         var inputs = Inputs();
         inputs[0].text = "QA UI 서버"; inputs[1].text = "ui비번"; inputs[2].text = port.ToString();
         await Click("서버 시작");
-        await WaitFor(() => InGame, 120, "entering the game map after 서버 시작");
+        await EnterGame("QA유아이", 120);
         var running = LocalServerProcess.Running();
         Check(running != null && running.port == port && File.Exists(LocalServerProcess.RunningPath), "a) 서버 시작 started the server process " + running?.pid + " and running.json (port " + port + ")");
         started = Process.GetProcessById(running.pid);
@@ -278,7 +279,8 @@ public static class ServerOpenQA
         Check(Screen.Screen == "serverrunning" && TextOf(Screen.Content).Contains("포트 " + port), "d) 서버 열기 shows 내 서버 실행 중");
 
         await Click("접속");
-        await WaitFor(() => InGame, 90, "entering again with 접속");
+        await WaitFor(() => InGame || Screen && Screen.Screen == "name", 90, "entering again with 접속");
+        Check(InGame, "e) the second visit keeps the character made on the first (no 캐릭터 만들기)");
         Check(client.Connected && client.ServerName == "QA UI 서버", "e) 접속 joined again with the saved password");
         TitleFlow.ReturnToTitle();
         await WaitFor(() => OnTitle, 60, "title");
@@ -296,6 +298,19 @@ public static class ServerOpenQA
     static bool InGame => SceneManager.GetActiveScene().path == TitleFlow.GameScene && PlayerSpawner.Player && PlayerSpawner.Player.isActiveAndEnabled && !SceneLoadManager.IsLoading;
 
     static TMP_InputField[] Inputs() => Screen.Content.GetComponentsInChildren<TMP_InputField>();
+
+    // A new character on the server's world (12.5): the 캐릭터 만들기 screen comes first, then the game map.
+    static async Task EnterGame(string character, float seconds = 90)
+    {
+        await WaitFor(() => InGame || Screen && Screen.Screen == "name", seconds, "캐릭터 만들기 or the game map");
+        if (!InGame)
+        {
+            Inputs()[0].text = character;
+            await Click("확인");
+        }
+        await WaitFor(() => InGame, seconds, "entering the game map as " + character);
+        Check(GameSession.LocalPlayerName == character, "playing as the server's character " + GameSession.LocalPlayerName);
+    }
 
     static void Check(bool ok, string what)
     {

@@ -7,7 +7,9 @@ using UnityEngine;
 /// Client of the sync layer (Docs/Multiplayer_Redesign.md 12.1). Created at startup like NetSession, idle until Connect.
 /// Says Hello, tells the server the current map (SyncMapBinder), makes and removes the remote entities, applies their
 /// states and events, and sends the dirty states of my entities every 0.1s. The socket threads only move bytes;
-/// everything here runs in Update on the main thread.
+/// everything here runs in Update on the main thread. Right after Welcome the server sends this account's character of
+/// its world (12.5): <see cref="CharacterKnown"/>, then <see cref="HasCharacter"/> and its fields; without one the title
+/// makes it with <see cref="CreateCharacter"/>. CharacterSync sends the content with <see cref="SaveCharacter"/>.
 /// </summary>
 public sealed class SyncClient : MonoBehaviour
 {
@@ -26,8 +28,23 @@ public sealed class SyncClient : MonoBehaviour
     public string Map { get; private set; } = "";
     /// <summary>The server's name from its Welcome (no &lt;&gt;, at most 30 characters: it comes from any server).</summary>
     public string ServerName { get; private set; } = "";
-    /// <summary>"connect_failed", "disconnected", or the Reject reason (Version, Full, Malformed, Rate, Password).</summary>
+    /// <summary>"connect_failed", "disconnected", or the Reject reason (Version, Full, Malformed, Rate, Password, AlreadyConnected).</summary>
     public string LastError { get; private set; } = "";
+
+    /// <summary>True once the server's Character message arrived (right after Welcome).</summary>
+    public bool CharacterKnown { get; private set; }
+    /// <summary>The server has a character for my account in its world (from Character, or a successful CreateCharacter).</summary>
+    public bool HasCharacter { get; private set; }
+    public string CharacterName { get; private set; } = "";
+    /// <summary>"male" or "female".</summary>
+    public string CharacterGender { get; private set; } = "";
+    /// <summary>The content the server kept (empty for a new character): CharacterSync reads it.</summary>
+    public byte[] CharacterContent { get; private set; } = Array.Empty<byte>();
+    /// <summary>The server's clocks when I joined, in game minutes (6.2). Kept for later use; nothing applies them yet.</summary>
+    public uint CharacterMinutes { get; private set; }
+    public uint WorldMinutes { get; private set; }
+    /// <summary>The answer to the last CreateCharacter, null while waiting (or none sent).</summary>
+    public CharacterResult? LastCharacterResult { get; private set; }
 
     /// <summary>(joined, connection number, account id, name). Sent for everyone already there right after Welcome.</summary>
     public event Action<bool, uint, string, string> PeerChanged;
@@ -38,6 +55,7 @@ public sealed class SyncClient : MonoBehaviour
     BinaryWriter blobWriter;
     IClientTransport transport;
     uint serial;
+    string pendingName, pendingGender;
     int attempt; // a Disconnect during the TCP connect abandons that attempt
     float nextSendAt;
 
@@ -70,6 +88,7 @@ public sealed class SyncClient : MonoBehaviour
     {
         if (Connecting || transport != null) return;
         Connecting = true; LastError = ""; ServerName = "";
+        ForgetCharacter();
         int mine = ++attempt;
         var next = new TcpClientTransport();
         try
@@ -93,6 +112,34 @@ public sealed class SyncClient : MonoBehaviour
         attempt++;
         transport?.Close();
         Closed("");
+    }
+
+    /// <summary>Asks the server to make my character (name rule as TitleFlow.IsValidName). The answer comes in <see cref="LastCharacterResult"/>.</summary>
+    public void CreateCharacter(string name, string gender)
+    {
+        if (!Connected || HasCharacter) return;
+        LastCharacterResult = null;
+        pendingName = name; pendingGender = gender;
+        transport.Send(SyncProtocol.CharacterCreate(name ?? "", gender ?? ""));
+    }
+
+    /// <summary>Hands the server my character's content (at most 48KB). False when not sent.</summary>
+    public bool SaveCharacter(byte[] content)
+    {
+        if (!Connected || !HasCharacter) return false;
+        if (content.Length > SyncProtocol.MaxCharacter) { Debug.LogError("[Sync] character content is " + content.Length + " bytes, over " + SyncProtocol.MaxCharacter + "; not sent"); return false; }
+        CharacterContent = content;
+        transport.Send(SyncProtocol.CharacterSave(content));
+        return true;
+    }
+
+    void ForgetCharacter()
+    {
+        CharacterKnown = HasCharacter = false;
+        CharacterName = CharacterGender = "";
+        CharacterContent = Array.Empty<byte>();
+        CharacterMinutes = WorldMinutes = 0;
+        LastCharacterResult = null;
     }
 
     /// <summary>My interest moves to this map: remote entities here are dropped now (the server sends the new map's ones).</summary>
@@ -203,6 +250,16 @@ public sealed class SyncClient : MonoBehaviour
                     Connected = true;
                     break;
                 case ToClient.Reject: LastError = ((RejectReason)r.ReadByte()).ToString(); break; // the server closes right after
+                case ToClient.Character: OnCharacter(r); break;
+                case ToClient.CharacterResult:
+                    var result = (CharacterResult)r.ReadByte();
+                    if (result == CharacterResult.Ok)
+                    {
+                        HasCharacter = true; CharacterName = pendingName; CharacterGender = pendingGender == "female" ? "female" : "male";
+                        CharacterContent = Array.Empty<byte>();
+                    }
+                    LastCharacterResult = result;
+                    break;
                 case ToClient.Spawn: OnSpawn(r); break;
                 case ToClient.State: OnState(r); break;
                 case ToClient.Despawn: if (entities.TryGetValue(r.ReadUInt64(), out var gone) && !gone.IsMine) RemoveRemote(gone); break;
@@ -217,6 +274,19 @@ public sealed class SyncClient : MonoBehaviour
             }
         }
         catch (Exception e) { Debug.LogWarning("[Sync] bad message from the server: " + e.Message); }
+    }
+
+    void OnCharacter(BinaryReader r)
+    {
+        bool has = r.ReadByte() == 1;
+        string name = SyncProtocol.ReadStr(r), gender = SyncProtocol.ReadStr(r);
+        uint characterMinutes = r.ReadUInt32(), worldMinutes = r.ReadUInt32();
+        byte[] content = SyncProtocol.ReadBlob32(r);
+        HasCharacter = has;
+        CharacterName = has ? name.Replace("<", "").Replace(">", "") : ""; CharacterGender = gender == "female" ? "female" : "male";
+        CharacterMinutes = characterMinutes; WorldMinutes = worldMinutes;
+        CharacterContent = content;
+        CharacterKnown = true;
     }
 
     void OnSpawn(BinaryReader r)

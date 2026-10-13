@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Net;
+using System.Threading;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using Debug = UnityEngine.Debug;
@@ -13,6 +14,8 @@ using Debug = UnityEngine.Debug;
 /// process drops the title scene and runs only the server. (<c>-server</c> is already the Cloudflare address argument.)
 /// With <c>-serversettings</c> the process takes name, players and password from that file (<c>-gameserver</c>/<c>-maxplayers</c>
 /// win) and keeps <c>running.json</c> next to it while it listens (<see cref="LocalServerProcess"/>).
+/// Worlds (12.5): the server opens <c>ServerSettings.world</c> under <c>worlds/</c> next to the settings file (a new one when empty)
+/// and saves it on <see cref="Stop"/>. The process checks for <c>stop.request</c> there every second: it saves and quits.
 /// </summary>
 public sealed class SyncHost : MonoBehaviour
 {
@@ -25,25 +28,40 @@ public sealed class SyncHost : MonoBehaviour
     /// <summary>True when this game is the server and a player (<see cref="StartInApp"/>); the owner leaving stops it.</summary>
     public bool InApp { get; private set; }
 
+    /// <summary>An in-app server is about to stop: the last character save goes out now (CharacterSync).</summary>
+    public static event Action BeforeStop;
+
     TcpServerTransport transport;
-    string runningPath;
+    string runningPath, stopPath;
+    float nextStopCheck;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     static void ResetStatics() { Instance = null; }
 
     /// <summary>
-    /// Listens on every interface (settings.port 0 = any free port) and connects this game's SyncClient to it with the password.
-    /// Throws when the port cannot be bound.
+    /// Listens on every interface, or only on 127.0.0.1 with <paramref name="localOnly"/> (혼자 하기); settings.port 0 = any
+    /// free port. Opens settings.world of this slot (a new world when empty: its id is written into settings) and connects
+    /// this game's SyncClient with the password. Throws when the world cannot be read or the port cannot be bound.
     /// </summary>
-    public static SyncHost StartInApp(ServerSettings settings)
+    public static SyncHost StartInApp(ServerSettings settings, bool localOnly = false)
     {
-        var host = Create(IPAddress.Any, settings.port, settings.maxPlayers, settings.name, settings.password);
+        var world = OpenWorld(ServerSettings.WorldsFolder, settings);
+        var host = Create(localOnly ? IPAddress.Loopback : IPAddress.Any, settings.port, settings.maxPlayers, settings.name, settings.password, world);
         host.InApp = true;
         SyncClient.Instance.Connect("127.0.0.1", host.Port, settings.password);
         return host;
     }
 
-    static SyncHost Create(IPAddress address, int port, int maxPlayers, string name, string password)
+    /// <summary>settings.world under <paramref name="root"/>; a new world (id written into settings) when it is empty.</summary>
+    public static WorldStore OpenWorld(string root, ServerSettings settings)
+    {
+        if (string.IsNullOrEmpty(settings.world)) settings.world = WorldStore.NewId();
+        var world = WorldStore.Open(root, settings.world);
+        if (world.LoadedFromPrev) Debug.LogWarning("[SyncServer] world.dat of " + world.Id + " was unreadable; loaded world.prev.dat");
+        return world;
+    }
+
+    static SyncHost Create(IPAddress address, int port, int maxPlayers, string name, string password, WorldStore world)
     {
         if (Instance) Instance.Stop();
         var transport = new TcpServerTransport(address, port); // throws before anything is made when the port is taken
@@ -51,15 +69,25 @@ public sealed class SyncHost : MonoBehaviour
         DontDestroyOnLoad(go);
         var host = go.AddComponent<SyncHost>();
         host.transport = transport;
-        host.Server = new GameServer(transport, maxPlayers, name, password);
+        host.Server = new GameServer(transport, maxPlayers, name, password, world);
         host.Server.Log += message => Debug.LogWarning("[SyncServer] " + message);
         Instance = host;
-        Debug.Log("[SyncServer] '" + name + "' listening on " + address + ":" + host.Port + ", max " + maxPlayers + (string.IsNullOrEmpty(password) ? "" : ", password set"));
+        Debug.Log("[SyncServer] '" + name + "' listening on " + address + ":" + host.Port + ", max " + maxPlayers + (string.IsNullOrEmpty(password) ? "" : ", password set")
+                  + ", world " + world.Id + " (" + world.CharacterCount + " characters)");
         return host;
     }
 
+    /// <summary>Saves the world and stops. In-app: my own last character save is read first (at most 1 second).</summary>
     public void Stop()
     {
+        if (InApp && Server != null)
+        {
+            try { BeforeStop?.Invoke(); } catch (Exception e) { Debug.LogException(e); }
+            if (SyncClient.Instance) SyncClient.Instance.Disconnect();
+            // The save travels through 127.0.0.1 before the disconnect (TCP keeps the order): tick until my connection is gone.
+            var until = DateTime.UtcNow.AddSeconds(1);
+            while (Server.HasAccount(GameSession.LocalPlayerId) && DateTime.UtcNow < until) { Server.Tick(); Thread.Sleep(5); }
+        }
         Server?.Stop();
         Server = null; transport = null;
         if (Instance == this) Instance = null;
@@ -67,9 +95,25 @@ public sealed class SyncHost : MonoBehaviour
         Destroy(gameObject);
     }
 
-    void Update() => Server?.Tick();
+    void Update()
+    {
+        Server?.Tick();
+        if (stopPath == null || Time.unscaledTime < nextStopCheck) return;
+        nextStopCheck = Time.unscaledTime + 1f;
+        if (!File.Exists(stopPath)) return;
+        Debug.Log("[SyncServer] stop requested: saving the world and quitting");
+        try { File.Delete(stopPath); } catch (Exception) { /* LocalServerProcess removes it too */ }
+        Stop();
+        Application.Quit(0);
+    }
+
     void OnDestroy() { Server?.Stop(); DeleteRunning(); }
-    void OnApplicationQuit() => DeleteRunning();
+
+    void OnApplicationQuit()
+    {
+        if (Server != null) Stop(); // saves the world
+        DeleteRunning();
+    }
 
     void DeleteRunning()
     {
@@ -88,6 +132,7 @@ public sealed class SyncHost : MonoBehaviour
         var settings = settingsPath != null ? ServerSettings.Load(settingsPath) : new ServerSettings { name = "", maxPlayers = DefaultMaxPlayers };
         if (int.TryParse(Arg("-maxplayers"), out int max) && max >= 1) settings.maxPlayers = max;
         var address = IPAddress.TryParse(Arg("-bind") ?? "", out var bind) ? bind : IPAddress.Any;
+        string folder = settingsPath != null ? Path.GetDirectoryName(Path.GetFullPath(settingsPath)) : ServerSettings.Folder;
         if (Application.isBatchMode)
         {
             QualitySettings.vSyncCount = 0;
@@ -97,16 +142,18 @@ public sealed class SyncHost : MonoBehaviour
             SceneManager.UnloadSceneAsync(title);
         }
         SyncHost host;
-        try { host = Create(address, p, settings.maxPlayers, settings.name, settings.password); }
+        try { host = Create(address, p, settings.maxPlayers, settings.name, settings.password, OpenWorld(Path.Combine(folder, "worlds"), settings)); }
         catch (Exception e)
         {
-            Debug.LogError("[SyncServer] cannot listen on port " + p + ": " + e.Message);
+            Debug.LogError("[SyncServer] cannot open world '" + settings.world + "' or listen on port " + p + ": " + e.Message);
             if (Application.isBatchMode) Application.Quit(1); // a windowless server that does not serve must not linger
             return;
         }
         if (settingsPath == null) return;
-        string running = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(settingsPath)), "running.json");
-        var info = new LocalServerProcess.RunningInfo { pid = Process.GetCurrentProcess().Id, port = host.Port, startedAt = DateTime.UtcNow.ToString("o") };
+        host.stopPath = Path.Combine(folder, LocalServerProcess.StopRequestName);
+        try { File.Delete(host.stopPath); } catch (Exception) { /* checked again every second */ }
+        string running = Path.Combine(folder, "running.json");
+        var info = new LocalServerProcess.RunningInfo { pid = Process.GetCurrentProcess().Id, port = host.Port, startedAt = DateTime.UtcNow.ToString("o"), world = settings.world };
         try { File.WriteAllText(running, JsonUtility.ToJson(info)); host.runningPath = running; }
         catch (Exception e) { Debug.LogError("[SyncServer] cannot write " + running + ": " + e.Message); }
     }
