@@ -258,8 +258,10 @@ public sealed class CitizenWalker : MonoBehaviour
         stuck = agent.velocity.sqrMagnitude < .01f ? stuck + dt : 0f;
         if (agent.pathPending || grace > 0f) return;
         bool arrived = agent.pathStatus == NavMeshPathStatus.PathInvalid || agent.remainingDistance <= agent.stoppingDistance + .15f;
-        if (!arrived && stuck < 3f) return;
+        if (!arrived && stuck < 1.5f) return;
         if (state == State.ToSeat && arrived && TrySit()) return;
+        // Blocked (usually by another citizen head-on): turn and walk somewhere else instead of standing there.
+        if (!arrived && PickDestination()) { state = State.Walk; return; }
         Rest();
     }
 

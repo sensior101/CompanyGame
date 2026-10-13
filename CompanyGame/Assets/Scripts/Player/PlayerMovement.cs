@@ -26,10 +26,10 @@ public class PlayerMovement : MonoBehaviour
     {
         motor = GetComponent<CharacterController>();
 
-        motor.radius = 0.35f;
-        motor.height = 1.8f;
-        motor.center = Vector3.up * 0.9f;
-        motor.stepOffset = 0.5f;
+        motor.radius = BodySize.Radius;
+        motor.height = BodySize.Height;
+        motor.center = Vector3.up * (BodySize.Height * .5f);
+        motor.stepOffset = BodySize.StepHeight;
         motor.slopeLimit = 45f;
         motor.skinWidth = 0.03f;
         motor.minMoveDistance = 0f;

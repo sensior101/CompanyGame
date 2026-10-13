@@ -456,7 +456,9 @@ namespace CompanyGame.Editor.WorldMaps
 
         static string WalkScenePath(string name)
         {
-            return MapColliderRebuilder.Maps.First(m => Path.GetFileNameWithoutExtension(m) == name);
+            // Outdoor maps first; any other scene (interiors) by file name.
+            return MapColliderRebuilder.Maps.FirstOrDefault(m => Path.GetFileNameWithoutExtension(m) == name)
+                ?? AssetDatabase.FindAssets(name + " t:Scene").Select(AssetDatabase.GUIDToAssetPath).First(p => Path.GetFileNameWithoutExtension(p) == name);
         }
 
         static void WalkTick()
@@ -561,7 +563,10 @@ namespace CompanyGame.Editor.WorldMaps
             string kind = knee && !chest ? "LOW OBSTACLE (curb/step trap)" : hit.collider.GetComponentInChildren<Renderer>() == null && hit.collider.GetComponentInParent<Renderer>() == null ? "INVISIBLE (no renderer)" : "wall";
             if (InGenerated(hit.collider))   // generated colliders follow a visible renderer by construction (their own object has none)
                 kind = knee && !chest && !MapColliderRules.IsRailName(hit.collider.name) ? "LOW OBSTACLE (curb/step trap)" : "wall (generated from a visual)";
-            return kind + ": " + MapColliderRebuilder.PathOf(hit.collider.transform);
+            // Height of the top just past the blocking face, measured from the feet.
+            string step = Physics.Raycast(new Vector3(hit.point.x, pos.y + 2f, hit.point.z) + dir * 0.1f, Vector3.down, out RaycastHit top, 2.5f, ~0, QueryTriggerInteraction.Ignore)
+                ? " (step " + (top.point.y - pos.y).ToString("0.00") + " m)" : "";
+            return kind + step + ": " + MapColliderRebuilder.PathOf(hit.collider.transform);
         }
 
         static void WriteWalkReport(string map, int walked, List<string> lines)

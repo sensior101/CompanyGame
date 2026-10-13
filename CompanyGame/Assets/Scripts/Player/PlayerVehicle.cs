@@ -175,7 +175,7 @@ public sealed class PlayerVehicle : MonoBehaviour
             transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(desired), 200f * dt);
         // Sweep the bicycle footprint; the motor still handles slopes, steps and gravity.
         float travel = Speed * dt;
-        foreach (var hit in Physics.BoxCastAll(transform.position + Vector3.up * .92f, new Vector3(.30f,.40f,.77f), // bottom at .52: steps up to the 0.5 m stepOffset pass
+        foreach (var hit in Physics.BoxCastAll(transform.position + Vector3.up * (BodySize.StepHeight + .42f), new Vector3(.30f,.40f,.77f), // bottom just above StepHeight: steps the motor can climb pass
                      transform.forward, transform.rotation, travel + .04f, ~0, QueryTriggerInteraction.Ignore))
             if (Blocks(hit.collider) && hit.normal.y < .55f) { Speed = 0; break; }
         return transform.forward * Speed;

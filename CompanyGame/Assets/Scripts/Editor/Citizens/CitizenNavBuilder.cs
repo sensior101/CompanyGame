@@ -26,7 +26,9 @@ namespace CompanyGame.Editor.Citizens
     public static class CitizenNavBuilder
     {
         public const string RootName = "Citizen Navigation";
-        public const float AgentRadius = .3f, AgentHeight = 1.8f, VoxelSize = .15f;
+        public const float AgentRadius = BodySize.Radius, AgentHeight = BodySize.Height, VoxelSize = .15f;
+        // Same step as the player (the default agent climbs .75, which put citizens on tables and benches).
+        public const float AgentClimb = BodySize.StepHeight;
         const int NotWalkable = 1;
         const string BusinessPath = "Assets/Scenes/Maps/BusinessDistrict.unity";
         static readonly Regex Road = new Regex("(street|road|perimeter|asphalt)", RegexOptions.IgnoreCase);
@@ -143,6 +145,7 @@ namespace CompanyGame.Editor.Citizens
             var settings = surface.GetBuildSettings();
             settings.agentRadius = AgentRadius;
             settings.agentHeight = AgentHeight;
+            settings.agentClimb = AgentClimb;
             settings.overrideVoxelSize = true;
             settings.voxelSize = VoxelSize;
             var data = NavMeshBuilder.BuildNavMeshData(settings, sources, SourceBounds(sources), surface.transform.position, surface.transform.rotation);

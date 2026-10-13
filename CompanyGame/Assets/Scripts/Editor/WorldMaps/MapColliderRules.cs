@@ -13,8 +13,8 @@ namespace CompanyGame.Editor.WorldMaps
     /// </summary>
     public static class MapColliderRules
     {
-        public const float CharacterRadius = 0.35f, CharacterHeight = 1.8f, StepOffset = 0.5f, SkinWidth = 0.03f, SlopeLimit = 45f;
-        public const float MaxClimbableCurb = 0.45f;      // StepOffset - 0.05
+        public const float CharacterRadius = BodySize.Radius, CharacterHeight = BodySize.Height, StepOffset = BodySize.StepHeight, SkinWidth = 0.03f, SlopeLimit = 45f;
+        public const float MaxClimbableCurb = StepOffset - 0.05f;
         public const float MinRailHeight = 1.1f, MinRailThickness = 0.15f, MinBoundaryHeight = 3f;
         public const float ElevatedHeight = 2.3f;         // parts this far above the ground get no collider (roofs, awnings)
         public const float BoxFillRatio = 0.85f, TinyExtent = 0.3f, MergedExtent = 60f, FloorMaxThickness = 1.5f, FlatDecalHeight = 0.15f, StepSlabHeight = 0.28f;
@@ -130,8 +130,8 @@ namespace CompanyGame.Editor.WorldMaps
 
         public static string CurbBucket(float height)
         {
-            if (height <= MaxClimbableCurb) return "climbable (<= 0.25 m)";
-            if (height <= 0.6f) return "trap (0.25-0.6 m, above step offset)";
+            if (height <= MaxClimbableCurb) return "climbable (<= " + MaxClimbableCurb.ToString("0.00") + " m)";
+            if (height <= 0.6f) return "trap (" + MaxClimbableCurb.ToString("0.00") + "-0.6 m, above step offset)";
             return "wall (> 0.6 m)";
         }
 
@@ -151,7 +151,7 @@ namespace CompanyGame.Editor.WorldMaps
         public static string RuleTableMarkdown()
         {
             return "| Object | Collision rule (target state) | Implemented by |\n|---|---|---|\n"
-                + "| Character (walking) | CharacterController r 0.35, h 1.8, stepOffset 0.5 (was 0.23), skinWidth 0.03, slopeLimit 45 | bundle A (PlayerMovement.Awake) |\n"
+                + "| Character (walking) | CharacterController r 0.3, h 1.8, stepOffset 0.35 (BodySize, shared with citizens; was 0.5), skinWidth 0.03, slopeLimit 45 | bundle A (PlayerMovement.Awake) |\n"
                 + "| Bicycle | existing CharacterController method, r 0.46 | unchanged |\n"
                 + "| Car | CharacterController off while driving; body-bounds BoxCast (forward/back) + CheckBox on rotation; ground by wheel raycasts | bundle A (PlayerVehicle) |\n"
                 + "| Citizen NPC | capsule r 0.3 + NavMeshAgent; Default layer + Physics.IgnoreCollision between citizens (layers postponed) | bundle E |\n"

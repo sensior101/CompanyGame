@@ -25,6 +25,7 @@ namespace CompanyGame.Editor.Citizens
         {
             Log.Clear(); failures = 0;
             CheckInfo();
+            CheckBodySize();
             CheckPrefab("CitizenMale");
             CheckPrefab("CitizenFemale");
             Check(Resources.Load<GameObject>("Citizens/CitizenBook"), "CitizenBook prefab exists in Resources/Citizens");
@@ -51,6 +52,25 @@ namespace CompanyGame.Editor.Citizens
             var lines = Enumerable.Range(0, CitizenSpawner.PerMap).Select(i => CitizenInfo.LineFor(hash, i)).ToArray();
             Check(names.Distinct().Count() == names.Length && lines.Distinct().Count() == lines.Length, "names and lines unique within one map");
             Check(CitizenInfo.Hash("a") == CitizenInfo.Hash("a") && CitizenInfo.NameFor(hash, 3) == names[3], "deterministic per (map, index)");
+        }
+
+        // BodySize.Radius is a fixed value; when the avatar model changes, this says what it should become.
+        static void CheckBodySize()
+        {
+            float half = 0f;
+            foreach (string path in new[] { CitizenPrefabBuilder.MaleVisual, CitizenPrefabBuilder.FemaleVisual })
+            {
+                var visual = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                Check(visual, path + " exists");
+                if (!visual) continue;
+                foreach (var skin in visual.GetComponentsInChildren<SkinnedMeshRenderer>(true).Where(s => s.sharedMesh))
+                {
+                    Vector3 size = Vector3.Scale(skin.sharedMesh.bounds.size, skin.transform.lossyScale);
+                    half = Mathf.Max(half, Mathf.Abs(size.x) * .5f, Mathf.Abs(size.z) * .5f);
+                }
+            }
+            Check(Mathf.Abs(half - BodySize.Radius) <= .03f, "BodySize.Radius " + BodySize.Radius.ToString("0.00") + " matches the widest avatar half-width " + half.ToString("0.00")
+                + " (within 3 cm; otherwise set BodySize.Radius to " + half.ToString("0.00") + ", rebuild citizen prefabs and re-bake navigation)");
         }
 
         static void CheckPrefab(string name)
@@ -182,6 +202,19 @@ namespace CompanyGame.Editor.Citizens
                 foreach (float x in new[] { 6.7f, 9f, 11.3f }) Check(!NavMesh.SamplePosition(new Vector3(x, 0f, 3.6f), out var shelf, .2f, NavMesh.AllAreas), tag + "shelf row x=" + x + " is blocked");
             }
             Check(player && NavMesh.SamplePosition(player.transform.position, out _, 1.5f, NavMesh.AllAreas), tag + "default spawn is on the NavMesh");
+            // Citizens must not climb furniture: a table or desk top may carry an isolated NavMesh island, but no path from the floor
+            // may reach it (legs and thin parts skipped).
+            NavMesh.SamplePosition(player ? player.transform.position : Vector3.zero, out var floor, 1.5f, NavMesh.AllAreas);
+            var climb = new NavMeshPath();
+            foreach (var r in UnityEngine.Object.FindObjectsByType<MeshRenderer>(FindObjectsSortMode.None).Where(r => r.gameObject.scene == scene
+                && System.Text.RegularExpressions.Regex.IsMatch(r.name, "table|desk", System.Text.RegularExpressions.RegexOptions.IgnoreCase)
+                && r.bounds.size.x >= .5f && r.bounds.size.z >= .5f && r.bounds.max.y > .3f && r.bounds.max.y < 1.3f))
+            {
+                var top = new Vector3(r.bounds.center.x, r.bounds.max.y, r.bounds.center.z);
+                bool reachable = NavMesh.SamplePosition(top, out var onTop, .3f, NavMesh.AllAreas) && onTop.position.y > top.y - .15f
+                    && NavMesh.CalculatePath(floor.position, onTop.position, NavMesh.AllAreas, climb) && climb.status == NavMeshPathStatus.PathComplete;
+                Check(!reachable, tag + r.name + " top (y " + top.y.ToString("F2") + ") is not reachable from the floor");
+            }
         }
 
         // Name of the renderer whose top is closest under the point (diagnostics only).

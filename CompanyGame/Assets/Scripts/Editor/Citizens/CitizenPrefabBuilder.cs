@@ -19,8 +19,8 @@ namespace CompanyGame.Editor.Citizens
         public const int TriangleBudget = 15000;
         public const string PrefabFolder = "Assets/Resources/Citizens";
         public const string MeshFolder = "Assets/Art/Citizens";
-        const string MaleVisual = "Assets/Art/Daldongne/Players/MaleVisual.prefab";
-        const string FemaleVisual = "Assets/Art/Daldongne/Players/FemaleVisual.prefab";
+        public const string MaleVisual = "Assets/Art/Daldongne/Players/MaleVisual.prefab";
+        public const string FemaleVisual = "Assets/Art/Daldongne/Players/FemaleVisual.prefab";
 
         [MenuItem("Tools/Company Game/Citizens/Build Citizen Prefabs")]
         public static void Build()
@@ -102,13 +102,13 @@ namespace CompanyGame.Editor.Citizens
                 UnityEngine.Object.DestroyImmediate(old);
             var agent = root.AddComponent<NavMeshAgent>();
             agent.agentTypeID = 0;
-            agent.radius = .3f; agent.height = 1.8f; agent.baseOffset = 0f;
+            agent.radius = BodySize.Radius; agent.height = BodySize.Height; agent.baseOffset = 0f;
             agent.speed = 1.3f; agent.angularSpeed = 300f; agent.acceleration = 4f; agent.stoppingDistance = .3f;
             agent.autoBraking = true; agent.autoRepath = true; agent.autoTraverseOffMeshLink = false;
             agent.obstacleAvoidanceType = ObstacleAvoidanceType.LowQualityObstacleAvoidance;
             agent.avoidancePriority = 50; agent.areaMask = NavMesh.AllAreas;
             var capsule = root.AddComponent<CapsuleCollider>();
-            capsule.direction = 1; capsule.radius = .3f; capsule.height = 1.8f; capsule.center = new Vector3(0f, .9f, 0f);
+            capsule.direction = 1; capsule.radius = BodySize.Radius; capsule.height = BodySize.Height; capsule.center = new Vector3(0f, BodySize.Height * .5f, 0f);
             capsule.isTrigger = false;
             var body = root.AddComponent<Rigidbody>(); // kinematic: a collider moved by the agent without it is treated as static
             body.isKinematic = true; body.useGravity = false;
