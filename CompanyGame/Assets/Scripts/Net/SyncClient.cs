@@ -24,7 +24,9 @@ public sealed class SyncClient : MonoBehaviour
     public uint MyConnection { get; private set; }
     public int MaxPlayers { get; private set; }
     public string Map { get; private set; } = "";
-    /// <summary>"connect_failed", "disconnected", or the Reject reason (Version, Full, Malformed, Rate).</summary>
+    /// <summary>The server's name from its Welcome (no &lt;&gt;, at most 30 characters: it comes from any server).</summary>
+    public string ServerName { get; private set; } = "";
+    /// <summary>"connect_failed", "disconnected", or the Reject reason (Version, Full, Malformed, Rate, Password).</summary>
     public string LastError { get; private set; } = "";
 
     /// <summary>(joined, connection number, account id, name). Sent for everyone already there right after Welcome.</summary>
@@ -36,6 +38,7 @@ public sealed class SyncClient : MonoBehaviour
     BinaryWriter blobWriter;
     IClientTransport transport;
     uint serial;
+    int attempt; // a Disconnect during the TCP connect abandons that attempt
     float nextSendAt;
 
     static GameObject DefaultFactory(string key) => Resources.Load<GameObject>(key);
@@ -62,21 +65,24 @@ public sealed class SyncClient : MonoBehaviour
     void OnDestroy() { if (Instance == this) Instance = null; transport?.Close(); }
     void OnApplicationQuit() { transport?.Close(); }
 
-    /// <summary>Connects over TCP and says Hello with GameSession's account id and name.</summary>
-    public async void Connect(string host, int port)
+    /// <summary>Connects over TCP and says Hello with GameSession's account id and name and the server password.</summary>
+    public async void Connect(string host, int port, string password = "")
     {
         if (Connecting || transport != null) return;
-        Connecting = true; LastError = "";
+        Connecting = true; LastError = ""; ServerName = "";
+        int mine = ++attempt;
         var next = new TcpClientTransport();
         try
         {
             await next.Connect(host, port);
+            if (mine != attempt) { next.Close(); return; }
             transport = next;
-            transport.Send(SyncProtocol.Hello(GameSession.LocalPlayerId, GameSession.LocalPlayerName, Map));
+            transport.Send(SyncProtocol.Hello(GameSession.LocalPlayerId, GameSession.LocalPlayerName, Map, password));
         }
         catch (Exception)
         {
             next.Close();
+            if (mine != attempt) return;
             LastError = "connect_failed";
         }
         Connecting = false;
@@ -84,6 +90,7 @@ public sealed class SyncClient : MonoBehaviour
 
     public void Disconnect()
     {
+        attempt++;
         transport?.Close();
         Closed("");
     }
@@ -189,7 +196,12 @@ public sealed class SyncClient : MonoBehaviour
             using var r = SyncProtocol.Reader(frame);
             switch ((ToClient)r.ReadByte())
             {
-                case ToClient.Welcome: MyConnection = r.ReadUInt32(); MaxPlayers = r.ReadUInt16(); Connected = true; break;
+                case ToClient.Welcome:
+                    MyConnection = r.ReadUInt32(); MaxPlayers = r.ReadUInt16();
+                    string serverName = SyncProtocol.ReadStr(r).Replace("<", "").Replace(">", "");
+                    ServerName = serverName.Length > ServerSettings.NameMax ? serverName.Substring(0, ServerSettings.NameMax) : serverName;
+                    Connected = true;
+                    break;
                 case ToClient.Reject: LastError = ((RejectReason)r.ReadByte()).ToString(); break; // the server closes right after
                 case ToClient.Spawn: OnSpawn(r); break;
                 case ToClient.State: OnState(r); break;

@@ -2,13 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Security.Cryptography;
 using System.Text;
 
 /// <summary>
 /// The sync server (Docs/Multiplayer_Redesign.md 12.1): connections, the entity registry, ownership checks,
 /// map interest, late-join snapshots, leave handling, claims, size and rate limits. No Unity; driven by <see cref="Tick"/>
 /// on one thread. Clients are not trusted: a bad frame rejects and drops that connection only, never throws out of Tick.
-/// Owners never get their own entities echoed back (they made them).
+/// Owners never get their own entities echoed back (they made them). With a password set, a Hello must carry it (12.3).
 /// </summary>
 public sealed class GameServer
 {
@@ -41,10 +42,13 @@ public sealed class GameServer
     readonly Stopwatch clock = Stopwatch.StartNew();
     readonly MemoryStream outStream = new MemoryStream();
     readonly BinaryWriter w;
+    readonly byte[] passwordHash; // null = no password
     uint nextNumber = 1;
     long nextTimeoutCheck;
 
     public int MaxPlayers { get; }
+    /// <summary>Sent in every Welcome.</summary>
+    public string Name { get; }
     public int PlayerCount { get; private set; }
     public int EntityCount => entities.Count;
     /// <summary>Message bytes sent (frame headers not included) and messages sent, for load measurement.</summary>
@@ -56,11 +60,29 @@ public sealed class GameServer
     /// <summary>Warnings (rejects, ignored requests). The Unity host forwards them to the console.</summary>
     public event Action<string> Log;
 
-    public GameServer(IServerTransport transport, int maxPlayers)
+    public GameServer(IServerTransport transport, int maxPlayers, string name = "", string password = "")
     {
         this.transport = transport;
         MaxPlayers = maxPlayers;
+        Name = name ?? "";
+        if (!string.IsNullOrEmpty(password)) passwordHash = Hash(password);
         w = new BinaryWriter(outStream, Encoding.UTF8);
+    }
+
+    static byte[] Hash(string text)
+    {
+        using var sha = SHA256.Create();
+        return sha.ComputeHash(Encoding.UTF8.GetBytes(text ?? ""));
+    }
+
+    // Compares the hashes (always 32 bytes) without stopping early, so the time says nothing about the password or its length.
+    bool PasswordMatches(string given)
+    {
+        if (passwordHash == null) return true;
+        byte[] h = Hash(given);
+        int diff = 0;
+        for (int i = 0; i < h.Length; i++) diff |= h[i] ^ passwordHash[i];
+        return diff == 0;
     }
 
     public void Tick()
@@ -129,14 +151,16 @@ public sealed class GameServer
     void OnHello(Conn c, BinaryReader r)
     {
         ushort version = r.ReadUInt16();
-        string account = SyncProtocol.ReadStr(r), name = SyncProtocol.ReadStr(r), map = SyncProtocol.ReadStr(r);
-        SyncProtocol.End(r);
+        // Before the rest: another version's Hello has another layout (version 1 has no password).
         if (version != SyncProtocol.Version) { Kick(c, RejectReason.Version, "version " + version); return; }
+        string account = SyncProtocol.ReadStr(r), name = SyncProtocol.ReadStr(r), map = SyncProtocol.ReadStr(r), password = SyncProtocol.ReadStr(r);
+        SyncProtocol.End(r);
+        if (!PasswordMatches(password)) { Kick(c, RejectReason.Password, "password"); return; }
         if (PlayerCount >= MaxPlayers) { Kick(c, RejectReason.Full, "full"); return; }
         c.number = nextNumber++;
         c.account = account; c.name = name; c.map = map;
         PlayerCount++;
-        Send(c, Msg(ToClient.Welcome, () => { w.Write(c.number); w.Write((ushort)Math.Min(MaxPlayers, ushort.MaxValue)); }));
+        Send(c, Msg(ToClient.Welcome, () => { w.Write(c.number); w.Write((ushort)Math.Min(MaxPlayers, ushort.MaxValue)); SyncProtocol.WriteStr(w, Name); }));
         byte[] joined = PeerMsg(true, c);
         foreach (var other in conns.Values)
         {

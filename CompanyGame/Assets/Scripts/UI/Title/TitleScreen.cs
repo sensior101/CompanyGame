@@ -6,8 +6,9 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 /// <summary>
-/// The title menu (Scenes/Title.unity): 방 만들기 / 참가하기 / 설정, plus the small screens they lead to
-/// (name sign-up, room code entry, room list, errors, confirmations). Built in code with uGUI; keyboard (arrows/Tab/Enter/Esc) and mouse both work.
+/// The title menu (Scenes/Title.unity): 서버 열기 / 참가하기 / 설정 (the sync layer, Docs/Multiplayer_Redesign.md 12.3) and,
+/// under 옛 방식(개발용), the old Cloudflare/Steam rooms (방 만들기 / 참가하기 / 연결 방식) until stage 4, plus the small screens
+/// they lead to (name sign-up, room code entry, room list, errors, confirmations). Built in code with uGUI; keyboard (arrows/Tab/Enter/Esc) and mouse both work.
 /// All real work is in <see cref="TitleFlow"/>.
 /// </summary>
 public sealed class TitleScreen : MonoBehaviour
@@ -21,7 +22,7 @@ public sealed class TitleScreen : MonoBehaviour
     RectTransform content, logo;
     TMP_Text footer;
     Action back;
-    bool busy, worldReady, pendingNew;
+    bool busy, worldReady, pendingNew, oldFooter;
     string screen = "";
     RectTransform roomList;
     TMP_Text roomHint;
@@ -94,9 +95,13 @@ public sealed class TitleScreen : MonoBehaviour
         logo.gameObject.SetActive(withLogo);
         content.sizeDelta = new Vector2(width, 0);
         content.anchoredPosition = new Vector2(0, withLogo ? -420 : -60);
+        // The new menus (12.3) do not use the old Cloudflare/Steam rooms, so only the old ones show that connection.
+        // Shared screens (busy, error, name, settings, confirm) keep the footer of the flow they came from.
+        if (name == "main" || name.StartsWith("server")) oldFooter = false;
+        else if (name == "legacy" || name == "create" || name == "join" || name == "rooms") oldFooter = true;
         // The server address is only worth showing when it is not the built-in one (or the built-in one is still a placeholder).
         bool steam = NetMode.IsSteam;
-        string server = steam ? "   ·   Steam 개발 모드" : LocalAccount.IsCustomUrl ? "   ·   서버 " + LocalAccount.ServerUrl : ServerConfig.IsPlaceholder ? "   ·   서버 주소 미설정" : "";
+        string server = !oldFooter ? "" : steam ? "   ·   Steam 개발 모드" : LocalAccount.IsCustomUrl ? "   ·   서버 " + LocalAccount.ServerUrl : ServerConfig.IsPlaceholder ? "   ·   서버 주소 미설정" : "";
         footer.text = "프로필 슬롯 " + ProfileSlot.Slot + server;
     }
 
@@ -128,12 +133,155 @@ public sealed class TitleScreen : MonoBehaviour
         worldReady = false;
         var net = NetSession.Instance;
         if (net && net.Connected) net.Disconnect();
-        TitleUi.Button(content, "방 만들기", ShowCreate, 76, true, 36);
-        TitleUi.Button(content, "참가하기", StartJoin, 76, true, 36);
+        TitleUi.Button(content, "서버 열기", () => ShowServerOpen(), 76, true, 36);
+        TitleUi.Button(content, "참가하기", () => ShowServerJoin(), 76, true, 36);
         TitleUi.Button(content, "설정", () => ShowSettings(), 76, true, 36);
         TitleUi.Button(content, "종료", Quit, 60, false, 28);
-        TitleUi.Button(content, "연결 방식: " + NetMode.Label + " (바꾸기)", () => { NetMode.IsSteam = !NetMode.IsSteam; ShowMain(); }, 44, false, 22);
+        TitleUi.Button(content, "옛 방식(개발용)", ShowLegacy, 44, false, 22);
         Focus();
+    }
+
+    /// <summary>The old Cloudflare/Steam room menu, kept for development until stage 4.</summary>
+    public void ShowLegacy()
+    {
+        Begin("legacy", true, 560, ShowMain);
+        worldReady = false;
+        var net = NetSession.Instance;
+        if (net && net.Connected) net.Disconnect();
+        TitleUi.Label(content, "옛 방식(개발용)", 26, TitleUi.Muted);
+        TitleUi.Button(content, "방 만들기", ShowCreate, 76, true, 36);
+        TitleUi.Button(content, "참가하기", StartJoin, 76, true, 36);
+        TitleUi.Button(content, "연결 방식: " + NetMode.Label + " (바꾸기)", () => { NetMode.IsSteam = !NetMode.IsSteam; ShowLegacy(); }, 44, false, 22);
+        TitleUi.Button(content, "뒤로", ShowMain, 56, false, 26);
+        Focus();
+    }
+
+    // ---- 서버 열기 ----
+
+    ServerSettings draft;
+    bool openAdvanced;
+
+    /// <summary>Settings for my server, or (PC) the running server with 접속 / 끄기.</summary>
+    public void ShowServerOpen() => ShowServerOpen(null);
+
+    void ShowServerOpen(ServerSettings settings)
+    {
+        var running = LocalServerProcess.CanStart ? LocalServerProcess.Running() : null;
+        if (running != null) { ShowServerRunning(running); return; }
+        draft = (settings ?? ServerSettings.Load()).Clamp();
+        Begin("serveropen", false, 820, ShowMain);
+        var panel = Panel("서버 열기", ServerSettings.IsMobile
+            ? "이 폰이 서버가 됩니다. 앱을 나가면 서버도 꺼집니다."
+            : LocalServerProcess.CanStart ? "이 PC에서 서버가 따로 돌아갑니다. 게임을 꺼도 서버는 계속 켜져 있습니다." : "에디터에서는 게임 안에서 서버를 엽니다.");
+
+        TitleUi.Label(panel, "서버 이름", 24, TitleUi.Muted, TextAlignmentOptions.MidlineLeft);
+        var nameInput = TitleUi.Input(panel, "서버 이름 (1~30자)", ServerSettings.NameMax);
+        nameInput.text = draft.name;
+
+        var countRow = TitleUi.Row(panel, 56, 12, false);
+        var less = TitleUi.Button(countRow, "◀", null, 56, false, 26);
+        var countLabel = TitleUi.Label(countRow, "", 28, TitleUi.Cream);
+        var more = TitleUi.Button(countRow, "▶", null, 56, false, 26);
+        TitleUi.Width(less, 90); TitleUi.Width(more, 90); TitleUi.Width(countLabel, 0, 1);
+        Action showCount = () => countLabel.text = "인원 " + draft.maxPlayers + "명 <size=22><color=#C9C3D9>(" + ServerSettings.MinPlayers + "~" + ServerSettings.PlayerLimit + ")</color></size>";
+        less.onClick.AddListener(() => { draft.maxPlayers = Mathf.Max(ServerSettings.MinPlayers, draft.maxPlayers - 1); showCount(); });
+        more.onClick.AddListener(() => { draft.maxPlayers = Mathf.Min(ServerSettings.PlayerLimit, draft.maxPlayers + 1); showCount(); });
+        showCount();
+
+        var publicRow = TitleUi.Row(panel, 56);
+        var priv = TitleUi.Button(publicRow, "", null, 56, false, 26);
+        var pub = TitleUi.Button(publicRow, "", null, 56, false, 26);
+        Action showPublic = () => { SetLabel(priv, (draft.isPublic ? "○" : "●") + " 비공개"); SetLabel(pub, (draft.isPublic ? "●" : "○") + " 공개"); };
+        priv.onClick.AddListener(() => { draft.isPublic = false; showPublic(); });
+        pub.onClick.AddListener(() => { draft.isPublic = true; showPublic(); });
+        showPublic();
+        TitleUi.Label(panel, "공개 서버 목록은 아직 준비 중입니다. 지금은 공개여도 주소로만 들어올 수 있습니다.", 22, TitleUi.Muted, TextAlignmentOptions.MidlineLeft);
+
+        TitleUi.Label(panel, "비밀번호 (비워 두면 누구나 들어옴)", 24, TitleUi.Muted, TextAlignmentOptions.MidlineLeft);
+        var passwordInput = TitleUi.Input(panel, "비밀번호 (선택, 32자까지)", ServerSettings.PasswordMax);
+        passwordInput.text = draft.password;
+
+        TMP_InputField portInput = null;
+        Action capture = () =>
+        {
+            draft.name = nameInput.text; draft.password = passwordInput.text;
+            if (portInput && int.TryParse(portInput.text, out int port)) draft.port = port;
+        };
+        TitleUi.Button(panel, openAdvanced ? "고급 접기" : "고급 ▶", () => { capture(); openAdvanced = !openAdvanced; ShowServerOpen(draft); }, 48, false, 24);
+        if (openAdvanced)
+        {
+            var portRow = TitleUi.Row(panel, 56, 12, false);
+            TitleUi.Width(TitleUi.Label(portRow, "포트", 24, TitleUi.Muted, TextAlignmentOptions.MidlineLeft), 120);
+            portInput = TitleUi.Input(portRow, "1024~65535", 5, null, 56);
+            portInput.contentType = TMP_InputField.ContentType.IntegerNumber;
+            portInput.text = draft.port.ToString();
+            TitleUi.Width(portInput, 0, 1);
+        }
+        TitleUi.Button(panel, "서버 시작", () => { capture(); RunOpenServer(draft.Clamp()); }, 72, true, 34);
+        TitleUi.Button(panel, "뒤로", ShowMain, 56, false, 26);
+        Focus();
+    }
+
+    void ShowServerRunning(LocalServerProcess.RunningInfo running)
+    {
+        Begin("serverrunning", true, 760, ShowMain);
+        var settings = ServerSettings.Load();
+        var panel = Panel("내 서버 실행 중 (포트 " + running.port + ")", settings.name + " · 최대 " + settings.maxPlayers + "명" + (settings.password.Length > 0 ? " · 비밀번호 있음" : ""));
+        TitleUi.Label(panel, "게임을 꺼도 서버는 계속 돕니다.\n다른 사람은 이 PC 주소의 " + running.port + "번 포트로 들어옵니다.", 23, TitleUi.Muted);
+        TitleUi.Button(panel, "접속", () => RunJoinServer("127.0.0.1:" + running.port, settings.password, ShowServerOpen, false), 72, true, 34);
+        TitleUi.Button(panel, "끄기", () => { LocalServerProcess.Stop(); ShowServerOpen(); }, 60, true, 28);
+        TitleUi.Button(panel, "뒤로", ShowMain, 56, false, 26);
+        Focus();
+    }
+
+    async void RunOpenServer(ServerSettings settings)
+    {
+        ShowBusy("서버를 여는 중…");
+        string error = await TitleFlow.OpenServer(settings);
+        if (!this) return;
+        if (error != null) ShowError(error, () => RunOpenServer(settings), () => ShowServerOpen(settings), null);
+    }
+
+    // ---- 참가하기 (server address) ----
+
+    public void ShowServerJoin() => ShowServerJoin(null);
+
+    void ShowServerJoin(string address)
+    {
+        Begin("serverjoin", true, 760, ShowMain);
+        var panel = Panel("참가하기", "서버 주소를 입력하세요. 포트를 빼면 " + ServerSettings.DefaultPort + "번으로 접속합니다.");
+        var addressInput = TitleUi.Input(panel, "주소 (예: 192.168.0.5:7777)", 120);
+        addressInput.text = address ?? "";
+        var passwordInput = TitleUi.Input(panel, "비밀번호 (없으면 비워 두기)", ServerSettings.PasswordMax);
+        passwordInput.contentType = TMP_InputField.ContentType.Password;
+        var hint = TitleUi.Label(panel, " ", 24, TitleUi.Warn);
+        Action submit = () =>
+        {
+            string typed = addressInput.text.Trim();
+            if (!TitleFlow.TryParseAddress(typed, out _, out _)) { hint.text = TitleFlow.Message("bad_address"); return; }
+            RunJoinServer(typed, passwordInput.text, () => ShowServerJoin(typed), true);
+        };
+        addressInput.onSubmit.AddListener(_ => submit());
+        passwordInput.onSubmit.AddListener(_ => submit());
+        TitleUi.Button(panel, "접속", () => submit(), 72, true, 34);
+        var recent = ServerSettings.Recent;
+        if (recent.Count > 0)
+        {
+            TitleUi.Label(panel, "최근 접속한 주소", 22, TitleUi.Muted, TextAlignmentOptions.MidlineLeft);
+            foreach (string r in recent) TitleUi.Button(panel, r, () => addressInput.text = r, 46, false, 24);
+        }
+        TitleUi.Button(panel, "뒤로", ShowMain, 56, false, 26);
+        if (EventSystem.current) EventSystem.current.SetSelectedGameObject(addressInput.gameObject);
+        addressInput.ActivateInputField();
+    }
+
+    // A wrong password gets no retry button: 뒤로 goes back to the form to type it again.
+    async void RunJoinServer(string address, string password, Action from, bool remember)
+    {
+        ShowBusy("서버에 접속하는 중…");
+        string error = await TitleFlow.JoinServer(address, password, remember);
+        if (!this) return;
+        if (error != null) ShowError(error, error == "Password" ? null : (Action)(() => RunJoinServer(address, password, from, remember)), from, null);
     }
 
     // ---- Steam friend invite ----
@@ -145,7 +293,7 @@ public sealed class TitleScreen : MonoBehaviour
         ShowBusy("친구의 방에 들어가는 중…");
         string error = await TitleFlow.JoinInvite(lobbyId);
         if (!this) return;
-        if (error != null) ShowError(error, () => JoinFromInvite(lobbyId), ShowMain, null);
+        if (error != null) ShowError(error, () => JoinFromInvite(lobbyId), ShowLegacy, null);
     }
 
     static void Quit()
@@ -161,7 +309,7 @@ public sealed class TitleScreen : MonoBehaviour
 
     public void ShowCreate()
     {
-        Begin("create", true, 700, ShowMain);
+        Begin("create", true, 700, ShowLegacy);
         worldReady = false;
         var panel = Panel("방 만들기", "새 월드를 시작하거나, 저장된 월드를 이어서 합니다.");
         TitleUi.Button(panel, "신규 월드 시작", OnNewWorld, 76, true, 32);
@@ -171,7 +319,7 @@ public sealed class TitleScreen : MonoBehaviour
             : "저장된 월드가 없습니다";
         var existing = TitleUi.Button(panel, label, () => BeginCreate(false), 96, true, 32);
         existing.interactable = has;
-        TitleUi.Button(panel, "뒤로", ShowMain, 56, false, 26);
+        TitleUi.Button(panel, "뒤로", ShowLegacy, 56, false, 26);
         Focus();
     }
 
@@ -241,14 +389,14 @@ public sealed class TitleScreen : MonoBehaviour
         if (error == null) error = await TitleFlow.Connect();
         if (!this) return;
         if (error == null) { TitleFlow.PrepareForJoin(); ShowJoin(); return; }
-        ShowError(error, RunJoin, ShowMain, null);
+        ShowError(error, RunJoin, ShowLegacy, null);
     }
 
     void LeaveJoin()
     {
         var net = NetSession.Instance;
         if (net) net.Disconnect();
-        ShowMain();
+        ShowLegacy();
     }
 
     /// <summary>The main join screen: type (or paste) the 6-character room code. The room list is the secondary option.</summary>
@@ -322,7 +470,7 @@ public sealed class TitleScreen : MonoBehaviour
         if (!net.Connected)
         {
             string error = string.IsNullOrEmpty(net.LastError) ? "disconnected" : net.LastError;
-            ShowError(error, RunJoin, ShowMain, null);
+            ShowError(error, RunJoin, ShowLegacy, null);
             return;
         }
         if (screen != "rooms") return;
@@ -361,7 +509,7 @@ public sealed class TitleScreen : MonoBehaviour
         if (!this) return;
         if (error == null) error = await TitleFlow.LoadCharacter();
         if (!this) return;
-        Action back = () => { var n = NetSession.Instance; if (n && n.InRoom) n.Leave(); if (n && n.Connected) from(); else ShowMain(); };
+        Action back = () => { var n = NetSession.Instance; if (n && n.InRoom) n.Leave(); if (n && n.Connected) from(); else ShowLegacy(); };
         if (error == null && !GameSession.HasCharacter)
         {
             ShowName(CharacterHint, (name, gender) => { TitleFlow.CreateCharacter(name, gender); EnterMap(back); }, back);
@@ -427,7 +575,7 @@ public sealed class TitleScreen : MonoBehaviour
         if (offline != null) TitleUi.Button(panel, "오프라인으로 시작", offline, 64, true, 30);
         bool unreachable = code == "network" || code == "timeout" || code == "connect_failed" || code == "bad_url";
         if (code == ServerBudget.Code || code.StartsWith("steam_"))
-            TitleUi.Button(panel, NetMode.IsSteam ? "Cloudflare 서버 모드로 바꾸기" : "Steam 모드로 바꾸기", () => { NetMode.IsSteam = !NetMode.IsSteam; ShowMain(); }, 56, false, 26);
+            TitleUi.Button(panel, NetMode.IsSteam ? "Cloudflare 서버 모드로 바꾸기" : "Steam 모드로 바꾸기", () => { NetMode.IsSteam = !NetMode.IsSteam; ShowLegacy(); }, 56, false, 26);
         if (unreachable && !NetMode.IsSteam && (LocalAccount.IsCustomUrl || ServerConfig.IsPlaceholder)) // with the built-in server the address is not the player's problem
             TitleUi.Button(panel, "서버 주소 설정", () => ShowSettings(() => onBack?.Invoke(), true), 56, false, 26);
         TitleUi.Button(panel, "뒤로", () => onBack?.Invoke(), 56, false, 26);
@@ -536,6 +684,9 @@ public sealed class TitleScreen : MonoBehaviour
         switch (which)
         {
             case "main": ShowMain(); break;
+            case "legacy": ShowLegacy(); break;
+            case "serveropen": ShowServerOpen(); break;
+            case "serverjoin": ShowServerJoin(); break;
             case "create": ShowCreate(); break;
             case "settings": ShowSettings(); break;
             case "settings-advanced": ShowSettings(null, true); break;

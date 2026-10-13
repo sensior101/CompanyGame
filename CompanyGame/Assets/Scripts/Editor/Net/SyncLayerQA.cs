@@ -14,8 +14,8 @@ using Debug = UnityEngine.Debug;
 using Object = UnityEngine.Object;
 
 /// <summary>
-/// QA of the sync layer (Docs/Multiplayer_Redesign.md 12.1).
-///   -executeMethod SyncLayerQA.Run         in-memory server, checklist 1-12 and the position State size (with -quit)
+/// QA of the sync layer (Docs/Multiplayer_Redesign.md 12.1, password and server name 12.3).
+///   -executeMethod SyncLayerQA.Run         in-memory server, checklist 1-12, the position State size and the password (with -quit)
 ///   -executeMethod SyncLayerQA.RunLoad     49 and 9 in-memory fake clients at 10Hz for 10s, numbers only (with -quit)
 ///   -executeMethod SyncLayerQA.RunProcess  builds a Windows player to Builds/SyncLayerQA, runs it as -gameserver,
 ///                                          two fake TCP clients see each other (with -quit)
@@ -40,6 +40,7 @@ public static class SyncLayerQA
     {
         checks = 0;
         Handshake();
+        Password();
         Interest();
         BadInput();
         Codec();
@@ -56,7 +57,7 @@ public static class SyncLayerQA
         Check(b.Has(m => m.kind == ToClient.Peer && m.joined && m.number == a.number), "1 the newcomer hears Peer(in) for who is already there");
 
         var old = Connect();
-        old.Send(SyncProtocol.Hello("x", "Old", "m1", 99));
+        old.Send(SyncProtocol.Hello("x", "Old", "m1", version: 99));
         Step(old);
         Check(Rejected(old, RejectReason.Version), "1 another protocol version → Reject(Version) and closed");
 
@@ -65,6 +66,42 @@ public static class SyncLayerQA
         Step(third);
         Check(Rejected(third, RejectReason.Full), "2 over the maximum → Reject(Full) and closed");
         Check(server.PlayerCount == 2, "2 rejected sockets are not counted");
+    }
+
+    // 12.3: password and server name (protocol version 2)
+    static void Password()
+    {
+        NewServer(4, name: "QA서버", password: "비밀1234");
+        var wrong = Connect();
+        wrong.Send(SyncProtocol.Hello("w", "W", "m1", "비밀123"));
+        var longer = Connect();
+        longer.Send(SyncProtocol.Hello("l", "L", "m1", "비밀12345"));
+        var empty = Connect();
+        empty.Send(SyncProtocol.Hello("e", "E", "m1"));
+        Step(wrong, longer, empty);
+        Check(Rejected(wrong, RejectReason.Password) && Rejected(longer, RejectReason.Password) && Rejected(empty, RejectReason.Password),
+            "pw a wrong, longer or empty password → Reject(Password) and closed");
+        Check(server.PlayerCount == 0, "pw rejected passwords are not counted");
+        var right = Connect();
+        right.Send(SyncProtocol.Hello("r", "R", "m1", "비밀1234"));
+        Step(right);
+        var welcome = right.Take(m => m.kind == ToClient.Welcome);
+        Check(welcome != null && right.client.IsOpen, "pw the right password → Welcome");
+        Check(welcome.name == "QA서버", "pw the Welcome carries the server name (" + welcome.name + ")");
+
+        NewServer(4, name: "열린 서버");
+        var any = Connect();
+        any.Send(SyncProtocol.Hello("a", "A", "m1", "아무거나"));
+        var none = Connect();
+        none.Send(SyncProtocol.Hello("n", "N", "m1"));
+        Step(any, none);
+        Check(any.Has(m => m.kind == ToClient.Welcome && m.name == "열린 서버") && none.Has(m => m.kind == ToClient.Welcome),
+            "pw a server without a password lets any password (and none) in");
+
+        var v1 = Connect();
+        v1.Send(SyncProtocol.Build((byte)ToServer.Hello, w => { w.Write((ushort)1); SyncProtocol.WriteStr(w, "v1"); SyncProtocol.WriteStr(w, "V1"); SyncProtocol.WriteStr(w, "m1"); }));
+        Step(v1);
+        Check(Rejected(v1, RejectReason.Version), "pw a version 1 Hello (no password field) → Reject(Version), not Malformed");
     }
 
     static void Interest()
@@ -462,7 +499,7 @@ public static class SyncLayerQA
 
         // A map change between Hello and Welcome must still reach the server. The server is not ticked until the Hello
         // is out, so the Welcome cannot arrive before SetMap.
-        var host = SyncHost.StartInApp(0, 8);
+        var host = SyncHost.StartInApp(new ServerSettings { port = 0, maxPlayers = 8 });
         host.enabled = false;
         await WaitFor(() => !client.Connecting, 5, "the SyncClient socket and its Hello");
         Check(!client.Connected && client.LastError == "", "Hello sent, no Welcome yet");
@@ -576,10 +613,10 @@ public static class SyncLayerQA
 
     // ================= helpers =================
 
-    static void NewServer(int max, bool quiet = false)
+    static void NewServer(int max, bool quiet = false, string name = "", string password = "")
     {
         loopback = new LoopbackTransport();
-        server = new GameServer(loopback, max);
+        server = new GameServer(loopback, max, name, password);
         if (!quiet) server.Log += m => Debug.Log("[SyncLayerQA] server: " + m);
     }
 
@@ -701,7 +738,7 @@ public static class SyncLayerQA
             var m = new QaMsg { kind = (ToClient)r.ReadByte(), size = frame.Length };
             switch (m.kind)
             {
-                case ToClient.Welcome: m.number = r.ReadUInt32(); r.ReadUInt16(); break;
+                case ToClient.Welcome: m.number = r.ReadUInt32(); r.ReadUInt16(); m.name = SyncProtocol.ReadStr(r); break;
                 case ToClient.Reject: m.reason = (RejectReason)r.ReadByte(); break;
                 case ToClient.Spawn:
                     m.id = r.ReadUInt64(); m.owner = r.ReadUInt32(); m.key = SyncProtocol.ReadStr(r); m.map = SyncProtocol.ReadStr(r);

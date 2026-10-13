@@ -23,16 +23,16 @@ public enum EntityFlags : byte
 /// <summary>Who receives an entity event: its owner, everyone on its map (sender included), or the server's ServerEvent.</summary>
 public enum EventTarget : byte { Owner = 0, Map = 1, Server = 2 }
 
-public enum RejectReason : byte { Version = 1, Full = 2, Malformed = 3, Rate = 4 }
+public enum RejectReason : byte { Version = 1, Full = 2, Malformed = 3, Rate = 4, Password = 5 }
 
 /// <summary>
-/// Binary sync protocol (Docs/Multiplayer_Redesign.md 12.1). Little-endian; str = u16 byte length + UTF-8, blob = u16 length + bytes.
+/// Binary sync protocol (Docs/Multiplayer_Redesign.md 12.1; version 2 adds the Hello password and the Welcome server name, 12.3). Little-endian; str = u16 byte length + UTF-8, blob = u16 length + bytes.
 /// Entity id = (connection number u32 &lt;&lt; 32) | serial u32, so a client makes ids without a round trip.
 /// The builders below write the client → server messages (SyncClient and the QA fake clients share them).
 /// </summary>
 public static class SyncProtocol
 {
-    public const ushort Version = 1;
+    public const ushort Version = 2;
     public const int MaxFrame = 16 * 1024, MaxBlob = 4 * 1024, MaxFramesPerSecond = 300, MaxEntitiesPerConnection = 256;
 
     public static ulong MakeId(uint connection, uint serial) => (ulong)connection << 32 | serial;
@@ -88,8 +88,8 @@ public static class SyncProtocol
         return stream.ToArray();
     }
 
-    public static byte[] Hello(string account, string name, string map, ushort version = Version) =>
-        Build((byte)ToServer.Hello, w => { w.Write(version); WriteStr(w, account); WriteStr(w, name); WriteStr(w, map); });
+    public static byte[] Hello(string account, string name, string map, string password = "", ushort version = Version) =>
+        Build((byte)ToServer.Hello, w => { w.Write(version); WriteStr(w, account); WriteStr(w, name); WriteStr(w, map); WriteStr(w, password); });
 
     public static byte[] Spawn(ulong id, string prefabKey, string map, EntityFlags flags, byte[][] blobs) =>
         Build((byte)ToServer.Spawn, w =>

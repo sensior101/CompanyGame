@@ -114,6 +114,14 @@ public static class TitleFlowQA
         await Awaitable.NextFrameAsync();
     }
 
+    // Since 12.3 the old rooms (방 만들기 / 참가하기) are under 옛 방식(개발용): go through it from the main menu.
+    static async Task ClickOld(string label)
+    {
+        await WaitFor(() => Screen && !Screen.Busy, 15, "screen not busy before clicking " + label);
+        if (Screen.Screen == "main") await Click("옛 방식");
+        await Click(label);
+    }
+
     static async Task TypeName(string name)
     {
         await WaitFor(() => Screen && Screen.Screen == "name", 15, "name screen");
@@ -143,7 +151,7 @@ public static class TitleFlowQA
         Check(ProfileSlot.Slot == 3, "QA runs in profile slot 3");
         CheckConfig(server);
         LocalAccount.ServerUrl = server;
-        foreach (string label in new[] { "방 만들기", "참가하기", "설정" })
+        foreach (string label in new[] { "서버 열기", "참가하기", "설정", "옛 방식(개발용)" })
             Check(HasButton(label), "main menu has '" + label + "'");
         await CheckSettings(server);
 
@@ -152,7 +160,7 @@ public static class TitleFlowQA
         string oldId = WorldSave.WorldId;
 
         // 1) 방 만들기 -> 신규 -> confirm -> silent sign-up -> connect -> character for the new world -> create room -> map
-        await Click("방 만들기");
+        await ClickOld("방 만들기");
         await Click("신규 월드");
         Check(Screen.Screen == "confirm", "new world asks before replacing the existing one");
         await Click("새로 시작");
@@ -214,7 +222,7 @@ public static class TitleFlowQA
         Check(!RoomCodeCard.Instance.Shown, "no code card on the title");
 
         // 2) 방 만들기 -> 기존 -> same account, same world
-        await Click("방 만들기");
+        await ClickOld("방 만들기");
         Check(HasButton("기존 월드 이어하기"), "existing world is offered");
         await Click("기존 월드 이어하기");
         await WaitFor(() => InGame, 90, "continuing the existing world");
@@ -259,7 +267,7 @@ public static class TitleFlowQA
             await rawGuest.Connect();
             Check((await rawGuest.JoinRoom(rid)).t == "joined", "raw guest took the second seat: the room is full");
 
-            await Click("참가하기");
+            await ClickOld("참가하기");
             await WaitFor(() => Screen && Screen.Screen == "join", 30, "join-by-code screen (no name asked before a room is chosen)");
             Check(HasButton("방 목록 보기") && Screen.FirstInput() != null, "join screen: code field with the room list as the secondary option");
             var slot4 = LocalAccount.Find(server);
@@ -311,7 +319,7 @@ public static class TitleFlowQA
             await ReturnToTitle();
 
             // the room list still works as the secondary way in
-            await Click("참가하기");
+            await ClickOld("참가하기");
             await WaitFor(() => Screen && Screen.Screen == "join", 30, "join screen again (saved account, no name asked)");
             await Click("방 목록 보기");
             await WaitFor(() => Screen && Screen.Screen == "rooms" && Array.Exists(net.Rooms, r => r.rid == rid) && HasButton("참가"), 15, "room list with the remote room");
@@ -408,7 +416,7 @@ public static class TitleFlowQA
     {
         LocalAccount.ServerUrl = Server;
         Check(OnTitle, "on the title");
-        await Click("방 만들기");
+        await ClickOld("방 만들기");
         await Click("신규 월드");
         await WaitFor(() => Screen && Screen.Screen == "error", 30, "error screen for the dead server");
         Check(HasButton("오프라인으로 시작") && HasButton("다시 시도"), "error screen offers retry and the offline start");
@@ -419,7 +427,7 @@ public static class TitleFlowQA
         Check(!string.IsNullOrEmpty(GameSession.LocalPlayerName), "offline player has a name");
         Check(File.Exists(WorldSave.Path), "offline new world written to disk");
         await ReturnToTitle();
-        await Click("방 만들기");
+        await ClickOld("방 만들기");
         Check(HasButton("기존 월드 이어하기"), "existing offline world is offered afterwards");
     }
 }

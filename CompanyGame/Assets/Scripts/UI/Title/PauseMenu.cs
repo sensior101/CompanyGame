@@ -6,8 +6,9 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 /// <summary>
-/// In-game ESC menu: continue, room info, hand the host role to another player, leave the room (back to the title)
-/// and quit. The game keeps running underneath (it is a multiplayer game, so there is no real pause).
+/// In-game ESC menu: continue, room or server info, hand the host role to another player, leave the room or server
+/// (back to the title; TitleFlow.ReturnToTitle also stops an in-app server, never a PC server process) and quit.
+/// The game keeps running underneath (it is a multiplayer game, so there is no real pause).
 /// Opens only when ESC is pressed while the player could move at the start of the frame, so ESC that closes the
 /// inventory, a shop, the phone, chat or a dialogue never also opens this menu. Created automatically.
 /// </summary>
@@ -108,7 +109,8 @@ public sealed class PauseMenu : MonoBehaviour
         var resume = TitleUi.Button(panel, "계속하기", Close, 64, true, 30);
         if (inRoom && net.IsSteam) TitleUi.Button(panel, "친구 초대 (Steam)", () => net.InviteFriends(), 64, true, 30);
         if (inRoom && net.IsHost && net.Peers.Count > 1) TitleUi.Button(panel, "방장 넘기기", ShowTransfer, 64, true, 30);
-        TitleUi.Button(panel, inRoom ? "방 나가기 (타이틀로)" : "타이틀로", Leave, 64, true, 30);
+        bool onServer = SyncClient.Instance && SyncClient.Instance.Connected;
+        TitleUi.Button(panel, inRoom ? "방 나가기 (타이틀로)" : onServer ? "서버 나가기 (타이틀로)" : "타이틀로", Leave, 64, true, 30);
         TitleUi.Button(panel, "게임 종료", Quit, 56, false, 26);
         RefreshNote();
         if (EventSystem.current) EventSystem.current.SetSelectedGameObject(resume.gameObject); // Enter continues, not copies
@@ -118,7 +120,9 @@ public sealed class PauseMenu : MonoBehaviour
     {
         if (!note) return;
         var net = NetSession.Instance;
+        var sync = SyncClient.Instance;
         string text = "오프라인 (혼자 플레이)";
+        if (sync && sync.Connected) text = "서버: " + sync.ServerName + (SyncHost.Instance && SyncHost.Instance.InApp ? " (내가 연 서버)" : "");
         if (net && net.InRoom)
             text = (net.IsHost ? "방장" : "참가자") + " · " + net.Peers.Count + "명" + (string.IsNullOrEmpty(net.StatusText) ? "" : "\n" + net.StatusText);
         if (notice != null) text += "\n<color=#FF9A8A>" + notice + "</color>";
