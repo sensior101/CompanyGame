@@ -14,13 +14,17 @@ public static class GameSession
     // remembered on this PC, so the same person keeps the same owner id offline and in rooms.
     static string AccountIdKey => ProfileSlot.Key("Session.AccountId");
     static string AccountNameKey => ProfileSlot.Key("Session.AccountName");
-    static string offlineName = "Player", guid, accountId, accountName;
+    static string offlineName = "Player", guid, accountId, accountName, characterName, characterGender;
     static bool accountLoaded;
 
     /// <summary>The name ownership and system messages use. Account nickname once logged in on this PC.</summary>
     public static string LocalPlayerName
     {
-        get { LoadAccount(); return HasAccount && !string.IsNullOrEmpty(accountName) ? accountName : offlineName; }
+        get
+        {
+            if (!string.IsNullOrEmpty(characterName)) return characterName;
+            LoadAccount(); return HasAccount && !string.IsNullOrEmpty(accountName) ? accountName : offlineName;
+        }
         set => offlineName = value;
     }
 
@@ -62,6 +66,16 @@ public static class GameSession
         AccountChanged?.Invoke(old, id);
     }
 
+    /// <summary>
+    /// The character of the room's world: every world has its own name and look per account (saved with the
+    /// per-world player state). While set it is the name everyone sees and ownership uses. Cleared on leaving the room.
+    /// </summary>
+    public static void SetCharacter(string name, string gender) { characterName = name; characterGender = gender == "female" ? "female" : "male"; }
+    public static void ClearCharacter() { characterName = characterGender = null; }
+    public static bool HasCharacter => !string.IsNullOrEmpty(characterName);
+    /// <summary>"male" / "female" while a character is set, else null.</summary>
+    public static string CharacterGender => characterGender;
+
     /// <summary>Forget the cached account so the next read comes from PlayerPrefs again (tests).</summary>
     public static void ReloadAccount() { accountLoaded = false; guid = null; }
 
@@ -81,7 +95,7 @@ public static class GameSession
     }
 
     [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.SubsystemRegistration)]
-    static void ResetStatics() { guid = null; accountId = accountName = null; accountLoaded = false; AccountChanged = null; }
+    static void ResetStatics() { guid = null; accountId = accountName = characterName = characterGender = null; accountLoaded = false; AccountChanged = null; }
 
     /// <summary>True where economy, time and events are computed. Gate every simulation write on this.</summary>
     public static bool IsAuthority => Mode != SessionMode.Client;

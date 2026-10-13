@@ -97,9 +97,7 @@ public sealed class TitleScreen : MonoBehaviour
         // The server address is only worth showing when it is not the built-in one (or the built-in one is still a placeholder).
         bool steam = NetMode.IsSteam;
         string server = steam ? "   ·   Steam 개발 모드" : LocalAccount.IsCustomUrl ? "   ·   서버 " + LocalAccount.ServerUrl : ServerConfig.IsPlaceholder ? "   ·   서버 주소 미설정" : "";
-        string nick = TitleFlow.HasAccount ? TitleFlow.Account.nickname : "";
-        footer.text = "프로필 슬롯 " + ProfileSlot.Slot + server
-            + (string.IsNullOrEmpty(nick) ? "   ·   이름 미설정" : "   ·   이름 " + nick);
+        footer.text = "프로필 슬롯 " + ProfileSlot.Slot + server;
     }
 
     // A rounded dark panel (title + children) for every sub screen.
@@ -187,65 +185,63 @@ public sealed class TitleScreen : MonoBehaviour
     void BeginCreate(bool newWorld)
     {
         pendingNew = newWorld; worldReady = false;
-        if (TitleFlow.HasAccount) RunCreate(null, null);
-        else ShowName("이름을 정하면 서버에 계정이 자동으로 만들어집니다.", RunCreate, ShowCreate);
+        RunCreate();
     }
 
-    async void RunCreate(string name, string gender)
+    // The world is chosen first, so its character is known before the room exists: an old one comes back, a new one is made here.
+    async void RunCreate()
     {
         ShowBusy("서버에 접속하는 중…");
-        string error = await TitleFlow.SignIn(name, gender);
+        string error = await TitleFlow.SignIn(null, null);
         if (!this) return;
         if (error == null) error = await TitleFlow.Connect();
         if (!this) return;
         if (error == null && !worldReady) { error = TitleFlow.PrepareWorld(pendingNew); worldReady = error == null; }
-        if (error == null)
-        {
-            ShowBusy("방을 만드는 중…");
-            error = await TitleFlow.HostOnline(RoomName());
-            if (!this) return;
-        }
-        if (error == null) { ShowBusy("맵을 불러오는 중…"); if (!TitleFlow.EnterGame()) error = "load_failed"; }
-        if (error != null) FailCreate(error, name, gender);
+        if (error == null) error = await TitleFlow.LoadCharacter();
+        if (!this) return;
+        if (error != null) { FailCreate(error); return; }
+        if (GameSession.HasCharacter) Host();
+        else ShowName(CharacterHint, (name, gender) => { TitleFlow.CreateCharacter(name, gender); Host(); }, ShowCreate);
     }
 
-    string RoomName() => (TitleFlow.Account?.nickname ?? "플레이어") + "의 방";
-
-    void FailCreate(string error, string name, string gender)
+    async void Host()
     {
-        if (NeedsNewName(error)) { ShowName(TitleFlow.Message(error), RunCreate, ShowCreate); return; }
-        ShowError(error, () => RunCreate(name, gender), ShowCreate, () => OfflineStart(name));
+        ShowBusy("방을 만드는 중…");
+        string error = await TitleFlow.HostOnline(GameSession.LocalPlayerName + "의 방");
+        if (!this) return;
+        if (error == null) { ShowBusy("맵을 불러오는 중…"); if (!TitleFlow.EnterGame()) error = "load_failed"; }
+        if (error != null) FailCreate(error);
+    }
+
+    const string CharacterHint = "이 방에서 살아갈 캐릭터의 이름과 성별을 정하세요.\n방(월드)마다 캐릭터가 따로이고, 다시 들어오면 이 캐릭터로 이어서 합니다.";
+
+    void FailCreate(string error)
+    {
+        ShowError(error, RunCreate, ShowCreate, () => OfflineStart(null));
     }
 
     void OfflineStart(string name)
     {
         ShowBusy("오프라인으로 시작하는 중…");
-        string error = TitleFlow.StartOffline(pendingNew, name ?? TitleFlow.Account?.nickname, worldReady);
+        string error = TitleFlow.StartOffline(pendingNew, name, worldReady);
         if (error == null) return;
         worldReady = false;
         ShowError(error, () => OfflineStart(name), ShowCreate, null);
     }
 
-    static bool NeedsNewName(string error) => error == "invalid_name" || error == "nickname_taken" || error == "invalid_input";
-
     // ---- 참가하기 ----
 
-    public void StartJoin()
-    {
-        if (TitleFlow.HasAccount) RunJoin(null, null);
-        else ShowName("이름을 정하면 서버에 계정이 자동으로 만들어집니다.", RunJoin, ShowMain);
-    }
+    public void StartJoin() => RunJoin();
 
-    async void RunJoin(string name, string gender)
+    async void RunJoin()
     {
         ShowBusy("서버에 접속하는 중…");
-        string error = await TitleFlow.SignIn(name, gender);
+        string error = await TitleFlow.SignIn(null, null);
         if (!this) return;
         if (error == null) error = await TitleFlow.Connect();
         if (!this) return;
         if (error == null) { TitleFlow.PrepareForJoin(); ShowJoin(); return; }
-        if (NeedsNewName(error)) ShowName(TitleFlow.Message(error), RunJoin, ShowMain);
-        else ShowError(error, () => RunJoin(name, gender), ShowMain, null);
+        ShowError(error, RunJoin, ShowMain, null);
     }
 
     void LeaveJoin()
@@ -326,7 +322,7 @@ public sealed class TitleScreen : MonoBehaviour
         if (!net.Connected)
         {
             string error = string.IsNullOrEmpty(net.LastError) ? "disconnected" : net.LastError;
-            ShowError(error, () => RunJoin(null, null), ShowMain, null);
+            ShowError(error, RunJoin, ShowMain, null);
             return;
         }
         if (screen != "rooms") return;
@@ -346,7 +342,7 @@ public sealed class TitleScreen : MonoBehaviour
         {
             var room = shownRooms[i];
             var row = TitleUi.Row(roomList, 64, 12, false);
-            var text = TitleUi.Label(row, room.room + "   <size=22><color=#C9C3D9>방장 " + room.hostName + " · " + room.count + "/" + room.max + "명</color></size>", 30, TitleUi.Cream, TextAlignmentOptions.MidlineLeft);
+            var text = TitleUi.Label(row, room.room + "   <size=22><color=#C9C3D9>" + room.count + "/" + room.max + "명</color></size>", 30, TitleUi.Cream, TextAlignmentOptions.MidlineLeft);
             TitleUi.Width(text, 0, 1);
             var join = TitleUi.Button(row, room.count >= room.max ? "가득 참" : "참가", () => EnterRoom(room.rid, ShowRooms), 64, true, 28);
             join.interactable = room.count < room.max;
@@ -357,15 +353,29 @@ public sealed class TitleScreen : MonoBehaviour
     }
 
     // Joins a room by its id (the typed code or a list entry), then loads the map. `from` is the screen to return to on an error.
+    // The room's world is known only after joining, so its character is looked up (or made) while already in the room.
     async void EnterRoom(string rid, Action from)
     {
         ShowBusy("방에 들어가는 중…");
         string error = await TitleFlow.JoinOnline(rid);
         if (!this) return;
-        if (error == null) { ShowBusy("맵을 불러오는 중…"); if (!TitleFlow.EnterGame()) error = "load_failed"; }
-        if (error == null) return;
-        Action back = () => { var n = NetSession.Instance; if (n && n.Connected) from(); else ShowMain(); };
+        if (error == null) error = await TitleFlow.LoadCharacter();
+        if (!this) return;
+        Action back = () => { var n = NetSession.Instance; if (n && n.InRoom) n.Leave(); if (n && n.Connected) from(); else ShowMain(); };
+        if (error == null && !GameSession.HasCharacter)
+        {
+            ShowName(CharacterHint, (name, gender) => { TitleFlow.CreateCharacter(name, gender); EnterMap(back); }, back);
+            return;
+        }
+        if (error == null) { EnterMap(back); return; }
+        if (NetSession.Instance && NetSession.Instance.InRoom) NetSession.Instance.Leave();
         ShowError(error, error == "room_not_found" ? null : (Action)(() => EnterRoom(rid, from)), back, null);
+    }
+
+    void EnterMap(Action back)
+    {
+        ShowBusy("맵을 불러오는 중…");
+        if (!TitleFlow.EnterGame()) ShowError("load_failed", null, back, null);
     }
 
     // ---- name sign-up ----
@@ -373,7 +383,7 @@ public sealed class TitleScreen : MonoBehaviour
     void ShowName(string sub, Action<string, string> next, Action onBack)
     {
         Begin("name", true, 700, onBack);
-        var panel = Panel("플레이어 이름", sub);
+        var panel = Panel("캐릭터 만들기", sub);
         var input = TitleUi.Input(panel, "이름 (한글·영문·숫자·_ 2~12자)", 12, null);
         string gender = "male";
         var row = TitleUi.Row(panel, 60);
@@ -446,23 +456,9 @@ public sealed class TitleScreen : MonoBehaviour
         var panel = Panel("설정");
 
         bool steam = NetMode.IsSteam;
-        var account = TitleFlow.Account;
         TitleUi.Label(panel, "연결 방식: " + NetMode.Label, 24, TitleUi.Muted, TextAlignmentOptions.MidlineLeft);
         TitleUi.Button(panel, steam ? "Cloudflare 서버 모드로 바꾸기" : "Steam 개발 모드로 바꾸기", () => { NetMode.IsSteam = !steam; ShowSettings(onBack, advanced); }, 56, false, 26);
-        TitleUi.Label(panel, steam
-            ? "플레이어 이름: " + (account != null && account.HasName ? account.nickname + " (Steam 계정 이름)" : "Steam이 켜져 있지 않아 확인할 수 없음")
-            : "플레이어 이름: " + (account != null && account.HasName ? account.nickname : "아직 정하지 않음 (방 만들기·참가하기 때 정합니다)"),
-            24, TitleUi.Muted, TextAlignmentOptions.MidlineLeft);
-        if (!steam && account != null && account.HasName)
-        {
-            var nameRow = TitleUi.Row(panel, 56, 12, false);
-            var nameInput = TitleUi.Input(nameRow, "새 이름", 12, null, 56);
-            nameInput.text = account.nickname;
-            TitleUi.Width(nameInput, 0, 1);
-            var rename = TitleUi.Button(nameRow, "이름 변경", () => Rename(nameInput.text, nameResult), 56, true, 26);
-            TitleUi.Width(rename, 200);
-        }
-        nameResult = TitleUi.Label(panel, " ", 24, TitleUi.Muted, TextAlignmentOptions.MidlineLeft);
+        TitleUi.Label(panel, "캐릭터는 방(월드)마다 따로 만듭니다. 방을 만들거나 들어갈 때 이름과 성별을 정합니다.", 24, TitleUi.Muted, TextAlignmentOptions.MidlineLeft);
 
         TitleUi.Label(panel, "프로필 슬롯 (한 PC에서 게임 2개를 켜는 테스트용)", 24, TitleUi.Muted, TextAlignmentOptions.MidlineLeft);
         var slotRow = TitleUi.Row(panel, 56, 12, false);
@@ -484,8 +480,6 @@ public sealed class TitleScreen : MonoBehaviour
         TitleUi.Button(panel, "뒤로", () => leave(), 56, false, 26);
         Focus();
     }
-
-    TMP_Text nameResult;
 
     // Settings > 고급: the server address. Players use the built-in server and never need this; it is for the local test server.
     void BuildAdvanced(RectTransform panel, Action onBack)
@@ -513,15 +507,6 @@ public sealed class TitleScreen : MonoBehaviour
         if (!this || !result) return;
         result.color = ok ? TitleUi.Good : TitleUi.Warn;
         result.text = ok ? "연결됨: " + normalized : "연결할 수 없습니다: " + normalized;
-    }
-
-    async void Rename(string newName, TMP_Text result)
-    {
-        result.color = TitleUi.Muted; result.text = "이름을 바꾸는 중…";
-        string error = await TitleFlow.Rename(newName.Trim());
-        if (!this || !result) return;
-        result.color = error == null ? TitleUi.Good : TitleUi.Warn;
-        result.text = error == null ? "이름을 바꿨습니다." : TitleFlow.Message(error);
     }
 
     void SwitchSlot(int slot, Action onBack, bool advanced)
@@ -556,7 +541,7 @@ public sealed class TitleScreen : MonoBehaviour
             case "settings-advanced": ShowSettings(null, true); break;
             case "join": ShowJoin(); break;
             case "rooms": ShowRooms(); break;
-            case "name": ShowName("이름을 정하면 서버에 계정이 자동으로 만들어집니다.", (n, g) => { }, ShowMain); break;
+            case "name": ShowName(CharacterHint, (n, g) => { }, ShowMain); break;
             case "error": ShowError("network", () => { }, ShowMain, () => { }); break;
             case "confirm": OnNewWorld(); break;
             case "busy": ShowBusy("서버에 접속하는 중…"); break;

@@ -11,6 +11,7 @@ public class PlayerState
     public float x, y, z, ry;
     public string inventory_json;
     public string personal_json;
+    public string name, gender; // the character of this world (GET/PUT /me/state?world=)
     public long updated_at;
 
     public bool IsSaved => updated_at > 0;
@@ -140,20 +141,22 @@ public class PlayerData : MonoBehaviour
         return default;
     }
 
-    /// <summary>Loads the saved position, inventory and personal economy. Nothing saved yet: UpdatedAt == 0.</summary>
-    public async Awaitable<(ApiResult result, PlayerState state)> GetState()
+    /// <summary>Loads the character of <paramref name="world"/> (name, look, position, inventory, personal economy). Nothing saved yet: updated_at == 0.</summary>
+    public async Awaitable<(ApiResult result, PlayerState state)> GetState(string world)
     {
-        var (code, body) = await Send("GET", "/me/state");
+        var (code, body) = await Send("GET", StatePath(world));
         if (code != 200) return (Fail(code, body), null);
         try { return (default, JsonUtility.FromJson<PlayerState>(body)); }
         catch (Exception) { return (new ApiResult("network"), null); }
     }
 
-    public async Awaitable<ApiResult> PutState(PlayerState state)
+    public async Awaitable<ApiResult> PutState(string world, PlayerState state)
     {
-        var (code, body) = await Send("PUT", "/me/state", JsonUtility.ToJson(state));
+        var (code, body) = await Send("PUT", StatePath(world), JsonUtility.ToJson(state));
         return code == 200 ? default : Fail(code, body);
     }
+
+    static string StatePath(string world) => "/me/state?world=" + UnityWebRequest.EscapeURL(world ?? "");
 
     private async Awaitable<ApiResult> Authenticate(string path, string username, string password)
     {

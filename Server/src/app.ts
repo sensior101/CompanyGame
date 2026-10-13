@@ -4,7 +4,7 @@ import type { DatabaseSync } from 'node:sqlite';
 import Fastify from 'fastify';
 import jwt from '@fastify/jwt';
 import websocket from '@fastify/websocket';
-import { loadState, saveState } from './db.ts';
+import { loadCharacter, loadState, saveCharacter, saveState } from './db.ts';
 import { DEFAULT_LIMITS, WindowLimiter, type Limits } from './limit.ts';
 import { MAX_FRAME } from './protocol.ts';
 import { Rooms } from './rooms.ts';
@@ -54,7 +54,17 @@ const playerState = {
     x: coord, y: coord, z: coord, ry: coord,
     inventory_json: { type: 'string', maxLength: STATE_BODY_LIMIT },
     personal_json: { type: 'string', maxLength: STATE_BODY_LIMIT },
+    // '' = keep the stored value (Unity's JsonUtility always writes every field)
+    name: { type: 'string', pattern: '^([가-힣A-Za-z0-9_]{2,12})?$' },
+    gender: { enum: ['', 'male', 'female'] },
   },
+} as const;
+
+// ?world=<id>: the character of that world (WorldSave.WorldId, a 32-hex GUID). Without it: the account-wide state.
+const worldQuery = {
+  type: 'object',
+  additionalProperties: false,
+  properties: { world: { type: 'string', pattern: '^[A-Za-z0-9_-]{1,64}$' } },
 } as const;
 
 // "" means "nothing"; anything else must at least be valid JSON.
@@ -125,18 +135,21 @@ export function buildApp(db: DatabaseSync, jwtSecret: string, over: Partial<Limi
     }
   });
 
-  app.get('/me/state', { preHandler: auth }, async (req) => {
+  app.get('/me/state', { preHandler: auth, schema: { querystring: worldQuery } }, async (req) => {
     const { id } = req.user as { id: number };
-    return loadState(db, id);
+    const { world } = req.query as { world?: string };
+    return world ? loadCharacter(db, id, world) : loadState(db, id);
   });
 
-  app.put('/me/state', { preHandler: auth, bodyLimit: STATE_BODY_LIMIT, schema: { body: playerState } }, async (req, reply) => {
+  app.put('/me/state', { preHandler: auth, bodyLimit: STATE_BODY_LIMIT, schema: { body: playerState, querystring: worldQuery } }, async (req, reply) => {
     const { id } = req.user as { id: number };
-    const b = req.body as { map: string; x: number; y: number; z: number; ry: number; inventory_json?: string; personal_json?: string };
+    const { world } = req.query as { world?: string };
+    const b = req.body as { map: string; x: number; y: number; z: number; ry: number; inventory_json?: string; personal_json?: string; name?: string; gender?: string };
     if (!isJsonOrEmpty(b.inventory_json) || !isJsonOrEmpty(b.personal_json)) {
       return reply.code(400).send({ error: 'invalid_json' });
     }
     if (!db.prepare('SELECT 1 FROM players WHERE id = ?').get(id)) return reply.code(404).send({ error: 'not_found' });
+    if (world) { saveCharacter(db, id, world, b, b.inventory_json ?? null, b.personal_json ?? null); return loadCharacter(db, id, world); }
     saveState(db, id, b, b.inventory_json ?? null, b.personal_json ?? null);
     return loadState(db, id);
   });

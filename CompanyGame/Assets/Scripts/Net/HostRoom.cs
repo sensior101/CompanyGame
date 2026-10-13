@@ -139,7 +139,7 @@ public sealed class HostRoom
     }
 
     static NetMsg Pos(RoomPeer from, NetMsg m) =>
-        new NetMsg { t = "pos", from = from.id, map = m.map, x = m.x, y = m.y, z = m.z, ry = m.ry, sp = m.sp };
+        new NetMsg { t = "pos", from = from.id, map = m.map, x = m.x, y = m.y, z = m.z, ry = m.ry, sp = m.sp, nm = m.nm, g = m.g, veh = m.veh, act = m.act };
 
     void Enter(RoomPeer peer)
     {

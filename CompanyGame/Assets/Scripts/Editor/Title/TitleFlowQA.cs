@@ -151,7 +151,7 @@ public static class TitleFlowQA
         Check(TitleFlow.PrepareWorld(true) == null && WorldSave.HasLocalWorld, "slot 3 has an old local world");
         string oldId = WorldSave.WorldId;
 
-        // 1) 방 만들기 -> 신규 -> confirm -> name sign-up -> connect -> create room -> map
+        // 1) 방 만들기 -> 신규 -> confirm -> silent sign-up -> connect -> character for the new world -> create room -> map
         await Click("방 만들기");
         await Click("신규 월드");
         Check(Screen.Screen == "confirm", "new world asks before replacing the existing one");
@@ -160,14 +160,13 @@ public static class TitleFlowQA
         await WaitFor(() => InGame, 90, "host entering the game map");
         var net = NetSession.Instance;
         Check(net.InRoom && net.IsHost, "host: in a room as host");
-        Check(PlayerData.Instance.Profile.nickname == "QA호스트", "server nickname = typed name");
         var account = LocalAccount.Find(server);
-        Check(account != null && account.username.Length >= 3 && account.password.Length >= 8 && account.nickname == "QA호스트", "local account saved with the server address");
+        Check(account != null && account.username.Length >= 3 && account.password.Length >= 8 && account.HasName && account.nickname != "QA호스트", "local account saved with the server address (generated nickname, not the character)");
         var backups = Directory.GetFiles(WorldDir, "world.backup-*.json");
         Check(backups.Length == 1 && File.Exists(WorldSave.Path), "old world kept as one backup file, new world.json written");
         Check(JsonUtility.FromJson<WorldSaveData>(File.ReadAllText(backups[0])).worldId == oldId && WorldSave.WorldId != oldId, "backup holds the old world; the new world has a new id");
         string hostWorldId = WorldSave.WorldId;
-        Check(net.MyName == "QA호스트" && GameSession.LocalPlayerName == "QA호스트", "session identity = nickname");
+        Check(GameSession.LocalPlayerName == "QA호스트" && GameSession.HasCharacter, "session name = the character made for this world");
         Check(PlayerSpawner.Player.gameObject.activeInHierarchy, "player exists in the map");
 
         // the room code: id from the server, shown on a card once on arrival, copyable, dismissible
@@ -204,7 +203,7 @@ public static class TitleFlowQA
             await guest.Register("QA손님");
             await guest.Connect();
             var rooms = await guest.ListRooms();
-            Check(Array.Exists(rooms, r => r.room == "QA호스트의 방" && r.hostName == "QA호스트" && r.rid == code), "second player sees the host's room in the list under its code");
+            Check(Array.Exists(rooms, r => r.room == "QA호스트의 방" && r.rid == code), "second player sees the host's room (named after the character) in the list under its code");
             var joined = await guest.JoinRoom(coded ? code.ToLowerInvariant() : code);
             Check(joined.t == "joined" && joined.host == net.MyId && joined.rid == code, "second player joined the host's room" + (coded ? " with the code in lowercase" : ""));
             await WaitFor(() => net.Peers.Count == 2, 10, "host sees the guest");
@@ -221,6 +220,7 @@ public static class TitleFlowQA
         await WaitFor(() => InGame, 90, "continuing the existing world");
         Check(net.InRoom && net.IsHost, "continue: in a room as host");
         Check(WorldSave.WorldId == hostWorldId, "continue keeps the same world id");
+        Check(GameSession.LocalPlayerName == "QA호스트", "continue: the world's character came back without asking for a name");
         Check(LocalAccount.Find(server).username == account.username, "continue reused the saved account (no second sign-up)");
         Check(Directory.GetFiles(WorldDir, "world.backup-*.json").Length == 1, "continuing made no extra backup");
         await WaitFor(() => RoomCodeCard.Instance.Shown, 10, "room code card for the continued world");
@@ -251,6 +251,8 @@ public static class TitleFlowQA
             await rawHost.Connect();
             var created = await rawHost.CreateRoom("QA원격방", 2);
             Check(created.t == "joined" && !string.IsNullOrEmpty(created.rid), "raw host created a 2-player room, code " + created.rid);
+            const string remoteWorld = "0123456789abcdef0123456789abcdef";
+            await rawHost.Say(new NetMsg { t = "state", snap = "{\"version\":1,\"worldId\":\"" + remoteWorld + "\"}" });
             string rid = created.rid;
             bool remoteCoded = RoomCode.IsCode(rid);
             await rawGuest.Register("QA빈자리");
@@ -258,15 +260,14 @@ public static class TitleFlowQA
             Check((await rawGuest.JoinRoom(rid)).t == "joined", "raw guest took the second seat: the room is full");
 
             await Click("참가하기");
-            await TypeName("QA참가자");
-            await WaitFor(() => Screen && Screen.Screen == "join", 30, "join-by-code screen");
+            await WaitFor(() => Screen && Screen.Screen == "join", 30, "join-by-code screen (no name asked before a room is chosen)");
             Check(HasButton("방 목록 보기") && Screen.FirstInput() != null, "join screen: code field with the room list as the secondary option");
             var slot4 = LocalAccount.Find(server);
             Check(slot4 != null && slot4.username != account.username, "slot 4 got its own generated account");
-            // the player's server-side data: personal bank balance is restored from the server on joining
+            // this account's character in the remote room's world: name, look and bank balance come back on joining
             var personal = JsonUtility.ToJson(new PersonalSaveData { bankBalance = 123456 });
-            var put = await PlayerData.Instance.PutState(new PlayerState { map = "", inventory_json = "", personal_json = personal });
-            Check(put.Ok, "pre-seeded the slot 4 player's server data");
+            var put = await PlayerData.Instance.PutState(remoteWorld, new PlayerState { map = "", inventory_json = "", personal_json = personal, name = "QA참가자", gender = "female" });
+            Check(put.Ok, "pre-seeded the slot 4 character of the remote world"); 
 
             if (remoteCoded)
             {
@@ -305,6 +306,7 @@ public static class TitleFlowQA
             Check(!RoomCodeCard.Instance.Shown, "a participant gets no code card (only the host does)");
             await WaitFor(() => BankManager.Instance.Money == 123456, 30, "bank balance restored from the server");
             Check(true, "bank balance loaded from the server after joining (123456)");
+            Check(WorldSave.WorldId == remoteWorld && GameSession.LocalPlayerName == "QA참가자" && GameSession.CharacterGender == "female", "the remote world's character (name, look) was used without asking");
             await Awaitable.NextFrameAsync();
             await ReturnToTitle();
 
@@ -408,14 +410,13 @@ public static class TitleFlowQA
         Check(OnTitle, "on the title");
         await Click("방 만들기");
         await Click("신규 월드");
-        await TypeName("QA혼자");
         await WaitFor(() => Screen && Screen.Screen == "error", 30, "error screen for the dead server");
         Check(HasButton("오프라인으로 시작") && HasButton("다시 시도"), "error screen offers retry and the offline start");
         await Click("오프라인으로 시작");
         await WaitFor(() => InGame, 90, "offline start entering the game map");
         Check(!NetSession.Instance.InRoom && !NetSession.Instance.Connected, "offline: no room, no connection");
         Check(GameSession.IsAuthority, "offline: this PC owns the simulation");
-        Check(GameSession.LocalPlayerName == "QA혼자", "offline player name = typed name");
+        Check(!string.IsNullOrEmpty(GameSession.LocalPlayerName), "offline player has a name");
         Check(File.Exists(WorldSave.Path), "offline new world written to disk");
         await ReturnToTitle();
         await Click("방 만들기");

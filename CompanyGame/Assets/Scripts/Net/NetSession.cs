@@ -27,6 +27,8 @@ public sealed class NetSession : MonoBehaviour
     public string LastError { get; private set; } = "";
     public IReadOnlyList<PeerInfo> Peers => peers;
     public RoomInfo[] Rooms { get; private set; } = new RoomInfo[0];
+    /// <summary>True once this room's world snapshot arrived (with `joined`, or the host's first `state` about 1s after it created the room).</summary>
+    public bool HasRoomSnapshot { get; private set; }
     /// <summary>Highest op seq already applied; set by the owner after applying a snapshot's opSeq.</summary>
     public long LastOpSeq { get; set; }
 
@@ -152,11 +154,13 @@ public sealed class NetSession : MonoBehaviour
         StateChanged?.Invoke();
     }
 
-    public void SendPos(string map, Vector3 pos, float ry, float speed)
+    /// <summary>name = character name, female = look, vehicle = ridden itemId ("" on foot), attacks = swing counter.</summary>
+    public void SendPos(string map, Vector3 pos, float ry, float speed, string name = "", bool female = false, string vehicle = "", int attacks = 0)
     {
         if (!InRoom) return;
         var m = NetMsg.Of("pos");
         m.map = map; m.x = pos.x; m.y = pos.y; m.z = pos.z; m.ry = ry; m.sp = speed;
+        m.nm = name ?? ""; m.g = female ? 1 : 0; m.veh = vehicle ?? ""; m.act = attacks;
         Send(m);
     }
 
@@ -213,7 +217,7 @@ public sealed class NetSession : MonoBehaviour
             case "joined": OnJoined(m); break;
             case "peer": OnPeer(m); break;
             case "host": OnHost(m); break;
-            case "state": Raise(SnapshotReceived, m.snap); break;
+            case "state": if (!string.IsNullOrEmpty(m.snap)) HasRoomSnapshot = true; Raise(SnapshotReceived, m.snap); break;
             case "world": if (!IsHost) WorldReceived?.Invoke(m.ev, m.data); break;
             case "op": ApplyOp(m.seq, m.from, m.ev, m.data); break;
             case "msg": MessageReceived?.Invoke(m.from, m.data); break;
@@ -235,7 +239,7 @@ public sealed class NetSession : MonoBehaviour
     void OnJoined(NetMsg m)
     {
         RoomReset?.Invoke(); // before Begin(Client): the owner may still save its own world
-        RoomId = m.rid ?? ""; HostId = m.host ?? ""; LastError = "";
+        RoomId = m.rid ?? ""; HostId = m.host ?? ""; LastError = ""; HasRoomSnapshot = false;
         peers.Clear();
         if (m.players != null) peers.AddRange(m.players);
         LastOpSeq = 0; // the snapshot's owner sets it again after applying
@@ -260,6 +264,7 @@ public sealed class NetSession : MonoBehaviour
     void BecomeRole(string snap)
     {
         HostFromLeave = false;
+        HasRoomSnapshot |= !string.IsNullOrEmpty(snap) || IsHost;
         GameSession.Begin(IsHost ? SessionMode.Host : SessionMode.Client);
         lastSnapshotSent = null;
         nextSnapshotAt = Time.unscaledTime + 1f;
@@ -290,6 +295,7 @@ public sealed class NetSession : MonoBehaviour
         bool wasInRoom = InRoom;
         RoomId = ""; HostId = ""; LastOpSeq = 0; lastSnapshotSent = null;
         peers.Clear();
+        GameSession.ClearCharacter(); // the character belongs to the room's world
         GameSession.Begin(SessionMode.Host);
         HostFromLeave = true;
         if (wasInRoom) RoomReset?.Invoke();

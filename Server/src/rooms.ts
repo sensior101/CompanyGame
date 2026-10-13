@@ -9,7 +9,8 @@ export type ErrCode =
   | 'bad_request' | 'not_in_room' | 'already_in_room' | 'room_not_found'
   | 'room_full' | 'not_host' | 'too_many_rooms' | 'peer_not_found' | 'rate_limited';
 
-export interface Pos { map: string; x: number; y: number; z: number; ry: number; sp: number }
+// nm = character name, g = 1 for the female look, veh = ridden vehicle itemId ('' on foot), act = attack counter.
+export interface Pos { map: string; x: number; y: number; z: number; ry: number; sp: number; nm: string; g: number; veh: string; act: number }
 
 export const MAX_ROOMS = 50;
 export const MAX_PLAYERS = 8;

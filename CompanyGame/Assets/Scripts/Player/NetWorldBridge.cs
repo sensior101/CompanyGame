@@ -92,7 +92,9 @@ public sealed class NetWorldBridge : MonoBehaviour
     string NameOf(string id)
     {
         if (!session) return null;
-        if (id == session.MyId) return session.MyName;
+        if (id == session.MyId) return GameSession.LocalPlayerName;
+        string character = NetPlayerSync.NameOf(id);
+        if (!string.IsNullOrEmpty(character)) return character;
         foreach (var p in session.Peers) if (p.id == id) return string.IsNullOrEmpty(p.name) ? null : p.name;
         return null;
     }

@@ -122,8 +122,8 @@ public static class ServerBudgetQA
         Check(seconds > 3500 && seconds <= 3601, "blocked for about Retry-After (3600s), was " + (int)seconds);
         var again = await data.Login("u123456789012", "password123");
         var reg = await data.Register("u123456789012", "password123");
-        var get = await data.GetState();
-        var put = await data.PutState(new PlayerState { map = "m", inventory_json = "", personal_json = "" });
+        var get = await data.GetState("qa");
+        var put = await data.PutState("qa", new PlayerState { map = "m", inventory_json = "", personal_json = "" });
         Check(again.Error == "daily_budget" && reg.Error == "daily_budget" && get.result.Error == "daily_budget" && put.Error == "daily_budget", "login, register, state GET and PUT all refuse with daily_budget");
         Check(hits == 1, "no further HTTP request reached the server (hits=" + hits + ")");
         Check(await data.Ping(url), "connection test does not send a request while blocked");

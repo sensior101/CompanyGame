@@ -99,7 +99,7 @@ public static class InventorySnapshot
         return new ItemStack(item, entry.count, entry.instanceId) { BookData = entry.hasBook ? entry.book?.Clone() : null };
     }
 
-    static ItemData Find(string itemId)
+    public static ItemData Find(string itemId)
     {
         if (catalog == null)
         {

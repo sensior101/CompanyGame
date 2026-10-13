@@ -13,16 +13,22 @@ public static class SteamLocalState
     /// <summary>Tests point this at a scratch folder.</summary>
     public static string RootOverride;
 
-    public static string PathFor(string steamId)
+    /// <summary>One file per world: every world has its own character.</summary>
+    public static string PathFor(string steamId, string world)
     {
-        foreach (char c in Path.GetInvalidFileNameChars()) steamId = (steamId ?? "").Replace(c, '_');
         string root = RootOverride ?? Path.Combine(Application.persistentDataPath, "steam");
-        return Path.Combine(root, string.IsNullOrEmpty(steamId) ? "unknown" : steamId, "state.json");
+        return Path.Combine(root, Safe(steamId, "unknown"), Safe(world, "state") + ".json");
     }
 
-    public static (ApiResult, PlayerState) Get(string steamId)
+    static string Safe(string name, string fallback)
     {
-        string path = PathFor(steamId);
+        foreach (char c in Path.GetInvalidFileNameChars()) name = (name ?? "").Replace(c, '_');
+        return string.IsNullOrEmpty(name) ? fallback : name;
+    }
+
+    public static (ApiResult, PlayerState) Get(string steamId, string world)
+    {
+        string path = PathFor(steamId, world);
         try
         {
             if (!File.Exists(path)) return (default, new PlayerState());
@@ -31,9 +37,9 @@ public static class SteamLocalState
         catch (Exception e) { Debug.LogWarning("[SteamLocalState] read failed: " + e.Message); return (new ApiResult("read_failed"), null); }
     }
 
-    public static ApiResult Put(string steamId, PlayerState state)
+    public static ApiResult Put(string steamId, string world, PlayerState state)
     {
-        string path = PathFor(steamId);
+        string path = PathFor(steamId, world);
         try
         {
             state.updated_at = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();

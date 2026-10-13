@@ -58,10 +58,12 @@ export class ConnState {
   stateOk(n: number): boolean { return this.stateCount.take() && this.stateBytes.take(n); }
 }
 
+// The four look/action fields are optional (older clients); a name is plain text (no TMP rich-text tags).
 function parsePos(m: Msg): Pos | null {
-  const { map, x, y, z, ry, sp } = m;
-  const ok = str(map, 200) && num(x) && num(y) && num(z) && num(ry) && num(sp);
-  return ok ? { map, x, y, z, ry, sp } : null;
+  const { map, x, y, z, ry, sp, nm = '', g = 0, veh = '', act = 0 } = m;
+  const ok = str(map, 200) && num(x) && num(y) && num(z) && num(ry) && num(sp)
+    && str(nm, 40) && !/[<>]/.test(nm) && num(g) && str(veh, 64) && num(act);
+  return ok ? { map, x, y, z, ry, sp, nm, g, veh, act } : null;
 }
 
 function parse(text: string, size: number): Msg | null {

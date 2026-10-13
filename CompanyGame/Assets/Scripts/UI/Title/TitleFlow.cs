@@ -39,8 +39,9 @@ public static class TitleFlow
 
     /// <summary>
     /// Makes sure this PC is logged in to the current server. With a saved account it just logs in; otherwise it
-    /// registers a generated username/password silently and sets the nickname to <paramref name="name"/>.
-    /// If the server forgot the saved account (database reset) the nickname is registered again.
+    /// registers a generated username/password silently. The account nickname is <paramref name="name"/> when given,
+    /// else a generated one: players never see it, they make a character per room's world (<see cref="LoadCharacter"/>).
+    /// If the server forgot the saved account (database reset) it is registered again.
     /// </summary>
     public static async Awaitable<string> SignIn(string name, string gender)
     {
@@ -63,7 +64,7 @@ public static class TitleFlow
         }
         if (entry == null)
         {
-            if (!IsValidName(name)) return "invalid_name";
+            if (!string.IsNullOrEmpty(name) && !IsValidName(name)) return "invalid_name";
             string error;
             (entry, error) = await Register(data, url);
             if (error != null) return error;
@@ -72,9 +73,14 @@ public static class TitleFlow
         {
             string nick = string.IsNullOrEmpty(name) ? entry.nickname : name;
             string sex = gender == "female" || gender == "male" ? gender : (string.IsNullOrEmpty(entry.gender) ? "male" : entry.gender);
-            if (!IsValidName(nick)) return "invalid_name";
-            var saved = await data.SaveProfile(nick, sex);
-            if (!saved.Ok) return saved.Error; // the account stays saved (nickname empty), so the next try only asks for a name again
+            bool generated = !IsValidName(nick);
+            var saved = default(ApiResult);
+            for (int i = 0; i < 3; i++) // a generated nickname can collide: roll another
+            {
+                saved = await data.SaveProfile(generated ? AutoNickname() : nick, sex);
+                if (saved.Ok || !generated || saved.Error != "nickname_taken") break;
+            }
+            if (!saved.Ok) return saved.Error; // the account stays saved (nickname empty), so the next try sets it again
         }
         entry.nickname = data.Profile.nickname; entry.gender = data.Profile.gender;
         LocalAccount.Save(entry);
@@ -93,22 +99,38 @@ public static class TitleFlow
         return (null, "username_taken");
     }
 
-    /// <summary>Changes the nickname on the server (needs the saved account) and in the local record.</summary>
-    public static async Awaitable<string> Rename(string newName)
+    // Server nickname rule: 2..12 of [가-힣A-Za-z0-9_]. "p" + 10 hex = 11.
+    static string AutoNickname() => "p" + Guid.NewGuid().ToString("N").Substring(0, 10);
+
+    // ---- character (one per world) ----
+
+    /// <summary>
+    /// Loads this account's character of the world in memory (the room's world once joined, the own world before
+    /// hosting). When there is one it becomes the session character (<see cref="GameSession.HasCharacter"/>);
+    /// otherwise the caller asks for a name and look and calls <see cref="CreateCharacter"/>. The state is handed to
+    /// NetPlayerSave so entering the map does not fetch it again. Returns null or an error code.
+    /// </summary>
+    public static async Awaitable<string> LoadCharacter()
     {
-        if (!IsValidName(newName)) return "invalid_name";
-        var entry = Account;
-        if (entry == null) return "no_account";
-        var data = Data;
-        data.BaseUrl = entry.url;
-        var login = await data.Login(entry.username, entry.password);
-        if (!login.Ok) return login.Error;
-        var saved = await data.SaveProfile(newName, string.IsNullOrEmpty(data.Profile?.gender) ? (entry.gender ?? "male") : data.Profile.gender);
-        if (!saved.Ok) return saved.Error;
-        entry.nickname = data.Profile.nickname;
-        LocalAccount.Save(entry);
-        if (GameSession.HasAccount) GameSession.SetAccount(GameSession.LocalPlayerId, entry.nickname);
+        var net = NetSession.Instance;
+        // A visitor learns the room's world from its snapshot; a room created a moment ago sends it within about a second.
+        if (net && net.InRoom && !await Until(() => net.HasRoomSnapshot || !net.InRoom, StepTimeout)) return "timeout";
+        string world = WorldSave.EnsureWorldId();
+        ApiResult result; PlayerState state;
+        if (NetMode.IsSteam) (result, state) = SteamLocalState.Get(net ? net.MyId : null, world);
+        else (result, state) = await Data.GetState(world);
+        if (!result.Ok || state == null) return Code(result.Error, "network");
+        NetPlayerSave.Prefetch(world, state);
+        if (!string.IsNullOrEmpty(state.name)) GameSession.SetCharacter(state.name, state.gender);
         return null;
+    }
+
+    /// <summary>A new character for this world. NetPlayerSave saves it (fresh inventory and money) once the map is up.</summary>
+    public static bool CreateCharacter(string name, string gender)
+    {
+        if (!IsValidName(name)) return false;
+        GameSession.SetCharacter(name, gender);
+        return true;
     }
 
     /// <summary>Forgets the account of this slot on this PC. The server keeps it; world files stay on disk.</summary>
@@ -181,6 +203,9 @@ public static class TitleFlow
         if (inGame) WorldSaveRunner.SaveNow();
         PrepareForJoin();
         error = await JoinOnline("#" + lobbyId);
+        if (error == null) error = await LoadCharacter();
+        // ponytail: an invite can arrive in the game where there is no name screen; a new character takes the Steam name.
+        if (error == null && !GameSession.HasCharacter) GameSession.SetCharacter(Account?.nickname ?? "플레이어", "male");
         if (error == null && !EnterGame()) error = "load_failed";
         return error;
     }
@@ -301,7 +326,6 @@ public static class TitleFlow
             case "too_many_rooms": return "서버에 방이 너무 많습니다. 잠시 후 다시 시도해 주세요.";
             case "bad_request": return "방 이름이 올바르지 않습니다.";
             case "already_in_room": return "이미 방에 들어가 있습니다.";
-            case "no_account": return "저장된 계정이 없습니다. 방 만들기나 참가하기에서 먼저 이름을 정해 주세요.";
             case "world_backup_failed": return "기존 월드를 백업하지 못해 새 월드를 만들지 않았습니다. 디스크 공간과 권한을 확인해 주세요.";
             case "world_load_failed": return "저장된 월드를 불러오지 못했습니다. 월드 폴더의 world.prev.json 백업을 확인해 주세요.";
             case "load_failed": return "맵을 불러오지 못했습니다.";

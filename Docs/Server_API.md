@@ -8,8 +8,8 @@
 | POST | `/auth/login` | 없음 | `{ username, password }` | `200 { token }` |
 | GET | `/me` | 필요 | 없음 | `200 { id, username, nickname, gender }` |
 | PUT | `/me/profile` | 필요 | `{ nickname, gender }` | `200 { nickname, gender }` |
-| GET | `/me/state` | 필요 | 없음 | `200 { map, x, y, z, ry, inventory_json, personal_json, updated_at }` (저장 전이면 `updated_at: 0`, 나머지는 기본값) |
-| PUT | `/me/state` | 필요 | `{ map, x, y, z, ry, inventory_json?, personal_json? }` (본문 64KB 이하) | `200` + 저장된 상태 |
+| GET | `/me/state?world=<id>` | 필요 | 없음 | `200 { name, gender, map, x, y, z, ry, inventory_json, personal_json, updated_at }` (저장 전이면 `updated_at: 0`, 나머지는 기본값) |
+| PUT | `/me/state?world=<id>` | 필요 | `{ map, x, y, z, ry, inventory_json?, personal_json?, name?, gender? }` (본문 64KB 이하) | `200` + 저장된 상태 |
 | GET | `/rooms` | 필요 | 없음 | `200 { rooms: [{ rid, room, host, hostName, count, max }] }` (`rid`는 방 코드) |
 | WS | `/ws?token=<JWT>` | 쿼리 토큰 | 아래 "실시간 프로토콜" | |
 
@@ -32,11 +32,15 @@
 
 ## 플레이어 상태 (`/me/state`)
 
+- **캐릭터는 월드마다 따로입니다.** `world`는 방의 월드 ID(`WorldSave.WorldId`, 영문·숫자·`_`·`-` 1~64자, 아니면 `400`). 같은 계정이라도 월드가 다르면 이름·성별·위치·인벤토리·돈이 모두 따로 저장됩니다. 계정 `nickname`은 게임에 보이지 않습니다(클라이언트가 자동 생성).
+- `name`(캐릭터 이름, `nickname`과 같은 규칙. 월드 안에서도 중복 검사 안 함), `gender`(`male`/`female`): 빈 문자열이나 생략은 **저장된 값 유지**.
+- `world` 없이 부르면 예전 계정 단위 상태(현재 클라이언트는 쓰지 않음).
+
 - `map` 200자 이하 문자열, `x y z ry` 절댓값 1e6 이하 숫자. 필수.
 - `inventory_json`(지갑 현금 포함 인벤토리), `personal_json`(은행 잔액·보유 주식): 문자열이고 비어 있거나 올바른 JSON이어야 합니다. **생략하면 저장된 값을 유지**합니다(위치만 갱신 가능). JSON이 잘못되면 `400 { error: "invalid_json" }`, 본문이 64KB를 넘으면 `413`.
 - 정의되지 않은 필드는 조용히 버려집니다(Fastify 기본 동작).
 - 클라이언트가 보낸 내용을 그대로 저장합니다(서버는 내용을 검증하지 않는 테스트 서버).
-- WS 연결이 끊기면 서버가 마지막 `pos`를 같은 표에 저장합니다(JSON 필드는 그대로).
+- WS 연결이 끊기면 서버가 마지막 `pos`를 계정 단위 상태에 저장합니다(월드별 캐릭터에는 아님. 클라이언트가 방을 나갈 때·2분마다·종료 시 저장).
 
 ## 요청 제한 (남용 방지)
 
@@ -64,10 +68,10 @@
 | `{t:"create", room, max}` | 방 만들기(이름 1~30자, `<` `>` 포함 시 `bad_request`(리치텍스트 방지), `max` 1~8, 생략하면 4). 만든 사람이 방장 |
 | `{t:"list"}` / `{t:"join", rid}` / `{t:"leave"}` | `rid` = 방 코드(대소문자 무관) |
 | `{t:"transfer", to}` | 방장만. 대상은 방 안의 다른 사람 |
-| `{t:"pos", map, x, y, z, ry, sp}` | 내 위치. 방 안이면 다른 사람에게 `from`을 붙여 중계. 초당 30개 초과분은 버림(오류 없음). 방 밖에서도 마지막 값은 접속 종료 시 저장 |
+| `{t:"pos", map, x, y, z, ry, sp, nm?, g?, veh?, act?}` | 내 위치. 방 안이면 다른 사람에게 `from`을 붙여 중계. 초당 30개 초과분·형식이 틀린 것은 버림(오류 없음). 방 밖에서도 마지막 값은 접속 종료 시 저장. `nm` 캐릭터 이름(40바이트 이하, `<` `>` 불가), `g` 1이면 여자 외형, `veh` 타고 있는 탈것 itemId(걸으면 `""`), `act` 공격 횟수(바뀌면 한 번 휘두름) |
 | `{t:"state", snap}` | 방장만. 공용 월드 스냅샷(문자열). 서버는 방별 **최신 1개만 메모리에** 보관하고 다른 사람에게 중계. 내용은 해석하지 않음(`opSeq`도 그대로) |
 | `{t:"world", ev, data}` | 방장만. `ev` 1~32자, `data` 문자열 8KB 이하. 다른 사람에게 그대로 중계, **저장 안 함** |
-| `{t:"op", ev, data}` | 방 안 누구나. 서버가 방별 `seq`(1부터)를 붙여 **보낸 사람 포함 전원**에게 전달. 한도 8KB, 1인 초당 10개(초과는 `rate_limited`) |
+| `{t:"op", ev, data}` | 방 안 누구나. 서버가 방별 `seq`(1부터)를 붙여 **보낸 사람 포함 전원**에게 전달. 한도 8KB, 1인 초당 10개(초과는 `rate_limited`). 설치한 탈것은 `veh.put` / `veh.ride` / `veh.park` / `veh.del`(먼저 온 `veh.ride`만 탑승) |
 | `{t:"msg", to, data}` | 방장은 `to` = ID 또는 빈 문자열(전원). 그 외 멤버는 `to`가 현재 방장일 때만 가능(아니면 `not_host`) |
 
 서버 → 클라이언트
@@ -79,7 +83,7 @@
 | `{t:"joined", rid, host, players:[{id,name}], snap, ops:[{seq,from,ev,data}]}` | create/join 성공. `rid`는 방 코드(대문자). `snap`은 방의 최신 스냅샷(없으면 `""`), `ops`는 방의 최근 op 최대 256개(오래된 것부터). 클라이언트는 `snap`의 `opSeq`보다 큰 것만 적용 |
 | `{t:"peer", ev:"join"\|"leave", id, name}` | 방 안 다른 사람들에게 |
 | `{t:"host", host, reason:"transfer"\|"disconnect", snap}` | 방 전체에게. 방장이 나가거나 끊기면 가장 먼저 들어온 사람이 새 방장 |
-| `{t:"pos", from, map, x, y, z, ry, sp}`, `{t:"state", snap}`, `{t:"world", ev, data}`, `{t:"op", seq, from, ev, data}`, `{t:"msg", from, data}` | 중계 |
+| `{t:"pos", from, map, x, y, z, ry, sp, nm, g, veh, act}`, `{t:"state", snap}`, `{t:"world", ev, data}`, `{t:"op", seq, from, ev, data}`, `{t:"msg", from, data}` | 중계 |
 | `{t:"err", code}` | `bad_request`, `not_in_room`, `already_in_room`, `room_not_found`, `room_full`, `not_host`, `too_many_rooms`, `peer_not_found`(transfer/msg 대상 없음), `rate_limited`(op, state) |
 
 Cloudflare 서버에서는 문자열 `ping`을 보내면 `pong`을 돌려줍니다(선택 사항, 연결 유지용. 서버를 깨우지 않음). 512KB를 넘는 프레임은 코드 1009로 닫힙니다.

@@ -35,6 +35,9 @@ public static class SharedWriteGate
     /// <summary>True when the last TrySend happened in a room but the op could not be sent. Callers must not apply locally then.</summary>
     public static bool SendFailed { get; private set; }
 
+    /// <summary>For senders that build their own payload (WorldDroppedItem vehicles).</summary>
+    public static void SetSendFailed(bool failed) => SendFailed = failed;
+
     public static bool TrySend(string kind, SharedOpArgs args)
     {
         SendFailed = false;

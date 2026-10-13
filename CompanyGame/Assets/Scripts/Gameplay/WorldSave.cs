@@ -21,6 +21,16 @@ public sealed class WorldSaveData
     public List<LandPlotSave> plots;
     public ReportServiceState reports;
     public SnsFeedState sns;
+    public List<PlacedVehicleSave> vehicles;
+}
+
+/// <summary>A vehicle standing in the world (WorldDroppedItem). rider = room member driving it.</summary>
+[Serializable]
+public sealed class PlacedVehicleSave
+{
+    public string id, item, inst, scene, rider;
+    public Vector3 pos;
+    public float ry;
 }
 
 public static class WorldSave
@@ -29,6 +39,10 @@ public static class WorldSave
 
     /// <summary>Tests point this at a scratch file so they never touch the real world.</summary>
     public static string PathOverride;
+
+    /// <summary>Placed vehicles live in the UI assembly (WorldDroppedItem), which installs these.</summary>
+    public static Func<List<PlacedVehicleSave>> CaptureVehicles;
+    public static Action<List<PlacedVehicleSave>> RestoreVehicles;
 
     public static string Path => PathOverride ?? System.IO.Path.Combine(ProfileSlot.DataRoot, "world", "world.json");
 
@@ -148,9 +162,16 @@ public static class WorldSave
     /// <summary>True while the local world file is locked because it was handed to another host.</summary>
     public static bool HandedOver => File.Exists(HandoverPath);
 
-    public static WorldSaveData Capture()
+    /// <summary>The id of the world in memory, created now if it has none yet (a fresh world gets one on its first save).</summary>
+    public static string EnsureWorldId()
     {
         if (string.IsNullOrEmpty(WorldId)) { WorldId = Guid.NewGuid().ToString("N"); Remember(); }
+        return WorldId;
+    }
+
+    public static WorldSaveData Capture()
+    {
+        EnsureWorldId();
         var data = new WorldSaveData { opSeq = OpSeq, worldId = WorldId, generation = Generation };
         if (GameClock.Current != null) data.clockMinutes = GameClock.Current.Now.TotalMinutes;
         if (StockMarketManager.Instance) data.stocks = StockMarketManager.Instance.Exchange.CaptureState();
@@ -159,6 +180,7 @@ public static class WorldSave
         if (LandPlotManager.Instance) data.plots = LandPlotManager.Instance.CaptureState();
         if (ReportManager.Instance) data.reports = ReportManager.Instance.Service.CaptureState();
         if (SnsManager.Instance) data.sns = SnsManager.Instance.Feed.CaptureState();
+        data.vehicles = CaptureVehicles?.Invoke();
         return data;
     }
 
@@ -186,6 +208,7 @@ public static class WorldSave
         Apply(failed, "plots", () => { if (d.plots != null && LandPlotManager.Instance) LandPlotManager.Instance.RestoreState(d.plots); });
         Apply(failed, "reports", () => { if (d.reports != null && ReportManager.Instance) ReportManager.Instance.Service.RestoreState(d.reports); });
         Apply(failed, "sns", () => { if (d.sns != null && SnsManager.Instance) SnsManager.Instance.Feed.RestoreState(d.sns); });
+        Apply(failed, "vehicles", () => RestoreVehicles?.Invoke(d.vehicles));
         LastJson = json;
         OpSeq = adoptOpSeq ? d.opSeq : 0;
         if (!string.IsNullOrEmpty(d.worldId)) { WorldId = d.worldId; Generation = d.generation; Remember(); }

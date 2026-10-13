@@ -44,6 +44,7 @@ public static class WorldSaveQA
             GameSession.ClearAccount(); // the QA runs as the legacy offline identity until the fake `hello`
             Execute(report, holder, dir);
             ExecuteRoom(report, holder, dir);
+            ExecuteVehicles(report);
         }
         catch (Exception e) { report.failures.Add("Exception: " + e); }
         finally
@@ -304,6 +305,40 @@ public static class WorldSaveQA
         var awake = typeof(T).GetMethod("Awake", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
         awake?.Invoke(c, null);
         return c;
+    }
+
+    // Placed vehicles as shared-world ops (two other members, so nothing mounts on this PC) and in the snapshot.
+    static void ExecuteVehicles(Report r)
+    {
+        var cars = Resources.LoadAll<ItemData>("Inventory/Vehicles/Cars");
+        Check(r, cars.Length > 0, "a car item exists for the vehicle checks");
+        if (cars.Length == 0) return;
+        WorldDroppedItem.RestoreVehicles(null);
+        string Op(PlacedVehicleSave v) => JsonUtility.ToJson(v);
+        var car = new PlacedVehicleSave { id = "qacar", item = cars[0].itemId, inst = "qainst", scene = "Assets/Scenes/none.unity", pos = new Vector3(1, 2, 3), ry = 90 };
+        PlacedVehicleSave Only() { var all = WorldDroppedItem.CaptureVehicles(); return all.Count == 1 ? all[0] : null; }
+
+        Check(r, WorldDroppedItem.ApplyVehicleOp("veh.put", Op(car), "qa-a") == null && Only()?.inst == "qainst", "veh.put places the car for everyone, keeping its instance id");
+        Check(r, WorldDroppedItem.ApplyVehicleOp("veh.put", Op(car), "qa-a") == null && WorldDroppedItem.CaptureVehicles().Count == 1, "a repeated veh.put adds nothing");
+        Check(r, WorldDroppedItem.ApplyVehicleOp("veh.ride", Op(car), "qa-a") == null && Only()?.rider == "qa-a", "veh.ride: the first rider gets the car");
+        Check(r, WorldDroppedItem.ApplyVehicleOp("veh.ride", Op(car), "qa-b") != null && Only()?.rider == "qa-a", "a second veh.ride loses: one car, one driver");
+        Check(r, WorldDroppedItem.ApplyVehicleOp("veh.del", Op(car), "qa-b") == null && Only() != null, "a car being driven cannot be removed");
+        var moved = new PlacedVehicleSave { id = "qacar", pos = new Vector3(10, 2, 30), ry = 180 };
+        Check(r, WorldDroppedItem.ApplyVehicleOp("veh.park", Op(moved), "qa-b") == null && Only()?.rider == "qa-a", "only the driver can park it");
+        WorldDroppedItem.ApplyVehicleOp("veh.park", Op(moved), "qa-a");
+        var parked = Only();
+        Check(r, parked != null && string.IsNullOrEmpty(parked.rider) && parked.pos == moved.pos && Mathf.Approximately(parked.ry, 180), "veh.park frees the car where the driver left it");
+
+        WorldDroppedItem.ApplyVehicleOp("veh.ride", Op(car), "qa-b");
+        WorldDroppedItem.ReleaseRider("qa-b", new Vector3(5, 0, 5), 0);
+        Check(r, Only() != null && string.IsNullOrEmpty(Only().rider) && Only().pos == new Vector3(5, 0, 5), "a driver leaving the room leaves the car where they were last seen");
+
+        var snap = JsonUtility.FromJson<WorldSaveData>(JsonUtility.ToJson(new WorldSaveData { vehicles = WorldDroppedItem.CaptureVehicles() }));
+        WorldDroppedItem.RestoreVehicles(new List<PlacedVehicleSave>());
+        Check(r, WorldDroppedItem.CaptureVehicles().Count == 0, "a snapshot without the car removes it");
+        WorldDroppedItem.RestoreVehicles(snap.vehicles);
+        Check(r, Only()?.id == "qacar" && Only().pos == new Vector3(5, 0, 5), "the car survives the world snapshot JSON");
+        Check(r, WorldDroppedItem.ApplyVehicleOp("veh.del", Op(car), "qa-b") == null && WorldDroppedItem.CaptureVehicles().Count == 0, "veh.del removes it for the other members");
     }
 
     static void Teardown()

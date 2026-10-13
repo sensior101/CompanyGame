@@ -9,6 +9,9 @@ import { limitsOf, type Env } from './env.ts';
 
 export interface PlayerPos { map: string; x: number; y: number; z: number; ry: number }
 export interface PlayerState extends PlayerPos { inventory_json: string; personal_json: string; updated_at: number }
+// One character per world (a room's world): its own name, look, position, inventory and money.
+export interface CharacterState extends PlayerState { name: string; gender: string }
+export interface Character { name?: string; gender?: string }
 export interface Me { id: number; username: string; nickname: string | null; gender: string | null }
 type Fail<E extends string> = { error: E };
 
@@ -29,6 +32,18 @@ const SCHEMA = [
     inventory_json TEXT NOT NULL DEFAULT '',
     personal_json  TEXT NOT NULL DEFAULT '',
     updated_at     INTEGER NOT NULL DEFAULT 0
+  )`,
+  `CREATE TABLE IF NOT EXISTS character_state (
+    player_id      INTEGER NOT NULL REFERENCES players(id),
+    world          TEXT NOT NULL,
+    name           TEXT NOT NULL DEFAULT '',
+    gender         TEXT NOT NULL DEFAULT '',
+    map            TEXT NOT NULL DEFAULT '',
+    x REAL NOT NULL DEFAULT 0, y REAL NOT NULL DEFAULT 0, z REAL NOT NULL DEFAULT 0, ry REAL NOT NULL DEFAULT 0,
+    inventory_json TEXT NOT NULL DEFAULT '',
+    personal_json  TEXT NOT NULL DEFAULT '',
+    updated_at     INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (player_id, world)
   )`,
 ];
 
@@ -149,6 +164,34 @@ export class Accounts extends DurableObject<Env> {
     if (!this.meRow(id)) return { error: 'not_found' };
     this.save(id, p, inventory, personal);
     return this.stateRow(id);
+  }
+
+  getCharacter(id: number, world: string): CharacterState | Fail<'daily_budget'> {
+    if (this.spent(true)) return { error: 'daily_budget' };
+    return this.characterRow(id, world);
+  }
+
+  private characterRow(id: number, world: string): CharacterState {
+    const row = this.rows<CharacterState>(
+      'SELECT name, gender, map, x, y, z, ry, inventory_json, personal_json, updated_at FROM character_state WHERE player_id = ? AND world = ?', id, world,
+    )[0];
+    return row ?? { ...EMPTY, name: '', gender: '' };
+  }
+
+  // Like putState; a missing name/gender keeps the stored one.
+  putCharacter(id: number, world: string, p: PlayerPos & Character, inventory: string | null, personal: string | null): CharacterState | Fail<'not_found' | 'daily_budget'> {
+    if (this.spent(true)) return { error: 'daily_budget' };
+    if (!this.meRow(id)) return { error: 'not_found' };
+    const name = p.name || null, gender = p.gender || null;
+    this.sql.exec(`
+      INSERT INTO character_state (player_id, world, name, gender, map, x, y, z, ry, inventory_json, personal_json, updated_at)
+      VALUES (?, ?, COALESCE(?, ''), COALESCE(?, ''), ?, ?, ?, ?, ?, COALESCE(?, ''), COALESCE(?, ''), unixepoch())
+      ON CONFLICT(player_id, world) DO UPDATE SET map = excluded.map, x = excluded.x, y = excluded.y, z = excluded.z,
+        ry = excluded.ry, updated_at = excluded.updated_at,
+        name = COALESCE(?, name), gender = COALESCE(?, gender),
+        inventory_json = COALESCE(?, inventory_json), personal_json = COALESCE(?, personal_json)
+    `, id, world, name, gender, p.map, p.x, p.y, p.z, p.ry, inventory, personal, name, gender, inventory, personal);
+    return this.characterRow(id, world);
   }
 
   // Last position when a realtime connection ends (JSON fields untouched).

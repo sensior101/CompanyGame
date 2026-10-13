@@ -4,7 +4,7 @@ import { secondsToUtcMidnight } from '../../src/budget.ts';
 import { checkSecret } from '../../src/limit.ts';
 import { accountsOf, lobbyOf, type Env } from './env.ts';
 import { signJwt, verifyJwt } from './jwt.ts';
-import { credentials, isJsonOrEmpty, profile, STATE_BODY_LIMIT, stateBody } from './validate.ts';
+import { credentials, isJsonOrEmpty, profile, STATE_BODY_LIMIT, stateBody, worldParam } from './validate.ts';
 
 export { Accounts } from './accounts.ts';
 export { Lobby } from './lobby.ts';
@@ -81,17 +81,23 @@ async function putProfile(req: Request, env: Env): Promise<Response> {
   return json(r);
 }
 
+// ?world=<id> selects that world's character; without it the account-wide state is used.
 async function getState(req: Request, env: Env): Promise<Response> {
-  const r = await accountsOf(env).getState(await authedId(req, env));
+  const id = await authedId(req, env);
+  const world = must(worldParam(new URL(req.url)));
+  const r = world ? await accountsOf(env).getCharacter(id, world) : await accountsOf(env).getState(id);
   if ('error' in r) throw failed(r);
   return json(r);
 }
 
 async function putState(req: Request, env: Env): Promise<Response> {
   const id = await authedId(req, env);
+  const world = must(worldParam(new URL(req.url)));
   const b = must(stateBody(await readJson(req, STATE_BODY_LIMIT)));
   if (!isJsonOrEmpty(b.inventory_json) || !isJsonOrEmpty(b.personal_json)) throw new HttpError(400, 'invalid_json');
-  const r = await accountsOf(env).putState(id, b, b.inventory_json ?? null, b.personal_json ?? null);
+  const accounts = accountsOf(env);
+  const r = world ? await accounts.putCharacter(id, world, b, b.inventory_json ?? null, b.personal_json ?? null)
+    : await accounts.putState(id, b, b.inventory_json ?? null, b.personal_json ?? null);
   if ('error' in r) throw failed(r);
   return json(r);
 }

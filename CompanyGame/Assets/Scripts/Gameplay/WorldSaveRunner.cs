@@ -81,6 +81,8 @@ public sealed class WorldSaveRunner : MonoBehaviour
 
     void SavePersonal(bool force)
     {
+        // In a room the money is the room character's; it is saved per world by NetPlayerSave, never into this PC's own file.
+        if (SharedWriteGate.InRoomCheck != null && SharedWriteGate.InRoomCheck()) return;
         string json = PersonalSave.Export();
         if (!force && json == lastPersonal) return;
         if (PersonalSave.SaveToDisk()) lastPersonal = json;

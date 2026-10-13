@@ -2,7 +2,7 @@
 type Obj = Record<string, unknown>;
 export interface Credentials { username: string; password: string }
 export interface Profile { nickname: string; gender: 'male' | 'female' }
-export interface StateBody { map: string; x: number; y: number; z: number; ry: number; inventory_json?: string; personal_json?: string }
+export interface StateBody { map: string; x: number; y: number; z: number; ry: number; inventory_json?: string; personal_json?: string; name?: string; gender?: string }
 
 export const STATE_BODY_LIMIT = 64 * 1024;
 const len = (s: string) => [...s].length; // characters, not UTF-16 units (JSON schema maxLength)
@@ -23,10 +23,23 @@ export function profile(b: Obj): Profile | null {
 }
 
 export function stateBody(b: Obj): StateBody | null {
-  const { map, x, y, z, ry, inventory_json, personal_json } = b;
+  const { map, x, y, z, ry, inventory_json, personal_json, name, gender } = b;
   const ok = typeof map === 'string' && len(map) <= 200 && coord(x) && coord(y) && coord(z) && coord(ry)
-    && jsonField(inventory_json) && jsonField(personal_json);
-  return ok ? { map, x, y, z, ry, inventory_json: inventory_json as string | undefined, personal_json: personal_json as string | undefined } : null;
+    && jsonField(inventory_json) && jsonField(personal_json)
+    // '' = keep the stored value (Unity's JsonUtility always writes every field)
+    && (name === undefined || (typeof name === 'string' && /^([가-힣A-Za-z0-9_]{2,12})?$/.test(name)))
+    && (gender === undefined || gender === '' || gender === 'male' || gender === 'female');
+  return ok ? {
+    map, x, y, z, ry, inventory_json: inventory_json as string | undefined, personal_json: personal_json as string | undefined,
+    name: name as string | undefined, gender: gender as string | undefined,
+  } : null;
+}
+
+// ?world=<id> (WorldSave.WorldId): the character of that world. null = no/invalid parameter.
+export function worldParam(url: URL): string | null | undefined {
+  const w = url.searchParams.get('world');
+  if (w === null) return undefined;
+  return /^[A-Za-z0-9_-]{1,64}$/.test(w) ? w : null;
 }
 
 // "" means "nothing"; anything else must at least be valid JSON.

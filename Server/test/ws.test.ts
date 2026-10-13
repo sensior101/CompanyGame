@@ -82,6 +82,12 @@ test('room flow: create, join, pos, world, transfer, host migration with snap', 
   assert.deepEqual([pos.from, pos.map, pos.x, pos.sp], [hb.id, 'm', 1, 5]);
   await b.quiet('pos');
   await a.quiet('pos');
+  // look/action fields ride along; a name with rich-text tags drops the message
+  b.send({ t: 'pos', map: 'm', x: 1, y: 2, z: 3, ry: 4, sp: 5, nm: '영희', g: 1, veh: 'car_knight', act: 3 });
+  b.send({ t: 'pos', map: 'm', x: 1, y: 2, z: 3, ry: 4, sp: 5, nm: '<b>x</b>' });
+  const look = await a.next('pos');
+  assert.deepEqual([look.nm, look.g, look.veh, look.act], ['영희', 1, 'car_knight', 3]);
+  await a.quiet('pos');
 
   // world: host only, not echoed to host
   b.send({ t: 'world', ev: 'citizens', data: '{}' });
@@ -264,6 +270,30 @@ test('/me/state round trip, validation, and last pos saved on disconnect', async
   await new Promise((r) => setTimeout(r, 100));
   const after = (await get()).json;
   assert.deepEqual([after.map, after.x, after.y, after.z, after.ry, after.inventory_json], ['Maps/Coast', 7, 8, 9, 10, inv]);
+});
+
+test('/me/state?world= keeps one character per world', async () => {
+  const tok = tokens['gamma'];
+  const get = (w: string) => api(srv, 'GET', `/me/state?world=${w}`, undefined, tok);
+  const put = (w: string, payload: object) => api(srv, 'PUT', `/me/state?world=${w}`, payload, tok);
+  const w1 = 'a'.repeat(32), w2 = 'b'.repeat(32);
+
+  const none = (await get(w1)).json;
+  assert.deepEqual([none.updated_at, none.name, none.gender], [0, '', '']);
+  assert.equal((await put(w1, { map: 'm', x: 1, y: 0, z: 0, ry: 0, name: '철수', gender: 'male', inventory_json: '{"a":1}' })).status, 200);
+  assert.equal((await put(w2, { map: 'm', x: 2, y: 0, z: 0, ry: 0, name: '영희', gender: 'female' })).status, 200);
+  const one = (await get(w1)).json, two = (await get(w2)).json;
+  assert.deepEqual([one.name, one.gender, one.x, one.inventory_json], ['철수', 'male', 1, '{"a":1}']);
+  assert.deepEqual([two.name, two.gender, two.x, two.inventory_json], ['영희', 'female', 2, '']);
+
+  // a save without name/gender keeps them; the account-wide state is separate
+  await put(w1, { map: 'm', x: 5, y: 0, z: 0, ry: 0, name: '', gender: '' });
+  assert.deepEqual([(await get(w1)).json.name, (await get(w1)).json.x], ['철수', 5]);
+  assert.notEqual((await api(srv, 'GET', '/me/state', undefined, tok)).json.x, 5);
+
+  assert.equal((await put(w1, { map: 'm', x: 0, y: 0, z: 0, ry: 0, name: '<b>' })).status, 400);
+  assert.equal((await put(w1, { map: 'm', x: 0, y: 0, z: 0, ry: 0, gender: 'x' })).status, 400);
+  assert.equal((await get('bad%20id')).status, 400);
 });
 
 test('GET /rooms needs a token and lists rooms', async () => {

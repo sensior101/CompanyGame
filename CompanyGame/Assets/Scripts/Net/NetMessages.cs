@@ -8,7 +8,9 @@ using System;
 public sealed class NetMsg
 {
     public string t, id, name, rid, room, host, hostName, reason, to, from, data, snap, ev, map, code;
+    public string nm, veh; // pos: character name, ridden vehicle itemId ("" = on foot)
     public int max, count;
+    public int g, act;     // pos: 1 = female look; attack counter (a change = one swing)
     public long seq;
     public float x, y, z, ry, sp;
     public RoomInfo[] rooms;

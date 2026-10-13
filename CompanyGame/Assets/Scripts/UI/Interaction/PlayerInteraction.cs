@@ -63,11 +63,7 @@ public class PlayerInteraction : MonoBehaviour
     {
         NameTag.Font = uiFont;
         var tag = NameTag.Ensure(gameObject, GameSession.LocalPlayerName);
-        tag.nameSource = () =>
-        {
-            string nick = PlayerData.Instance ? PlayerData.Instance.Profile?.nickname : null;
-            return string.IsNullOrEmpty(nick) ? GameSession.LocalPlayerName : nick;
-        };
+        tag.nameSource = () => GameSession.LocalPlayerName; // the room's character name; the account nickname is never shown
         tag.hideWhen = () =>
         {
             var cam = movement && movement.viewCamera ? movement.viewCamera.GetComponent<PlayerCameraController>() : null;

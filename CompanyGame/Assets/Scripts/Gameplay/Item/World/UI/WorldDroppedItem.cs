@@ -18,6 +18,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
         public Vector3 position;
         public Quaternion rotation = Quaternion.identity;
         public bool placedVehicle;
+        public string riderId; // room member driving it (a placed vehicle only)
         public InventoryState contents = new InventoryState();
         public TMP_FontAsset font;
         public WorldDroppedItem instance;
@@ -56,7 +57,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
     public string DropId => record?.id;
     public static int SessionDropCount => records.Count;
     public bool IsPlacedVehicle => record != null && record.placedVehicle;
-    public bool IsOccupied => rider && rider.IsRiding;
+    public bool IsOccupied => (rider && rider.IsRiding) || !string.IsNullOrEmpty(record?.riderId);
     public string VehicleOwnershipKey => record?.contents.GetSlot(0)?.OwnershipKey;
     public string VehicleOwner => PropertyRegistry.Instance ? PropertyRegistry.Instance.GetOwner(VehicleOwnershipKey) : null;
     public bool VehicleLocked => PropertyRegistry.Instance && PropertyRegistry.Instance.IsVehicleLocked(VehicleOwnershipKey);
@@ -87,6 +88,8 @@ public sealed class WorldDroppedItem : MonoBehaviour
         if (!IsPlacedVehicle || IsOccupied) return false;
         if (!PropertyRegistry.Instance || !PropertyRegistry.Instance.CanDismantleVehicle(VehicleOwnershipKey,actor))
         { error="소유자가 해체를 허용하지 않았습니다."; return false; }
+        // ponytail: other members only lose the car; the dropped item stays on this PC (plain drops are not shared yet).
+        if (!SendVehicleOp("veh.del", record) && SharedWriteGate.SendFailed) { error="서버에 연결되어 있지 않아 해체하지 못했습니다."; return false; }
         record.placedVehicle=false;
         foreach (var collider in GetComponents<Collider>()) { collider.enabled=false; Destroy(collider); }
         foreach (Transform child in transform) { child.gameObject.SetActive(false); Destroy(child.gameObject); }
@@ -172,6 +175,9 @@ public sealed class WorldDroppedItem : MonoBehaviour
         var drop = new DropRecord { id = Guid.NewGuid().ToString("N"), scenePath = SceneLoadManager.CurrentMap.path,
             position = point, rotation = rotation, placedVehicle = true, font = owner.uiFont };
         if (!owner.Inventory.TryTransferTo(drop.contents, owner.Inventory.SelectedHotbarIndex, 1, out error)) return false;
+        // In a room the car appears for everyone (this PC included) when the op comes back.
+        if (SendVehicleOp("veh.put", drop)) return true;
+        if (SharedWriteGate.SendFailed) { drop.contents.TryTransferTo(owner.Inventory, 0, 1, out _); error = "서버에 연결되어 있지 않아 설치하지 못했습니다."; return false; }
         Commit(drop, SceneLoadManager.CurrentMap);
         return true;
     }
@@ -230,11 +236,28 @@ public sealed class WorldDroppedItem : MonoBehaviour
         if (!PropertyRegistry.Instance || !PropertyRegistry.Instance.CanRideVehicle(VehicleOwnershipKey,GameSession.LocalPlayerName))
         { owner.SetStatus("잠긴 탈것입니다. 소유자만 탑승할 수 있습니다."); return false; }
         SetVehicleHover(false);
+        // In a room the first ride op wins; this PC gets in when its own op comes back (ApplyVehicleOp).
+        if (SendVehicleOp("veh.ride", record)) return true;
+        return !SharedWriteGate.SendFailed && MountLocal(driver);
+    }
+
+    bool MountLocal(PlayerVehicle driver)
+    {
+        if (!driver || !vehicleModel) return false;
         vehicleCollider.enabled = false;
         if (!driver.TryMount(Item, vehicleModel, ReturnVehicleToGround)) { vehicleCollider.enabled = true; return false; }
         rider = driver;
         if (pickupPopup) pickupPopup.gameObject.SetActive(false);
         return true;
+    }
+
+    // Another member drives this car: their avatar shows it (NetPlayerSync), so the parked copy hides.
+    void ShowParked(bool visible)
+    {
+        if (vehicleModel) vehicleModel.SetActive(visible);
+        if (vehicleCollider) vehicleCollider.enabled = visible;
+        if (!visible && pickupPopup) pickupPopup.gameObject.SetActive(false);
+        if (!visible) SetVehicleHover(false);
     }
 
     void ReturnVehicleToGround()
@@ -251,6 +274,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
         rider = null;
         if (vehicleCollider) vehicleCollider.enabled = true;
         RebuildVehicleCollider();
+        if (!string.IsNullOrEmpty(record.riderId)) { SendPark(record); record.riderId = null; }
     }
 
     public static bool TryDropStorage(PlayerInventory owner, int index, out string error,int count=-1)
@@ -401,6 +425,163 @@ public sealed class WorldDroppedItem : MonoBehaviour
         component.record = drop;
         drop.instance = component;
         component.BuildVisual();
+        if (drop.placedVehicle && !string.IsNullOrEmpty(drop.riderId)) component.ShowParked(false);
+    }
+
+    // ---- placed vehicles in the shared world (room ops + world save) ----
+
+    // WorldSave/WorldOps (Gameplay) and NetPlayerSync (Player) cannot see this UI-assembly class, so it plugs itself in.
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+    static void InstallHooks()
+    {
+        WorldSave.CaptureVehicles = CaptureVehicles;
+        WorldSave.RestoreVehicles = RestoreVehicles;
+        WorldOps.VehicleOp = ApplyVehicleOp;
+        NetPlayerSync.RemoteLeft -= ReleaseRider;
+        NetPlayerSync.RemoteLeft += ReleaseRider;
+    }
+
+    static PlacedVehicleSave ToSave(DropRecord drop)
+    {
+        var stack = drop.contents.GetSlot(0);
+        var model = drop.instance ? drop.instance.vehicleModel : null;
+        // A car this PC is driving is wherever the player is now.
+        bool driving = model && drop.instance.rider;
+        return new PlacedVehicleSave { id = drop.id, item = stack.Item ? stack.Item.itemId : null, inst = stack.InstanceId,
+            scene = drop.scenePath, rider = drop.riderId,
+            pos = driving ? model.transform.position : drop.position,
+            ry = driving ? model.transform.eulerAngles.y : drop.rotation.eulerAngles.y };
+    }
+
+    static DropRecord FromSave(PlacedVehicleSave v)
+    {
+        var item = InventorySnapshot.Find(v.item);
+        if (!item || !item.IsVehicle || string.IsNullOrEmpty(v.id)) return null;
+        var drop = new DropRecord { id = v.id, scenePath = v.scene, position = v.pos, rotation = Quaternion.Euler(0, v.ry, 0),
+            placedVehicle = true, riderId = string.IsNullOrEmpty(v.rider) ? null : v.rider, font = LocalFont() };
+        return drop.contents.TryAdd(item, 1, out _, v.inst) ? drop : null;
+    }
+
+    static TMP_FontAsset LocalFont()
+    {
+        var inventory = PlayerSpawner.Player ? PlayerSpawner.Player.GetComponent<PlayerInventory>() : null;
+        return inventory ? inventory.uiFont : null;
+    }
+
+    // True when the op went to the room; false outside a room (apply locally) or when sending failed (SharedWriteGate.SendFailed).
+    static bool SendVehicleOp(string kind, DropRecord drop)
+    {
+        SharedWriteGate.SetSendFailed(false);
+        if (!SharedWriteGate.InRoom) return false;
+        bool sent = SharedWriteGate.Sender != null && SharedWriteGate.Sender(kind, JsonUtility.ToJson(ToSave(drop)));
+        SharedWriteGate.SetSendFailed(!sent);
+        return sent;
+    }
+
+    // Also sent while an op is being applied (a ride this PC could not start), so it skips the gate's Applying check.
+    static void SendPark(DropRecord drop)
+    {
+        if (SharedWriteGate.InRoomCheck != null && SharedWriteGate.InRoomCheck())
+            SharedWriteGate.Sender?.Invoke("veh.park", JsonUtility.ToJson(ToSave(drop)));
+    }
+
+    static void Add(DropRecord drop)
+    {
+        records[drop.id] = drop;
+        var scene = SceneManager.GetSceneByPath(drop.scenePath);
+        if (scene.IsValid() && scene.isLoaded) CreateVisual(drop, scene);
+    }
+
+    static void Remove(DropRecord drop)
+    {
+        records.Remove(drop.id);
+        if (drop.instance) Destroy(drop.instance.gameObject);
+        drop.instance = null;
+    }
+
+    static void Park(DropRecord drop, Vector3 position, float ry)
+    {
+        drop.riderId = null;
+        drop.position = position; drop.rotation = Quaternion.Euler(0, ry, 0);
+        if (!drop.instance) return;
+        drop.instance.transform.SetPositionAndRotation(position, drop.rotation);
+        drop.instance.ShowParked(true);
+        drop.instance.RebuildVehicleCollider();
+    }
+
+    /// <summary>veh.put / veh.ride / veh.park / veh.del from the server echo (every member, the sender included).</summary>
+    public static string ApplyVehicleOp(string kind, string json, string from)
+    {
+        var v = JsonUtility.FromJson<PlacedVehicleSave>(json);
+        if (v == null || string.IsNullOrEmpty(v.id)) return null;
+        records.TryGetValue(v.id, out var drop);
+        bool mine = from == GameSession.LocalPlayerId;
+        switch (kind)
+        {
+            case "veh.put":
+                if (drop != null) return null;
+                drop = FromSave(v);
+                if (drop == null) return "알 수 없는 탈것이라 설치하지 못했습니다.";
+                drop.riderId = null;
+                Add(drop);
+                return null;
+            case "veh.ride":
+                if (drop == null || !drop.placedVehicle || !string.IsNullOrEmpty(drop.riderId)) return "이미 다른 사람이 탄 탈것입니다.";
+                drop.riderId = from;
+                if (!mine) { if (drop.instance) drop.instance.ShowParked(false); return null; }
+                var driver = PlayerSpawner.Player ? PlayerSpawner.Player.GetComponent<PlayerVehicle>() : null;
+                if (drop.instance && drop.instance.MountLocal(driver)) return null;
+                SendPark(drop); // could not get in after all (moved away, loading): free it for everyone
+                return "지금은 탑승할 수 없습니다.";
+            case "veh.park":
+                if (drop == null || drop.riderId != from) return null;
+                if (mine) { drop.riderId = null; return null; } // this PC already parked it
+                Park(drop, v.pos, v.ry);
+                return null;
+            case "veh.del":
+                if (drop != null && !mine && string.IsNullOrEmpty(drop.riderId)) Remove(drop);
+                return null;
+            default: return null;
+        }
+    }
+
+    /// <summary>A member left while driving: the car stays where they were last seen.</summary>
+    public static void ReleaseRider(string riderId, Vector3 position, float ry)
+    {
+        foreach (var drop in records.Values) if (drop.riderId == riderId) Park(drop, position, ry);
+    }
+
+    public static List<PlacedVehicleSave> CaptureVehicles()
+    {
+        var list = new List<PlacedVehicleSave>();
+        foreach (var drop in records.Values) if (drop.placedVehicle && !drop.contents.GetSlot(0).IsEmpty) list.Add(ToSave(drop));
+        return list;
+    }
+
+    /// <summary>
+    /// Makes the placed vehicles equal to a snapshot's. Clients get one every 10s, so unchanged cars are left alone
+    /// and a car this PC is driving keeps going; it is only left when the snapshot no longer has it (another world).
+    /// </summary>
+    public static void RestoreVehicles(List<PlacedVehicleSave> list)
+    {
+        var keep = new HashSet<string>();
+        if (list != null)
+            foreach (var v in list)
+            {
+                if (string.IsNullOrEmpty(v.id)) continue;
+                keep.Add(v.id);
+                if (!records.TryGetValue(v.id, out var drop)) { drop = FromSave(v); if (drop != null) Add(drop); continue; }
+                if (drop.instance && drop.instance.rider) continue; // driving it here
+                string riderId = string.IsNullOrEmpty(v.rider) || v.rider == GameSession.LocalPlayerId ? null : v.rider;
+                if (riderId != null) { drop.riderId = riderId; if (drop.instance) drop.instance.ShowParked(false); }
+                else if (drop.riderId != null || (drop.position - v.pos).sqrMagnitude > 1e-4f) Park(drop, v.pos, v.ry);
+            }
+        foreach (var drop in new List<DropRecord>(records.Values))
+        {
+            if (!drop.placedVehicle || keep.Contains(drop.id)) continue;
+            if (drop.instance && drop.instance.rider && drop.instance.rider.IsRiding) drop.instance.rider.Dismount(false);
+            Remove(drop);
+        }
     }
 
     void BuildVisual()

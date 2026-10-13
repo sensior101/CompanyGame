@@ -11,6 +11,9 @@ public static class WorldOps
 {
     const string WrongActor = "요청한 사람이 올바르지 않아 거부했습니다.";
 
+    /// <summary>Placed-vehicle ops (veh.*): (kind, json, from) -> error or null. Installed by WorldDroppedItem.</summary>
+    public static Func<string, string, string, string> VehicleOp;
+
     /// <summary>
     /// Returns null on success (or when the op was already reflected), else a Korean failure message.
     /// <paramref name="from"/> is the account id the server attached; the actor named inside the op must equal it.
@@ -23,7 +26,7 @@ public static class WorldOps
         if (a == null) return null;
         if (string.IsNullOrEmpty(from) || !ActorMatches(kind, a, from)) return WrongActor;
         SharedWriteGate.Applying = true;
-        try { return Run(kind, a, from); }
+        try { return kind.StartsWith("veh.") ? VehicleOp?.Invoke(kind, json, from) : Run(kind, a, from); }
         catch (Exception e) { Debug.LogException(e); return "요청을 처리하지 못했습니다."; }
         finally { SharedWriteGate.Applying = false; }
     }
