@@ -15,10 +15,19 @@ using System.Text;
 /// and saves the world every 60 seconds and on <see cref="Stop"/>.
 /// Peer names (12.7) are character names, never the Hello's: "" until the character exists; making it sends that
 /// connection's Peer(in) again with the name (clients read a second Peer(in) of one number as a rename).
+/// Placed cars and dropped items (12.8): an owner can Release a PersistOnLeave + Claimable entity back to the server.
+/// PersistOnLeave entities (at most <see cref="MaxPersistent"/> per world) and the next connection number are saved in the
+/// world and come back server-owned after a restart. A refused Spawn (no character, a limit) answers Despawn(id) to its
+/// sender. A server-owned Expiring entity is moved to the world's lost-and-found list at the first 06:00 of the world
+/// clock after it was made; lost items are deleted 7 game days later. The server never reads the entity blobs.
 /// </summary>
 public sealed class GameServer
 {
     const long HelloTimeoutMs = 10000, SaveIntervalMs = 60000;
+    /// <summary>PersistOnLeave entities one world may hold (12.8); more Spawns are refused.</summary>
+    public const int MaxPersistent = 4096;
+    /// <summary>World-clock minutes: a day, the 06:00 clearing time, and how long the lost-and-found keeps an item (7 game days).</summary>
+    public const double DayMinutes = 1440, ClearAtMinute = 360, LostKeepMinutes = 7 * DayMinutes;
     /// <summary>
     /// Real seconds per game hour, the same as SimpleGameClock.realSecondsPerGameHour (Core/SimpleGameClock.cs, 300).
     /// NetCore cannot read Unity components, so the value is copied here; change both together.
@@ -44,18 +53,21 @@ public sealed class GameServer
         public string prefab, map;
         public EntityFlags flags;
         public byte[][] blobs;
+        public double created; // world clock minutes
+        public bool Persists => (flags & EntityFlags.PersistOnLeave) != 0;
     }
 
     readonly IServerTransport transport;
     readonly Dictionary<int, Conn> conns = new Dictionary<int, Conn>();
     readonly Dictionary<ulong, Entity> entities = new Dictionary<ulong, Entity>();
     readonly List<Conn> scratch = new List<Conn>();
+    readonly List<Entity> expired = new List<Entity>();
     readonly Stopwatch clock = Stopwatch.StartNew();
     readonly MemoryStream outStream = new MemoryStream();
     readonly BinaryWriter w;
     readonly byte[] passwordHash; // null = no password
     uint nextNumber = 1;
-    long nextTimeoutCheck, clockOffset, lastClockAt, nextSaveAt = SaveIntervalMs;
+    long nextTimeoutCheck, clockOffset, lastClockAt, nextSaveAt = SaveIntervalMs, lastClearMinute = -1;
 
     public int MaxPlayers { get; }
     /// <summary>Sent in every Welcome.</summary>
@@ -84,7 +96,19 @@ public sealed class GameServer
         Name = name ?? "";
         if (!string.IsNullOrEmpty(password)) passwordHash = Hash(password);
         w = new BinaryWriter(outStream, Encoding.UTF8);
+        // The saved entities come back server-owned; numbers go on past the file's and every saved id's, so ids never repeat.
+        nextNumber = Math.Max(1u, World.NextConnection);
+        foreach (var s in World.Entities)
+        {
+            if (entities.ContainsKey(s.id)) continue;
+            entities[s.id] = new Entity { id = s.id, prefab = s.prefab, map = s.map, flags = s.flags, blobs = s.blobs, created = s.created };
+            uint number = SyncProtocol.ConnectionOf(s.id);
+            if (number != uint.MaxValue && number >= nextNumber) nextNumber = number + 1;
+        }
     }
+
+    /// <summary>The lost-and-found list of this world (12.8), for QA.</summary>
+    public IReadOnlyList<WorldStore.LostItem> Lost => World.Lost;
 
     static byte[] Hash(string text)
     {
@@ -124,6 +148,7 @@ public sealed class GameServer
         }
         DropSilentConnections();
         RunClocks();
+        ClearExpired();
         if (Now >= nextSaveAt) { nextSaveAt = Now + SaveIntervalMs; SaveWorld(); }
     }
 
@@ -147,9 +172,37 @@ public sealed class GameServer
         foreach (var c in World.Characters) if (c.online) c.minutes += minutes;
     }
 
+    // Once per world-clock minute: server-owned Expiring entities past their first 06:00 go to the lost-and-found list,
+    // and lost items older than 7 game days are deleted.
+    // ponytail: scans every entity once a game minute (every 5 real seconds); index the Expiring ones if worlds grow past a few thousand.
+    void ClearExpired()
+    {
+        long minute = (long)Math.Floor(World.WorldMinutes);
+        if (minute == lastClearMinute) return;
+        lastClearMinute = minute;
+        double now = World.WorldMinutes;
+        expired.Clear();
+        foreach (var e in entities.Values)
+            if ((e.flags & EntityFlags.Expiring) != 0 && e.owner == 0 && now >= ClearTime(e.created)) expired.Add(e);
+        foreach (var e in expired)
+        {
+            Remove(e, null);
+            World.Lost.Add(new WorldStore.LostItem { prefab = e.prefab, blobs = e.blobs, movedAt = now });
+        }
+        World.Lost.RemoveAll(l => now - l.movedAt >= LostKeepMinutes);
+    }
+
+    /// <summary>The first 06:00 of the world clock after <paramref name="created"/> (made at 06:00 itself: the next day's).</summary>
+    public static double ClearTime(double created) => ClearAtMinute + DayMinutes * (Math.Floor((created - ClearAtMinute) / DayMinutes) + 1);
+
     // ponytail: the whole file is written on the server thread every minute (about 50 x 48KB at most); move to a writer thread if it shows in a tick.
     void SaveWorld()
     {
+        World.NextConnection = nextNumber;
+        World.Entities.Clear();
+        foreach (var e in entities.Values)
+            if (e.Persists)
+                World.Entities.Add(new WorldStore.SavedEntity { id = e.id, prefab = e.prefab, map = e.map, flags = e.flags, created = e.created, blobs = e.blobs });
         try { World.Save(); Saves++; }
         catch (Exception e) { Log?.Invoke("world save failed: " + e.Message); }
     }
@@ -189,6 +242,7 @@ public sealed class GameServer
                 case ToServer.Event: OnEvent(c, r); break;
                 case ToServer.Map: OnMap(c, r); break;
                 case ToServer.Claim: OnClaim(c, r); break;
+                case ToServer.Release: OnRelease(c, r); break;
                 case ToServer.CharacterCreate: OnCharacterCreate(c, r); break;
                 case ToServer.CharacterSave: OnCharacterSave(c, r); break;
                 default: throw new InvalidDataException("kind " + (byte)kind);
@@ -236,11 +290,15 @@ public sealed class GameServer
         var blobs = new byte[r.ReadByte()][];
         for (int i = 0; i < blobs.Length; i++) blobs[i] = SyncProtocol.ReadBlob(r);
         SyncProtocol.End(r);
-        if (c.character == null) { Warn(c, "spawn without a character"); return; }
+        // A bad id gets no answer: a Despawn of it could remove another entity the sender has.
         if (SyncProtocol.ConnectionOf(id) != c.number) { Warn(c, "spawn with another connection's id"); return; }
         if (entities.ContainsKey(id)) { Warn(c, "duplicate spawn id"); return; }
-        if (c.owned.Count >= SyncProtocol.MaxEntitiesPerConnection) { Warn(c, "entity limit"); return; }
-        var e = new Entity { id = id, owner = c.number, prefab = prefab, map = map, flags = flags, blobs = blobs };
+        // The other refusals answer Despawn(id): the sender takes its object back (a dropped item returns to the bag).
+        string refused = c.character == null ? "spawn without a character"
+            : c.owned.Count >= SyncProtocol.MaxEntitiesPerConnection ? "entity limit"
+            : (flags & EntityFlags.PersistOnLeave) != 0 && PersistentCount() >= MaxPersistent ? "world entity limit" : null;
+        if (refused != null) { Warn(c, refused); Send(c, DespawnMsg(id)); return; }
+        var e = new Entity { id = id, owner = c.number, prefab = prefab, map = map, flags = flags, blobs = blobs, created = World.WorldMinutes };
         entities[id] = e;
         c.owned.Add(id);
         SendToMap(map, SpawnMsg(e), c);
@@ -317,6 +375,27 @@ public sealed class GameServer
         e.owner = c.number;
         c.owned.Add(id);
         SendToMap(e.map, OwnerMsg(e), null);
+    }
+
+    // The owner gives a placed car or a dropped item back to the server (12.8), on any map (getting out on the way to another one).
+    void OnRelease(Conn c, BinaryReader r)
+    {
+        ulong id = r.ReadUInt64();
+        SyncProtocol.End(r);
+        const EntityFlags both = EntityFlags.PersistOnLeave | EntityFlags.Claimable;
+        if (!entities.TryGetValue(id, out var e) || e.owner != c.number || (e.flags & both) != both) return;
+        e.owner = 0;
+        c.owned.Remove(id);
+        byte[] msg = OwnerMsg(e);
+        SendToMap(e.map, msg, null);
+        if (c.map != e.map) Send(c, msg);
+    }
+
+    int PersistentCount()
+    {
+        int n = 0;
+        foreach (var e in entities.Values) if (e.Persists) n++;
+        return n;
     }
 
     // ---- characters (12.5) ----

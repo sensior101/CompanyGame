@@ -7,6 +7,8 @@ using UnityEngine.SceneManagement;
 /// <summary>
 /// A pickable world stack. Session records survive Single-scene travel; each visual
 /// and collider belongs only to its map. Pickup removes the record after an atomic transfer.
+/// On a sync-layer server (12.8) drops and placed vehicles are DropState entities: the record is keyed by the entity id,
+/// pickup, riding and dismantling go through the server's Claim, and this PC's own drops are hidden and never written.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class WorldDroppedItem : MonoBehaviour
@@ -22,7 +24,14 @@ public sealed class WorldDroppedItem : MonoBehaviour
         public InventoryState contents = new InventoryState();
         public TMP_FontAsset font;
         public WorldDroppedItem instance;
+        // Sync-layer server (12.8): the entity id (0 = this PC's own drop or an old room's car) and its state.
+        public ulong netId;
+        public DropState sync;
+        public bool pending; // spawned here, the server has not taken it yet
+        public ClaimFor claim;
+        public float nextSyncAt;
     }
+    enum ClaimFor { None, PickUp, Ride, Dismantle }
     static readonly Dictionary<string, DropRecord> records = new Dictionary<string, DropRecord>();
     DropRecord record;
     Transform billboard;
@@ -88,6 +97,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
         if (!IsPlacedVehicle || IsOccupied) return false;
         if (!PropertyRegistry.Instance || !PropertyRegistry.Instance.CanDismantleVehicle(VehicleOwnershipKey,actor))
         { error="소유자가 해체를 허용하지 않았습니다."; return false; }
+        if (record.netId != 0) return TryClaim(ClaimFor.Dismantle, out error);
         // ponytail: other members only lose the car; the dropped item stays on this PC (plain drops are not shared yet).
         if (!SendVehicleOp("veh.del", record) && SharedWriteGate.SendFailed) { error="서버에 연결되어 있지 않아 해체하지 못했습니다."; return false; }
         record.placedVehicle=false;
@@ -175,6 +185,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
         var drop = new DropRecord { id = Guid.NewGuid().ToString("N"), scenePath = SceneLoadManager.CurrentMap.path,
             position = point, rotation = rotation, placedVehicle = true, font = owner.uiFont };
         if (!owner.Inventory.TryTransferTo(drop.contents, owner.Inventory.SelectedHotbarIndex, 1, out error)) return false;
+        if (OnServer) return SyncCommit(drop, DropState.VehicleKind, out error) || GiveBack(drop);
         // In a room the car appears for everyone (this PC included) when the op comes back.
         if (SendVehicleOp("veh.put", drop)) return true;
         if (SharedWriteGate.SendFailed) { drop.contents.TryTransferTo(owner.Inventory, 0, 1, out _); error = "서버에 연결되어 있지 않아 설치하지 못했습니다."; return false; }
@@ -236,6 +247,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
         if (!PropertyRegistry.Instance || !PropertyRegistry.Instance.CanRideVehicle(VehicleOwnershipKey,GameSession.LocalPlayerName))
         { owner.SetStatus("잠긴 탈것입니다. 소유자만 탑승할 수 있습니다."); return false; }
         SetVehicleHover(false);
+        if (record.netId != 0) return TryClaim(ClaimFor.Ride, out _);
         // In a room the first ride op wins; this PC gets in when its own op comes back (ApplyVehicleOp).
         if (SendVehicleOp("veh.ride", record)) return true;
         return !SharedWriteGate.SendFailed && MountLocal(driver);
@@ -275,6 +287,24 @@ public sealed class WorldDroppedItem : MonoBehaviour
         if (vehicleCollider) vehicleCollider.enabled = true;
         RebuildVehicleCollider();
         if (!string.IsNullOrEmpty(record.riderId)) { SendPark(record); record.riderId = null; }
+        // Server: where it stands now goes out before the car is given back (also on the way to another map).
+        if (record.sync && record.sync.IsOwner)
+        {
+            ShareRide(true);
+            SyncClient.Instance.Release(record.sync.Entity);
+        }
+    }
+
+    // While I drive a server car: its place goes out at most once a second, when it moved over 1 m.
+    void ShareRide(bool now)
+    {
+        var state = record.sync;
+        if (!state || !state.IsOwner) return;
+        if (!now && (Time.unscaledTime < record.nextSyncAt || (state.position - record.position).sqrMagnitude <= 1f)) return;
+        record.nextSyncAt = Time.unscaledTime + 1f;
+        state.position = record.position;
+        state.yaw = record.rotation.eulerAngles.y;
+        state.MarkDirty();
     }
 
     public static bool TryDropStorage(PlayerInventory owner, int index, out string error,int count=-1)
@@ -284,6 +314,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
         if (source == null || source.IsEmpty) { error = "내려놓을 아이템이 없습니다."; return false; }
         if (!Prepare(owner, out var drop, out error)) return false;
         if (!owner.Inventory.TryTransferTo(drop.contents, index, count<0?source.Count:count, out error)) return false;
+        if (OnServer) return SyncCommit(drop, DropState.ItemKind, out error) || GiveBack(drop);
         Commit(drop, SceneLoadManager.CurrentMap);
         return true;
     }
@@ -296,7 +327,9 @@ public sealed class WorldDroppedItem : MonoBehaviour
         if (!Prepare(owner, out var drop, out error)) return false;
         // Prepare the destination first. A failed removal leaves the actual equipment unchanged.
         if (!drop.contents.TryAdd(source.Item, source.Count, out error)) return false;
+        if (OnServer && !DropState.Fits(DropState.Pack(drop.contents))) { error = TooBig; return false; }
         if (!owner.Inventory.TryRemoveEquipment(slot, out error)) return false;
+        if (OnServer) return SyncCommit(drop, DropState.ItemKind, out error) || GiveBack(drop);
         Commit(drop, SceneLoadManager.CurrentMap);
         return true;
     }
@@ -337,6 +370,8 @@ public sealed class WorldDroppedItem : MonoBehaviour
         { error = "아이템에 조금 더 가까이 가 주세요."; return false; }
         int quantity = Count;
         if (quantity <= 0) { error = "이미 주운 아이템입니다."; return false; }
+        // Server: the first Claim wins; the answer finishes it (SyncOwner), so nothing is picked up yet.
+        if (record.netId != 0) { TryClaim(ClaimFor.PickUp, out error); return false; }
         if (!record.contents.TryTransferTo(owner.Inventory, 0, quantity, out error)) return false;
         records.Remove(record.id);
         BookSaveService.RemoveWorldDrop(record.id);
@@ -418,6 +453,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
     static void CreateVisual(DropRecord drop, Scene scene)
     {
         if (!scene.IsValid() || !scene.isLoaded || drop.contents.GetSlot(0).IsEmpty) return;
+        if (drop.netId == 0 && OnServer) return; // this PC's own drops stay out of a server's world
         var host = new GameObject("DroppedItem_" + drop.id);
         host.transform.SetPositionAndRotation(drop.position,drop.rotation);
         SceneManager.MoveGameObjectToScene(host, scene);
@@ -439,6 +475,8 @@ public sealed class WorldDroppedItem : MonoBehaviour
         WorldOps.VehicleOp = ApplyVehicleOp;
         NetPlayerSync.RemoteLeft -= ReleaseRider;
         NetPlayerSync.RemoteLeft += ReleaseRider;
+        SyncClient.ConnectionChanged -= OnServerConnection;
+        SyncClient.ConnectionChanged += OnServerConnection;
     }
 
     static PlacedVehicleSave ToSave(DropRecord drop)
@@ -554,7 +592,8 @@ public sealed class WorldDroppedItem : MonoBehaviour
     public static List<PlacedVehicleSave> CaptureVehicles()
     {
         var list = new List<PlacedVehicleSave>();
-        foreach (var drop in records.Values) if (drop.placedVehicle && !drop.contents.GetSlot(0).IsEmpty) list.Add(ToSave(drop));
+        // A server's cars live in the server's world file, never in this PC's.
+        foreach (var drop in records.Values) if (drop.placedVehicle && drop.netId == 0 && !drop.contents.GetSlot(0).IsEmpty) list.Add(ToSave(drop));
         return list;
     }
 
@@ -578,11 +617,194 @@ public sealed class WorldDroppedItem : MonoBehaviour
             }
         foreach (var drop in new List<DropRecord>(records.Values))
         {
-            if (!drop.placedVehicle || keep.Contains(drop.id)) continue;
+            if (!drop.placedVehicle || drop.netId != 0 || keep.Contains(drop.id)) continue;
             if (drop.instance && drop.instance.rider && drop.instance.rider.IsRiding) drop.instance.rider.Dismount(false);
             Remove(drop);
         }
     }
+
+    // ---- sync-layer server (12.8): DropState entities ----
+
+    const string TooBig = "이 아이템은 지금 내려놓을 수 없습니다.";
+
+    static bool OnServer => SyncClient.Instance && SyncClient.Instance.Connected;
+    static string NetKey(ulong id) => "net:" + id;
+
+    static DropRecord RecordOf(DropState state) =>
+        state && state.Entity && state.Entity.IsSpawned && records.TryGetValue(NetKey(state.Entity.Id), out var drop) && drop.sync == state ? drop : null;
+
+    static void Status(string message)
+    {
+        var inventory = PlayerSpawner.Player ? PlayerSpawner.Player.GetComponent<PlayerInventory>() : null;
+        if (inventory) inventory.SetStatus(message);
+    }
+
+    // Shares a drop or a placed car this PC just made: Spawn, then give it to the server at once (Release).
+    static bool SyncCommit(DropRecord drop, byte kind, out string error)
+    {
+        error = null;
+        byte[] packed = DropState.Pack(drop.contents);
+        if (!DropState.Fits(packed)) { error = TooBig; return false; } // a long book; stage 4d stores books apart
+        var go = Instantiate(DropState.Template());
+        go.name = "WorldDrop (mine)";
+        DontDestroyOnLoad(go);
+        var state = go.GetComponent<DropState>();
+        state.kind = kind; state.position = drop.position; state.yaw = drop.rotation.eulerAngles.y; state.contents = packed;
+        go.SetActive(true);
+        var flags = EntityFlags.PersistOnLeave | EntityFlags.Claimable | (kind == DropState.ItemKind ? EntityFlags.Expiring : EntityFlags.None);
+        var entity = SyncClient.Instance.Spawn(DropState.PrefabKey, go, flags);
+        if (!entity) { Destroy(go); error = "서버에 연결되어 있지 않아 내려놓지 못했습니다."; return false; }
+        drop.id = NetKey(entity.Id); drop.netId = entity.Id; drop.sync = state; drop.pending = true;
+        Add(drop);
+        SyncClient.Instance.Release(entity);
+        return true;
+    }
+
+    // The drop could not be shared: its contents go back to the bag. Always false (the caller's answer).
+    static bool GiveBack(DropRecord drop)
+    {
+        var stack = drop.contents.GetSlot(0);
+        var bag = InventoryManager.Instance ? InventoryManager.Instance.State : null;
+        if (stack != null && !stack.IsEmpty && (bag == null || !drop.contents.TryTransferTo(bag, 0, stack.Count, out _)))
+            Debug.LogWarning("[WorldDroppedItem] could not return " + stack.DisplayName + " to the bag");
+        return false;
+    }
+
+    // Only a server-owned entity can be claimed; while my own Release is on its way it is still mine here.
+    bool TryClaim(ClaimFor what, out string error)
+    {
+        error = "";
+        var entity = record.sync ? record.sync.Entity : null;
+        if (!OnServer || !entity || entity.Owner != 0 || record.claim != ClaimFor.None) { error = "잠시 후 다시 해 주세요."; return false; }
+        record.claim = what;
+        SyncClient.Instance.Claim(entity);
+        return true;
+    }
+
+    // Removes a record of mine and its entity (a Despawn for everyone, since I own it).
+    static void DestroyNet(DropRecord drop)
+    {
+        var go = drop.sync ? drop.sync.gameObject : null;
+        drop.sync = null;
+        Remove(drop);
+        if (go) Destroy(go);
+    }
+
+    /// <summary>A DropState got its state from the server: the record is made (id = entity id) or moved.</summary>
+    internal static void SyncState(DropState state)
+    {
+        var entity = state.Entity;
+        if (!entity || !entity.IsSpawned) return;
+        if (records.TryGetValue(NetKey(entity.Id), out var drop))
+        {
+            if (drop.instance && drop.instance.rider) return; // I drive it
+            if (drop.riderId == null) Park(drop, state.position, state.yaw);
+            else { drop.position = state.position; drop.rotation = Quaternion.Euler(0, state.yaw, 0); } // shown again when given back
+            return;
+        }
+        drop = new DropRecord { id = NetKey(entity.Id), netId = entity.Id, sync = state, scenePath = entity.Map, position = state.position,
+            rotation = Quaternion.Euler(0, state.yaw, 0), placedVehicle = state.kind == DropState.VehicleKind, font = LocalFont() };
+        var stack = drop.contents.GetSlot(0);
+        if (!DropState.Unpack(state.contents, drop.contents) || (stack = drop.contents.GetSlot(0)).IsEmpty || drop.placedVehicle && !stack.Item.IsVehicle)
+        { Debug.LogWarning("[WorldDroppedItem] server drop " + entity.Id + " has no usable item"); return; }
+        if (drop.placedVehicle && entity.Owner != 0 && !entity.IsMine) drop.riderId = Rider(entity.Owner);
+        Add(drop);
+    }
+
+    static string Rider(uint connection) => "sync:" + connection;
+
+    /// <summary>The owner changed (or a refused Claim was answered): finish my claim, hide or park a car someone drives.</summary>
+    internal static void SyncOwner(DropState state)
+    {
+        var drop = RecordOf(state);
+        if (drop == null) return;
+        uint owner = state.Entity.Owner, me = SyncClient.Instance ? SyncClient.Instance.MyConnection : 0;
+        var claim = drop.claim;
+        drop.claim = ClaimFor.None;
+        if (owner == 0) drop.pending = false; // the server has it now
+        if (claim != ClaimFor.None)
+        {
+            if (owner != 0 && owner == me) { Claimed(drop, claim); return; }
+            Status(owner == 0 ? "지금은 할 수 없습니다. 잠시 후 다시 해 주세요." : claim == ClaimFor.PickUp ? "다른 사람이 먼저 주웠습니다." : "다른 사람이 사용 중인 탈것입니다.");
+        }
+        if (!drop.placedVehicle) return;
+        if (owner != 0 && owner != me) { drop.riderId = Rider(owner); if (drop.instance) drop.instance.ShowParked(false); }
+        else if (owner == 0 && drop.riderId != null) Park(drop, state.position, state.yaw); // got out or left: where it was last seen
+    }
+
+    static void Claimed(DropRecord drop, ClaimFor claim)
+    {
+        var entity = drop.sync.Entity;
+        switch (claim)
+        {
+            case ClaimFor.PickUp:
+                var bag = InventoryManager.Instance ? InventoryManager.Instance.State : null;
+                string error = "지금은 주울 수 없습니다.";
+                if (bag == null || !drop.contents.TryTransferTo(bag, 0, drop.contents.GetSlot(0).Count, out error))
+                { Status(error); SyncClient.Instance.Release(entity); return; }
+                // Despawned at once; the character save goes out after it, so a disconnect cannot keep both.
+                DestroyNet(drop);
+                Status("아이템을 주웠습니다.");
+                return;
+            case ClaimFor.Ride:
+                var driver = PlayerSpawner.Player ? PlayerSpawner.Player.GetComponent<PlayerVehicle>() : null;
+                if (drop.instance && drop.instance.MountLocal(driver)) return;
+                Status("지금은 탑승할 수 없습니다.");
+                SyncClient.Instance.Release(entity);
+                return;
+            case ClaimFor.Dismantle:
+                // The same contents become an ordinary dropped item anyone can pick up; then the car goes.
+                var item = new DropRecord { scenePath = drop.scenePath, position = drop.position, rotation = drop.rotation, font = drop.font };
+                if (!drop.contents.TryTransferTo(item.contents, 0, 1, out error) || !SyncCommit(item, DropState.ItemKind, out error))
+                {
+                    if (!item.contents.GetSlot(0).IsEmpty) item.contents.TryTransferTo(drop.contents, 0, 1, out _);
+                    Status(error);
+                    SyncClient.Instance.Release(entity);
+                    return;
+                }
+                DestroyNet(drop);
+                return;
+        }
+    }
+
+    /// <summary>The entity is gone (picked up, cleared at 06:00, off my map, or my Spawn was refused): so is the record.</summary>
+    internal static void SyncGone(DropState state)
+    {
+        var drop = RecordOf(state);
+        if (drop == null) return;
+        if (drop.pending && OnServer) { GiveBack(drop); Status("서버가 받지 않아 내려놓지 못했습니다."); }
+        drop.sync = null;
+        Remove(drop);
+    }
+
+    // Joining: this PC's own drops hide. Leaving: every server record goes and this PC's drops show again.
+    static void OnServerConnection(bool connected)
+    {
+        if (connected)
+        {
+            foreach (var drop in records.Values)
+                if (drop.netId == 0 && drop.instance) { Destroy(drop.instance.gameObject); drop.instance = null; }
+            return;
+        }
+        foreach (var drop in new List<DropRecord>(records.Values)) if (drop.netId != 0) DestroyNet(drop); // the connection is gone: no Despawn goes out
+        foreach (var drop in records.Values)
+        {
+            if (drop.instance) continue;
+            var scene = SceneManager.GetSceneByPath(drop.scenePath);
+            if (scene.IsValid() && scene.isLoaded) CreateVisual(drop, scene);
+        }
+    }
+
+    /// <summary>Server records (QA): count and how many of them are placed vehicles.</summary>
+    public static int ServerDropCount(bool vehicles)
+    {
+        int n = 0;
+        foreach (var drop in records.Values) if (drop.netId != 0 && drop.placedVehicle == vehicles) n++;
+        return n;
+    }
+
+    /// <summary>The server entity id of this drop (0 = this PC's own), for QA.</summary>
+    public ulong NetId => record?.netId ?? 0;
 
     void BuildVisual()
     {
@@ -837,9 +1059,11 @@ public sealed class WorldDroppedItem : MonoBehaviour
     {
         if (IsOccupied)
         {
+            if (!rider) return; // another player drives it: their avatar shows the car
             // Persist the last ridden position in the existing scene-drop record.
             record.position = rider.transform.position; record.rotation = rider.transform.rotation;
             transform.SetPositionAndRotation(record.position,record.rotation);
+            ShareRide(false);
             return;
         }
         var camera = Camera.main;

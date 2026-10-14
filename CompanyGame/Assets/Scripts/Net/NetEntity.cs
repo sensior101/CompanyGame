@@ -18,11 +18,14 @@ public sealed class NetEntity : MonoBehaviour
     public bool IsSpawned => Id != 0;
     public bool IsMine => Id != 0 && SyncClient.Instance && SyncClient.Instance.Connected && Owner == SyncClient.Instance.MyConnection;
 
-    /// <summary>Raised after a Claim, or the owner leaving a PersistOnLeave entity, changed <see cref="Owner"/>.</summary>
+    /// <summary>
+    /// Raised on every Owner message from the server: a Claim, a Release, the owner leaving a PersistOnLeave entity, and
+    /// also a refused Claim's answer, which repeats the unchanged owner (so a claimer always hears back).
+    /// </summary>
     public event Action OwnerChanged;
 
     internal NetBehaviour[] Behaviours { get; private set; } = new NetBehaviour[0];
-    /// <summary>Set when the server despawned it, so OnDestroy does not send a Despawn back.</summary>
+    /// <summary>Set when the server despawned it (or the connection ended), so OnDestroy does not send a Despawn back.</summary>
     internal bool RemovedByServer { get; set; }
 
     internal void Init(ulong id, uint owner, string prefabKey, EntityFlags flags, string map)
@@ -33,7 +36,6 @@ public sealed class NetEntity : MonoBehaviour
 
     internal void SetOwner(uint owner)
     {
-        if (Owner == owner) return;
         Owner = owner;
         OwnerChanged?.Invoke();
     }

@@ -52,6 +52,9 @@ public sealed class SyncClient : MonoBehaviour
     /// </summary>
     public event Action<bool, uint, string, string> PeerChanged;
 
+    /// <summary>True at Welcome, false when that connection ends (after the remote copies are gone; my own objects stay).</summary>
+    public static event Action<bool> ConnectionChanged;
+
     readonly Dictionary<ulong, NetEntity> entities = new Dictionary<ulong, NetEntity>();
     readonly List<NetEntity> scratch = new List<NetEntity>();
     readonly MemoryStream blobStream = new MemoryStream();
@@ -65,7 +68,7 @@ public sealed class SyncClient : MonoBehaviour
     static GameObject DefaultFactory(string key) => Resources.Load<GameObject>(key);
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-    static void ResetStatics() { Instance = null; PrefabFactory = DefaultFactory; }
+    static void ResetStatics() { Instance = null; PrefabFactory = DefaultFactory; ConnectionChanged = null; }
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
     static void AutoCreate()
@@ -185,6 +188,17 @@ public sealed class SyncClient : MonoBehaviour
         if (Connected && entity && entity.IsSpawned) transport.Send(SyncProtocol.Claim(entity.Id));
     }
 
+    /// <summary>
+    /// Gives my PersistOnLeave + Claimable entity back to the server (12.8). Its changed states go out first, so a parked
+    /// car's place arrives before the new owner. The answer comes as <see cref="NetEntity.OwnerChanged"/> (owner 0).
+    /// </summary>
+    public void Release(NetEntity entity)
+    {
+        if (!Connected || !entity || !entity.IsMine) return;
+        SendDirty(entity);
+        transport.Send(SyncProtocol.Release(entity.Id));
+    }
+
     public NetEntity Find(ulong id) => entities.TryGetValue(id, out var e) && e ? e : null;
 
     internal void SendEvent(NetBehaviour behaviour, byte id, EventTarget target, Action<BinaryWriter> write)
@@ -214,18 +228,19 @@ public sealed class SyncClient : MonoBehaviour
 
     void SendDirty()
     {
-        foreach (var entity in entities.Values)
+        foreach (var entity in entities.Values) if (entity && entity.IsMine) SendDirty(entity);
+    }
+
+    void SendDirty(NetEntity entity)
+    {
+        var behaviours = entity.Behaviours;
+        for (int i = 0; i < behaviours.Length; i++)
         {
-            if (!entity || !entity.IsMine) continue;
-            var behaviours = entity.Behaviours;
-            for (int i = 0; i < behaviours.Length; i++)
-            {
-                var b = behaviours[i];
-                if (!b || !b.Dirty) continue;
-                b.Dirty = false;
-                byte[] blob = Capture(b.Write);
-                if (blob != null) transport.Send(SyncProtocol.State(entity.Id, (byte)i, blob));
-            }
+            var b = behaviours[i];
+            if (!b || !b.Dirty) continue;
+            b.Dirty = false;
+            byte[] blob = Capture(b.Write);
+            if (blob != null) transport.Send(SyncProtocol.State(entity.Id, (byte)i, blob));
         }
     }
 
@@ -251,6 +266,7 @@ public sealed class SyncClient : MonoBehaviour
                     string serverName = SyncProtocol.ReadStr(r).Replace("<", "").Replace(">", "");
                     ServerName = serverName.Length > ServerSettings.NameMax ? serverName.Substring(0, ServerSettings.NameMax) : serverName;
                     Connected = true;
+                    ConnectionChanged?.Invoke(true);
                     break;
                 case ToClient.Reject: LastError = ((RejectReason)r.ReadByte()).ToString(); break; // the server closes right after
                 case ToClient.Character: OnCharacter(r); break;
@@ -265,9 +281,15 @@ public sealed class SyncClient : MonoBehaviour
                     break;
                 case ToClient.Spawn: OnSpawn(r); break;
                 case ToClient.State: OnState(r); break;
-                case ToClient.Despawn: if (entities.TryGetValue(r.ReadUInt64(), out var gone) && !gone.IsMine) RemoveRemote(gone); break;
+                // Also my own: the server refused its Spawn (12.8). Removed like a remote one, no Despawn goes back.
+                case ToClient.Despawn: if (entities.TryGetValue(r.ReadUInt64(), out var gone)) RemoveRemote(gone); break;
                 case ToClient.Event: OnEvent(r); break;
-                case ToClient.Owner: if (entities.TryGetValue(r.ReadUInt64(), out var owned)) owned.SetOwner(r.ReadUInt32()); break;
+                case ToClient.Owner:
+                    if (!entities.TryGetValue(r.ReadUInt64(), out var owned)) break;
+                    if (owned) owned.SetOwner(r.ReadUInt32());
+                    // Released on the way to another map: no longer mine, and not on my map.
+                    if (owned && !owned.IsMine && owned.Map != Map) RemoveRemote(owned);
+                    break;
                 case ToClient.Peer:
                     bool joined = r.ReadByte() == 1;
                     uint number = r.ReadUInt32();
@@ -359,6 +381,7 @@ public sealed class SyncClient : MonoBehaviour
     void Closed(string error)
     {
         uint me = MyConnection;
+        bool was = Connected;
         transport = null;
         Connected = false; Connecting = false; MyConnection = 0;
         if (string.IsNullOrEmpty(LastError)) LastError = error;
@@ -369,5 +392,6 @@ public sealed class SyncClient : MonoBehaviour
             if (e.Owner != me) Destroy(e.gameObject);
         }
         entities.Clear();
+        if (was) ConnectionChanged?.Invoke(false);
     }
 }
