@@ -183,6 +183,7 @@ public static class LibraryCatalog
         {
             if (!wallet.TrySpend(PublicationFee, MoneyChangeReason.BookPublicationFee))
                 return Fail("보유 금액이 부족하여 출판이 취소되었습니다.", out error);
+            TellServer(playerId, wallet == BankManager.Instance, -PublicationFee, "book.publish");
             var work = string.IsNullOrEmpty(stack.BookData.libraryWorkId) ? null : Find(stack.BookData.libraryWorkId);
             if (work == null)
             {
@@ -327,6 +328,7 @@ public static class LibraryCatalog
         {
             if (lateFee > 0 && !wallet.TrySpend(lateFee, MoneyChangeReason.LibraryLateFee))
                 return Fail("연체료 결제에 실패하여 반납이 취소되었습니다.", out error);
+            if (lateFee > 0) TellServer(playerId, wallet is BankWallet, -lateFee, "library.late");
             Assess(loan, Today);
             account.fines -= lateFee;
             loan.active = false;
@@ -343,6 +345,7 @@ public static class LibraryCatalog
         var account = GetAccount(playerId);
         if (account.fines <= 0) return Fail("미납 연체료가 없습니다.", out error);
         if (!bank || !bank.TrySpend(account.fines, MoneyChangeReason.LibraryLateFee)) return Fail("은행 잔액이 부족합니다.", out error);
+        TellServer(playerId, bank == BankManager.Instance, -account.fines, "library.fine");
         account.fines = 0; Save(); Publish(); return true;
     }
     static void OnDay(GameTime time) => AdvanceTo(time.absoluteDay);
@@ -369,6 +372,12 @@ public static class LibraryCatalog
         }
         finally { changing = false; }
     }
+    // ponytail: a trusted p.bank until 4d-4 moves the library to the server (12.10.1); only my own bank account.
+    static void TellServer(string playerId, bool myBank, long amount, string reason)
+    {
+        if (myBank && playerId == GameSession.LocalPlayerId)
+            SharedWriteGate.SendPersonal("p.bank", new SharedOpArgs { n = amount, a = reason });
+    }
     static int OverdueDays(Loan loan, int day) => Math.Max(0, Math.Min(RecallDay, day - loan.startDay) - FreeDays);
     static void Assess(Loan loan, int day)
     {
@@ -391,6 +400,7 @@ public static class LibraryCatalog
         if (account.pendingPayment <= 0 || !participants.TryGetValue(id, out var participant) || participant.wallet == null) return 0;
         long amount = account.pendingPayment;
         if (!participant.wallet.AddMoney(amount, MoneyChangeReason.BookRoyalty)) return 0;
+        TellServer(id, participant.wallet is BankWallet, amount, "book.royalty");
         account.pendingPayment -= amount; Save();
         return amount;
     }

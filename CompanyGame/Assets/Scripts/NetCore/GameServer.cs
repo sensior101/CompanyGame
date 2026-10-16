@@ -95,6 +95,11 @@ public sealed class GameServer
     public event Action<string> Log;
     /// <summary>Read right before each save: the world state blob kept in world.dat (12.9). Null keeps the one already there.</summary>
     public Func<byte[]> WorldStateProvider;
+    /// <summary>
+    /// (account, received content) → the content to keep (12.10.1): the game puts its own part in (the server's ledger).
+    /// Null from it keeps the content already there; no filter keeps the content as it comes.
+    /// </summary>
+    public Func<string, byte[], byte[]> CharacterSaveFilter;
 
     /// <summary><paramref name="world"/> null: a world in memory only.</summary>
     public GameServer(IServerTransport transport, int maxPlayers, string name = "", string password = "", WorldStore world = null)
@@ -521,12 +526,18 @@ public sealed class GameServer
         foreach (var other in conns.Values) if (other.Welcomed && other != c) Send(other, renamed);
     }
 
-    // The content is the client's own until stage 4 (bank, stocks, inventory, position): kept as it comes.
+    // The client's content (position, inventory) is kept as it comes, after CharacterSaveFilter put the game's own part in.
     void OnCharacterSave(Conn c, BinaryReader r)
     {
         byte[] content = SyncProtocol.ReadBlob32(r); // over 48KB throws: Reject(Malformed)
         SyncProtocol.End(r);
         if (c.character == null) { Warn(c, "save without a character"); return; }
+        if (CharacterSaveFilter != null)
+        {
+            try { content = CharacterSaveFilter(c.account, content); }
+            catch (Exception ex) { Log?.Invoke("character save filter failed (the saved content is kept): " + ex.Message); content = null; }
+            if (content == null) return;
+        }
         c.character.content = content;
     }
 

@@ -29,6 +29,11 @@ public sealed class SpeedCamera : MonoBehaviour
 
     // A per-frame move faster than this is a teleport (map change, respawn), not driving.
     const float TeleportMps = 100f;
+    /// <summary>
+    /// The highest fine (the server's p.fine limit, 12.10.1): the default base and per-km/h fine at the fastest measurable
+    /// speed (TeleportMps, 360 km/h) over the lowest limit (10 km/h). FineFor never goes over it.
+    /// </summary>
+    public const long MaxFine = 30000 + (360 - 10) * 2000;
     const float FlashSeconds = .15f;
 
     Vector3 last;
@@ -72,7 +77,7 @@ public sealed class SpeedCamera : MonoBehaviour
 
     /// <summary>The fine for a speed above the limit; 0 when within limit + tolerance.</summary>
     public long FineFor(float kmh) =>
-        kmh <= limitKmh + toleranceKmh ? 0 : baseFine + (long)Mathf.Round((kmh - limitKmh) * finePerKmh);
+        kmh <= limitKmh + toleranceKmh ? 0 : Math.Min(MaxFine, baseFine + (long)Mathf.Round((kmh - limitKmh) * finePerKmh));
 
     /// <summary>Decides and applies one measurement. Returns true when someone was fined (cooldown starts).</summary>
     public bool Process(float kmh, float now, out long fine, out bool paid)
@@ -91,7 +96,9 @@ public sealed class SpeedCamera : MonoBehaviour
     {
         if (payFine != null) return payFine(fine);
         BankManager bank = BankManager.EnsureInstance();
-        return bank && bank.TrySpend(fine, MoneyChangeReason.Tax);
+        if (!bank || !bank.TrySpend(fine, MoneyChangeReason.Tax)) return false;
+        SharedWriteGate.SendPersonal("p.fine", new SharedOpArgs { n = fine }); // the server takes it from its ledger too (12.10.1)
+        return true;
     }
 
     // The bank could not cover the fine: record it on the library account's penalty points, like other violations.

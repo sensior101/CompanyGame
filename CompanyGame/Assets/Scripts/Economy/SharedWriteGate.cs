@@ -68,11 +68,23 @@ public static class SharedWriteGate
         return sent;
     }
 
+    /// <summary>Sync-layer server: (kind, json) of a personal request (p.*, 12.10.1). Installed by WorldStateSync.</summary>
+    public static Action<string, string> PersonalSender;
+
+    /// <summary>
+    /// Tells the server about a money change this client already applied (12.10.1): only on a sync-layer server, and it
+    /// never stops the local change (unlike TrySend). The server decides on its own ledger and sends it back.
+    /// </summary>
+    public static void SendPersonal(string kind, SharedOpArgs args)
+    {
+        if (OnServer) PersonalSender?.Invoke(kind, JsonUtility.ToJson(args));
+    }
+
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     static void Reset()
     {
         Sender = null; InRoomCheck = null; NameResolver = null;
-        ServerSender = null; ServerCheck = null; ServerNameResolver = null;
+        ServerSender = null; ServerCheck = null; ServerNameResolver = null; PersonalSender = null;
         Applying = false; SendFailed = false;
     }
 }

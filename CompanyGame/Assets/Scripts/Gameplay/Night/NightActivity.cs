@@ -9,7 +9,9 @@ public enum NightActivityKind { Sleep, NightJob, GoOut, Contract }
 /// pick one yet, so it is always <see cref="NightActivityKind.Sleep"/> (nothing happens, as before); it is not saved.
 /// <see cref="Apply"/> runs once per skipped night: on GameClock.NightSkipped where this PC's clock runs, and from
 /// WorldStateSync when a server's clock passed a night. A server process has no character and turns it off (<see cref="Enabled"/>).
-/// The effects stay on this PC until 4d moves money and vitals to the server. The numbers are placeholders.
+/// On a sync-layer server (12.10.1) the money is the server's: it applies it to its ledger, and this PC changes only the
+/// vitals here and gets the money back in the next Ledger. 놀러 가기 still needs the money (the same balance as the ledger).
+/// The numbers are placeholders.
 /// </summary>
 public static class NightActivity
 {
@@ -35,6 +37,7 @@ public static class NightActivity
     {
         if (!IsAvailable(kind) || !Enum.IsDefined(typeof(NightActivityKind), kind)) return false;
         Selected = kind;
+        SharedWriteGate.SendPersonal("p.night.select", new SharedOpArgs { n = (long)kind });
         return true;
     }
 
@@ -43,14 +46,15 @@ public static class NightActivity
     {
         if (!Enabled) return NightActivityKind.Sleep;
         var bank = BankManager.Instance;
+        bool serverMoney = SharedWriteGate.OnServer; // the server's ledger pays and charges (12.10.1)
         switch (kind)
         {
             case NightActivityKind.NightJob:
                 ChangeVitals?.Invoke(NightJobEnergy, 0f);
-                if (bank) bank.AddMoney(NightJobPay, MoneyChangeReason.Earned);
+                if (bank && !serverMoney) bank.AddMoney(NightJobPay, MoneyChangeReason.Earned);
                 break;
             case NightActivityKind.GoOut:
-                if (!bank || !bank.TrySpend(GoOutCost, MoneyChangeReason.Spent)) { kind = NightActivityKind.Sleep; break; } // no money: sleeps instead
+                if (!bank || (serverMoney ? !bank.CanAfford(GoOutCost) : !bank.TrySpend(GoOutCost, MoneyChangeReason.Spent))) { kind = NightActivityKind.Sleep; break; } // no money: sleeps instead
                 ChangeVitals?.Invoke(GoOutEnergy, GoOutStress);
                 break;
             case NightActivityKind.Contract:

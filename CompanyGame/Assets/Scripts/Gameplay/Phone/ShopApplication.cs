@@ -35,9 +35,13 @@ public class ShopApplication : PhoneAppBase
     {
         if (item == null || !Purchase(item.price)) return false;
 
+        SharedWriteGate.SendPersonal("p.shop.buy", new SharedOpArgs { a = item.itemId }); // the server prices it (12.10.1)
         ItemPurchased?.Invoke(item);
         return true;
     }
+
+    /// <summary>The server's price list for p.shop.buy (12.10.1): the default catalogue, never the client's.</summary>
+    public static long DefaultPrice(string itemId) => CreateDefaultItems().Find(i => i.itemId == itemId)?.price ?? 0;
 
     private static List<ShopItem> CreateDefaultItems()
     {

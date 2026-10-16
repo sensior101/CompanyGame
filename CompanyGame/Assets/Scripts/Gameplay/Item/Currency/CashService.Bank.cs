@@ -104,6 +104,7 @@ public static partial class CashService
 
             if (total > 0) bank.NotifyWithdrawal(total);
             inventory.NotifyChanged();
+            if (total > 0) TellServer(bank, -total, "withdraw");
 
             return true;
         }
@@ -236,6 +237,7 @@ public static partial class CashService
 
             if (total > 0) bank.NotifyDeposit(total);
             inventory.NotifyChanged();
+            if (total > 0) TellServer(bank, total, "deposit");
 
             return true;
         }
@@ -243,5 +245,12 @@ public static partial class CashService
         {
             transactionInProgress = false;
         }
+    }
+
+    // ponytail: a trusted p.bank until 4d-2 moves cash notes to the server (12.10.1); only my own bank account.
+    static void TellServer(BankManager bank, long amount, string reason)
+    {
+        if (bank == BankManager.Instance)
+            SharedWriteGate.SendPersonal("p.bank", new SharedOpArgs { n = amount, a = reason });
     }
 }

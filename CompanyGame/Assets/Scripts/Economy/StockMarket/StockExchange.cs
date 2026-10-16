@@ -155,15 +155,23 @@ public class StockExchange
         PricesUpdated?.Invoke();
     }
 
-    public TradeReceipt Buy(GameTime now, string stockId, int quantity)
+    public TradeReceipt Buy(GameTime now, string stockId, int quantity) => Finish(Buy(now, stockId, quantity, wallet, portfolio));
+
+    public TradeReceipt Sell(GameTime now, string stockId, int quantity) => Finish(Sell(now, stockId, quantity, wallet, portfolio));
+
+    /// <summary>
+    /// A buy for any wallet and portfolio at this exchange's prices, hours and fee (the server's ledger, 12.10.1).
+    /// Touches neither this exchange's own wallet and portfolio nor TradeExecuted.
+    /// </summary>
+    public TradeReceipt Buy(GameTime now, string stockId, int quantity, IWallet wallet, StockPortfolio portfolio)
     {
         var receipt = new TradeReceipt { stockId = stockId, quantity = quantity };
         var state = FindState(stockId);
 
-        if (quantity <= 0) return Finish(receipt, TradeResult.InvalidQuantity);
-        if (quantity > settings.maxOrderQuantity) return Finish(receipt, TradeResult.QuantityTooLarge);
-        if (state == null) return Finish(receipt, TradeResult.UnknownStock);
-        if (!IsOpen(now)) return Finish(receipt, TradeResult.MarketClosed);
+        if (quantity <= 0) return Result(receipt, TradeResult.InvalidQuantity);
+        if (quantity > settings.maxOrderQuantity) return Result(receipt, TradeResult.QuantityTooLarge);
+        if (state == null) return Result(receipt, TradeResult.UnknownStock);
+        if (!IsOpen(now)) return Result(receipt, TradeResult.MarketClosed);
 
         long gross;
         try
@@ -172,7 +180,7 @@ public class StockExchange
         }
         catch (OverflowException)
         {
-            return Finish(receipt, TradeResult.QuantityTooLarge);
+            return Result(receipt, TradeResult.QuantityTooLarge);
         }
 
         long fee = (long)Math.Ceiling(gross * (double)settings.tradeFeeRate);
@@ -181,25 +189,26 @@ public class StockExchange
         receipt.fee = fee;
         receipt.total = total;
 
-        if (!wallet.CanAfford(total) || !wallet.TrySpend(total, MoneyChangeReason.Purchase))
+        if (wallet == null || !wallet.CanAfford(total) || !wallet.TrySpend(total, MoneyChangeReason.Purchase))
         {
-            return Finish(receipt, TradeResult.NotEnoughMoney);
+            return Result(receipt, TradeResult.NotEnoughMoney);
         }
 
         portfolio.AddShares(stockId, quantity, total);
-        return Finish(receipt, TradeResult.Success);
+        return Result(receipt, TradeResult.Success);
     }
 
-    public TradeReceipt Sell(GameTime now, string stockId, int quantity)
+    /// <summary>A sell for any wallet and portfolio (see the Buy overload).</summary>
+    public TradeReceipt Sell(GameTime now, string stockId, int quantity, IWallet wallet, StockPortfolio portfolio)
     {
         var receipt = new TradeReceipt { stockId = stockId, quantity = quantity };
         var state = FindState(stockId);
 
-        if (quantity <= 0) return Finish(receipt, TradeResult.InvalidQuantity);
-        if (quantity > settings.maxOrderQuantity) return Finish(receipt, TradeResult.QuantityTooLarge);
-        if (state == null) return Finish(receipt, TradeResult.UnknownStock);
-        if (!IsOpen(now)) return Finish(receipt, TradeResult.MarketClosed);
-        if (portfolio.GetQuantity(stockId) < quantity) return Finish(receipt, TradeResult.NotEnoughShares);
+        if (quantity <= 0) return Result(receipt, TradeResult.InvalidQuantity);
+        if (quantity > settings.maxOrderQuantity) return Result(receipt, TradeResult.QuantityTooLarge);
+        if (state == null) return Result(receipt, TradeResult.UnknownStock);
+        if (!IsOpen(now)) return Result(receipt, TradeResult.MarketClosed);
+        if (portfolio.GetQuantity(stockId) < quantity) return Result(receipt, TradeResult.NotEnoughShares);
 
         long gross = state.price * quantity;
         long fee = (long)Math.Ceiling(gross * (double)settings.tradeFeeRate);
@@ -209,14 +218,14 @@ public class StockExchange
         receipt.total = net;
 
         long costBasis = portfolio.RemoveShares(stockId, quantity);
-        if (net > 0 && !wallet.AddMoney(net, MoneyChangeReason.Sale))
+        if (net > 0 && (wallet == null || !wallet.AddMoney(net, MoneyChangeReason.Sale)))
         {
             portfolio.AddShares(stockId, quantity, costBasis);
-            return Finish(receipt, TradeResult.NotEnoughMoney);
+            return Result(receipt, TradeResult.NotEnoughMoney);
         }
 
         receipt.realizedProfit = net - costBasis;
-        return Finish(receipt, TradeResult.Success);
+        return Result(receipt, TradeResult.Success);
     }
 
     public ListingResult TryList(CompanyState company)
@@ -289,9 +298,14 @@ public class StockExchange
         return state;
     }
 
-    private TradeReceipt Finish(TradeReceipt receipt, TradeResult result)
+    private static TradeReceipt Result(TradeReceipt receipt, TradeResult result)
     {
         receipt.result = result;
+        return receipt;
+    }
+
+    private TradeReceipt Finish(TradeReceipt receipt)
+    {
         TradeExecuted?.Invoke(receipt);
         return receipt;
     }

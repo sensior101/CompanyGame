@@ -35,23 +35,26 @@ public static partial class EconomySyncQA
 
     public static void RunPlay() => StartPlay("play");
 
-    public static void RunProcess()
+    public static void RunProcess() => BuildAndPlay("EconomySyncQA", "process");
+
+    // Builds the server player into Builds/<name>/ and enters play mode in <mode> with it.
+    internal static void BuildAndPlay(string name, string mode)
     {
-        string dir = Path.GetFullPath(Path.Combine(Application.dataPath, "../Builds/EconomySyncQA"));
-        string exe = Path.Combine(dir, "EconomySyncQA.exe");
+        string dir = Path.GetFullPath(Path.Combine(Application.dataPath, "../Builds/" + name));
+        string exe = Path.Combine(dir, name + ".exe");
         string scene = Array.Find(EditorBuildSettings.scenes, s => s.enabled).path; // one scene is enough for a server
         var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions { scenes = new[] { scene }, locationPathName = exe, target = BuildTarget.StandaloneWindows64, options = BuildOptions.None });
         if (report.summary.result != BuildResult.Succeeded)
         {
-            Debug.LogError("[EconomySyncQA] RESULT process FAILED: build " + report.summary.result);
+            Debug.LogError("[" + name + "] RESULT " + mode + " FAILED: build " + report.summary.result);
             EditorApplication.Exit(1);
             return;
         }
         SessionState.SetString(ExeKey, exe);
-        StartPlay("process");
+        StartPlay(mode);
     }
 
-    static void StartPlay(string mode)
+    internal static void StartPlay(string mode)
     {
         EditorSceneManager.OpenScene(TitleSceneBuilder.ScenePath, OpenSceneMode.Single);
         SessionState.SetString(ModeKey, mode);
@@ -69,10 +72,15 @@ public static partial class EconomySyncQA
     static async void Drive(string mode)
     {
         int original = PlayerPrefs.GetInt("Profile.Slot", 1), code = 0;
+        tag = mode.StartsWith("ledger", StringComparison.Ordinal) ? "LedgerQA" : "EconomySyncQA";
         Begin();
         try
         {
-            if (mode == "play") await PlayBody(); else await ProcessBody(SessionState.GetString(ExeKey, ""));
+            string exe = SessionState.GetString(ExeKey, "");
+            if (mode == "play") await PlayBody();
+            else if (mode == "ledger-play") await LedgerPlayBody();
+            else if (mode == "ledger-process") await LedgerProcessBody(exe);
+            else await ProcessBody(exe);
             Report("RESULT " + mode + " passed");
         }
         catch (Exception e) { Report("RESULT " + mode + " FAILED: " + e.Message + "\n" + e.StackTrace, true); code = 1; }
@@ -86,7 +94,7 @@ public static partial class EconomySyncQA
             if (serverProcess != null && !serverProcess.HasExited) serverProcess.Kill(); // only the process this QA started
             if (worldFile != null) { if (pcBackup != null) File.WriteAllBytes(worldFile, pcBackup); else if (File.Exists(worldFile)) File.Delete(worldFile); }
         }
-        catch (Exception e) { Debug.LogWarning("[EconomySyncQA] cleanup: " + e.Message); }
+        catch (Exception e) { Debug.LogWarning("[" + tag + "] cleanup: " + e.Message); }
         PlayerPrefs.SetInt("Profile.Slot", original);
         PlayerPrefs.Save();
         EditorApplication.Exit(code);
@@ -124,6 +132,8 @@ public static partial class EconomySyncQA
         var r = await FakeOp(fake, "prop.reg", new SharedOpArgs { a = "qa:house-1", b = Acc(fake) });
         Check(r.error == "" && r.sections.Contains(Properties), "prop.reg: OpResult ok, and the properties section came before it");
         Check(registry.GetOwner("qa:house-1") == "QA가짜", "the Unity managers have it; the owner shows as the fake's character name (" + registry.GetOwner("qa:house-1") + ")");
+        r = await FakeOp(fake, "p.bank", new SharedOpArgs { n = LandPlot.DefaultPrice, a = "deposit" }); // the plot is paid from the fake's ledger (12.10.1)
+        Check(r.error == "", "the fake deposits the plot's price");
         r = await FakeOp(fake, "land.buy", new SharedOpArgs { a = "qa-plot-1" });
         Check(r.error == "" && r.sections.Contains(Plots) && LandPlotManager.Instance.GetOwner("qa-plot-1") == Acc(fake), "land.buy: the plot is the fake's, the plots section first");
         var company = new CompanyData { companyId = "qa_company_fake", displayName = "가짜회사", sector = "qa" };
@@ -345,8 +355,10 @@ public static partial class EconomySyncQA
         var plot = new GameObject("QA plot").AddComponent<LandPlot>();
         typeof(LandPlot).GetField("plotId", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(plot, "qa-plot-remote");
         long price = plot.Price, money = BankManager.Instance.Money;
-        if (money < price) BankManager.Instance.AddMoney(price - money + 1000);
+        if (money < price) await Deposit(price - money + 1000); // the server's ledger must have it too (12.10.1)
         money = BankManager.Instance.Money;
+        r = await FakeOp(fake, "p.bank", new SharedOpArgs { n = price, a = "deposit" });
+        Check(r.error == "", "the fake deposits the plot's price");
         WorldStateSync.HoldSections = true; // the client has not heard of the fake's purchase yet: a real race
         r = await FakeOp(fake, "land.buy", new SharedOpArgs { a = "qa-plot-remote" });
         Check(r.error == "" && LandPlotManager.Instance.GetState("qa-plot-remote") == LandPlotState.Available, "the fake bought the plot first; this client does not know yet");
@@ -431,6 +443,15 @@ public static partial class EconomySyncQA
         Check(GameTime.NightSkipStart == 0 && GameTime.NightSkipEnd == 6 && GameSession.Mode == SessionMode.Host, "leaving puts the night back to 0-6");
         Check(Hash(worldFile) == pcHash, "world.json unchanged through run C");
         await StopProcessServer();
+    }
+
+    // A deposit on this client that the server is told of (as CashService.TryDeposit does), and its answer.
+    static async Task Deposit(long amount)
+    {
+        int results = WorldStateSync.Results;
+        Check(BankManager.Instance.AddMoney(amount, MoneyChangeReason.Deposit), "a deposit of " + amount);
+        SharedWriteGate.SendPersonal("p.bank", new SharedOpArgs { n = amount, a = "deposit" });
+        await WaitFor(() => WorldStateSync.Results > results, 5, "the answer to the deposit");
     }
 
     static void SetWorldClock(string worldsRoot, string id, double minutes)

@@ -4,11 +4,12 @@ using System.IO;
 /// <summary>
 /// One section of the world entity Net/World (Docs/Multiplayer_Redesign.md 12.9): 0 clock, 1 names, 2..7 the shared
 /// economy (stocks, companies, properties, plots, reports, sns). The server owns it and sends each section as a whole
-/// blob; a copy hands what it gets to WorldStateSync. Events: 1 Op (client → server), 2 OpResult (server → requester).
+/// blob; a copy hands what it gets to WorldStateSync. Events: 1 Op (client → server), 2 OpResult (server → requester),
+/// 3 Ledger (server → that character's connection only: its own bank money and stocks, 12.10.1).
 /// </summary>
 public sealed class WorldSection : NetBehaviour
 {
-    public const byte OpEvent = 1, OpResultEvent = 2;
+    public const byte OpEvent = 1, OpResultEvent = 2, LedgerEvent = 3;
 
     /// <summary>Section number (the order on the template, the same everywhere).</summary>
     public int index;
@@ -27,6 +28,8 @@ public sealed class WorldSection : NetBehaviour
 
     public override void OnEvent(byte id, uint sender, BinaryReader r)
     {
-        if (sender == 0 && id == OpResultEvent) WorldStateSync.OnOpResult(r); // only the server answers
+        if (sender != 0) return; // only the server answers
+        if (id == OpResultEvent) WorldStateSync.OnOpResult(r);
+        else if (id == LedgerEvent) WorldStateSync.OnLedger(r);
     }
 }

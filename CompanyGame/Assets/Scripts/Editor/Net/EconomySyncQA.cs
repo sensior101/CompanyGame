@@ -24,6 +24,7 @@ public static partial class EconomySyncQA
     const double Day = GameServer.DayMinutes;
 
     static int checks;
+    static string tag = "EconomySyncQA"; // LedgerQA (12.10.1) runs on the same helpers under its own name
     static string section = "";
     static readonly List<KeyValuePair<string, int>> sections = new List<KeyValuePair<string, int>>();
     static readonly List<string> notes = new List<string>();
@@ -199,7 +200,7 @@ public static partial class EconomySyncQA
     {
         loopback = new LoopbackTransport();
         server = new GameServer(loopback, 16, world: WorldStore.Open(root, world));
-        server.Log += m => Debug.Log("[EconomySyncQA] server: " + m);
+        server.Log += m => Debug.Log("[" + tag + "] server: " + m);
     }
 
     static QaPeer Join(string account, string name, string map)
@@ -280,21 +281,21 @@ public static partial class EconomySyncQA
 
     static void Check(bool ok, string what)
     {
-        if (!ok) throw new Exception("[EconomySyncQA] FAIL (" + section + "): " + what);
+        if (!ok) throw new Exception("[" + tag + "] FAIL (" + section + "): " + what);
         checks++;
         if (sections.Count > 0) sections[sections.Count - 1] = new KeyValuePair<string, int>(section, sections[sections.Count - 1].Value + 1);
-        Debug.Log("[EconomySyncQA] ok: " + what);
+        Debug.Log("[" + tag + "] ok: " + what);
     }
 
     static void Note(string what)
     {
         notes.Add(what);
-        Debug.Log("[EconomySyncQA] measured: " + what);
+        Debug.Log("[" + tag + "] measured: " + what);
     }
 
     static void Report(string result, bool failed = false)
     {
-        var text = new StringBuilder("[EconomySyncQA] " + result + ", checks=" + checks);
+        var text = new StringBuilder("[" + tag + "] " + result + ", checks=" + checks);
         foreach (var s in sections) text.Append("\n  ").Append(s.Key).Append(": ").Append(s.Value);
         foreach (var n in notes) text.Append("\n  measured: ").Append(n);
         if (failed) Debug.LogError(text.ToString()); else Debug.Log(text.ToString());

@@ -12,7 +12,8 @@ using UnityEngine;
 /// (PersonalSave.ResetToFresh) and is saved at once. Saves every 30 seconds, before a map change, before leaving
 /// (TitleFlow.ReturnToTitle, SyncHost.BeforeStop) and on quit. While <see cref="Active"/> this PC writes no personal
 /// file (WorldSaveRunner.OnServer); after leaving, this PC's own money and inventory come back.
-/// Until stage 4 the content is the client's own word: the server keeps it as it comes.
+/// The server keeps the client's map, position and inventory as they come, but puts its own ledger (bank and stocks) in
+/// place of the personal part (12.10.1, ServerLedger).
 /// </summary>
 public sealed class CharacterSync : MonoBehaviour
 {
@@ -136,22 +137,34 @@ public sealed class CharacterSync : MonoBehaviour
     public static byte[] Capture()
     {
         var player = PlayerSpawner.Player;
-        var pos = player ? player.transform.position : Vector3.zero;
+        return Encode(new Saved
+        {
+            map = SceneLoadManager.CurrentMap.path,
+            position = player ? player.transform.position : Vector3.zero,
+            yaw = player ? player.transform.eulerAngles.y : 0f,
+            personal = PersonalSave.Export(),
+            inventory = InventorySnapshot.Export(InventoryManager.Instance.State)
+        });
+    }
+
+    /// <summary>The content blob of <paramref name="saved"/>, without any manager (the server's ledger writes it, 12.10.1).</summary>
+    public static byte[] Encode(Saved saved)
+    {
         using var stream = new MemoryStream();
         using (var gzip = new GZipStream(stream, System.IO.Compression.CompressionLevel.Optimal, true))
         using (var w = new BinaryWriter(gzip, Encoding.UTF8))
         {
             w.Write(ContentVersion);
-            w.Write(SceneLoadManager.CurrentMap.path ?? "");
-            w.Write(pos.x); w.Write(pos.y); w.Write(pos.z);
-            w.Write(player ? player.transform.eulerAngles.y : 0f);
-            w.Write(PersonalSave.Export());
-            w.Write(InventorySnapshot.Export(InventoryManager.Instance.State));
+            w.Write(saved.map ?? "");
+            w.Write(saved.position.x); w.Write(saved.position.y); w.Write(saved.position.z);
+            w.Write(saved.yaw);
+            w.Write(saved.personal ?? "");
+            w.Write(saved.inventory ?? "");
         }
         return stream.ToArray();
     }
 
-    /// <summary>False for an empty (new character) or unreadable blob.</summary>
+    /// <summary>Decodes a content blob (no manager is touched). False for an empty (new character) or unreadable blob.</summary>
     public static bool Read(byte[] content, out Saved saved)
     {
         saved = default;

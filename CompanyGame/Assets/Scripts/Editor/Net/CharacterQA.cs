@@ -215,6 +215,11 @@ public static class CharacterQA
 
     static bool Near(double a, double b) => Math.Abs(a - b) < .5;
 
+    static byte[] Content(string inventory) =>
+        CharacterSync.Encode(new CharacterSync.Saved { map = "m1", personal = PersonalSave.BaselinePersonal ?? "", inventory = inventory });
+
+    static string InventoryOf(byte[] content) => CharacterSync.Read(content, out var saved) ? saved.inventory : null;
+
     static byte[] Bytes(int n, int seed)
     {
         var bytes = new byte[n];
@@ -306,8 +311,9 @@ public static class CharacterQA
             p.Send(SyncProtocol.CharacterCreate("QA프로", "male"));
             Wait(p, () => p.result != null, "CharacterResult");
             Check(p.result == CharacterResult.Ok, "made a character in the server process");
-            var last = Bytes(4000, 7);
-            p.Send(SyncProtocol.CharacterSave(Bytes(4000, 8)));
+            // Real content (12.10.1: the server's ledger drops what it cannot read); the inventory text tells the saves apart.
+            var last = Content("last");
+            p.Send(SyncProtocol.CharacterSave(Content("first")));
             p.Send(SyncProtocol.CharacterSave(last)); // the last change before 끄기
             Thread.Sleep(300);
 
@@ -318,7 +324,7 @@ public static class CharacterQA
             Check(File.ReadAllText(log).Contains("stop requested"), "the server log says it saw stop.request");
             Check(!File.Exists(LocalServerProcess.RunningPath) && !File.Exists(LocalServerProcess.StopRequestPath), "running.json and stop.request are gone");
             var world = WorldStore.Open(ServerSettings.WorldsFolder, settings.world);
-            Check(!world.LoadedFromPrev && Same(world.Find("qa-proc")?.content, last) && world.Find("qa-proc").name == "QA프로",
+            Check(!world.LoadedFromPrev && InventoryOf(world.Find("qa-proc")?.content) == "last" && world.Find("qa-proc").name == "QA프로",
                 "world.dat has the last save made right before 끄기");
             p.client.Close();
 
@@ -326,7 +332,7 @@ public static class CharacterQA
             var again = ConnectTcp(settings.port);
             again.Send(SyncProtocol.Hello("qa-proc", "P", "m1"));
             Wait(again, () => again.known, "Welcome and Character after the restart");
-            Check(again.has && again.name == "QA프로" && Same(again.content, last), "the restarted process serves the same character from world.dat");
+            Check(again.has && again.name == "QA프로" && InventoryOf(again.content) == "last", "the restarted process serves the same character from world.dat");
             again.client.Close();
             Check(LocalServerProcess.Stop() && process.HasExited && process.ExitCode == 0, "끄기 again ends it cleanly");
             Debug.Log("[CharacterQA] RESULT process passed, checks=" + checks + " (server log: " + log + ")");
@@ -462,7 +468,12 @@ public static class CharacterQA
 
         Measure("new character");
         // change bank, inventory and position
-        BankManager.Instance.RestoreBalance(1234567);
+        // A deposit the server is told of (12.10.1: the bank is the server's ledger; a bare local change would be put back).
+        long deposit = 1234567 - BankManager.Instance.Money;
+        int ledgers = WorldStateSync.Ledgers;
+        Check(BankManager.Instance.AddMoney(deposit, MoneyChangeReason.Deposit), "a deposit of " + deposit);
+        SharedWriteGate.SendPersonal("p.bank", new SharedOpArgs { n = deposit, a = "deposit" });
+        await WaitFor(() => WorldStateSync.Ledgers > ledgers, 5, "the server's ledger after the deposit");
         ItemData item = null;
         foreach (var i in Resources.LoadAll<ItemData>("Inventory")) if (i && !i.IsBook && InventorySnapshot.Find(i.itemId) == i) { item = i; break; }
         Check(item && InventoryManager.Instance.State.TryAdd(item, 1, out _), "added " + (item ? item.itemId : "?") + " to the inventory");
