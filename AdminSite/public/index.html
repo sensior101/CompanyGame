@@ -83,6 +83,7 @@ details[open] summary{margin-bottom:10px}
   <button data-t="activity">경제활동 밸런스</button>
   <button data-t="land">부지 수급</button>
   <button data-t="board">기획 구체화 보드</button>
+  <button data-t="status">작업 현황</button>
 </nav>
 
 <section id="types">
@@ -94,7 +95,7 @@ details[open] summary{margin-bottom:10px}
 
 <section id="server">
   <h2>서버 인원 1~100명 검토</h2>
-  <p class="lead">기획 기준은 10~20명. 인원을 바꾸면 부지·회사·네트워크·콘텐츠가 버티는지 바로 계산해. 부지 수는 부지 수급 탭, 업종 수는 회사 종류 탭 값을 써.</p>
+  <p class="lead">기획 기준은 10~20명, 서버 인원 상한은 PC 50·모바일 10명(10-13 결정). 인원을 바꾸면 부지·회사·네트워크·콘텐츠가 버티는지 바로 계산해. 부지 수는 부지 수급 탭, 업종 수는 회사 종류 탭 값을 써.</p>
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px">
       <div><span class="muted">서버 인원</span><div style="font-size:44px;font-weight:700;line-height:1.1" id="sNTxt">20명</div></div>
@@ -105,7 +106,7 @@ details[open] summary{margin-bottom:10px}
       <label>1인당 기준 NPC (가정)<input type="number" id="sPer" value="500"></label>
       <label>위치 동기화 횟수 (회/초, 가정)<input type="number" id="sHz" value="20"></label>
       <label>1명 상태 크기 (바이트, 가정)<input type="number" id="sBytes" value="40"></label>
-      <label>방장 업로드 속도 (Mbps, 가정)<input type="number" id="sUp" value="20"></label>
+      <label>서버 업로드 속도 (Mbps, 가정)<input type="number" id="sUp" value="20"></label>
       <label>구역(씬) 수<input type="number" id="sScenes" value="9"></label>
     </div>
     <div class="tiles" id="sTiles"></div>
@@ -113,7 +114,7 @@ details[open] summary{margin-bottom:10px}
   <div class="card"><h3>항목별 점검</h3><div class="scroll"><table id="sChecks"></table></div></div>
   <div class="card"><h3>인원 구간별 정리</h3><div class="scroll"><table id="sRanges"></table></div>
     <details><summary>구간 편집</summary><div id="edRanges"></div></details>
-    <p class="note">방장 업로드 = 인원 × (인원−1) × 동기화 횟수 × 상태 크기. 같은 구역만 동기화하면 (인원−1) 대신 (인원−1) ÷ 구역 수.</p></div>
+    <p class="note">서버 업로드 = 인원 × (인원−1) × 동기화 횟수 × 상태 크기. 같은 구역만 동기화하면 (인원−1) 대신 (인원−1) ÷ 구역 수.</p></div>
 </section>
 
 <section id="market">
@@ -292,6 +293,70 @@ details[open] summary{margin-bottom:10px}
     <div class="edbar"><button class="sm" id="bReset" type="button">기본 목록으로</button></div>
   </div>
 </section>
+
+<section id="status">
+  <h2>작업 현황</h2>
+  <p class="lead">2026-10-16 기준. 정본은 저장소의 <code>Docs/Multiplayer_Redesign.md</code>, 세션 인계는 <code>_temp/handoff_2026-10-14_4c.md</code>. 이 탭은 요약이라 고칠 수 없고, 바뀌면 다시 배포해.</p>
+  <div class="card">
+    <h3>지금 진행 중</h3>
+    <div class="scroll"><table>
+      <tr><th>작업</th><th>상태</th><th>내용</th></tr>
+      <tr><td><b>4c 공유 경제 서버 판정</b></td><td><span style="color:var(--mid);white-space:nowrap">● 구현 중</span></td><td>설계 확정(10-16). 월드 시계·주가·회사·소유권(집·땅·차 잠금)·땅·신고·SNS를 서버가 계산하고 저장. 참가자는 받은 값만 보여 줌</td></tr>
+      <tr><td><b>도시 자동차 모델링</b></td><td><span style="color:var(--mid);white-space:nowrap">● 준비 중</span></td><td>경차~마을버스 11종, 무브랜드, 실차 치수, 차체·바퀴 분리. Blender 설치 후 시작</td></tr>
+    </table></div>
+  </div>
+  <div class="card">
+    <h3>멀티플레이 재설계 단계</h3>
+    <div class="tiles" style="margin-bottom:14px">
+      <div class="tile"><span>완료</span><b>7 / 14</b></div>
+      <div class="tile"><span>진행 중</span><b>4c</b></div>
+      <div class="tile"><span>다음</span><b>4d 개인 경제</b></div>
+    </div>
+    <div class="scroll"><table>
+      <tr><th>단계</th><th>내용</th><th>상태</th></tr>
+      <tr><td>1</td><td>공통 동기화 계층(엔티티·상태·이벤트, 권한 규칙, 같은 맵만 동기화)</td><td style="color:var(--ok)">완료 10-13</td></tr>
+      <tr><td>2a</td><td>서버 열기 / 참가하기 (EOS 없이)</td><td style="color:var(--ok)">완료 10-13</td></tr>
+      <tr><td>2b-1</td><td>EOS 시험 (중계 경로만 미확인)</td><td style="color:var(--ok)">완료 10-13</td></tr>
+      <tr><td>3</td><td>캐릭터를 서버 월드 파일(world.dat)로, 캐릭터 시계, 혼자 하기 = 내 PC 서버</td><td style="color:var(--ok)">완료 10-13</td></tr>
+      <tr><td>4a</td><td>플레이어 아바타(외형·이름·공격·앉기·탈것·든 물건)</td><td style="color:var(--ok)">완료 10-14</td></tr>
+      <tr><td>4b</td><td>설치한 탈것·드롭 아이템(탑승 한 명, 줍기 먼저 온 사람, 06:00 분실물)</td><td style="color:var(--ok)">완료 10-14</td></tr>
+      <tr><td>-</td><td>창모드 기본값(1280×720, Alt+Enter 전체화면)</td><td style="color:var(--ok)">완료 10-14</td></tr>
+      <tr><td>4c</td><td>공유 경제 서버 판정(시계·주가·회사·소유권·땅·신고·SNS, 밤 건너뛰기 설정, 밤 활동 구조)</td><td style="color:var(--mid)">구현 중</td></tr>
+      <tr><td>4d</td><td>개인 경제 서버 판정(은행 돈·주식·인벤토리, 책 별도 저장, 밤 활동 효과)</td><td class="muted">대기</td></tr>
+      <tr><td>4e</td><td>옛 경로 삭제(옛 방·방장 넘기기·개발용 메뉴)</td><td class="muted">대기</td></tr>
+      <tr><td>2b-2</td><td>EOS 정식 연결(공개 서버 목록, ID 토큰 검증)</td><td class="muted">대기</td></tr>
+      <tr><td>5</td><td>시민·교통 시간 기반 재작성</td><td class="muted">대기</td></tr>
+      <tr><td>6</td><td>전용 서버 빌드, 설정 파일, 서버 목록, 관리자 기능, 부하 테스트</td><td class="muted">대기</td></tr>
+      <tr><td>7</td><td>모바일 터치 조작, 성능, 재접속</td><td class="muted">대기</td></tr>
+    </table></div>
+  </div>
+  <div class="card">
+    <h3>정해진 기획</h3>
+    <div class="scroll"><table>
+      <tr><th>항목</th><th>결정</th><th>날짜</th></tr>
+      <tr><td>서버 구조</td><td>누구나 서버를 열고 참가. 인원 상한 PC 50·모바일 10. 혼자 하기도 내 PC 서버(1명)</td><td>10-13</td></tr>
+      <tr><td>나이·수명</td><td>지금은 만들지 않음(캐릭터 시계만 저장)</td><td>10-13</td></tr>
+      <tr><td>비운 동안 정산</td><td>월세·이자·세금은 게임 7일 상한까지 받음</td><td>10-13</td></tr>
+      <tr><td>오프라인 캐릭터</td><td>접속을 끊으면 사라짐</td><td>10-13</td></tr>
+      <tr><td>캐릭터 이름</td><td>같은 월드 안에서 중복 막음</td><td>10-13</td></tr>
+      <tr><td>버린 아이템</td><td>다음 06:00에 분실물 목록으로, 7일 뒤 삭제, 누구나 찾아감</td><td>10-14</td></tr>
+      <tr><td>밤 건너뛰기</td><td>기본 00~06시 건너뜀, 서버 주인이 바꿀 수 있음(시작=끝이면 24시간)</td><td>10-16</td></tr>
+      <tr><td>밤 활동</td><td>잠자기·야간 알바·놀러 가기·살인 청부(해금 시). 지금은 항상 잠자기, 수치와 화면은 나중에</td><td>10-16</td></tr>
+      <tr><td>SNS·신고</td><td>참가자 화면에는 최근 100개만, 서버는 전부 보관</td><td>10-16</td></tr>
+      <tr><td>예전 서버 월드</td><td>4c 전에 만든 월드는 공유 경제를 새로 시작(PC 월드는 옮기지 않음)</td><td>10-16</td></tr>
+    </table></div>
+  </div>
+  <div class="card">
+    <h3>보류·확인 필요</h3>
+    <div class="scroll"><table>
+      <tr><th>항목</th><th>내용</th></tr>
+      <tr><td>원격 푸시</td><td>로컬 Dev가 origin/Dev보다 12커밋 앞섬. 요청할 때 푸시</td></tr>
+      <tr><td>맥 서명</td><td>정식 서명·공증은 Apple Developer Program(연 99달러) 필요. 지금은 우클릭→열기</td></tr>
+      <tr><td>4b 남은 확인</td><td>서버가 내려놓기를 거절할 때 아이템 반환, 탄 채 맵 이동하며 내리기, 분실물 개수 상한 없음</td></tr>
+      <tr><td>빌드</td><td>Game.zip·GameMac.zip은 4b+창모드 코드. EOS 시험 묶음은 4a 이전 코드</td></tr>
+    </table></div>
+  </div>
+</section>
 </main>
 
 <script>
@@ -329,11 +394,11 @@ const DEFAULTS = {
     { name: '한대건설', ind: '건설', size: '대기업', price: 0, shares: 0 }, { name: '하이진로', ind: '주류', size: '-', price: 0, shares: 0 },
   ],
   ranges: [
-    { label: '1명', n: 1, note: '솔로 모드. 거래·범죄·경쟁·주식 체결을 NPC로 대체해야 함.' },
+    { label: '1명', n: 1, note: '혼자 하기 = 내 PC 서버(1명). 거래·범죄·경쟁·주식 체결을 NPC로 대체해야 함.' },
     { label: '2~9명', n: 5, note: '업종 대부분이 비어 있음. NPC 호가·NPC 좋아요 필요. 시상식 의미 약함.' },
-    { label: '10~20명 (기획 기준)', n: 15, note: '방장 호스트로 충분. 15명부터 모두 최대치로 사면 기존 빈부지가 모자람.' },
+    { label: '10~20명 (기획 기준)', n: 15, note: 'PC·모바일 서버 모두 가능(모바일은 10명까지). 15명부터 모두 최대치로 사면 기존 빈부지가 모자람.' },
     { label: '21~50명', n: 35, note: '구역별 동기화 필수, 신규 지역 여러 곳, 업종 경쟁 과열.' },
-    { label: '51~100명', n: 80, note: '전용 서버 필요, 부지·업종 수를 기획부터 늘려야 함.' },
+    { label: '51~100명', n: 80, note: '정한 상한(PC 50)을 넘음. 부하 테스트(6단계) 뒤에 정함. 부지·업종 수도 늘려야 함.' },
   ],
   capture: [{ val: 0, rate: 0 }, { val: 50, rate: 10 }, { val: 100, rate: 20 }, { val: 300, rate: 45 }, { val: 500, rate: 65 }, { val: 700, rate: 80 }, { val: 1000, rate: 90 }],
   companies: [{ name: 'A기업', val: 500, price: 5000, cost: 3000 }, { name: 'B기업', val: 300, price: 5000, cost: 3000 }],
@@ -451,6 +516,8 @@ TV: 유리 + 플라스틱 + 금속 + 전자부품
     ['hitman-exposure', '수치 없음', '살인청부 성공 시 노출도 증가량'],
     ['server-size', '규칙 없음', '서버 인원 상한과 1인 플레이 지원 여부 → 서버 인원 탭'],
     ['net-host', '규칙 없음', '방장 호스트 vs 전용 서버, 구역(씬)별 관심 영역 동기화'],
+    ['night-skip', '규칙 없음', '밤 건너뛰기 구간과 바꾸는 사람'],
+    ['night-activity', '수치 없음', '밤 활동(잠자기·야간 알바·놀러 가기·살인 청부)의 효과 수치와 고르는 화면'],
     ['stock-npc', '규칙 없음', '인원이 적을 때 주식 NPC 호가(시장 조성자)'],
     ['insta-npc-like', '규칙 없음', 'NPC도 인스타 좋아요를 누르는지'],
     ['company-products', '수치 없음', '방산·농업용품·낚시용품·자동차·제약 상품 목록과 조합법 → 회사 종류 탭'],
@@ -469,7 +536,7 @@ function save() {
   clearTimeout(saveTimer); $('gStatus').textContent = '저장 중…';
   saveTimer = setTimeout(async () => {
     try {
-      const r = await fetch('/api/state', { method: 'PUT', body: JSON.stringify({ v: 3, data: DATA, params: PARAMS }) });
+      const r = await fetch('/api/state', { method: 'PUT', body: JSON.stringify({ v: 3, mig: MIG, data: DATA, params: PARAMS }) });
       $('gStatus').textContent = r.ok ? '팀 공용으로 저장됨 · ' + new Date().toLocaleTimeString('ko-KR') : '저장 실패 (' + r.status + ')';
     } catch { $('gStatus').textContent = '저장 실패 — 네트워크 확인'; }
   }, 600);
@@ -736,8 +803,8 @@ function serverChecks(n) {
   const up = v('sUp'), full = mbps(false), aoi = mbps(true), inds = marketTypes().length || 1, perInd = n / inds;
   const L = lottoStats(), st = (ok, warn) => ok ? 'ok' : warn ? 'warn' : 'bad';
   return [
-    ['네트워크 (방장 업로드)', st(full <= up * .5, aoi <= up * .5), `전체 동기화 ${full.toFixed(1)} Mbps · 같은 구역만 ${aoi.toFixed(1)} Mbps`, full > up * .5 ? (aoi <= up * .5 ? '구역(씬)별 관심 영역 동기화를 넣어야 해.' : '방장 PC로는 무리. 전용 서버가 필요해.') : '방장 호스트로 충분해.', full],
-    ['방장 의존', st(n <= 20, n <= 40), n === 1 ? '혼자' : `방장 1명이 ${n - 1}명 상태·저장 처리`, '방장이 나가면 서버가 멈춰. 인원이 많을수록 방장 이전·전용 서버를 정해야 해.'],
+    ['네트워크 (서버 업로드)', st(aoi <= up * .5, aoi <= up), `전체 동기화 ${full.toFixed(1)} Mbps · 같은 맵만 ${aoi.toFixed(1)} Mbps`, aoi > up * .5 ? '같은 맵만 보내도 빠듯해. 서버를 회선 좋은 PC에서 돌려야 해.' : '같은 맵만 보내는 동기화(1단계에 들어감)로 충분해.', aoi],
+    ['인원 상한', st(n <= 10, n <= 50), n === 1 ? '혼자 (내 PC 서버)' : `서버 1개가 ${n}명 상태·저장 처리`, n > 50 ? '정한 상한(PC 50)을 넘어. 올리려면 부하 테스트(6단계)가 필요해.' : n > 10 ? '모바일 서버는 10명까지라 PC 서버만 가능해.' : 'PC·모바일 서버 모두 가능해. 앱 안 서버는 주인이 나가면 저장하고 멈춰.'],
     ['부지', st(n * perPlayer <= supply, n * perPlayer * ratio <= supply), `최대 ${n * perPlayer}개 · 예상 ${Math.round(n * perPlayer * ratio)}개 / 공급 ${supply}개`, n * perPlayer > supply ? `모두 최대치로 사면 신규 지역 ${Math.ceil((n * perPlayer - supply) / (v('dNew') || 1))}곳 필요 (시청 확장 신청).` : '여유 있어.'],
     ['회사 경쟁', st(perInd >= 1 && perInd <= 3, perInd < 1 || perInd <= 6), `시장 계산 업종 ${inds}개 · 업종당 ${perInd.toFixed(1)}개 회사`, perInd < 1 ? '비어 있는 업종이 많아 서버 정보에 빨간 글씨가 많아져.' : perInd > 3 ? '한 업종에 회사가 몰려 확보율 겹침이 커. 업종이나 NPC 인구를 늘려야 해.' : '적당해.'],
     ['NPC 인구', 'ok', `${num(n * v('sPer'))}명`, '수요 계산은 숫자라 부담이 없지만, 화면을 걸어다니는 NPC 수는 따로 상한을 정해야 해.'],
@@ -746,7 +813,7 @@ function serverChecks(n) {
     ['성향·서버 이름', st(n >= 5, n >= 2), `성향 16종 중 최대 ${Math.min(n, 16)}종`, n < 5 ? '동률이 잦아 가나다순으로 이름이 정해지는 경우가 많아.' : '정상.'],
     ['시상식', st(n >= 15, true), `부문당 경쟁자 ${n}명`, n <= 5 ? '모든 사람이 상을 받을 수 있어 의미가 약해.' : n < 15 ? '같은 사람이 여러 상을 휩쓸 수 있어. 중복 수상 제한을 정할지.' : '정상.'],
     ['인스타 인지도', st(n >= 15, true), `게시물 1개 최대 좋아요 ${Math.max(n - 1, 0)}개`, '좋아요를 플레이어만 누르면 인원이 적을수록 인지도가 거의 안 올라. NPC 좋아요를 넣을지 정해야 해.'],
-    ['구역(씬) 분산', st(n / scenes >= .5 && n / scenes <= 6, true), `구역당 평균 ${(n / scenes).toFixed(1)}명`, n / scenes < .5 ? '대부분 구역이 비어 있어 도시가 썰렁해.' : n / scenes > 6 ? '방장이 모든 씬을 동시에 돌려야 해서 부하가 커.' : '적당해.'],
+    ['구역(씬) 분산', st(n / scenes >= .5 && n / scenes <= 6, true), `구역당 평균 ${(n / scenes).toFixed(1)}명`, n / scenes < .5 ? '대부분 구역이 비어 있어 도시가 썰렁해.' : n / scenes > 6 ? '서버가 모든 맵을 동시에 관리해서 부하가 커.' : '적당해.'],
     ['로또 돈 풀림 (인원 무관)', L.ev > L.price ? 'bad' : 'ok', `주당 최대 ${won(n * v('lMax') * (L.ev - L.price))}`, L.ev > L.price ? '살수록 이득이라 인원에 비례해 돈이 풀려. 상금표부터 고쳐야 해.' : '정상.'],
   ];
 }
@@ -756,7 +823,7 @@ function calcServer() {
   $('sNTxt').textContent = n + '명';
   const vd = core.some(c => c[1] === 'bad') ? ['현재 구조로 어려움', 'var(--warn)'] : core.some(c => c[1] === 'warn') ? ['조건부 가능', 'var(--mid)'] : ['가능', 'var(--ok)'];
   $('sVerdict').innerHTML = `<span style="color:${vd[1]}">${vd[0]}</span>`;
-  $('sTiles').innerHTML = [['NPC 인구', num(n * v('sPer')) + '명'], ['최대 부지 수요', n * v('dMax') + '개'], ['최대 회사 수', n + '개'], ['방장 업로드', checks[0][4].toFixed(1) + ' Mbps']].map(([a, b]) => `<div class="tile"><span>${a}</span><b>${b}</b></div>`).join('');
+  $('sTiles').innerHTML = [['NPC 인구', num(n * v('sPer')) + '명'], ['최대 부지 수요', n * v('dMax') + '개'], ['최대 회사 수', n + '개'], ['서버 업로드', checks[0][4].toFixed(1) + ' Mbps']].map(([a, b]) => `<div class="tile"><span>${a}</span><b>${b}</b></div>`).join('');
   $('sChecks').innerHTML = '<tr><th>항목</th><th>판정</th><th>계산</th><th>고려할 점</th></tr>' + checks.map(([name, s, val, note]) =>
     `<tr><td><b>${name}</b></td><td style="color:${MARK[s][1]};white-space:nowrap">● ${MARK[s][0]}</td><td>${val}</td><td class="muted">${note}</td></tr>`).join('');
   $('sRanges').innerHTML = '<tr><th>구간</th><th>판정 (대표 인원)</th><th>걸리는 항목</th><th>요약</th></tr>' + DATA.ranges.map(r => {
@@ -799,6 +866,26 @@ $('bAdd').onclick = () => {
 $('bReset').onclick = () => { if (confirm('보드를 기본 목록으로 되돌릴까? 추가한 항목과 메모가 사라지고 팀 전체에 적용돼.')) { DATA.issues = clone(DEFAULTS.issues); drawBoard(); save(); } };
 EDITORS.issues = drawBoard;
 
+/* ================= 저장본 고치기 (결정된 내용을 한 번만 반영, 팀이 쓴 메모는 유지) ================= */
+const MIG = 1;
+const MIG_RANGES = {"솔로 모드. 거래·범죄·경쟁·주식 체결을 NPC로 대체해야 함.": "혼자 하기 = 내 PC 서버(1명). 거래·범죄·경쟁·주식 체결을 NPC로 대체해야 함.", "방장 호스트로 충분. 15명부터 모두 최대치로 사면 기존 빈부지가 모자람.": "PC·모바일 서버 모두 가능(모바일은 10명까지). 15명부터 모두 최대치로 사면 기존 빈부지가 모자람.", "전용 서버 필요, 부지·업종 수를 기획부터 늘려야 함.": "정한 상한(PC 50)을 넘음. 부하 테스트(6단계) 뒤에 정함. 부지·업종 수도 늘려야 함."};
+const MIG_ISSUES = {
+  'server-size': [2, '서버 열기/참가 방식. 인원 상한 PC 50·모바일 10, 혼자 하기 = 내 PC 서버(1명) (2026-10-13)'],
+  'net-host': [2, '방장 호스트 대신 서버가 판정: 앱 안 서버 또는 서버 프로그램. 같은 맵만 동기화 (2026-10-13)'],
+  'night-skip': [2, '기본 00~06시 건너뜀, 서버 주인이 바꿀 수 있음. 시작=끝이면 24시간 (2026-10-16)'],
+  'night-activity': [1, '구조만 4c에 구현, 지금은 항상 잠자기. 임시 수치: 야간 알바 기력 -40·+5만원, 놀러 가기 기력 -30·스트레스 -40·-3만원. 살인 청부는 해금 이벤트 기획 때'],
+};
+function migrate(d, from) {
+  if (from >= MIG) return false;
+  d.ranges.forEach(r => { if (MIG_RANGES[r.note]) r.note = MIG_RANGES[r.note]; });
+  for (const [id, [st, memo]] of Object.entries(MIG_ISSUES)) {
+    let it = d.issues.find(i => i.id === id);
+    if (!it) d.issues.push(it = clone(DEFAULTS.issues.find(i => i.id === id)));
+    if (!it.memo) { it.s = st; it.memo = memo; }
+  }
+  return true;
+}
+
 /* ================= 입력값 저장 + 전체 재계산 ================= */
 const paramInputs = [...document.querySelectorAll('section input[id], section select[id]')].filter(el => !el.hasAttribute('data-nosave') && !['rIng', 'rText'].includes(el.id));
 paramInputs.forEach(el => el.addEventListener('input', () => { PARAMS[el.id] = el.value; recalc(); save(); }));
@@ -822,7 +909,9 @@ fetch('/api/state').then(r => r.ok ? r.json() : {}).then(s => {
     DATA = { ...clone(DEFAULTS), ...s.data, recipes: { ...clone(DEFAULTS.recipes), ...(s.data || {}).recipes } };
     PARAMS = s.params || {};
   }
+  const migrated = !!(s && s.v === 3) && migrate(DATA, s.mig || 0);
   renderAll(); $('gStatus').textContent = '팀 공용 저장본 불러옴';
+  if (migrated) save();
 }).catch(() => { $('gStatus').textContent = '서버 연결 실패 — 변경 내용이 저장되지 않아.'; });
 </script>
 </body>
