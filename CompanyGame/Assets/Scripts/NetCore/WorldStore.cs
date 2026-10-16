@@ -12,10 +12,17 @@ using System.Text.RegularExpressions;
 /// A store made with a null folder lives in memory only (QA, servers without a world).
 /// File version 2 (12.8) adds the next connection number, the PersistOnLeave entities (owner not kept: all come back
 /// server-owned) and the lost-and-found list. Version 1 files still read (no entities, connections from 1).
+/// File version 3 (12.9) adds the night-skip hours of the world clock and the world state blob (the shared economy, made
+/// by the game through GameServer.WorldStateProvider; the server never reads it). Version 1 and 2 files get the default
+/// night [0, 6) and no world state (a new shared economy, 12.9 decision 3).
 /// </summary>
 public sealed class WorldStore
 {
-    public const ushort FileVersion = 2;
+    public const ushort FileVersion = 3;
+    /// <summary>The night the world clock skips by default, in hours [start, end) (9장-6).</summary>
+    public const int DefaultNightSkipStart = 0, DefaultNightSkipEnd = 6;
+    /// <summary>The world state blob may be this big (it is the whole shared economy, gzipped; sections sent to clients are smaller).</summary>
+    public const int MaxWorldState = 32 * 1024 * 1024;
     public const string FileName = "world.dat", PrevName = "world.prev.dat";
 
     // Same rule as TitleFlow.IsValidName (12.5).
@@ -75,6 +82,10 @@ public sealed class WorldStore
     public uint NextConnection = 1;
     public List<SavedEntity> Entities = new List<SavedEntity>();
     public List<LostItem> Lost = new List<LostItem>();
+    /// <summary>Hours of the day the world clock skips, [start, end); start = end skips nothing. GameServer.SetNightSkip checks them.</summary>
+    public int NightSkipStart = DefaultNightSkipStart, NightSkipEnd = DefaultNightSkipEnd;
+    /// <summary>The shared economy of this world as the game saved it (empty = none yet). The server keeps it as bytes.</summary>
+    public byte[] WorldState = Array.Empty<byte>();
 
     public int CharacterCount => byAccount.Count;
     public IEnumerable<Character> Characters => byAccount.Values;
@@ -201,6 +212,11 @@ public sealed class WorldStore
             SyncProtocol.WriteStr(w, l.prefab); w.Write(l.movedAt);
             WriteBlobs(w, l.blobs);
         }
+        w.Write((byte)NightSkipStart); w.Write((byte)NightSkipEnd);
+        byte[] state = WorldState ?? Array.Empty<byte>();
+        if (state.Length > MaxWorldState) throw new InvalidDataException("world state over " + MaxWorldState + " bytes");
+        w.Write(state.Length);
+        w.Write(state);
     }
 
     static void WriteBlobs(BinaryWriter w, byte[][] blobs)
@@ -221,7 +237,7 @@ public sealed class WorldStore
     {
         using var r = SyncProtocol.Reader(File.ReadAllBytes(path));
         ushort version = r.ReadUInt16();
-        if (version != 1 && version != FileVersion) throw new InvalidDataException("version " + version);
+        if (version < 1 || version > FileVersion) throw new InvalidDataException("version " + version);
         string id = SyncProtocol.ReadStr(r);
         if (id != Id) throw new InvalidDataException("world id " + id);
         long created = r.ReadInt64();
@@ -257,6 +273,16 @@ public sealed class WorldStore
             for (int i = 0; i < lostCount; i++)
                 lost.Add(new LostItem { prefab = SyncProtocol.ReadStr(r), movedAt = r.ReadDouble(), blobs = ReadBlobs(r) });
         }
+        int skipStart = DefaultNightSkipStart, skipEnd = DefaultNightSkipEnd;
+        byte[] state = Array.Empty<byte>();
+        if (version >= 3)
+        {
+            skipStart = r.ReadByte(); skipEnd = r.ReadByte();
+            int length = r.ReadInt32();
+            if (length < 0 || length > MaxWorldState) throw new InvalidDataException("world state length");
+            state = r.ReadBytes(length);
+            if (state.Length != length) throw new EndOfStreamException();
+        }
         SyncProtocol.End(r);
         CreatedAt = new DateTime(created, DateTimeKind.Utc);
         WorldMinutes = world;
@@ -265,5 +291,7 @@ public sealed class WorldStore
         NextConnection = Math.Max(1u, next);
         Entities = entities;
         Lost = lost;
+        NightSkipStart = skipStart; NightSkipEnd = skipEnd;
+        WorldState = state;
     }
 }

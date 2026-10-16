@@ -90,6 +90,9 @@ public class LandPlotManager : GameSystem<LandPlotManager>
         return true;
     }
 
+    /// <summary>A server accepted my purchase (12.9): the payment stays spent and is no longer pending.</summary>
+    public void ConfirmPending(string plotId) { if (plotId != null) pendingPayments.Remove(plotId); }
+
     /// <summary>Shared part of a purchase (no payment). False when the plot is not available. The owner is the op's `from`.</summary>
     public bool ApplyPurchase(string plotId, string owner)
     {

@@ -43,11 +43,34 @@ public struct GameTime : IEquatable<GameTime>, IComparable<GameTime>
 
     public GameTime AddMinutes(long minutes) => FromTotalMinutes(TotalMinutes + minutes);
 
-    /// <summary>One minute forward; 23:59 jumps to 06:00 of the next day (00-05 are skipped).</summary>
-    public GameTime NextMinute() =>
-        hour == HoursPerDay - 1 && minute == MinutesPerHour - 1
-            ? new GameTime(absoluteDay + 1, DayStartHour)
-            : AddMinutes(1);
+    // The night the clock skips, hours [start, end) of every day (9장-6). Default 0-6: 23:59 is followed by 06:00.
+    // The world's server sets it (12.9); start = end skips nothing.
+    static int skipStart = 0, skipEnd = DayStartHour;
+    public static int NightSkipStart => skipStart;
+    public static int NightSkipEnd => skipEnd;
+
+    /// <summary>
+    /// Sets the skipped night hours [start, end). 0 ≤ start ≤ end ≤ 24 and not the whole day; a range over midnight is not
+    /// allowed. False (nothing changes) for anything else.
+    /// </summary>
+    public static bool SetNightSkip(int start, int end)
+    {
+        if (start < 0 || start > end || end > HoursPerDay || end - start >= HoursPerDay) return false;
+        skipStart = start; skipEnd = end;
+        return true;
+    }
+
+    /// <summary>Back to the default night 00-06.</summary>
+    public static void ResetNightSkip() { skipStart = 0; skipEnd = DayStartHour; }
+
+    /// <summary>True when this time is inside the skipped night.</summary>
+    public bool InNightSkip => skipStart < skipEnd && hour >= skipStart && hour < skipEnd;
+
+    /// <summary>This time, or the end of the skipped night when it is inside it (a time that cannot be on the clock).</summary>
+    public GameTime SkipNight() => InNightSkip ? FromTotalMinutes((long)absoluteDay * HoursPerDay * MinutesPerHour + skipEnd * MinutesPerHour) : this;
+
+    /// <summary>One minute forward; a minute inside the skipped night jumps to its end (default: 23:59 → 06:00 of the next day).</summary>
+    public GameTime NextMinute() => AddMinutes(1).SkipNight();
 
     public GameTime AddHours(int hours) => AddMinutes((long)hours * MinutesPerHour);
 
@@ -83,4 +106,12 @@ public interface IGameClock
 public static class GameClock
 {
     public static IGameClock Current { get; set; }
+
+    /// <summary>
+    /// The running clock jumped over the skipped night (9장-6), once per night, with the time after it. Only a clock that
+    /// advances itself raises it; a time received from a server (SetNow) does not (WorldStateSync handles that, 12.9).
+    /// </summary>
+    public static event Action<GameTime> NightSkipped;
+
+    public static void RaiseNightSkipped(GameTime after) => NightSkipped?.Invoke(after);
 }

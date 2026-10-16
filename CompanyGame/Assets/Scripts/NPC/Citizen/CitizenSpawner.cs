@@ -110,7 +110,7 @@ public sealed class CitizenSpawner : MonoBehaviour
         Destroy(holder);
         IgnoreEachOther();
         gameObject.AddComponent<CitizenSync>();
-        Debug.Log("[Citizens] " + MapPath + ": " + Citizens.Count + " citizens, " + seats.Length + " benches, " + (GameSession.IsAuthority ? "simulating" : "proxy") + ".");
+        Debug.Log("[Citizens] " + MapPath + ": " + Citizens.Count + " citizens, " + seats.Length + " benches, " + ((GameSession.IsAuthority || GameSession.RemoteServer) ? "simulating" : "proxy") + ".");
     }
 
     void Create(GameObject prefab, Transform holder, int index, int mapHash, Vector3 point, int yaw, Seat[] seats, string[] lines = null, CitizenWalker.Role role = CitizenWalker.Role.Street)
@@ -129,7 +129,7 @@ public sealed class CitizenSpawner : MonoBehaviour
         CitizenInfo.Dress(citizen, seed);
         citizen.transform.SetParent(null, true); // becomes active here: Awake/OnEnable see the data above
         SceneManager.MoveGameObjectToScene(citizen, gameObject.scene); // DialogueData only works for objects in the current map
-        walker.SetProxy(!GameSession.IsAuthority);
+        walker.SetProxy(!(GameSession.IsAuthority || GameSession.RemoteServer));
         Citizens.Add(walker);
     }
 
@@ -156,7 +156,7 @@ public sealed class CitizenSpawner : MonoBehaviour
         Destroy(holder);
         IgnoreEachOther();
         gameObject.AddComponent<CitizenSync>();
-        Debug.Log("[Citizens] " + MapPath + ": " + Citizens.Count + " indoor citizens (" + starts.Count + " free start points left), " + (GameSession.IsAuthority ? "simulating" : "proxy") + ".");
+        Debug.Log("[Citizens] " + MapPath + ": " + Citizens.Count + " indoor citizens (" + starts.Count + " free start points left), " + ((GameSession.IsAuthority || GameSession.RemoteServer) ? "simulating" : "proxy") + ".");
     }
 
     CitizenWalker Make(int index, int mapHash, Vector3 point, int yaw, Transform holder, GameObject male, GameObject female, string[] lines, CitizenWalker.Role role)

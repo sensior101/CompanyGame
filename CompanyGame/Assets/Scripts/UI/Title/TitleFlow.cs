@@ -270,8 +270,8 @@ public static class TitleFlow
 
     // ---- 혼자 하기 / 서버 열기 / 참가하기 (sync layer, Docs/Multiplayer_Redesign.md 12.3, 12.5) ----
     // Each step ends connected with the server's answer about my character (SyncClient.CharacterKnown). Without one the
-    // title asks for a name (CreateServerCharacter), then EnterServerWorld. Until stage 4 the world itself (companies,
-    // land, prices) is still each PC's own, entered like the offline start; only the character lives on the server.
+    // title asks for a name (CreateServerCharacter), then EnterServerWorld. Since 4c the shared world (companies, land,
+    // prices) is the server's too (12.9).
 
     /// <summary>
     /// 혼자 하기 (9장-4): the in-app server on 127.0.0.1 only, private, 1 player, on <paramref name="world"/> of this slot
@@ -372,8 +372,9 @@ public static class TitleFlow
     }
 
     /// <summary>
-    /// Enters as the server's character: my PC's world as the offline start does (until stage 4), at the character's saved
-    /// map (CharacterSync puts it back where it was), else the game map. Leaves the server on an error.
+    /// Enters as the server's character at its saved map (CharacterSync puts it back where it was), else the game map.
+    /// The shared world is the server's (12.9: ServerWorld in an in-app server, the world sections from another one), so this
+    /// PC's world is not loaded. Leaves the server on an error.
     /// </summary>
     public static string EnterServerWorld()
     {
@@ -381,9 +382,9 @@ public static class TitleFlow
         GameSession.SetCharacter(client.CharacterName, client.CharacterGender);
         var net = NetSession.Instance;
         if (net) net.Disconnect();
-        string error = PrepareWorld(!WorldSave.HasLocalWorld);
+        string error = null;
         string map = CharacterSync.SavedMap(client.CharacterContent);
-        if (error == null && !(map != null && SceneLoadManager.TryLoadMap(map, SceneLoadManager.DefaultSpawnId)) && !EnterGame()) error = "load_failed";
+        if (!(map != null && SceneLoadManager.TryLoadMap(map, SceneLoadManager.DefaultSpawnId)) && !EnterGame()) error = "load_failed";
         if (error != null) LeaveServer();
         return error;
     }

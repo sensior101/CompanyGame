@@ -41,8 +41,8 @@ public class SimpleGameClock : MonoBehaviour, IGameClock
 
         now = new GameTime(startDay, startHour);
         if (long.TryParse(PlayerPrefs.GetString("GameClock.TotalMinutes", ""), out long saved)) now = GameTime.FromTotalMinutes(saved);
-        // Saves from the old 24h rule can land in 00-05; those hours no longer exist, so start that day at 06:00.
-        if (now.hour < GameTime.DayStartHour) now = new GameTime(now.absoluteDay, GameTime.DayStartHour);
+        // Saves from the old 24h rule can land in the skipped night; those hours do not exist, so start at its end (06:00).
+        now = now.SkipNight();
         GameClock.Current = this;
         if (transform.parent == null) DontDestroyOnLoad(gameObject);
     }
@@ -76,8 +76,9 @@ public class SimpleGameClock : MonoBehaviour, IGameClock
     {
         for (int i = 0; i < minutes; i++)
         {
-            GameTime before = now;
-            now = now.NextMinute();
+            GameTime before = now, plain = now.AddMinutes(1);
+            now = plain.SkipNight();
+            if (now != plain) GameClock.RaiseNightSkipped(now);
             if (now.hour == before.hour) continue;
 
             SaveTime();
@@ -86,9 +87,10 @@ public class SimpleGameClock : MonoBehaviour, IGameClock
         }
     }
 
+    // Paused = driven from outside (a server's world clock, 12.9): that time is not this PC's to keep.
     void SaveTime()
     {
-        if (GameSession.IsAuthority && ReferenceEquals(GameClock.Current, this))
+        if (GameSession.IsAuthority && !paused && ReferenceEquals(GameClock.Current, this))
             PlayerPrefs.SetString("GameClock.TotalMinutes", now.TotalMinutes.ToString(System.Globalization.CultureInfo.InvariantCulture));
     }
     void OnApplicationQuit() { SaveTime(); PlayerPrefs.Save(); }

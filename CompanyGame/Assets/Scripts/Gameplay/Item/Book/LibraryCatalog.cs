@@ -10,6 +10,8 @@ public static class LibraryCatalog
 {
     public const long BlankPrice = 1000, BookPrice = 20000, PublicationFee = 10000, Royalty = 4000;
     public const int FreeDays = 10, RecallDay = 30, DailyFine = 200;
+    // On another process's sync server this PC still keeps its library as before (12.9; moves to the server in 4d).
+    static bool Authority => GameSession.IsAuthority || GameSession.RemoteServer;
     [Serializable] public sealed class Work
     {
         public string id, originalInstanceId;
@@ -75,7 +77,7 @@ public static class LibraryCatalog
     }
     public static void ConnectLocal(InventoryState inventory)
     {
-        if (!GameSession.IsAuthority) return;
+        if (!Authority) return;
         if (clock != GameClock.Current)
         {
             if (clock != null) clock.DayChanged -= OnDay;
@@ -87,7 +89,7 @@ public static class LibraryCatalog
     }
     public static void RegisterPlayer(string id, InventoryState inventory, IWallet wallet)
     {
-        if (!GameSession.IsAuthority || string.IsNullOrEmpty(id) || inventory == null) return;
+        if (!Authority || string.IsNullOrEmpty(id) || inventory == null) return;
         participants[id] = new Participant { inventory = inventory, wallet = wallet };
         // Loans are authoritative here; expired/withdrawn copies in offline inventories are removed on reconnect.
         for (int i = 0; i < inventory.Capacity; i++)
@@ -161,7 +163,7 @@ public static class LibraryCatalog
     static bool Guard(string playerId, InventoryState inventory, out string error)
     {
         error = null;
-        if (!GameSession.IsAuthority) return Fail("도서관 거래는 호스트에서 처리해야 합니다.", out error);
+        if (!Authority) return Fail("도서관 거래는 호스트에서 처리해야 합니다.", out error);
         if (changing || string.IsNullOrEmpty(playerId) || inventory == null) return Fail("거래 정보를 확인해 주세요.", out error);
         if (!participants.TryGetValue(playerId, out var participant) || !ReferenceEquals(participant.inventory, inventory))
             return Fail("등록된 플레이어의 인벤토리가 아닙니다.", out error);
@@ -289,7 +291,7 @@ public static class LibraryCatalog
     public static bool Return(string playerId, out string error)
     {
         error = null;
-        if (!GameSession.IsAuthority || changing) return Fail("지금은 반납할 수 없습니다.", out error);
+        if (!Authority || changing) return Fail("지금은 반납할 수 없습니다.", out error);
         var loan = BorrowedBy(playerId);
         if (loan == null || !participants.TryGetValue(playerId, out var participant))
             return Fail("대여한 책이 없습니다.", out error);
@@ -337,7 +339,7 @@ public static class LibraryCatalog
     public static bool PayFines(string playerId, BankManager bank, out string error)
     {
         error = null;
-        if (!GameSession.IsAuthority || changing || playerId != GameSession.LocalPlayerId) return Fail("벌금을 납부할 수 없습니다.", out error);
+        if (!Authority || changing || playerId != GameSession.LocalPlayerId) return Fail("벌금을 납부할 수 없습니다.", out error);
         var account = GetAccount(playerId);
         if (account.fines <= 0) return Fail("미납 연체료가 없습니다.", out error);
         if (!bank || !bank.TrySpend(account.fines, MoneyChangeReason.LibraryLateFee)) return Fail("은행 잔액이 부족합니다.", out error);
@@ -346,7 +348,7 @@ public static class LibraryCatalog
     static void OnDay(GameTime time) => AdvanceTo(time.absoluteDay);
     public static void AdvanceTo(int absoluteDay)
     {
-        if (!GameSession.IsAuthority || changing || absoluteDay <= State.lastDay) return;
+        if (!Authority || changing || absoluteDay <= State.lastDay) return;
         changing = true;
         try
         {

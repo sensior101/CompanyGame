@@ -16,6 +16,8 @@ using Debug = UnityEngine.Debug;
 /// win) and keeps <c>running.json</c> next to it while it listens (<see cref="LocalServerProcess"/>).
 /// Worlds (12.5): the server opens <c>ServerSettings.world</c> under <c>worlds/</c> next to the settings file (a new one when empty)
 /// and saves it on <see cref="Stop"/>. The process checks for <c>stop.request</c> there every second: it saves and quits.
+/// <c>-nightskip start-end</c> sets the hours the world clock skips (saved in the world, 12.9). <see cref="Started"/> and
+/// <see cref="Stopped"/> let the game run its side of the server (ServerWorld) without Net knowing it.
 /// </summary>
 public sealed class SyncHost : MonoBehaviour
 {
@@ -30,6 +32,10 @@ public sealed class SyncHost : MonoBehaviour
 
     /// <summary>An in-app server is about to stop: the last character save goes out now (CharacterSync).</summary>
     public static event Action BeforeStop;
+    /// <summary>A server runs in this process now (Server and InApp are set). The game side of the server hooks in here (ServerWorld, 12.9).</summary>
+    public static event Action<SyncHost> Started;
+    /// <summary>The server of this process stopped and saved; Server is still readable during the call.</summary>
+    public static event Action<SyncHost> Stopped;
 
     TcpServerTransport transport;
     string runningPath, stopPath;
@@ -46,8 +52,7 @@ public sealed class SyncHost : MonoBehaviour
     public static SyncHost StartInApp(ServerSettings settings, bool localOnly = false)
     {
         var world = OpenWorld(ServerSettings.WorldsFolder, settings);
-        var host = Create(localOnly ? IPAddress.Loopback : IPAddress.Any, settings.port, settings.maxPlayers, settings.name, settings.password, world);
-        host.InApp = true;
+        var host = Create(localOnly ? IPAddress.Loopback : IPAddress.Any, settings.port, settings.maxPlayers, settings.name, settings.password, world, true);
         SyncClient.Instance.Connect("127.0.0.1", host.Port, settings.password);
         return host;
     }
@@ -61,7 +66,7 @@ public sealed class SyncHost : MonoBehaviour
         return world;
     }
 
-    static SyncHost Create(IPAddress address, int port, int maxPlayers, string name, string password, WorldStore world)
+    static SyncHost Create(IPAddress address, int port, int maxPlayers, string name, string password, WorldStore world, bool inApp)
     {
         if (Instance) Instance.Stop();
         var transport = new TcpServerTransport(address, port); // throws before anything is made when the port is taken
@@ -71,10 +76,21 @@ public sealed class SyncHost : MonoBehaviour
         host.transport = transport;
         host.Server = new GameServer(transport, maxPlayers, name, password, world);
         host.Server.Log += message => Debug.LogWarning("[SyncServer] " + message);
+        host.InApp = inApp;
         Instance = host;
         Debug.Log("[SyncServer] '" + name + "' listening on " + address + ":" + host.Port + ", max " + maxPlayers + (string.IsNullOrEmpty(password) ? "" : ", password set")
                   + ", world " + world.Id + " (" + world.CharacterCount + " characters)");
+        try { Started?.Invoke(host); } catch (Exception e) { Debug.LogException(e); }
         return host;
+    }
+
+    // Saves the world (the game's state provider is read during it), then tells the game side it is over.
+    void Shutdown()
+    {
+        if (Server == null) return;
+        Server.Stop();
+        try { Stopped?.Invoke(this); } catch (Exception e) { Debug.LogException(e); }
+        Server = null; transport = null;
     }
 
     /// <summary>Saves the world and stops. In-app: my own last character save is read first (at most 1 second).</summary>
@@ -88,8 +104,7 @@ public sealed class SyncHost : MonoBehaviour
             var until = DateTime.UtcNow.AddSeconds(1);
             while (Server.HasAccount(GameSession.LocalPlayerId) && DateTime.UtcNow < until) { Server.Tick(); Thread.Sleep(5); }
         }
-        Server?.Stop();
-        Server = null; transport = null;
+        Shutdown();
         if (Instance == this) Instance = null;
         DeleteRunning();
         Destroy(gameObject);
@@ -107,7 +122,7 @@ public sealed class SyncHost : MonoBehaviour
         Application.Quit(0);
     }
 
-    void OnDestroy() { Server?.Stop(); DeleteRunning(); }
+    void OnDestroy() { Shutdown(); if (Instance == this) Instance = null; DeleteRunning(); }
 
     void OnApplicationQuit()
     {
@@ -142,7 +157,12 @@ public sealed class SyncHost : MonoBehaviour
             SceneManager.UnloadSceneAsync(title);
         }
         SyncHost host;
-        try { host = Create(address, p, settings.maxPlayers, settings.name, settings.password, OpenWorld(Path.Combine(folder, "worlds"), settings)); }
+        try
+        {
+            var world = OpenWorld(Path.Combine(folder, "worlds"), settings);
+            ApplyNightSkip(world, Arg("-nightskip"));
+            host = Create(address, p, settings.maxPlayers, settings.name, settings.password, world, false);
+        }
         catch (Exception e)
         {
             Debug.LogError("[SyncServer] cannot open world '" + settings.world + "' or listen on port " + p + ": " + e.Message);
@@ -156,6 +176,14 @@ public sealed class SyncHost : MonoBehaviour
         var info = new LocalServerProcess.RunningInfo { pid = Process.GetCurrentProcess().Id, port = host.Port, startedAt = DateTime.UtcNow.ToString("o"), world = settings.world };
         try { File.WriteAllText(running, JsonUtility.ToJson(info)); host.runningPath = running; }
         catch (Exception e) { Debug.LogError("[SyncServer] cannot write " + running + ": " + e.Message); }
+    }
+
+    // -nightskip "start-end": set on the world before the server opens it, so the clock is never put on a skipped hour first.
+    static void ApplyNightSkip(WorldStore world, string arg)
+    {
+        if (arg == null) return;
+        if (GameServer.ApplyNightSkipArg(world, arg)) Debug.Log("[SyncServer] night skip " + world.NightSkipStart + "-" + world.NightSkipEnd + " (saved in the world)");
+        else Debug.LogError("[SyncServer] bad -nightskip '" + arg + "' (hours start-end, 0 <= start <= end <= 24); the world keeps " + world.NightSkipStart + "-" + world.NightSkipEnd);
     }
 
     static string Arg(string name)

@@ -95,13 +95,19 @@ public static class GameSession
     }
 
     [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.SubsystemRegistration)]
-    static void ResetStatics() { guid = null; accountId = accountName = characterName = characterGender = null; accountLoaded = false; AccountChanged = null; }
+    static void ResetStatics() { guid = null; accountId = accountName = characterName = characterGender = null; accountLoaded = false; AccountChanged = null; RemoteServer = false; }
 
     /// <summary>True where economy, time and events are computed. Gate every simulation write on this.</summary>
     public static bool IsAuthority => Mode != SessionMode.Client;
 
     /// <summary>Called by the network layer (Net) when a session starts or ends.</summary>
     public static void Begin(SessionMode mode) => Mode = mode;
+
+    /// <summary>
+    /// Temporary (12.9, removed in 4d/stage 5): true only while connected to a sync server in another process. Client mode
+    /// then, yet citizens, traffic and the library still run on this PC as before; only those places read it.
+    /// </summary>
+    public static bool RemoteServer { get; set; }
 }
 
 /// <summary>

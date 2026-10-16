@@ -10,6 +10,8 @@ using UnityEngine;
 /// everything here runs in Update on the main thread. Right after Welcome the server sends this account's character of
 /// its world (12.5): <see cref="CharacterKnown"/>, then <see cref="HasCharacter"/> and its fields; without one the title
 /// makes it with <see cref="CreateCharacter"/>. CharacterSync sends the content with <see cref="SaveCharacter"/>.
+/// Blobs from the server may be up to SyncProtocol.MaxServerBlob (the world sections, 12.9); entities on map
+/// SyncProtocol.AllMaps are kept through map changes.
 /// </summary>
 public sealed class SyncClient : MonoBehaviour
 {
@@ -159,6 +161,7 @@ public sealed class SyncClient : MonoBehaviour
         scratch.Clear();
         foreach (var e in entities.Values)
         {
+            if (e.Map == SyncProtocol.AllMaps) continue; // the world entity (12.9) stays on every map
             if (!e.IsMine) scratch.Add(e);
             else if ((e.Flags & EntityFlags.FollowsOwnerMap) != 0) e.Map = map;
         }
@@ -321,7 +324,7 @@ public sealed class SyncClient : MonoBehaviour
         string key = SyncProtocol.ReadStr(r), map = SyncProtocol.ReadStr(r);
         var flags = (EntityFlags)r.ReadByte();
         var blobs = new byte[r.ReadByte()][];
-        for (int i = 0; i < blobs.Length; i++) blobs[i] = SyncProtocol.ReadBlob(r);
+        for (int i = 0; i < blobs.Length; i++) blobs[i] = SyncProtocol.ReadServerBlob(r);
         if (entities.ContainsKey(id)) return;
         var prefab = PrefabFactory?.Invoke(key);
         if (!prefab) { Debug.LogWarning("[Sync] no prefab for key '" + key + "'"); return; }
@@ -339,7 +342,7 @@ public sealed class SyncClient : MonoBehaviour
     {
         ulong id = r.ReadUInt64();
         byte component = r.ReadByte();
-        byte[] blob = SyncProtocol.ReadBlob(r);
+        byte[] blob = SyncProtocol.ReadServerBlob(r);
         if (entities.TryGetValue(id, out var entity) && entity && !entity.IsMine && component < entity.Behaviours.Length)
             Apply(entity.Behaviours[component], blob);
     }
@@ -349,7 +352,7 @@ public sealed class SyncClient : MonoBehaviour
         ulong id = r.ReadUInt64();
         byte component = r.ReadByte(), eventId = r.ReadByte();
         uint sender = r.ReadUInt32();
-        byte[] blob = SyncProtocol.ReadBlob(r);
+        byte[] blob = SyncProtocol.ReadServerBlob(r);
         if (!entities.TryGetValue(id, out var entity) || !entity || component >= entity.Behaviours.Length) return;
         try
         {

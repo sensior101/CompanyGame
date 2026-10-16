@@ -198,6 +198,8 @@
 3. 오프라인 캐릭터 → **사라짐**(2026-10-13)
 4. 오프라인 혼자 하기를 "내 PC 서버(비공개, 1명)"로 통일할지 → **통일**(2026-10-13)
 5. 캐릭터 이름 중복을 같은 월드 안에서 막을지 → **막음**(2026-10-13)
+6. 밤 건너뛰기 → **월드 시계가 밤을 건너뜀, 기본 00~06시, 방장(서버 주인)이 바꿀 수 있음**(2026-10-16). 시작=끝이면 건너뛰지 않음(24시간). 설정 화면은 나중에 만들고, 4c는 서버 설정 값과 명령줄 옵션만 둠
+7. 밤 활동 → **밤을 건너뛸 때 캐릭터마다 고른 활동이 적용됨**(2026-10-16). 잠자기(기본), 야간 알바(편의점·쿠팡, 돈 벌기), 놀러 가기(술·클럽, 기력을 쓰고 스트레스를 풂), 살인 청부(이벤트로 해금되면 보임). 지금은 고르는 화면 없이 항상 잠자기이고 지금 동작과 같음. 구조만 4c에 만들고, 각 활동의 수치·화면은 나중에 정함
 
 ## 10. 작업 순서
 
@@ -657,8 +659,8 @@ SyncClient.Instance.Spawn(prefabKey: "Net/Door", instance, flags);
 | --- | --- | --- |
 | 4a | 플레이어 아바타를 엔티티로 옮김: 위치, 외형·성별, 이름표, 공격 동작, 앉기, 탈것 탄 모습, 든 물건 | 이름은 서버가 캐릭터 이름으로 내려줌(클라이언트 입력을 표시하지 않음) |
 | 4b | 설치한 탈것과 드롭 아이템을 엔티티로 옮김: 설치, 탑승(Claim, 한 차에 한 명), 하차, 해체, 줍기(서버 판정, 먼저 온 사람만) | 탈것은 PersistOnLeave. 월드 파일에 저장 |
-| 4c | 공유 경제를 서버 판정으로 옮김: 서버 프로세스가 게임 월드(경제 매니저, 시계)를 화면 없이 돌림. 땅·회사·소유권·신고·SNS 요청은 서버로 가는 이벤트가 되고, 결과는 월드 엔티티 상태와 이벤트로 퍼짐. 월드 상태는 world.dat에 저장. 클라이언트는 경제를 계산하지 않음(`GameSession.IsAuthority`가 서버에서만 참) | 가장 큼. 4c 세부 설계 때 다시 나눌 수 있음 |
-| 4d | 개인 경제(은행 돈, 주식, 인벤토리 판정)를 서버로 옮김. 캐릭터 내용을 클라이언트 값 그대로 받지 않음. **책 내용은 world.dat의 별도 칸에 저장하고 캐릭터에는 책 ID만 둠**(2026-10-13 결정, 48KB 한도 문제) | 돈 조작을 막는 단계 |
+| 4c | **[완료 2026-10-16, 12.9]** 공유 경제를 서버 판정으로 옮김: 서버 프로세스가 게임 월드(경제 매니저, 시계)를 화면 없이 돌림. 땅·회사·소유권·신고·SNS 요청은 서버로 가는 이벤트가 되고, 결과는 월드 엔티티 상태와 이벤트로 퍼짐. 월드 상태는 world.dat에 저장. 클라이언트는 경제를 계산하지 않음(`GameSession.IsAuthority`가 서버에서만 참) | 가장 큼. 4c 세부 설계 때 다시 나눌 수 있음 |
+| 4d | 개인 경제(은행 돈, 주식, 인벤토리 판정)를 서버로 옮김. 캐릭터 내용을 클라이언트 값 그대로 받지 않음. **책 내용은 world.dat의 별도 칸에 저장하고 캐릭터에는 책 ID만 둠**(2026-10-13 결정, 48KB 한도 문제). 밤 활동 효과도 서버가 판정 | 돈 조작을 막는 단계 |
 | 4e | 옛 경로 삭제: NetSession(`pos`/`op`/`state`/`world`/`msg`), HostRoom, RoomNode, 방장 넘기기, 옛 월드별 캐릭터, "옛 방식(개발용)" 메뉴, Node·Worker의 방 코드. 시민·교통 동기화는 5단계 전까지 월드 엔티티의 이벤트로 임시로 옮김 | Steam 모드를 남길지는 이때 정함 |
 
 ### 12.7 4a단계: 플레이어 아바타 엔티티 (완료 2026-10-14)
@@ -859,3 +861,195 @@ SyncClient.Instance.Spawn(prefabKey: "Net/Door", instance, flags);
 - 분실물센터 화면은 아직 없음
 - 차 잠금·등록 공유는 4c, 드롭 내용 서버 검증은 4d에서 함
 - 프로토콜 버전 4라서 EOS 시험 빌드를 다시 만들어야 함
+
+### 12.9 4c단계: 공유 경제를 서버 판정으로 (완료 2026-10-16)
+
+**범위.** 공유 경제를 서버가 계산하고 저장합니다. 클라이언트는 결과를 받아서 보여 주기만 합니다. 대상은 월드 시계(밤 건너뛰기 설정 포함), 주가, 회사, 소유권(집·땅·**차 잠금과 해체 허용**), 땅(구매·사업자 등록), 신고, SNS입니다. 바꾸는 요청은 서버로 가는 이벤트가 됩니다. 옛 방(`op`/`state`, `NetWorldBridge`)과 "옛 방식(개발용)"은 4e까지 그대로 둡니다.
+
+**하지 않는 것**
+- 개인 경제는 4d에서 합니다. 은행 돈, 주식 보유와 매매, 인벤토리, 도서관(대여·벌금)이 여기에 들어갑니다.
+- 땅값은 지금처럼 클라이언트 은행에서 먼저 빠집니다. 구매에 실패하면 돌려받습니다(지금 `RefundPending`). 서버가 결제하는 것은 4d입니다.
+- 서버가 차 Claim 때 잠금을 검사하는 것은 4d에서 드롭 내용 검증과 함께 합니다. 4c에서는 잠금 상태가 모두에게 공유되고, 정상 클라이언트가 그 상태를 지킵니다.
+- 시민·교통은 5단계에서 합니다. 4c에서는 지금처럼 각 PC가 따로 계산합니다.
+- 화면은 만들지 않습니다. 밤 건너뛰기 설정 화면과 밤 활동 고르는 화면은 나중에 합니다(9장 6·7).
+- 밤 활동의 효과를 서버가 판정하는 것은 4d(개인 경제)에서 합니다. 4c에서는 기력·돈이 아직 이 PC에 있으니 이 PC에서 적용합니다.
+
+**출발점(재사용).** 옛 경로의 요청 처리를 거의 그대로 씁니다.
+- 매니저의 `Try*`가 `SharedWriteGate`로 요청을 보냅니다.
+- `WorldOps.Apply(seq, from, kind, json)`가 먼저 온 요청만 적용하고, 실패하면 한국어 문구를 돌려줍니다. 행위자(`a.b`, `a.c`)가 보낸 사람과 같은지도 확인합니다.
+- 상태 저장·복원은 `WorldSave.Capture`/`Restore`를 씁니다. 바뀌는 것은 다음 세 가지뿐입니다.
+  - 적용하는 곳이 모든 기기에서 서버 하나로 바뀝니다.
+  - 퍼뜨리는 방법이 op 메아리에서 월드 엔티티 상태로 바뀝니다.
+  - 저장하는 곳이 PC의 `world.json`에서 서버의 `world.dat`으로 바뀝니다.
+
+**누가 계산하나**
+
+| 실행 형태 | `GameSession` | 매니저가 들고 있는 것 |
+| --- | --- | --- |
+| 서버 프로세스(`-gameserver`, 화면 없음) | Host(계산함) | 서버 월드 |
+| 앱 안 서버(혼자 하기, 에디터, 모바일)의 주인 | Host(계산함) | 서버 월드. 서버와 클라이언트가 같은 매니저를 씀 |
+| 다른 프로세스 서버에 붙은 클라이언트 | **Client**(시계·주가 계산 안 함) | 서버가 보낸 상태 |
+| 옛 방식(개발용), 서버 밖 타이틀 | 지금과 같음 | 이 PC의 월드 |
+
+- Core에 `GameSession.RemoteServer` 플래그를 새로 둡니다. 다른 프로세스 서버에 접속해 있는 동안만 참입니다.
+- 이 플래그는 클라이언트가 Client 모드가 되어도 지금 동작을 유지해야 하는 곳에만 씁니다.
+  - 시민·교통의 프록시 판정(`CitizenSpawner`, `CitizenSync`, `TrafficSpawner`): 옛 방 참가자일 때만 프록시로 돕니다. 새 서버에서는 지금처럼 각자 계산합니다.
+  - `LibraryCatalog`의 권한 검사: 새 서버에서도 지금처럼 이 PC에서 처리합니다(4d에서 옮김).
+- 서버를 나가면 Host로 돌아가고, 이 PC의 월드를 다시 불러옵니다(`WorldSave.LoadFromDisk`, 없으면 `RestoreBaseline`). 옛 `RestoreOwnWorld`와 같은 방식입니다.
+
+**월드 엔티티**
+- 프리팹 키는 `Net/World`입니다. 서버가 만들고(주인 0), 저장하지 않습니다. 상태는 아래 world.dat의 "월드 상태" 칸에 따로 저장합니다.
+- 맵 값은 `*`입니다. 이 맵의 엔티티는 맵과 상관없이 모든 접속자에게 보내고, 맵을 옮겨도 Despawn하지 않습니다(새 규칙).
+- 컴포넌트는 `WorldSection : NetBehaviour` 8개이고, 순서가 고정입니다.
+
+| 번호 | 섹션 | 내용 |
+| --- | --- | --- |
+| 0 | clock | u32 월드 분, u8 건너뛰기 시작 시, u8 건너뛰기 끝 시 |
+| 1 | names | 이 월드의 모든 캐릭터(계정 ID → 캐릭터 이름). `WorldStore`에서 만듦 |
+| 2~7 | stocks, companies, properties, plots, reports, sns | 각각 `WorldSaveData`의 그 칸만 JSON으로 만들어 gzip |
+
+- 서버는 1초마다 섹션별로 내용을 만들어 지난번에 보낸 것과 다르면 State를 보냅니다. 요청을 적용한 직후에는 바로 확인해서 보냅니다. clock은 월드 분이 바뀔 때마다 보냅니다(현실 5초마다).
+- 클라이언트는 `GameSession.IsAuthority`가 거짓일 때만 받은 섹션을 매니저에 적용합니다. 앱 안 서버의 주인은 매니저가 이미 서버 상태라서 무시합니다.
+  - 적용은 섹션별로 합니다. 다른 섹션이나 시계를 건드리지 않습니다. 지금 `Restore`는 `clockMinutes` 0도 그대로 적용하니 그대로 쓰면 안 됩니다.
+  - clock은 `GameClock.SetNow`로 맞춥니다. 클라이언트 화면 시계가 월드 시계를 따르게 되는 것이 이것입니다.
+- **크기 제한:** sns와 reports는 클라이언트에 **최근 100개만** 보냅니다. 서버는 전부 보관하고, 벌점 계산도 서버가 합니다. 두 목록은 상한이 없어서 계속 늘어나기 때문입니다.
+  - 섹션 하나는 gzip 뒤 60KB를 넘지 않아야 합니다. 넘으면 보내지 않고 오류를 기록합니다. QA는 실제 크기를 재서 보고합니다.
+
+**요청과 응답 (월드 엔티티의 이벤트)**
+
+| 번호 | 방향 | 본문 | 처리 |
+| --- | --- | --- | --- |
+| 1 Op | C→S(대상 2, 서버) | str kind, str json | 서버는 보낸 접속의 계정 ID를 `from`으로 `WorldOps.Apply(0, from, kind, json)`을 부름. 허용 kind만 처리: `prop.reg`·`prop.ab`·`prop.lock`·`prop.dis`·`land.buy`·`land.reg`·`company.add`·`sns.post`·`sns.like`·`report.sub`. `veh.*`와 모르는 kind는 거절 |
+| 2 OpResult | S→요청자 | str kind, str 오류(빈 문자열이면 성공) | 서버는 바뀐 섹션 State를 **먼저** 보낸 뒤 OpResult를 보냄(TCP 순서). 요청자는 지금 `NetWorldBridge.OnOp`와 같은 문구를 띄우고, `land.buy`가 실패하면 환불함 |
+
+- 앱 안 서버의 주인도 같은 길로 보냅니다(127.0.0.1의 내 서버로 이벤트). 서버 처리 중에는 `SharedWriteGate.Applying`이 참이라서 매니저가 직접 씁니다.
+- `SharedWriteGate.InRoom`은 "옛 방에 있음 또는 새 서버에 캐릭터로 접속 중"일 때 참입니다. `Sender`는 그때 쓰는 경로로 보냅니다. `NetWorldBridge`가 설치하던 게이트를 두 경로가 같이 쓰도록 고칩니다.
+  - 새 서버에서는 `WorldDroppedItem`의 `veh.*`가 절대 나가지 않아야 합니다. 4b의 엔티티 경로가 먼저 처리하므로, 그 순서를 확인하고 QA로 막습니다.
+- 새 서버에서는 소유자·작성자·신고자 ID가 항상 Hello에 실은 계정 ID입니다. 지금 `PropertyRegistry.ToKey`처럼 `HasAccount`에 따라 이름을 쓰는 곳도 새 서버에서는 계정 ID를 씁니다.
+- 화면에 보이는 이름은 names 섹션에서 찾습니다(`SharedWriteGate.NameResolver`). 접속하지 않은 사람의 소유물에도 캐릭터 이름이 보입니다.
+
+**서버 모듈 추가 (`GameServer`, 기능을 모르는 원칙 유지)**
+- `SpawnServerEntity(prefab, map, flags, blobs)`: 서버 소유 엔티티를 만듭니다. ID는 접속 번호 0과 순번입니다.
+- `SetServerState(id, component, blob)`, `SendServerEvent(id, component, eventId, toConnection, blob)`: 보낸 사람은 0입니다.
+- `AccountOf(connection)`: 그 접속의 계정 ID를 돌려줍니다.
+- 맵 `*` 규칙을 넣습니다. 맵 이동과 늦은 입장도 이 규칙을 따릅니다.
+- blob 한도: 서버가 만든 blob은 60KB까지(u16 길이) 허용합니다. 클라이언트가 보내는 것은 4KB 그대로입니다. 서버 엔티티의 Spawn에는 빈 blob을 넣고, 바로 뒤에 컴포넌트별 State를 보냅니다. Spawn 하나가 64KB 프레임을 넘지 않게 하기 위해서입니다.
+- `WorldStateProvider`(`Func<byte[]>`): 저장 직전에 부릅니다. world.dat에 "월드 상태" blob 칸이 생깁니다(파일 버전 3, 버전 2도 읽음).
+- **월드 시계는 밤을 건너뜁니다(9장 6).**
+  - 건너뛰기 구간은 시 단위 `[시작, 끝)`이고 기본은 `[0, 6)`입니다. 조건은 0 ≤ 시작 ≤ 끝 ≤ 24이고, 시작 = 끝이면 건너뛰지 않습니다. 자정을 넘는 구간(예: 22~02)은 받지 않습니다.
+  - 시계를 진행한 뒤 하루 안의 시각이 구간 안이면 그날의 끝 시각으로 넘깁니다. 기본값이면 지금 게임 규칙(23:59 다음은 다음 날 06:00)과 같습니다.
+  - 구간은 `WorldStore`에 저장합니다(world.dat 버전 3, 버전 2는 기본값). 바꾸는 길은 `GameServer.SetNightSkip(start, end)`와 서버 프로세스 명령줄 `-nightskip 0-6`입니다. 잘못된 값은 거절하고 기록합니다.
+  - 4b의 "06:00에 분실물로 옮김"은 그대로입니다. 판정이 `now >= ClearTime`이라 06:00을 건너뛰는 구간이어도 다음 시각에 옮겨집니다. DropSyncQA의 05:59 확인은 기본 구간 안이라 서버가 06:00으로 넘기므로 23:59 기준으로 바꿉니다.
+
+**Unity 쪽 새 파일과 바꿀 파일**
+
+| 구분 | 파일 | 내용 |
+| --- | --- | --- |
+| 새 | `Player/ServerWorld.cs` | 서버 쪽. `SyncHost`의 시작과 정지 이벤트(새로 만듦)를 받음 |
+| | | 시작할 때: 기본 월드를 먼저 잡아 둠(`CaptureBaseline`) → world.dat의 월드 상태로 복원(새 월드면 기본 상태) → 게임 시계를 멈추고 월드 분으로 맞춤 |
+| | | 매 프레임: 게임 시계를 서버 월드 분까지 1분씩 진행함. 그래야 `HourChanged`·`DayChanged`가 나서 주가와 회사가 돎 |
+| | | 그 밖에: 월드 엔티티 생성, 섹션 비교와 전송, Op 처리, `WorldStateProvider` 제공 |
+| | | 앱 안 서버가 멈추면: 이 PC의 월드로 되돌림 |
+| 새 | `Player/WorldStateSync.cs` | 클라이언트 쪽. `Net/World` 템플릿을 `PrefabFactory`에 등록함 |
+| | | `WorldSection`을 적용하고, Op 전송과 OpResult 처리, names로 이름 찾기를 함 |
+| | | 접속할 때 Client 모드와 `RemoteServer` 플래그를 켜고, 끊기면 Host 모드로 돌아가 이 PC의 월드를 복원함 |
+| 새 | `Player/WorldSection.cs` | 섹션 컴포넌트(번호, blob, 받았을 때 콜백) |
+| 고침 | `NetCore/GameServer.cs`, `SyncProtocol.cs`, `WorldStore.cs` | 위 서버 모듈 추가. 프로토콜 버전 5 |
+| 고침 | `Net/SyncHost.cs` | 시작·정지 이벤트(Player가 구독) |
+| 고침 | `Net/SyncClient.cs` | 서버가 만든 큰 blob 받기, 맵 `*` 엔티티 유지 |
+| 고침 | `Core/Session/GameSession.cs` | `RemoteServer` |
+| 고침 | `Gameplay/WorldSaveRunner.cs` | 이 프로세스에 서버가 돌거나 새 서버에 접속해 있으면 PC 월드를 읽지도 쓰지도 않음. 서버 프로세스는 시작할 때 `world.json`을 읽지 않음 |
+| 고침 | `Player/NetWorldBridge.cs`, `Economy/SharedWriteGate.cs` | 게이트를 두 경로가 같이 씀 |
+| 고침 | `Economy/Property/PropertyRegistry.cs`, `Gameplay/Report/ReportManager.cs` 등 | 새 서버에서는 행위자 ID가 계정 ID |
+| 고침 | `NPC/Citizen/*`, `NPC/Traffic/TrafficSpawner.cs`, `Gameplay/Item/Book/LibraryCatalog.cs` | `RemoteServer`면 지금 동작 유지 |
+| 고침 | `Core/GameTime.cs`, `Core/SimpleGameClock.cs` | 건너뛰기 구간을 정적 값으로 둠(`GameTime.SetNightSkip`, 기본 0~6). `NextMinute`과 시작 시각 보정이 이 값을 씀. 시계가 구간을 건너뛸 때 `NightSkipped` 이벤트를 냄. 낮밤 밝기(`DayNightManager`)는 그대로 |
+| 새 | `Gameplay/Night/NightActivity.cs` | 아래 "밤 활동" |
+| 고침 | `Editor/Net/DropSyncQA.cs` | 05:59 확인을 23:59 기준으로 바꿈 |
+| 고침 | `Tests/EditMode/GameTimeTests.cs` | 구간 바꾸기, 시작 = 끝, 잘못된 값 시험 추가 |
+| 새 | `Editor/Net/EconomySyncQA.cs` | 아래 검수 |
+
+**밤 활동 (구조만, 9장 7)**
+- `enum NightActivityKind { Sleep, NightJob, GoOut, Contract }`(잠자기, 야간 알바, 놀러 가기, 살인 청부)
+- `NightActivity.Selected`: 내 캐릭터가 고른 활동입니다. 기본값은 `Sleep`이고, 고르는 화면이 없으니 지금은 항상 `Sleep`입니다. 저장하지 않습니다(화면을 만들 때 캐릭터에 저장).
+- `NightActivity.IsAvailable(kind)`: `Contract`는 `ContractUnlocked`가 참일 때만 됩니다. 이 값을 켜는 이벤트는 아직 없습니다. 고를 수 없는 활동은 `Select`가 거절합니다.
+- `NightActivity.Apply(kind)`: 밤을 한 번 넘길 때 이 PC의 내 캐릭터에 한 번 부릅니다. 시계가 한 번에 여러 밤을 넘기면 밤마다 부릅니다.
+  - 이 PC 시계가 도는 경우(Host)는 `NightSkipped`에서 부릅니다. Client 모드에서는 받은 clock이 구간을 지났을 때 `WorldStateSync`가 부릅니다. 서버 프로세스는 내 캐릭터가 없으니 부르지 않습니다.
+- 효과(임시 값, 상수 하나씩. 수치는 나중에 기획)
+
+| 활동 | 효과 |
+| --- | --- |
+| 잠자기 | 없음. 지금 동작과 같음 |
+| 야간 알바 | 기력 -40, 은행 +50,000원(`BankManager.AddMoney`, 번 돈) |
+| 놀러 가기 | 기력 -30, 스트레스 -40, 은행 -30,000원(잔액이 모자라면 못 감, 대신 잠자기) |
+| 살인 청부 | 해금 전에는 고를 수 없음. 효과는 이벤트를 기획할 때 정함(지금은 아무것도 안 함) |
+
+**지울 코드:** 없음(옛 op 경로, `NetWorldBridge`, `WorldSave`의 방장 넘기기는 4e).
+
+**완료 기준**
+1. 컴파일 오류 없음. 기존 QA 전부 회귀 없음(특히 `DropSyncQA`, `CharacterQA`, `AvatarSyncQA`, `ServerOpenQA`, `WorldSaveQA`, `TitleFlowQA`, `SyncLayerQA`, `npm test` 두 개)
+2. `EconomySyncQA.Run`(메모리, 서버 모듈만)
+   - 맵 `*` 엔티티는 모든 맵의 접속자가 받고, 맵을 옮겨도 Despawn되지 않음. 늦게 들어온 사람도 받음
+   - 서버 엔티티 State와 이벤트가 가고, 특정 접속에게 보낸 이벤트는 그 사람만 받음
+   - 클라이언트가 보낸 4KB 넘는 blob은 여전히 거절됨. 서버가 만든 큰 blob(예: 30KB)은 감
+   - 서버 엔티티 Spawn 뒤 State가 와서 64KB 프레임을 넘지 않음
+   - 월드 상태 blob이 world.dat(버전 3)에 저장되고, 서버를 다시 켜면 돌아옴. 버전 2 파일을 읽음
+   - 월드 시계가 23:59 다음에 다음 날 06:00이 됨. 구간을 2~5로 바꾸면 01:59 다음이 05:00이고, 시작 = 끝이면 건너뛰지 않음. 잘못된 값(시작 > 끝, 24 초과)은 거절됨
+   - 구간이 world.dat에 저장되고 서버를 다시 켜면 돌아옴. `-nightskip` 명령줄이 적용됨
+3. `EconomySyncQA.RunPlay`(앱 안 서버 + Unity 주인 + 가짜 TCP 클라이언트)
+   - 가짜가 보낸 Op(집 등록, 땅 구매, 회사 설립, SNS 글, 신고, 차 잠금)가 Unity 매니저에 적용되고, 가짜는 바뀐 섹션과 OpResult를 이 순서로 받음
+   - 같은 집에 Unity와 가짜가 동시에 등록 → 하나만 성공
+   - 행위자를 남의 ID로 적은 Op, `veh.*`, 모르는 kind는 거절됨
+   - Unity 주인의 요청도 서버 이벤트로 처리되고 문구가 뜸
+   - 서버를 나가면 이 PC의 월드로 돌아오고, PC `world.json`은 서버에 있는 동안 바뀌지 않음(파일 해시 비교)
+   - 같은 월드를 다시 열면 공유 상태(소유권, 회사, SNS)가 그대로임
+   - 밤을 넘기면 밤 활동이 한 번 적용됨. 기본(잠자기)이면 기력·돈이 그대로이고, QA가 야간 알바를 고르면 기력과 돈이 위 값만큼 바뀜. 해금 전 살인 청부는 고를 수 없음
+4. `EconomySyncQA.RunProcess`(빌드한 서버 프로세스 + Unity 원격 클라이언트 + 가짜 TCP 클라이언트)
+   - Unity가 Client 모드가 되고, 화면 시계가 서버 월드 분을 따라감(직접 진행하지 않음)
+   - 서버를 `-nightskip 2-5`로 켜면 Unity 시계도 그 구간을 따르고, 밤을 넘길 때 밤 활동이 한 번만 적용됨. 나가면 구간이 기본값(0~6)으로 돌아옴
+   - 주가가 서버 값과 같음(`AdvanceClock`으로 장 시간을 넘긴 뒤 비교)
+   - 가짜가 등록한 집의 소유자가 Unity에서 가짜의 캐릭터 이름으로 보임
+   - 땅 구매 경쟁에서 진 쪽은 환불받음(은행 돈이 원래대로)
+   - 가짜가 잠근 차를 Unity가 타려 하면 정상 클라이언트 경로에서 막힘
+   - 서버를 나가면 Host 모드로 돌아가고 PC 월드가 돌아옴
+5. 섹션별 실제 크기(새 월드, 게임 30일 진행 뒤)와 클라이언트 1명당 초당 수신량을 재서 보고함
+6. 스크린샷(QA_SHOTS 게임 화면만): 원격 클라이언트에서 서버 시각을 따르는 시계, 남이 등록한 집의 소유자 이름, SNS에 보이는 남의 글, 땅 구매 경쟁에서 진 메시지
+
+**총괄 검수 방법.** diff 전체를 읽습니다. 특히 다음 경로를 봅니다.
+- 서버가 클라이언트 값을 믿는 경로
+- PC 월드와 서버 월드가 섞이는 경로(저장, 나가기, 앱 안 서버 정지)
+- 행위자 확인 누락
+- `veh.*`가 새 서버로 새는 경로
+
+그다음 QA를 직접 다시 돌려 수치를 확인하고, 스크린샷을 직접 봅니다.
+
+**결정 (2026-10-16)**
+1. sns와 신고는 클라이언트에 최근 100개만 보냅니다.
+2. 월드 시계는 밤을 건너뜁니다. 기본 00~06시이고 방장이 바꿀 수 있습니다(9장 6). 밤 활동은 구조만 만듭니다(9장 7).
+3. 4c 전에 만든 서버 월드(world.dat 버전 2)는 공유 경제를 새로 시작합니다. 이 PC의 `world.json`은 서버 월드로 옮기지 않습니다.
+4. 임시 `GameSession.RemoteServer` 플래그를 둡니다. 4c 동안 새 서버 참가자 PC에서 시민·교통·도서관이 지금처럼 동작하게 하고, 4d·5단계에서 지웁니다.
+
+#### 12.9 결과 (총괄 검수 완료)
+
+**테스트 수치** (총괄이 다시 돌린 것)
+- `EconomySyncQA.Run` 42개, `RunPlay` 60개, `RunProcess` 44개(빌드한 서버 프로세스, `-nightskip 2-5`)
+- `DropSyncQA.Run` 38개, `DropSyncQA.RunPlay` 51개
+- `npm test`: Server 42개(1 건너뜀), worker 31개
+- 나머지 회귀 QA(TitleFlow 113, ServerOpen 61·43, SyncLayer, Character, AvatarSync, RemoteAvatar 18, SteamHostRoom 42, WorldSave 68, NetSession, EditMode 8)는 구현 에이전트 실행 기록으로 확인
+- 스크린샷 확인: 원격 클라이언트의 서버 시각, 남이 등록한 집의 소유자 이름, 남의 SNS 글, 땅 구매 경쟁에서 진 메시지
+
+**측정.** 게임 30일 뒤 섹션 크기(gzip): stocks 4,750, companies 4,334, sns 2,345(글 98개), reports 424, properties 337, plots 242, names 88바이트. 클라이언트 1명 수신량은 쉴 때 약 12 B/s, 장중 평균 약 28 B/s.
+
+**설계와 달라진 점**
+- 게이트에 새 서버용 칸(`ServerSender`, `ServerCheck`, `ServerNameResolver`)을 따로 둠. `veh.*`는 `InOldRoom`만 보므로 구조상 새 서버로 가지 않음
+- 서버 엔티티: 클라이언트는 맵 `*`에 Spawn·이동할 수 없고, 서버 엔티티에 보내는 이벤트는 서버만 받음(중계 안 함). 저장하지 않음
+- 밤 건너뛰기: 하루 전체(0~24)도 거절. `-nightskip`은 월드를 열기 전에 적용. `NightSkipped`는 `GameClock`의 정적 이벤트
+- `sns.post`의 작성자 이름은 서버가 캐릭터 이름으로 덮어씀
+- `land.buy` 성공 시 `LandPlotManager.ConfirmPending`으로 대기 결제를 지움
+- 원격 Client는 받은 시계가 날을 넘기면 `LibraryCatalog.AdvanceTo`를 부름(도서관은 4d까지 이 PC)
+- 설계 표에 없던 수정: `TitleFlow.EnterServerWorld`가 PC 월드를 읽지 않음, `NetSession.LeaveLocally`가 `RemoteServer`일 때 Host로 바꾸지 않음
+
+**남은 문제**
+- 원격 Client에서는 `DayChanged`가 나지 않음(도서관만 위 경로로 처리)
+- 프로토콜 버전 5: EOS 시험 묶음과 `Game.zip`·`GameMac.zip`을 다시 빌드해야 함
+- `Docs/Architecture.md`, `Docs/Server.md`에 새 구조 미반영
+- 4c와 무관: 땅 구매 실패 환불 문구가 "지갑에 지급"으로 나옴(기존 `RefundPending` 동작). 땅값이 은행에서 빠졌다면 은행 환불 문구가 맞는지 확인 필요

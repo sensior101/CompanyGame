@@ -32,16 +32,22 @@ public enum CharacterResult : byte { Ok = 0, NameTaken = 1, Invalid = 2, Already
 
 /// <summary>
 /// Binary sync protocol (Docs/Multiplayer_Redesign.md 12.1; version 2 adds the Hello password and the Welcome server name, 12.3;
-/// version 3 the character messages, 12.5; version 4 Release and the Expiring flag, 12.8). Little-endian; str = u16 byte length + UTF-8, blob = u16 length + bytes,
-/// blob32 = u32 length + bytes (only the character content, up to <see cref="MaxCharacter"/>).
+/// version 3 the character messages, 12.5; version 4 Release and the Expiring flag, 12.8; version 5 server-made entities on map
+/// <see cref="AllMaps"/> with blobs up to <see cref="MaxServerBlob"/>, 12.9). Little-endian; str = u16 byte length + UTF-8,
+/// blob = u16 length + bytes, blob32 = u32 length + bytes (only the character content, up to <see cref="MaxCharacter"/>).
+/// A client's blobs stay at <see cref="MaxBlob"/>; what the server sends may be up to <see cref="MaxServerBlob"/> (ReadServerBlob).
 /// Entity id = (connection number u32 &lt;&lt; 32) | serial u32, so a client makes ids without a round trip.
 /// The builders below write the client → server messages (SyncClient and the QA fake clients share them).
 /// </summary>
 public static class SyncProtocol
 {
-    public const ushort Version = 4;
+    public const ushort Version = 5;
     // The frame limit is 64KB for the 48KB character content; entity blobs stay at 4KB.
     public const int MaxFrame = 64 * 1024, MaxBlob = 4 * 1024, MaxCharacter = 48 * 1024, MaxFramesPerSecond = 300, MaxEntitiesPerConnection = 256;
+    /// <summary>A blob the server made (a world section, 12.9). Still one u16 length, and one State of it stays under <see cref="MaxFrame"/>.</summary>
+    public const int MaxServerBlob = 60 * 1024;
+    /// <summary>The map of entities every connection gets, whatever its map (the world entity, 12.9). Only the server makes them.</summary>
+    public const string AllMaps = "*";
 
     public static ulong MakeId(uint connection, uint serial) => (ulong)connection << 32 | serial;
     public static uint ConnectionOf(ulong id) => (uint)(id >> 32);
@@ -68,6 +74,23 @@ public static class SyncProtocol
     {
         int length = r.ReadUInt16();
         if (length > MaxBlob) throw new InvalidDataException("blob over " + MaxBlob + " bytes");
+        return ReadExactly(r, length);
+    }
+
+    /// <summary>Server side: a blob of any entity, up to <see cref="MaxServerBlob"/>.</summary>
+    public static void WriteServerBlob(BinaryWriter w, byte[] blob)
+    {
+        blob ??= Array.Empty<byte>();
+        if (blob.Length > MaxServerBlob) throw new InvalidDataException("blob over " + MaxServerBlob + " bytes");
+        w.Write((ushort)blob.Length);
+        w.Write(blob);
+    }
+
+    /// <summary>Client side: a blob from the server (up to <see cref="MaxServerBlob"/>).</summary>
+    public static byte[] ReadServerBlob(BinaryReader r)
+    {
+        int length = r.ReadUInt16();
+        if (length > MaxServerBlob) throw new InvalidDataException("blob over " + MaxServerBlob + " bytes");
         return ReadExactly(r, length);
     }
 

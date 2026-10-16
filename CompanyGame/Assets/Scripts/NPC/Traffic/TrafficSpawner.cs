@@ -32,7 +32,7 @@ public sealed class TrafficSpawner : MonoBehaviour
         foreach (TrafficLane lane in lanes)
             if (lane && !lane.connector && lane.Count > 1 && lane.Length > EndMargin * 2f) spawnLanes.Add(lane);
         models = LoadModels();
-        proxyMode = !GameSession.IsAuthority;
+        proxyMode = !(GameSession.IsAuthority || GameSession.RemoteServer);
     }
 
     static List<ItemData> LoadModels()
@@ -45,7 +45,7 @@ public sealed class TrafficSpawner : MonoBehaviour
 
     void Update()
     {
-        bool client = !GameSession.IsAuthority;
+        bool client = !(GameSession.IsAuthority || GameSession.RemoteServer);
         if (client != proxyMode) SwitchMode(client);
         if (client) return;
         Reap();
@@ -140,7 +140,7 @@ public sealed class TrafficSpawner : MonoBehaviour
     /// <summary>Applies the host's car list: creates missing proxies, moves existing ones, removes the rest.</summary>
     public void ApplyRemote(TrafficSnap snap)
     {
-        if (GameSession.IsAuthority || snap?.cars == null || models == null || models.Count == 0) return;
+        if ((GameSession.IsAuthority || GameSession.RemoteServer) || snap?.cars == null || models == null || models.Count == 0) return;
         var seen = new HashSet<int>();
         int cap = Mathf.Min(count, MaxCars);   // the host never sends more than its own spawner's count
         foreach (TrafficCarSnap entry in snap.cars)

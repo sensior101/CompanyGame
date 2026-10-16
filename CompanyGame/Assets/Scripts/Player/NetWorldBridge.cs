@@ -140,7 +140,7 @@ public sealed class NetWorldBridge : MonoBehaviour
         if (text != null) Say(text);
     }
 
-    static string DoneText(string kind)
+    internal static string DoneText(string kind)
     {
         switch (kind)
         {
@@ -299,7 +299,7 @@ public sealed class NetWorldBridge : MonoBehaviour
     void OnLoadStarted() => WorldSaveRunner.SaveNow();
 
     // ChatUIManager lives in UI (not visible from here); its public ShowSystemMessage is reached by name.
-    static void Say(string message)
+    internal static void Say(string message)
     {
         foreach (var b in FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None))
             if (b && b.GetType().Name == "ChatUIManager") b.SendMessage("ShowSystemMessage", message, SendMessageOptions.DontRequireReceiver);

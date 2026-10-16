@@ -186,6 +186,87 @@ public static class WorldSave
 
     public static string ToJson(WorldSaveData data) => JsonUtility.ToJson(data);
 
+    // ---- the shared economy of a sync-layer server (12.9): six sections, no clock, no vehicles, no identity ----
+
+    /// <summary>The shared sections in their WorldSaveData field order (world entity sections 2..7).</summary>
+    public static readonly string[] SectionNames = { "stocks", "companies", "properties", "plots", "reports", "sns" };
+
+    /// <summary>The managers' shared state now. Unlike Capture it gives this world no id and leaves the clock and vehicles out.</summary>
+    public static WorldSaveData CaptureShared()
+    {
+        var data = new WorldSaveData();
+        if (StockMarketManager.Instance) data.stocks = StockMarketManager.Instance.Exchange.CaptureState();
+        if (CompanyManager.Instance) data.companies = CompanyManager.Instance.Market.CaptureState();
+        if (PropertyRegistry.Instance) data.properties = PropertyRegistry.Instance.CaptureState();
+        if (LandPlotManager.Instance) data.plots = LandPlotManager.Instance.CaptureState();
+        if (ReportManager.Instance) data.reports = ReportManager.Instance.Service.CaptureState();
+        if (SnsManager.Instance) data.sns = SnsManager.Instance.Feed.CaptureState();
+        return data;
+    }
+
+    /// <summary>
+    /// JSON of one section of <paramref name="all"/> (the other fields left empty). reports and sns keep only the newest
+    /// <paramref name="recent"/> entries (0 = all): their lists have no upper bound, the server keeps them whole.
+    /// </summary>
+    public static string SectionJson(WorldSaveData all, int section, int recent = 0)
+    {
+        var one = new WorldSaveData();
+        switch (section)
+        {
+            case 0: one.stocks = all.stocks; break;
+            case 1: one.companies = all.companies; break;
+            case 2: one.properties = all.properties; break;
+            case 3: one.plots = all.plots; break;
+            case 4:
+                one.reports = all.reports;
+                if (recent > 0 && all.reports != null && all.reports.reports.Count > recent)
+                    one.reports = new ReportServiceState { reports = all.reports.reports.GetRange(all.reports.reports.Count - recent, recent), ledger = all.reports.ledger, nextId = all.reports.nextId };
+                break;
+            case 5:
+                one.sns = all.sns;
+                if (recent > 0 && all.sns != null && all.sns.posts.Count > recent) // newest first
+                    one.sns = new SnsFeedState { posts = all.sns.posts.GetRange(0, recent), nextId = all.sns.nextId };
+                break;
+            default: throw new ArgumentOutOfRangeException(nameof(section));
+        }
+        return ToJson(one);
+    }
+
+    /// <summary>Applies one section from <see cref="SectionJson"/>; nothing else (not the clock, not another section) changes.</summary>
+    public static bool ApplySection(int section, string json)
+    {
+        WorldSaveData d;
+        try { d = JsonUtility.FromJson<WorldSaveData>(json); }
+        catch (Exception e) { Debug.LogWarning("WorldSave: unreadable section " + section + ". " + e.Message); return false; }
+        if (d == null) return false;
+        var failed = new List<string>();
+        ApplyShared(failed, d, section);
+        return failed.Count == 0;
+    }
+
+    /// <summary>Applies all six sections of <paramref name="d"/> (a server world's state, or the baseline for a new one).</summary>
+    public static bool RestoreShared(WorldSaveData d)
+    {
+        if (d == null) return false;
+        var failed = new List<string>();
+        for (int i = 0; i < SectionNames.Length; i++) ApplyShared(failed, d, i);
+        if (failed.Count > 0) Debug.LogWarning("WorldSave: failed to restore " + string.Join(", ", failed));
+        return failed.Count == 0;
+    }
+
+    static void ApplyShared(List<string> failed, WorldSaveData d, int section)
+    {
+        switch (section)
+        {
+            case 0: Apply(failed, "stocks", () => { if (d.stocks != null && StockMarketManager.Instance) StockMarketManager.Instance.Exchange.RestoreState(d.stocks); }); break;
+            case 1: Apply(failed, "companies", () => { if (d.companies != null && CompanyManager.Instance) CompanyManager.Instance.Market.RestoreState(d.companies); }); break;
+            case 2: Apply(failed, "properties", () => { if (d.properties != null && PropertyRegistry.Instance) PropertyRegistry.Instance.RestoreState(d.properties); }); break;
+            case 3: Apply(failed, "plots", () => { if (d.plots != null && LandPlotManager.Instance) LandPlotManager.Instance.RestoreState(d.plots); }); break;
+            case 4: Apply(failed, "reports", () => { if (d.reports != null && ReportManager.Instance) ReportManager.Instance.Service.RestoreState(d.reports); }); break;
+            case 5: Apply(failed, "sns", () => { if (d.sns != null && SnsManager.Instance) SnsManager.Instance.Feed.RestoreState(d.sns); }); break;
+        }
+    }
+
     /// <summary>Applies shared state in memory only. Never touches disk or personal values.</summary>
     public static bool Restore(string json) => Restore(json, true);
 

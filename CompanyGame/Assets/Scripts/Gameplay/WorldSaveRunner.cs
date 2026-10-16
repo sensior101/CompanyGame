@@ -15,6 +15,13 @@ public sealed class WorldSaveRunner : MonoBehaviour
     /// <summary>True while the character lives on a sync-layer server (12.5): nothing personal is written to this PC. Set by CharacterSync.</summary>
     public static Func<bool> OnServer;
 
+    /// <summary>
+    /// True while the shared world in memory is a sync-layer server's (12.9): a server runs in this process, or I am
+    /// connected to one. This PC's world.json is then neither read nor written. Set by WorldStateSync.
+    /// </summary>
+    public static Func<bool> WorldOnServer;
+    static bool ServerWorld => WorldOnServer != null && WorldOnServer();
+
     float worldTimer, personalTimer, debounce = -1f;
     string lastPersonal;
     bool loaded;
@@ -40,7 +47,7 @@ public sealed class WorldSaveRunner : MonoBehaviour
         PersonalSave.CaptureBaseline(); // what a new account starts with, before any save is loaded
         WorldSave.CaptureBaseline();
         PersonalSave.LoadFromDisk();
-        if (GameSession.IsAuthority) WorldSave.LoadFromDisk();
+        if (GameSession.IsAuthority && !ServerWorld) WorldSave.LoadFromDisk(); // a server process starts with its world.dat (ServerWorld)
         lastPersonal = PersonalSave.Export();
         loaded = true;
     }
@@ -78,7 +85,7 @@ public sealed class WorldSaveRunner : MonoBehaviour
     void SaveWorld()
     {
         // ponytail: whole snapshot is serialized every minute; skip-on-equal keeps disk quiet, add dirty flags if it gets heavy
-        if (!GameSession.IsAuthority) return;
+        if (!GameSession.IsAuthority || ServerWorld) return; // a server's world goes to its world.dat
         string json = WorldSave.ToJson(WorldSave.Capture());
         if (json != WorldSave.LastJson) WorldSave.SaveToDisk();
     }

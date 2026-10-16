@@ -763,12 +763,12 @@ public static class SyncLayerQA
                 case ToClient.Spawn:
                     m.id = r.ReadUInt64(); m.owner = r.ReadUInt32(); m.key = SyncProtocol.ReadStr(r); m.map = SyncProtocol.ReadStr(r);
                     m.flags = (EntityFlags)r.ReadByte(); m.blobs = new byte[r.ReadByte()][];
-                    for (int i = 0; i < m.blobs.Length; i++) m.blobs[i] = SyncProtocol.ReadBlob(r);
+                    for (int i = 0; i < m.blobs.Length; i++) m.blobs[i] = SyncProtocol.ReadServerBlob(r);
                     break;
-                case ToClient.State: m.id = r.ReadUInt64(); m.component = r.ReadByte(); m.blob = SyncProtocol.ReadBlob(r); break;
+                case ToClient.State: m.id = r.ReadUInt64(); m.component = r.ReadByte(); m.blob = SyncProtocol.ReadServerBlob(r); break;
                 case ToClient.Despawn: m.id = r.ReadUInt64(); break;
                 case ToClient.Event:
-                    m.id = r.ReadUInt64(); m.component = r.ReadByte(); m.eventId = r.ReadByte(); m.sender = r.ReadUInt32(); m.blob = SyncProtocol.ReadBlob(r);
+                    m.id = r.ReadUInt64(); m.component = r.ReadByte(); m.eventId = r.ReadByte(); m.sender = r.ReadUInt32(); m.blob = SyncProtocol.ReadServerBlob(r);
                     break;
                 case ToClient.Owner: m.id = r.ReadUInt64(); m.owner = r.ReadUInt32(); break;
                 case ToClient.Peer:

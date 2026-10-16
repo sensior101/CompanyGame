@@ -291,12 +291,13 @@ public sealed class NetSession : MonoBehaviour
     // Authority returns to this machine: the visitor world it mirrored becomes its own.
     void LeaveLocally()
     {
-        bool wasClient = GameSession.Mode == SessionMode.Client;
+        // Client mode on another process's sync server (12.9) is not this room's: leave it and that server's world alone.
+        bool wasClient = GameSession.Mode == SessionMode.Client && !GameSession.RemoteServer;
         bool wasInRoom = InRoom;
         RoomId = ""; HostId = ""; LastOpSeq = 0; lastSnapshotSent = null;
         peers.Clear();
         GameSession.ClearCharacter(); // the character belongs to the room's world
-        GameSession.Begin(SessionMode.Host);
+        if (!GameSession.RemoteServer) GameSession.Begin(SessionMode.Host);
         HostFromLeave = true;
         if (wasInRoom) RoomReset?.Invoke();
         if (wasClient) HostChanged?.Invoke(true);

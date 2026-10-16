@@ -510,7 +510,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
     static bool SendVehicleOp(string kind, DropRecord drop)
     {
         SharedWriteGate.SetSendFailed(false);
-        if (!SharedWriteGate.InRoom) return false;
+        if (!SharedWriteGate.InOldRoom) return false; // veh.* is the old room's only; a sync server's cars are entities (12.8)
         bool sent = SharedWriteGate.Sender != null && SharedWriteGate.Sender(kind, JsonUtility.ToJson(ToSave(drop)));
         SharedWriteGate.SetSendFailed(!sent);
         return sent;

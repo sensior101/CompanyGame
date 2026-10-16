@@ -20,6 +20,12 @@ using System.Text;
 /// world and come back server-owned after a restart. A refused Spawn (no character, a limit) answers Despawn(id) to its
 /// sender. A server-owned Expiring entity is moved to the world's lost-and-found list at the first 06:00 of the world
 /// clock after it was made; lost items are deleted 7 game days later. The server never reads the entity blobs.
+/// Server entities (12.9): the game on the server makes its own entities (<see cref="SpawnServerEntity"/>, owner 0, id =
+/// connection 0 + serial, never saved) and changes them with <see cref="SetServerState"/> / <see cref="SendServerEvent"/>.
+/// Their blobs may be up to SyncProtocol.MaxServerBlob; their Spawn carries empty blobs and the states follow one State
+/// each, so no frame passes 64KB. Entities on map SyncProtocol.AllMaps ("*") go to every connection whatever its map and
+/// stay through map changes; clients cannot use that map. <see cref="WorldStateProvider"/> is read before every save
+/// (world.dat version 3). The world clock skips the night hours [NightSkipStart, NightSkipEnd) (default 0-6, 9장-6).
 /// </summary>
 public sealed class GameServer
 {
@@ -54,6 +60,7 @@ public sealed class GameServer
         public EntityFlags flags;
         public byte[][] blobs;
         public double created; // world clock minutes
+        public bool byServer;  // made by SpawnServerEntity: spawned with empty blobs, the states follow
         public bool Persists => (flags & EntityFlags.PersistOnLeave) != 0;
     }
 
@@ -66,7 +73,7 @@ public sealed class GameServer
     readonly MemoryStream outStream = new MemoryStream();
     readonly BinaryWriter w;
     readonly byte[] passwordHash; // null = no password
-    uint nextNumber = 1;
+    uint nextNumber = 1, serverSerial;
     long nextTimeoutCheck, clockOffset, lastClockAt, nextSaveAt = SaveIntervalMs, lastClearMinute = -1;
 
     public int MaxPlayers { get; }
@@ -86,6 +93,8 @@ public sealed class GameServer
     public event Action<uint, ulong, byte, byte, byte[]> ServerEvent;
     /// <summary>Warnings (rejects, ignored requests). The Unity host forwards them to the console.</summary>
     public event Action<string> Log;
+    /// <summary>Read right before each save: the world state blob kept in world.dat (12.9). Null keeps the one already there.</summary>
+    public Func<byte[]> WorldStateProvider;
 
     /// <summary><paramref name="world"/> null: a world in memory only.</summary>
     public GameServer(IServerTransport transport, int maxPlayers, string name = "", string password = "", WorldStore world = null)
@@ -105,6 +114,49 @@ public sealed class GameServer
             uint number = SyncProtocol.ConnectionOf(s.id);
             if (number != uint.MaxValue && number >= nextNumber) nextNumber = number + 1;
         }
+        if (!ValidNightSkip(World.NightSkipStart, World.NightSkipEnd))
+        {
+            World.NightSkipStart = WorldStore.DefaultNightSkipStart; World.NightSkipEnd = WorldStore.DefaultNightSkipEnd;
+        }
+        World.WorldMinutes = SkipNight(World.WorldMinutes, World.NightSkipStart, World.NightSkipEnd); // a new world starts at 06:00
+    }
+
+    // ---- night skip (9장-6, 12.9) ----
+
+    /// <summary>0 ≤ start ≤ end ≤ 24, not the whole day; start = end skips nothing. A range over midnight (22-2) is not allowed.</summary>
+    public static bool ValidNightSkip(int start, int end) => start >= 0 && start <= end && end <= 24 && end - start < 24;
+
+    /// <summary>"start-end" in hours, e.g. "0-6" (the -nightskip argument). False for anything else or an invalid range.</summary>
+    public static bool TryParseNightSkip(string text, out int start, out int end)
+    {
+        start = end = 0;
+        string[] parts = (text ?? "").Split('-');
+        return parts.Length == 2 && int.TryParse(parts[0], out start) && int.TryParse(parts[1], out end) && ValidNightSkip(start, end);
+    }
+
+    /// <summary>The -nightskip argument: sets the world's range before a server opens it. False (world unchanged) when invalid.</summary>
+    public static bool ApplyNightSkipArg(WorldStore world, string arg)
+    {
+        if (!TryParseNightSkip(arg, out int start, out int end)) return false;
+        world.NightSkipStart = start; world.NightSkipEnd = end;
+        return true;
+    }
+
+    /// <summary>A time inside the skipped hours of its day moves to their end (the rule of GameTime.NextMinute).</summary>
+    public static double SkipNight(double minutes, int start, int end)
+    {
+        if (start >= end) return minutes;
+        double day = Math.Floor(minutes / DayMinutes), inDay = minutes - day * DayMinutes;
+        return inDay >= start * 60 && inDay < end * 60 ? day * DayMinutes + end * 60 : minutes;
+    }
+
+    /// <summary>The world clock skips [start, end) hours from now on (saved in world.dat). False, and logged, for an invalid range.</summary>
+    public bool SetNightSkip(int start, int end)
+    {
+        if (!ValidNightSkip(start, end)) { Log?.Invoke("night skip " + start + "-" + end + " refused (0 <= start <= end <= 24, not the whole day)"); return false; }
+        World.NightSkipStart = start; World.NightSkipEnd = end;
+        World.WorldMinutes = SkipNight(World.WorldMinutes, start, end);
+        return true;
     }
 
     /// <summary>The lost-and-found list of this world (12.8), for QA.</summary>
@@ -167,9 +219,12 @@ public sealed class GameServer
         long now = Now;
         double minutes = (now - lastClockAt) / 1000.0 * 60.0 / RealSecondsPerGameHour;
         lastClockAt = now;
-        if (minutes <= 0) return;
-        World.WorldMinutes += minutes;
-        foreach (var c in World.Characters) if (c.online) c.minutes += minutes;
+        if (minutes > 0)
+        {
+            World.WorldMinutes += minutes;
+            foreach (var c in World.Characters) if (c.online) c.minutes += minutes;
+        }
+        World.WorldMinutes = SkipNight(World.WorldMinutes, World.NightSkipStart, World.NightSkipEnd);
     }
 
     // Once per world-clock minute: server-owned Expiring entities past their first 06:00 go to the lost-and-found list,
@@ -201,8 +256,13 @@ public sealed class GameServer
         World.NextConnection = nextNumber;
         World.Entities.Clear();
         foreach (var e in entities.Values)
-            if (e.Persists)
+            if (e.Persists && !e.byServer) // the game makes its own entities again on start
                 World.Entities.Add(new WorldStore.SavedEntity { id = e.id, prefab = e.prefab, map = e.map, flags = e.flags, created = e.created, blobs = e.blobs });
+        if (WorldStateProvider != null)
+        {
+            try { World.WorldState = WorldStateProvider() ?? World.WorldState; }
+            catch (Exception e) { Log?.Invoke("world state provider failed (the last state is kept): " + e.Message); }
+        }
         try { World.Save(); Saves++; }
         catch (Exception e) { Log?.Invoke("world save failed: " + e.Message); }
     }
@@ -267,7 +327,7 @@ public sealed class GameServer
         if (HasAccount(account)) { Kick(c, RejectReason.AlreadyConnected, "account already connected"); return; }
         if (PlayerCount >= MaxPlayers) { Kick(c, RejectReason.Full, "full"); return; }
         c.number = nextNumber++;
-        c.account = account; c.map = map;
+        c.account = account; c.map = map == SyncProtocol.AllMaps ? "" : map;
         PlayerCount++;
         Send(c, Msg(ToClient.Welcome, () => { w.Write(c.number); w.Write((ushort)Math.Min(MaxPlayers, ushort.MaxValue)); SyncProtocol.WriteStr(w, Name); }));
         Play(c, World.Find(account));
@@ -279,7 +339,7 @@ public sealed class GameServer
             Send(other, joined);
             Send(c, PeerMsg(true, other));
         }
-        foreach (var e in entities.Values) if (e.map == map) Send(c, SpawnMsg(e));
+        foreach (var e in entities.Values) if (Sees(c, e.map)) SendSpawn(c, e);
     }
 
     void OnSpawn(Conn c, BinaryReader r)
@@ -295,6 +355,7 @@ public sealed class GameServer
         if (entities.ContainsKey(id)) { Warn(c, "duplicate spawn id"); return; }
         // The other refusals answer Despawn(id): the sender takes its object back (a dropped item returns to the bag).
         string refused = c.character == null ? "spawn without a character"
+            : map == SyncProtocol.AllMaps ? "spawn on the all-maps map"
             : c.owned.Count >= SyncProtocol.MaxEntitiesPerConnection ? "entity limit"
             : (flags & EntityFlags.PersistOnLeave) != 0 && PersistentCount() >= MaxPersistent ? "world entity limit" : null;
         if (refused != null) { Warn(c, refused); Send(c, DespawnMsg(id)); return; }
@@ -312,7 +373,7 @@ public sealed class GameServer
         SyncProtocol.End(r);
         if (!entities.TryGetValue(id, out var e) || e.owner != c.number || component >= e.blobs.Length) return;
         e.blobs[component] = blob;
-        SendToMap(e.map, Msg(ToClient.State, () => { w.Write(id); w.Write(component); SyncProtocol.WriteBlob(w, blob); }), c);
+        SendToMap(e.map, StateMsg(id, component, blob), c);
     }
 
     void OnDespawn(Conn c, BinaryReader r)
@@ -331,14 +392,15 @@ public sealed class GameServer
         byte[] blob = SyncProtocol.ReadBlob(r);
         SyncProtocol.End(r);
         if (target > EventTarget.Server) throw new InvalidDataException("event target " + (byte)target);
-        if (!entities.TryGetValue(id, out var e) || e.map != c.map || component >= e.blobs.Length) return;
+        if (!entities.TryGetValue(id, out var e) || !Sees(c, e.map) || component >= e.blobs.Length) return;
+        if (e.byServer && target != EventTarget.Server) return; // a server entity talks only with the server (no relay to everyone)
         if (target == EventTarget.Server)
         {
             try { ServerEvent?.Invoke(c.number, id, component, eventId, blob); }
             catch (Exception ex) { Log?.Invoke("ServerEvent handler failed: " + ex); }
             return;
         }
-        byte[] msg = Msg(ToClient.Event, () => { w.Write(id); w.Write(component); w.Write(eventId); w.Write(c.number); SyncProtocol.WriteBlob(w, blob); });
+        byte[] msg = EventMsg(id, component, eventId, c.number, blob);
         if (target == EventTarget.Map) SendToMap(e.map, msg, null);
         else if (FindByNumber(e.owner) is Conn owner) Send(owner, msg);
     }
@@ -348,10 +410,12 @@ public sealed class GameServer
         string map = SyncProtocol.ReadStr(r);
         SyncProtocol.End(r);
         string old = c.map;
+        if (map == SyncProtocol.AllMaps) { Warn(c, "map change to the all-maps map"); return; }
         if (map == old) return;
         c.map = map;
         foreach (var e in entities.Values)
         {
+            if (e.map == SyncProtocol.AllMaps) continue; // seen on every map: nothing to despawn or spawn
             if (e.owner == c.number)
             {
                 if ((e.flags & EntityFlags.FollowsOwnerMap) == 0 || e.map != old) continue;
@@ -360,7 +424,7 @@ public sealed class GameServer
                 SendToMap(map, SpawnMsg(e), c);
             }
             else if (e.map == old) Send(c, DespawnMsg(e.id));
-            else if (e.map == map) Send(c, SpawnMsg(e));
+            else if (e.map == map) SendSpawn(c, e);
         }
     }
 
@@ -397,6 +461,51 @@ public sealed class GameServer
         foreach (var e in entities.Values) if (e.Persists) n++;
         return n;
     }
+
+    // ---- server entities (12.9) ----
+
+    /// <summary>
+    /// Makes a server-owned entity (owner 0, id = connection 0 + serial; never saved, gone with the server). Map
+    /// SyncProtocol.AllMaps reaches everyone. Blobs may be up to SyncProtocol.MaxServerBlob. Its id, or 0 when refused.
+    /// </summary>
+    public ulong SpawnServerEntity(string prefab, string map, EntityFlags flags, byte[][] blobs)
+    {
+        blobs ??= Array.Empty<byte[]>();
+        if (blobs.Length > byte.MaxValue || Array.Exists(blobs, b => b != null && b.Length > SyncProtocol.MaxServerBlob))
+        { Log?.Invoke("server entity " + prefab + " refused: too many components or a blob over " + SyncProtocol.MaxServerBlob + " bytes"); return 0; }
+        var e = new Entity { id = SyncProtocol.MakeId(0, ++serverSerial), prefab = prefab ?? "", map = map ?? "", flags = flags,
+            blobs = Array.ConvertAll(blobs, b => b ?? Array.Empty<byte>()), created = World.WorldMinutes, byServer = true };
+        entities[e.id] = e;
+        foreach (var c in conns.Values) if (c.Welcomed && Sees(c, e.map)) SendSpawn(c, e);
+        return e.id;
+    }
+
+    /// <summary>The server changes a component of its own entity (sent to everyone who sees it). False when refused (not the server's, too big).</summary>
+    public bool SetServerState(ulong id, byte component, byte[] blob)
+    {
+        blob ??= Array.Empty<byte>();
+        if (!entities.TryGetValue(id, out var e) || !e.byServer || e.owner != 0 || component >= e.blobs.Length) return false;
+        if (blob.Length > SyncProtocol.MaxServerBlob) { Log?.Invoke("state " + id + "/" + component + " not sent: " + blob.Length + " bytes, over " + SyncProtocol.MaxServerBlob); return false; }
+        e.blobs[component] = blob;
+        SendToMap(e.map, StateMsg(id, component, blob), null);
+        return true;
+    }
+
+    /// <summary>An event from the server (sender 0) to connection <paramref name="toConnection"/>, or with 0 to everyone who sees the entity.</summary>
+    public bool SendServerEvent(ulong id, byte component, byte eventId, uint toConnection, byte[] blob)
+    {
+        blob ??= Array.Empty<byte>();
+        if (!entities.TryGetValue(id, out var e) || component >= e.blobs.Length || blob.Length > SyncProtocol.MaxServerBlob) return false;
+        byte[] msg = EventMsg(id, component, eventId, 0, blob);
+        if (toConnection == 0) { SendToMap(e.map, msg, null); return true; }
+        var to = FindByNumber(toConnection);
+        if (to == null || !Sees(to, e.map)) return false;
+        Send(to, msg);
+        return true;
+    }
+
+    /// <summary>The account id connection <paramref name="connection"/> said Hello with (null when not connected).</summary>
+    public string AccountOf(uint connection) => FindByNumber(connection)?.account;
 
     // ---- characters (12.5) ----
 
@@ -511,7 +620,18 @@ public sealed class GameServer
     void SendToMap(string map, byte[] msg, Conn except)
     {
         foreach (var c in conns.Values)
-            if (c.Welcomed && c != except && c.map == map) Send(c, msg);
+            if (c.Welcomed && c != except && Sees(c, map)) Send(c, msg);
+    }
+
+    static bool Sees(Conn c, string map) => map == SyncProtocol.AllMaps || c.map == map;
+
+    // A server entity's blobs may each be near 60KB: its Spawn goes out empty and each state as its own State frame.
+    void SendSpawn(Conn c, Entity e)
+    {
+        Send(c, SpawnMsg(e));
+        if (!e.byServer) return;
+        for (int i = 0; i < e.blobs.Length; i++)
+            if (e.blobs[i].Length > 0) Send(c, StateMsg(e.id, (byte)i, e.blobs[i]));
     }
 
     byte[] SpawnMsg(Entity e) => Msg(ToClient.Spawn, () =>
@@ -519,8 +639,13 @@ public sealed class GameServer
         w.Write(e.id); w.Write(e.owner);
         SyncProtocol.WriteStr(w, e.prefab); SyncProtocol.WriteStr(w, e.map);
         w.Write((byte)e.flags); w.Write((byte)e.blobs.Length);
-        foreach (byte[] blob in e.blobs) SyncProtocol.WriteBlob(w, blob);
+        foreach (byte[] blob in e.blobs) SyncProtocol.WriteBlob(w, e.byServer ? null : blob);
     });
+
+    byte[] StateMsg(ulong id, byte component, byte[] blob) => Msg(ToClient.State, () => { w.Write(id); w.Write(component); SyncProtocol.WriteServerBlob(w, blob); });
+
+    byte[] EventMsg(ulong id, byte component, byte eventId, uint sender, byte[] blob) =>
+        Msg(ToClient.Event, () => { w.Write(id); w.Write(component); w.Write(eventId); w.Write(sender); SyncProtocol.WriteServerBlob(w, blob); });
 
     byte[] DespawnMsg(ulong id) => Msg(ToClient.Despawn, () => w.Write(id));
     byte[] OwnerMsg(Entity e) => Msg(ToClient.Owner, () => { w.Write(e.id); w.Write(e.owner); });

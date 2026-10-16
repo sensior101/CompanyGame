@@ -26,10 +26,12 @@ public class PropertyRegistry : GameSystem<PropertyRegistry>
     // Identity: with a server account the owner is stored as the account id (what the server attaches as `from`).
     // The UI still passes/compares LocalPlayerName, so entry points translate name -> id and GetOwner id -> name.
     // Applying a received op passes ids already and must not be translated.
+    // On a sync-layer server (12.9) the owner is always the account id the server knows, account or not.
+    static bool ById => GameSession.HasAccount || SharedWriteGate.ServerCheck != null && SharedWriteGate.ServerCheck();
     static string ToKey(string player) =>
-        !SharedWriteGate.Applying && GameSession.HasAccount && player == GameSession.LocalPlayerName ? GameSession.LocalPlayerId : player;
+        !SharedWriteGate.Applying && ById && player == GameSession.LocalPlayerName ? GameSession.LocalPlayerId : player;
     string ToShown(string owner) =>
-        owner == null || !GameSession.HasAccount ? owner : owner == GameSession.LocalPlayerId ? GameSession.LocalPlayerName : SharedWriteGate.NameOf(owner);
+        owner == null || !ById ? owner : owner == GameSession.LocalPlayerId ? GameSession.LocalPlayerName : SharedWriteGate.NameOf(owner);
     string Raw(string id) =>
         id != null && owners.TryGetValue(id, out var o) && !string.IsNullOrEmpty(o) ? o : null;
     bool IsOwner(string id, string player) => Raw(id) != null && Raw(id) == ToKey(player);

@@ -182,23 +182,25 @@ public static class DropSyncQA
         var r = Join("acc-r", "QA알", "m2");
         Clear(p, q, r);
         const double Day = GameServer.DayMinutes;
-        SetClock(5 * 60 + 58); // day 0, 05:58
+        // The world clock skips 00-06 (12.9), so 05:59 never happens: 23:59 is the last minute before a 06:00.
+        SetClock(23 * 60 + 58); // day 0, 23:58
         ulong early = Drop(p, 1, "m1", Dropped, 1);
         ulong parked = Drop(p, 2, "m1", Placed, 2);
-        SetClock(5 * 60 + 59.5);
+        SetClock(23 * 60 + 59.5);
         Step(p, q, r);
-        Check(!q.Has(ToClient.Despawn) && server.Lost.Count == 0, "05:59: the dropped item is still there");
-        SetClock(6 * 60);
+        Check(!q.Has(ToClient.Despawn) && server.Lost.Count == 0, "23:59: the dropped item is still there");
+        server.AdvanceClock(5000); // one game minute: 24:00 is in the skipped night, so 06:00 of day 1
         Step(p, q, r);
+        Check(Math.Abs(server.World.WorldMinutes - (Day + 6 * 60)) < .5, "the world clock went from 23:59 to 06:00 of the next day (" + server.World.WorldMinutes.ToString("F1") + ")");
         Check(q.Take(ToClient.Despawn, early) != null && p.Take(ToClient.Despawn, early) != null && !r.Has(ToClient.Despawn),
-            "06:00: everyone on its map gets Despawn (dropped at 05:58, gone 2 minutes later)");
-        Check(server.Lost.Count == 1 && server.Lost[0].prefab == Key && Same(server.Lost[0].blobs[0], Blob(1)) && Math.Abs(server.Lost[0].movedAt - 6 * 60) < .01,
+            "06:00: everyone on its map gets Despawn (dropped at 23:58, gone 2 clock minutes later)");
+        Check(server.Lost.Count == 1 && server.Lost[0].prefab == Key && Same(server.Lost[0].blobs[0], Blob(1)) && Math.Abs(server.Lost[0].movedAt - (Day + 6 * 60)) < .01,
             "it is in the lost-and-found list with its key and state");
         SetClock(Day + 23 * 60); // day 1, 23:00
         ulong late = Drop(p, 3, "m1", Dropped, 3);
-        SetClock(2 * Day + 5 * 60 + 59);
+        SetClock(Day + 23 * 60 + 59);
         Step(p, q);
-        Check(!q.Has(m => m.kind == ToClient.Despawn && m.id == late), "dropped at 23:00: kept until the next 06:00 (05:59 next day: still there)");
+        Check(!q.Has(m => m.kind == ToClient.Despawn && m.id == late), "dropped at 23:00: kept until the next 06:00 (23:59 that day: still there)");
         SetClock(2 * Day + 6 * 60);
         Step(p, q);
         Check(q.Take(ToClient.Despawn, late) != null && server.Lost.Count == 2, "and cleared at that 06:00");
@@ -217,10 +219,10 @@ public static class DropSyncQA
         server.Stop();
         StartServer(w2);
         Check(server.Lost.Count == 3, "the lost items survive a restart");
-        SetClock(6 * 60 + GameServer.LostKeepMinutes - 1);
+        SetClock(Day + 6 * 60 + GameServer.LostKeepMinutes - 7 * 60); // 23:00 before the 7th day's 06:00 (05:59 is skipped)
         Step();
         Check(server.Lost.Count == 3, "kept for just under 7 game days");
-        SetClock(6 * 60 + GameServer.LostKeepMinutes + .5);
+        SetClock(Day + 6 * 60 + GameServer.LostKeepMinutes + .5);
         Step();
         Check(server.Lost.Count == 2, "deleted 7 game days after it was moved (the later ones stay)");
         var s = Join("acc-s", "QA에스", "m1");

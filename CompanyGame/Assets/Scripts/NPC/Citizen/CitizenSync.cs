@@ -30,7 +30,7 @@ public sealed class CitizenSync : MonoBehaviour
     void Update()
     {
         Hook(NetSession.Instance);
-        bool simulate = GameSession.IsAuthority || Time.unscaledTime - lastReceived > StaleSeconds;
+        bool simulate = (GameSession.IsAuthority || GameSession.RemoteServer) || Time.unscaledTime - lastReceived > StaleSeconds;
         if (simulating != simulate)
         {
             simulating = simulate;
