@@ -1282,3 +1282,135 @@ SyncClient.Instance.Spawn(prefabKey: "Net/Door", instance, flags);
 - 클라이언트가 만드는 드롭 blob은 서버가 거르지 않음(4d-4)
 - 새 캐릭터 시작 인벤토리에 이 PC의 `books.json` 책이 섞여 들어감(원래 동작, 이제 사본으로 서버에 올라감)
 - 다른 기기에서 쓴 긴 쪽이 화면 한 쪽에 다 보이지 않을 수 있음(원래 동작)
+
+#### 12.10.4 4d-3 인벤토리 장부, 가게와 현금 (완료 2026-10-17)
+
+**범위.** 새 서버(앱 안 서버 포함)에서 캐릭터 인벤토리의 정본을 서버 장부로 옮깁니다. 아이템이나 현금 지폐가 생기거나 없어지는 다음 일을 서버가 판정합니다: NPC 거래(장바구니 포함), ATM·폰 은행 입출금, 음식 먹기, 가방 쓰기, 빈 책으로 새 책 쓰기. 드롭·줍기·탈것·보관함·지급 아이템(4d-4)과 도서관(4d-5)은 임시로 "믿는 변경"으로 받습니다. 옛 방과 서버 밖 혼자 하기는 바꾸지 않습니다.
+
+**조사한 것**
+- 수량을 바꾸는 곳은 모두 `InventoryState`를 지나갑니다. 다만 거래는 `TradeSession`의 커서를 거칩니다. 커서에 든 아이템은 잠깐 인벤토리 밖에 있고, 일부만 놓을 수도 있습니다. 이 커서 흐름을 서버에서 그대로 다시 실행하기는 어렵습니다.
+- NPC 상품표는 씬 두 곳에만 있습니다. 편의점(`ConvenienceStoreInterior`)의 `NpcTrader`와 도서관 카페(`CivicLibraryInterior`, `LibraryDesk.cafeOffers`가 `NpcTrader`로 바뀐 것)입니다.
+- 현금 결제(`CashService.PlanPayment`)는 인벤토리 사본만 다루는 계산입니다. 입출금(`TryWithdraw/TryDeposit`)은 `BankManager`를 받습니다.
+- 음식은 아이템 1개를 없애고, 체력·기력·스트레스는 클라이언트가 계산합니다. 스탯은 이번 범위가 아닙니다.
+- **기존 버그:** `InventorySnapshot.Find`가 `cash:금액` 아이템을 찾지 못합니다(현금은 실행 중에 만들어지는 아이템이라 Resources에 없음). 그래서 저장했다 다시 들어오면 인벤토리의 현금 지폐가 빠집니다. 이번에 고칩니다(`cash:` 접두어면 `CashService.GetCurrency`).
+
+**방식: 서버는 "무엇이 몇 개"를, 클라이언트는 "어느 칸"을 정함**
+- 서버 장부는 계정마다 `InventoryState` 하나를 둡니다(4d-1 장부 옆, 처음엔 저장된 캐릭터 내용에서 읽음, 결정 3).
+- 아이템을 만들거나 없애는 일은 의도로 요청하고, 서버가 자기 장부에서 같은 계산 함수로 실행합니다(아래 표). 서버가 새 아이템을 넣는 칸은 서버가 정합니다(빈 칸 순서).
+- 칸 배치(이동, 나누기, 장착, 해제, 핫바 선택)는 서버가 다시 실행하지 않습니다. 클라이언트가 인벤토리를 바꾼 뒤 1초 안에 배치 전체를 `p.inv.layout`으로 올립니다. 서버는 **내용이 같을 때만** 그 배치를 받습니다.
+  - 내용이 같다는 것: 현금이 아닌 아이템은 아이템 ID별 개수가 같고, 고유 아이템(책, 탈것)은 인스턴스 ID 집합이 같습니다. 현금은 지폐 구성이 아니라 총액이 같으면 됩니다(거스름 계산 차이를 허용). 용량(16·24)도 같아야 합니다.
+  - 받을 때 고유 아이템의 데이터(책 제목·저자·권한 등)는 서버 장부 쪽 것을 씁니다. 클라이언트에서는 위치만 받습니다.
+  - 이 비교 함수 하나(`InventoryLedgerRules.SameContents`)를 서버와 클라이언트가 함께 씁니다.
+- 거래 커서가 들려 있는 동안(`TradeSession`에 기다리는 것이 있을 때)은 배치를 올리지 않습니다. 커서를 놓거나 취소한 뒤에 올립니다.
+- 순서: 요청과 배치는 같은 연결로 순서대로 갑니다. 그래서 "의도 → 배치"를 보내면 서버도 의도를 먼저 적용한 뒤 배치를 비교합니다.
+
+**요청 (Op 이벤트 1, `p.`)**
+
+| kind | 본문 | 서버 판정 |
+| --- | --- | --- |
+| `p.trade` | 상점 ID, 줄 목록(상품 번호, 횟수) | 상품표는 서버 데이터에서 찾음(아래). 낼 것(현금은 `PlanPayment`로 거스름까지, 아이템은 개수)을 장부에서 빼고 받을 것을 넣음. 줄 전체가 들어가지 않으면 전부 거절. 한 줄짜리 커서 거래, 장바구니 결제, 파는 거래(현금을 받는 쪽)가 모두 이것 |
+| `p.cash.withdraw` | 지폐 금액, 장수 | 은행 장부 −, 지폐 +. 잔액·칸 부족이면 거절 |
+| `p.cash.deposit` | 지폐 금액, 장수 | 지폐 −, 은행 장부 +. 장부에 그 지폐가 그만큼 없으면 거절 |
+| `p.eat` | 아이템 ID | 먹을 수 있는 아이템이 장부에 있으면 1개 뺌(스탯은 클라이언트) |
+| `p.bag` | 없음 | 장부에 가방이 있고 용량이 16이면 가방 1개 빼고 24로 |
+| `p.inv.layout` | 배치 JSON(gzip, 본문 없는 책) | 위의 내용 비교. 다르면 버리고 Ledger로 장부를 돌려보냄(로그) |
+| `p.inv.trust` (임시) | 사유, 배치 JSON | 아직 옮기지 않은 길만: `drop`·`pickup`·`vehicle`·`storage`·`grant`(4d-4에서 없앰), `library`(4d-5에서 없앰). 다른 사유는 거절. 받을 때마다 로그 |
+
+- `book.new`(4d-2)는 빈 책에서 쓸 때 장부의 빈 책 1권을 빼고 그 책을 넣습니다. 사본(`book.new`의 사본 표시)은 `p.trade`(책 템플릿 상품)나 `p.inv.trust`(도서관)로 장부에 들어온 책 ID에만 허용합니다. 4d-2 "남은 문제"의 사본 저자 위조와 `book.page` 소유 미검사도 여기서 막습니다(`book.page`·`book.meta`는 장부에 그 책이 있을 때만).
+- `p.bank`의 `deposit`·`withdraw` 사유는 없앱니다. 도서관 사유는 4d-5까지 남습니다.
+- 응답: 4d-1의 Ledger(이벤트 3)에 인벤토리 칸을 붙입니다(본문 없는 스냅샷, gzip). 처리 수 규칙은 4d-1과 같습니다.
+
+**NPC 상품표를 씬 밖으로**
+- 새 ScriptableObject `TradeCatalog`(`Resources/Trade/TradeCatalog.asset`)에 상점 ID → `TradeOffer[]`를 둡니다. 지금 두 씬의 상품을 그대로 옮깁니다(편의점, 도서관 카페).
+- `NpcTrader`에는 `shopId`를 두고, 상품은 카탈로그에서 읽습니다. 옛 `offers` 필드는 지우고 씬을 다시 저장합니다. 상점 ID가 없거나 카탈로그에 없는 `NpcTrader`는 거래 창을 열지 않고 경고합니다.
+- 서버는 같은 카탈로그를 읽습니다(씬이 필요 없음). 도서관 대여·구매처럼 `fulfillment`가 붙은 상품은 카탈로그 대상이 아닙니다(4d-5).
+
+**서버 쪽 계산**
+- 화면 매니저(`InventoryManager.Instance`, `BankManager.Instance`)를 건드리지 않습니다. 입출금은 4d-1의 `LedgerWallet`과 장부 `InventoryState`를 인자로 받는 오버로드로 계산합니다. 거래는 `TradeSession` 없이 `p.trade` 판정 함수 하나로 합니다. 이 함수는 장바구니 결제(`CashService.TryPurchase`)와 같은 규칙을 씁니다(낼 것 → 받을 것, 전부 아니면 전무).
+- 저장 거르기: 받은 캐릭터 내용의 인벤토리를 장부 것으로 바꿉니다(4d-1의 은행·주식과 같은 자리).
+
+**지연 없이 (클라이언트)**
+- 지금 코드 그대로 먼저 적용하고 의도를 보냅니다. 보내는 곳: `TradeSession.TryPlace`(거래가 확정될 때, 일부만 놓아도 확정된 횟수만큼), `TryCheckout`, `CashService.TryWithdraw/TryDeposit`, `PlayerStats.TryConsume`, `TryUseBag`, `TryPublishBook`. 그 뒤 배치를 올립니다.
+- Ledger가 오면 처리 수가 맞을 때만 비교합니다. `SameContents`가 같으면 아무것도 하지 않습니다(서버가 다른 칸에 넣었어도 화면은 그대로이고, 다음 배치 업로드로 서버가 맞춰짐). 다르면 장부 스냅샷으로 인벤토리를 덮어씁니다(알림 없음).
+
+**바꿀 파일**
+
+| 구분 | 파일 | 내용 |
+| --- | --- | --- |
+| 새 | `Gameplay/Item/InventoryLedgerRules.cs` | `SameContents`, `p.trade` 판정 함수(서버·QA가 씀) |
+| 새 | `Gameplay/Trade/TradeCatalog.cs` + `Resources/Trade/TradeCatalog.asset` | 상품표 데이터 |
+| 고침 | `Player/ServerLedger.cs`, `Player/ServerWorld.cs`, `Player/ServerBooks.cs` | 인벤토리 장부, 요청 판정, 저장 거르기, `book.*` 소유 검사 |
+| 고침 | `Player/WorldStateSync.cs`, `Player/WorldSection.cs` | 배치 올리기(1초, 커서 없을 때), Ledger 인벤토리 적용 |
+| 고침 | `Gameplay/Item/InventorySnapshot.cs` | `cash:` 찾기(버그 수정) |
+| 고침 | `Gameplay/Trade/TradeSession*.cs`, `Gameplay/Item/Currency/CashService.*.cs`, `Player/PlayerStats.cs`, `Gameplay/Item/InventoryState.cs`(가방), `Gameplay/Item/Book/UI/BookReader.cs` | 로컬 적용 뒤 의도 보내기, 서버용 오버로드 |
+| 고침 | 임시 믿는 길: `WorldDroppedItem.cs`, `InventoryManager.cs`(자전거·차 지급), `EmployeeCardPickup.cs`, `PropertyUseController.cs`, `LibraryCatalog.cs` | 바꾼 뒤 `p.inv.trust`(사유) |
+| 고침 | `NPC/NpcTrader.cs`, 두 씬 | `shopId`, 카탈로그 읽기 |
+| 새 | `Editor/Net/InventoryLedgerQA.cs` | 아래 검수 |
+
+**하지 않는 것:** 스탯(체력·기력·스트레스)의 서버 판정. 드롭·줍기·탈것·보관함·지급 아이템의 실제 판정(4d-4). 도서관(4d-5). 땅값을 씬 밖 데이터로(4d-1 남은 문제 그대로). 프로토콜·world.dat 버전은 바뀌지 않습니다.
+
+**4d-3 뒤 남는 구멍(4d-4에서 막힘):** 가짜 `p.inv.trust`(pickup)로 아이템이나 현금 지폐를 만들 수 있습니다. 로그로만 남습니다. 그래서 돈은 4d-4가 끝나야 완전히 막힙니다.
+
+**완료 기준**
+1. 컴파일 오류 없음, 기존 QA 회귀 없음(특히 `LedgerQA` 셋, `BookSyncQA` 셋, `DropSyncQA`, `EconomySyncQA`, `CharacterQA`, `WorldSaveQA`, `TitleFlowQA`, `InventoryModelQA`, 거래·현금 관련 QA, `npm test`)
+2. `InventoryLedgerQA.Run`(서버 모듈만): `SameContents`(이동·장착·지폐 구성 차이는 같음, 개수·인스턴스·현금 총액·용량 차이는 다름), `p.trade` 판정(거스름, 칸 부족 전부 거절, 파는 거래)
+3. `InventoryLedgerQA.RunPlay`(앱 안 서버 + Unity 주인 + 가짜 클라이언트)
+   - 가짜가 아이템·지폐를 늘린 캐릭터 저장이나 `p.inv.layout`을 올려도 장부는 그대로이고, 가짜에게 장부 Ledger가 감
+   - 가짜의 `p.trade`: 현금이 모자라면 거절, 맞으면 장부에서 현금이 빠지고 상품이 들어감(가격은 카탈로그 값, 클라이언트가 말한 값 아님). 없는 상점·상품 번호 거절
+   - `p.cash.withdraw/deposit`: 은행과 지폐가 같이 바뀜, 없는 지폐 입금 거절, `p.bank` deposit·withdraw 거절
+   - `p.eat`: 없는 음식 거절. `p.bag`: 가방 없으면 거절
+   - 허용하지 않는 `p.inv.trust` 사유 거절, `book.page`는 장부에 없는 책이면 거절
+   - Unity 주인: 편의점 거래·장바구니·입출금·먹기·이동·장착이 같은 프레임에 반영되고, 덮어쓰기 0번. 로컬 인벤토리를 일부러 바꾸면 다음 Ledger에서 되돌아감. 주인 화면 매니저는 가짜의 거래로 바뀌지 않음
+   - 현금 지폐를 들고 저장 → 다시 접속하면 지폐가 그대로(버그 수정 확인)
+4. `InventoryLedgerQA.RunProcess`(빌드한 서버 프로세스 + 원격 Unity): 거래·입출금·이동 뒤 다시 켠 world.dat의 인벤토리와 Unity 화면이 같음, 다시 접속하면 같은 배치로 들어옴
+5. 스크린샷(QA_SHOTS 게임 화면만): 원격에서 편의점 장바구니 결제 직후, 고친 인벤토리가 되돌아간 뒤
+
+**총괄 검수 방법.** diff 전체 읽기. 특히 다음을 봅니다.
+- 서버가 클라이언트 값을 믿는 경로: 배치 비교, 사본 책, `p.inv.trust` 사유
+- 서버 계산이 주인 화면 매니저를 건드리는 경로
+- 커서가 들린 동안 배치를 올리는 경로
+- 처리 수 규칙
+
+그다음 QA를 직접 다시 돌려 수치를 확인하고, 스크린샷을 직접 봅니다.
+
+#### 12.10.4 결과 (총괄 검수 완료)
+
+**테스트 수치**
+
+총괄이 다시 돌린 것:
+- `InventoryLedgerQA`: `Run` 50개, `RunPlay` 92개, `RunProcess` 23개
+- `LedgerQA.RunPlay` 74개
+- `BookSyncQA.RunPlay` 70개
+- `DropSyncQA.RunPlay` 51개
+- `CharacterQA.RunProcess` 14개
+
+구현 에이전트 실행 기록으로 확인한 것:
+- 나머지 회귀 QA
+- `InventoryModelQA`, `CashModelQA`, `TradeCartQA`
+- `npm test` 42개·31개
+- `BookModelQA`의 "빈 책 가격" 1개 실패는 이전부터 있던 것이다.
+
+스크린샷: 원격 편의점 장바구니 결제 직후 화면과, 일부러 바꾼 인벤토리가 되돌아간 화면을 확인했다.
+
+**측정**
+- 정상 플레이(장바구니, 커서 거래, 일부만 놓기, 입출금, 먹기, 이동, 장착, 도서관 구매, 책 쓰기)에서 덮어쓰기는 0번이었다.
+- 거스름 지폐 구성이 달라도 덮어쓰지 않는다. 예: 클라이언트 `10000,33700`, 서버 `10000,1500,32200`.
+
+**설계와 달라진 점**
+- 편의점 상품은 `Art/Items/ConvenienceFood`에 있어서 `InventorySnapshot.Find`가 찾지 못했다(이전부터 있던 버그). 그래서 `Find`가 `TradeCatalog`의 상품도 찾게 했다.
+- Ledger 인벤토리를 비교하지 않고 다음 Ledger로 미루는 경우: 내 배치가 아직 나가지 않았을 때, trust를 기다릴 때, 커서를 들고 있을 때. trust도 1초 배치 때 함께 보낸다.
+- 새 캐릭터는 첫 Ledger의 인벤토리를 시작값으로 받는다(`CharacterSync.FreshCharacter`). 탈것 ID가 서버 기준값과 다르기 때문이다.
+- 내 장부에 이미 있는 책으로 `book.new`가 오면 무시한다. `book.new`가 거절되면 다음 변경 때 다시 보낸다.
+- 서버 입출금 함수는 `CashService.LedgerWithdraw/LedgerDeposit`이다. 검수 뒤 입금도 총액 기준으로 바꿨다: 서버에 없는 지폐 구성이라도 장부 현금 총액에서 빼고 거스름을 준다.
+- 요청 형식은 `SharedOpArgs`를 그대로 쓴다.
+  - `p.trade`: `b` 상점, `a` "번호:횟수,…", `c` 사본·탈것 ID
+  - `p.cash.*`: `n` 지폐 금액, `a` 장수
+  - layout·trust: `b` gzip+base64
+- `BookReader`는 고치지 않았다. 새 책은 1초 배치의 `book.new`가 의도 역할을 한다.
+
+**남은 문제**
+- 가짜 `p.inv.trust`로 아이템이나 지폐를 만들 수 있다(4d-4에서 막음). 계정 사이에 책·탈것 인스턴스가 중복되는지도 검사하지 않는다.
+- 커서를 일부만 놓았는데 서버 장부에 나머지가 들어갈 칸이 없으면, 서버가 거래 전체를 거절해서 덮어쓰기가 일어난다(드묾).
+- 배치는 4KB 요청 한도 안이어야 한다. 책 제목이 아주 많으면 배치가 반영되지 않는다(덮어쓰기는 없음).
+- 0원 동전을 입금하면 서버 장부에서는 빠지지 않는다. 다음 배치 때 맞춰진다.
+- 도서관 사본의 정보는 trust로 들어온 클라이언트 값이다(4d-5까지).

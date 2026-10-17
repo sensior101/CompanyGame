@@ -12,8 +12,8 @@ using UnityEngine;
 /// (PersonalSave.ResetToFresh) and is saved at once. Saves every 30 seconds, before a map change, before leaving
 /// (TitleFlow.ReturnToTitle, SyncHost.BeforeStop) and on quit. While <see cref="Active"/> this PC writes no personal
 /// file (WorldSaveRunner.OnServer); after leaving, this PC's own money and inventory come back.
-/// The server keeps the client's map, position and inventory as they come, but puts its own ledger (bank and stocks) in
-/// place of the personal part (12.10.1, ServerLedger).
+/// The server keeps the client's map and position as they come, but puts its own ledger in place of the personal part
+/// (bank and stocks, 12.10.1) and of the inventory (12.10.4, ServerLedger).
 /// </summary>
 public sealed class CharacterSync : MonoBehaviour
 {
@@ -26,6 +26,8 @@ public sealed class CharacterSync : MonoBehaviour
 
     /// <summary>True from applying the server's character until this PC's own state is back.</summary>
     public static bool Active => instance && instance.applied;
+    /// <summary>True while the character on the server is a new one (it had no content): its bag is the server's start bag (12.10.4).</summary>
+    public static bool FreshCharacter { get; private set; }
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void Attach()
@@ -77,7 +79,8 @@ public sealed class CharacterSync : MonoBehaviour
     {
         GameSession.SetCharacter(client.CharacterName, client.CharacterGender);
         applied = true;
-        if (!Read(client.CharacterContent, out var saved))
+        FreshCharacter = !Read(client.CharacterContent, out var saved);
+        if (FreshCharacter)
         {
             if (client.CharacterContent.Length > 0) Debug.LogWarning("[CharacterSync] the saved character is unreadable; starting from the new character state");
             PersonalSave.ResetToFresh(); // a new character never inherits this PC's or another world's money or items
@@ -99,6 +102,7 @@ public sealed class CharacterSync : MonoBehaviour
     void LeftServer()
     {
         applied = false;
+        FreshCharacter = false;
         GameSession.ClearCharacter();
         PersonalSave.ResetToFresh();
         PersonalSave.LoadFromDisk();

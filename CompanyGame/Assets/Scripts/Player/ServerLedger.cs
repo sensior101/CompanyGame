@@ -3,17 +3,20 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// The server's personal ledger (Docs/Multiplayer_Redesign.md 12.10.1): the bank money and stock holdings of every
-/// character on this server, computed here and saved in the character's content. Made and ended by ServerWorld.
-///   start    an account's book is read from its saved content the first time it is needed (a new character: the
-///            baseline, PersonalSave.BaselinePersonal); every change is written back into the content at once (map,
-///            position and inventory stay), so each world.dat save has it
-///   save     GameServer.CharacterSaveFilter puts the book in place of the personal part a client uploads; unreadable
-///            content is dropped and the saved one kept. Book pages never stay in the content (12.10.3): ServerBooks
-///            keeps them (and takes those of a book it does not have yet)
-///   p.*      personal requests (Op event 1) are decided on the book with the server's prices; land.buy is paid here
-///   answer   Ledger (event 3, to the requester only, before its OpResult): u32 personal requests done on that
-///            connection, i64 bank money, server blob = gzip(portfolio JSON)
+/// The server's personal ledger (Docs/Multiplayer_Redesign.md 12.10.1, 12.10.4): the bank money, stock holdings and
+/// inventory of every character on this server, computed here and saved in the character's content. Made and ended by ServerWorld.
+///   start    an account's book and bag are read from its saved content the first time they are needed (a new
+///            character: the baseline, PersonalSave.BaselinePersonal and BaselineInventory); every change is written
+///            back into the content at once (map and position stay), so each world.dat save has it
+///   save     GameServer.CharacterSaveFilter puts the book and the bag in place of the personal part and the inventory a
+///            client uploads; unreadable content is dropped and the saved one kept. Book pages never stay in the content
+///            nor the bag (12.10.3): ServerBooks keeps them
+///   p.*      personal requests (Op event 1) are decided on the book and the bag with the server's prices and the
+///            TradeCatalog; land.buy is paid here. book.new changes the bag too (a blank is written on), so it is counted
+///   layout   p.inv.layout is taken only with the same contents (InventoryLedgerRules.SameContents); p.inv.trust (the
+///            paths not moved yet) as it comes, logged
+///   answer   Ledger (event 3, to the requester only, before its OpResult): u32 counted requests done on that
+///            connection, i64 bank money, server blob = gzip(portfolio JSON), server blob = gzip(bag snapshot, no pages)
 ///   night    on GameClock.NightSkipped the money part of each connection's night activity goes on its book, and that
 ///            connection gets a Ledger
 /// The screen managers (BankManager.Instance, the exchange's wallet and portfolio) are never touched: on an in-app
@@ -21,29 +24,38 @@ using UnityEngine;
 /// </summary>
 public sealed class ServerLedger
 {
-    /// <summary>The personal kinds (12.10.1). p.bank is temporary: only the reasons in <see cref="BankReasons"/>.</summary>
-    public static readonly HashSet<string> Kinds = new HashSet<string> { "p.stock.buy", "p.stock.sell", "p.shop.buy", "p.fine", "p.night.select", "p.bank" };
+    /// <summary>The personal kinds (12.10.1, 12.10.4). p.bank and p.inv.trust are temporary: only the reasons below.</summary>
+    public static readonly HashSet<string> Kinds = new HashSet<string>
+    {
+        "p.stock.buy", "p.stock.sell", "p.shop.buy", "p.fine", "p.night.select", "p.bank",
+        "p.trade", "p.cash.withdraw", "p.cash.deposit", "p.eat", "p.bag", "p.inv.layout", "p.inv.trust"
+    };
 
-    // reason → sign of the amount. ponytail: trusted until 4d-2 (deposit, withdraw) and 4d-4 (the library) move these paths.
+    // reason → sign of the amount. ponytail: trusted until 4d-5 moves the library to the server.
     static readonly Dictionary<string, int> BankReasons = new Dictionary<string, int>
     {
-        { "deposit", 1 }, { "withdraw", -1 }, { "book.publish", -1 }, { "library.late", -1 }, { "library.fine", -1 }, { "book.royalty", 1 }
+        { "book.publish", -1 }, { "library.late", -1 }, { "library.fine", -1 }, { "book.royalty", 1 }
     };
+
+    // ponytail: layouts trusted until 4d-4 (drop, pickup, vehicle, storage, grant) and 4d-5 (library) decide these paths here.
+    static readonly HashSet<string> TrustReasons = new HashSet<string> { "drop", "pickup", "vehicle", "storage", "grant", "library" };
 
     const string NoMoney = "은행 잔액이 부족합니다.";
 
-    /// <summary>Requests that change the book and so are counted and answered with a Ledger (also land.buy).</summary>
-    public static bool Counts(string kind) => kind == "land.buy" || Kinds.Contains(kind);
+    /// <summary>Requests that change the book or the bag and so are counted and answered with a Ledger (also land.buy, book.new).</summary>
+    public static bool Counts(string kind) => kind == "land.buy" || kind == "book.new" || Kinds.Contains(kind);
 
     readonly GameServer server;
     readonly ulong entity;
     readonly ServerBooks bodies;
     readonly Dictionary<string, PersonalSaveData> books = new Dictionary<string, PersonalSaveData>();
+    readonly Dictionary<string, InventoryState> bags = new Dictionary<string, InventoryState>();
     readonly Dictionary<uint, uint> done = new Dictionary<uint, uint>(); // per connection: its numbers are never reused
     readonly Dictionary<uint, NightActivityKind> nights = new Dictionary<uint, NightActivityKind>();
 
-    /// <summary>Ledgers sent, for QA.</summary>
+    /// <summary>Ledgers sent, and layouts refused (their contents differed), for QA.</summary>
     public int Sent { get; private set; }
+    public int LayoutsRefused { get; private set; }
 
     public ServerLedger(GameServer server, ulong entity, ServerBooks bodies)
     {
@@ -52,6 +64,13 @@ public sealed class ServerLedger
         this.bodies = bodies;
         server.CharacterSaveFilter = Filter;
         GameClock.NightSkipped += OnNight;
+        bodies.Owned = (account, id) => InventoryLedgerRules.FindUnique(Bag(account), id)?.BookData;
+        bodies.FromBlank = (account, id, book) =>
+        {
+            if (!InventoryLedgerRules.TryWriteBlank(Bag(account), id, book, out _)) return false;
+            Store(account);
+            return true;
+        };
     }
 
     public void End()
@@ -84,15 +103,36 @@ public sealed class ServerLedger
         catch (Exception) { return null; }
     }
 
-    // The book goes into the saved content now (a character that never saved gets the new character's inventory).
+    /// <summary>
+    /// The bag of <paramref name="account"/> (12.10.4): its saved inventory the first time (a new character: the
+    /// baseline), never with pages (pages the world's books lack go to them). QA reads it too.
+    /// </summary>
+    public InventoryState Bag(string account)
+    {
+        if (bags.TryGetValue(account, out var bag)) return bag;
+        var character = server.World.Find(account);
+        string json = character != null && CharacterSync.Read(character.content, out var saved) ? saved.inventory : PersonalSave.BaselineInventory;
+        bag = new InventoryState();
+        if (!string.IsNullOrEmpty(json) && !InventorySnapshot.Import(bag, bodies.Strip(json)))
+            Debug.LogWarning("[ServerLedger] the saved inventory of " + account + " is unreadable; it starts empty");
+        bags[account] = bag;
+        return bag;
+    }
+
+    // The book and the bag go into the saved content now (map and position stay).
     void Store(string account)
     {
         var character = server.World.Find(account);
         if (character == null) return;
-        if (!CharacterSync.Read(character.content, out var saved)) saved = new CharacterSync.Saved { inventory = PersonalSave.BaselineInventory };
-        saved.personal = JsonUtility.ToJson(Book(account));
-        saved.inventory = bodies.Strip(saved.inventory);
-        character.content = CharacterSync.Encode(saved);
+        CharacterSync.Read(character.content, out var saved);
+        character.content = CharacterSync.Encode(Ledgered(account, saved));
+    }
+
+    CharacterSync.Saved Ledgered(string account, CharacterSync.Saved saved)
+    {
+        saved.personal = JsonUtility.ToJson(Book(account)); // the client's money and stocks are never kept
+        saved.inventory = InventorySnapshot.Export(Bag(account), false); // nor its items, nor book pages
+        return saved;
     }
 
     byte[] Filter(string account, byte[] content)
@@ -102,9 +142,7 @@ public sealed class ServerLedger
             Debug.LogWarning("[ServerLedger] unreadable character save from " + account + "; the saved one is kept");
             return null;
         }
-        saved.personal = JsonUtility.ToJson(Book(account)); // the client's money and stocks are never kept
-        saved.inventory = bodies.Strip(saved.inventory); // nor book pages: the world's books keep them
-        return CharacterSync.Encode(saved);
+        return CharacterSync.Encode(Ledgered(account, saved));
     }
 
     // ---- requests ----
@@ -114,10 +152,33 @@ public sealed class ServerLedger
     {
         var a = JsonUtility.FromJson<SharedOpArgs>(json) ?? new SharedOpArgs();
         var book = Book(account);
+        var bag = Bag(account);
         var wallet = new LedgerWallet(book);
         string error;
         switch (kind)
         {
+            case "p.trade":
+                var lines = InventoryLedgerRules.ParseLines(a.a);
+                var offers = TradeCatalog.Offers(a.b);
+                if (offers == null) error = "알 수 없는 상점입니다.";
+                else if (lines == null) error = "거래할 항목을 확인해 주세요.";
+                else if (InventoryLedgerRules.TryTrade(bag, offers, lines, string.IsNullOrEmpty(a.c) ? null : a.c.Split(','), out error)) error = null;
+                break;
+            case "p.cash.withdraw":
+            case "p.cash.deposit":
+                if (!int.TryParse(a.a, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int count)) { error = "수량을 확인하세요."; break; }
+                if (kind == "p.cash.withdraw" ? CashService.LedgerWithdraw(wallet, bag, a.n, count, out error) : CashService.LedgerDeposit(wallet, bag, a.n, count, out error)) error = null;
+                break;
+            case "p.eat":
+                if (InventoryLedgerRules.TryEat(bag, a.a, out error)) error = null;
+                break;
+            case "p.bag":
+                if (InventoryLedgerRules.TryBag(bag, out error)) error = null;
+                break;
+            case "p.inv.layout":
+            case "p.inv.trust":
+                error = Layout(account, kind == "p.inv.trust", a, bag);
+                break;
             case "p.stock.buy":
             case "p.stock.sell":
                 error = Trade(kind == "p.stock.buy", a, wallet, book.portfolio);
@@ -143,6 +204,21 @@ public sealed class ServerLedger
         }
         if (error == null) Store(account);
         return error;
+    }
+
+    string Layout(string account, bool trusted, SharedOpArgs a, InventoryState bag)
+    {
+        if (trusted)
+        {
+            if (a.a == null || !TrustReasons.Contains(a.a)) return "허용하지 않는 사유입니다.";
+            Debug.Log("[ServerLedger] p.inv.trust " + a.a + " from " + account);
+        }
+        string json = InventoryLedgerRules.Unpack(a.b);
+        if (json != null && InventoryLedgerRules.TryTakeLayout(bag, json, trusted, out _)) return null;
+        if (!trusted) LayoutsRefused++;
+        Debug.LogWarning("[ServerLedger] " + (trusted ? "p.inv.trust" : "p.inv.layout") + " from " + account + " refused ("
+                         + (json == null ? "unreadable" : "the contents differ") + "); its Ledger puts the client back");
+        return json == null ? "배치를 읽을 수 없습니다." : "인벤토리 내용이 서버와 다릅니다.";
     }
 
     string Trade(bool buy, SharedOpArgs a, IWallet wallet, StockPortfolio portfolio)
@@ -207,6 +283,7 @@ public sealed class ServerLedger
                 w.Write(n);
                 w.Write(book.bankBalance);
                 SyncProtocol.WriteServerBlob(w, ServerWorld.Encode(JsonUtility.ToJson(book.portfolio)));
+                SyncProtocol.WriteServerBlob(w, ServerWorld.Encode(InventorySnapshot.Export(Bag(account), false)));
             })))
             Sent++;
     }

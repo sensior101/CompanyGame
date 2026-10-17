@@ -61,6 +61,7 @@ namespace CompanyGame.World.Maps
             if (!player || FindNearest(player.transform) != this) return;
             var inventory = InventoryManager.Instance ? InventoryManager.Instance.State : null;
             if (inventory == null || !inventory.TryAdd(card, 1, out _)) return;
+            InventoryLedgerRules.Trust(inventory, "grant"); // 12.10.4: trusted until 4d-4
             taken = true;
             gameObject.SetActive(false);
         }

@@ -72,7 +72,8 @@ public static partial class EconomySyncQA
     static async void Drive(string mode)
     {
         int original = PlayerPrefs.GetInt("Profile.Slot", 1), code = 0;
-        tag = mode.StartsWith("ledger", StringComparison.Ordinal) ? "LedgerQA" : mode.StartsWith("book", StringComparison.Ordinal) ? "BookSyncQA" : "EconomySyncQA";
+        tag = mode.StartsWith("ledger", StringComparison.Ordinal) ? "LedgerQA" : mode.StartsWith("book", StringComparison.Ordinal) ? "BookSyncQA"
+            : mode.StartsWith("inv", StringComparison.Ordinal) ? "InventoryLedgerQA" : "EconomySyncQA";
         Begin();
         try
         {
@@ -82,6 +83,8 @@ public static partial class EconomySyncQA
             else if (mode == "ledger-process") await LedgerProcessBody(exe);
             else if (mode == "book-play") await BookPlayBody();
             else if (mode == "book-process") await BookProcessBody(exe);
+            else if (mode == "inv-play") await InventoryPlayBody();
+            else if (mode == "inv-process") await InventoryProcessBody(exe);
             else await ProcessBody(exe);
             Report("RESULT " + mode + " passed");
         }
@@ -134,7 +137,7 @@ public static partial class EconomySyncQA
         var r = await FakeOp(fake, "prop.reg", new SharedOpArgs { a = "qa:house-1", b = Acc(fake) });
         Check(r.error == "" && r.sections.Contains(Properties), "prop.reg: OpResult ok, and the properties section came before it");
         Check(registry.GetOwner("qa:house-1") == "QA가짜", "the Unity managers have it; the owner shows as the fake's character name (" + registry.GetOwner("qa:house-1") + ")");
-        r = await FakeOp(fake, "p.bank", new SharedOpArgs { n = LandPlot.DefaultPrice, a = "deposit" }); // the plot is paid from the fake's ledger (12.10.1)
+        r = await FakeOp(fake, "p.bank", new SharedOpArgs { n = LandPlot.DefaultPrice, a = "book.royalty" }); // the plot is paid from the fake's ledger (12.10.1); deposit is gone (12.10.4)
         Check(r.error == "", "the fake deposits the plot's price");
         r = await FakeOp(fake, "land.buy", new SharedOpArgs { a = "qa-plot-1" });
         Check(r.error == "" && r.sections.Contains(Plots) && LandPlotManager.Instance.GetOwner("qa-plot-1") == Acc(fake), "land.buy: the plot is the fake's, the plots section first");
@@ -359,8 +362,8 @@ public static partial class EconomySyncQA
         long price = plot.Price, money = BankManager.Instance.Money;
         if (money < price) await Deposit(price - money + 1000); // the server's ledger must have it too (12.10.1)
         money = BankManager.Instance.Money;
-        r = await FakeOp(fake, "p.bank", new SharedOpArgs { n = price, a = "deposit" });
-        Check(r.error == "", "the fake deposits the plot's price");
+        r = await FakeOp(fake, "p.bank", new SharedOpArgs { n = price, a = "book.royalty" });
+        Check(r.error == "", "the fake gets the plot's price (a trusted royalty; deposit is gone in 12.10.4)");
         WorldStateSync.HoldSections = true; // the client has not heard of the fake's purchase yet: a real race
         r = await FakeOp(fake, "land.buy", new SharedOpArgs { a = "qa-plot-remote" });
         Check(r.error == "" && LandPlotManager.Instance.GetState("qa-plot-remote") == LandPlotState.Available, "the fake bought the plot first; this client does not know yet");
@@ -447,12 +450,12 @@ public static partial class EconomySyncQA
         await StopProcessServer();
     }
 
-    // A deposit on this client that the server is told of (as CashService.TryDeposit does), and its answer.
+    // Money on this client that the server is told of (a royalty, the trusted p.bank left after 12.10.4), and its answer.
     static async Task Deposit(long amount)
     {
         int results = WorldStateSync.Results;
-        Check(BankManager.Instance.AddMoney(amount, MoneyChangeReason.Deposit), "a deposit of " + amount);
-        SharedWriteGate.SendPersonal("p.bank", new SharedOpArgs { n = amount, a = "deposit" });
+        Check(BankManager.Instance.AddMoney(amount, MoneyChangeReason.BookRoyalty), "money of " + amount);
+        SharedWriteGate.SendPersonal("p.bank", new SharedOpArgs { n = amount, a = "book.royalty" });
         await WaitFor(() => WorldStateSync.Results > results, 5, "the answer to the deposit");
     }
 

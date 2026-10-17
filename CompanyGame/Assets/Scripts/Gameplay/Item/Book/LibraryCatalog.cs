@@ -97,7 +97,7 @@ public static class LibraryCatalog
             var stack = inventory.GetSlot(i);
             if (!(stack.BookData?.IsLibraryLoan ?? false)) continue;
             var loan = State.loans.Find(x => x.id == stack.BookData.libraryLoanId && x.active && x.borrowerId == id);
-            if (loan == null) inventory.TryRemove(i, stack.Count, out _);
+            if (loan == null && inventory.TryRemove(i, stack.Count, out _)) TrustLibrary(inventory);
         }
         CollectPayment(id);
     }
@@ -191,7 +191,7 @@ public static class LibraryCatalog
                 State.works.Add(work);
             }
             work.book=stack.BookData.Clone();work.book.libraryWorkId=work.id;work.listed=true;
-            handoff.ConsumeHandoff();Save();Publish();return true;
+            handoff.ConsumeHandoff();TrustLibrary(inventory);Save();Publish();return true;
         }
         finally { changing=false; }
     }
@@ -273,6 +273,7 @@ public static class LibraryCatalog
                 Save();Publish();
             }
             finally{changing=false;}
+            TrustLibrary(inventory);
             if(mode==LibraryTradeMode.Withdraw)withdrawn?.Invoke(work.book.title,royalty);
             if(mode==LibraryTradeMode.Borrow)borrowed?.Invoke(item.DisplayName);
         }
@@ -333,6 +334,7 @@ public static class LibraryCatalog
             account.fines -= lateFee;
             loan.active = false;
             handoff.ConsumeHandoff();
+            TrustLibrary(handoff.Inventory);
             Save(); Publish(); return true;
         }
         finally { changing = false; }
@@ -378,6 +380,8 @@ public static class LibraryCatalog
         if (myBank && playerId == GameSession.LocalPlayerId)
             SharedWriteGate.SendPersonal("p.bank", new SharedOpArgs { n = amount, a = reason });
     }
+    // ponytail: a library change to my bag is a trusted layout until 4d-5 moves the library to the server (12.10.4).
+    static void TrustLibrary(InventoryState inventory) => InventoryLedgerRules.Trust(inventory, "library");
     static int OverdueDays(Loan loan, int day) => Math.Max(0, Math.Min(RecallDay, day - loan.startDay) - FreeDays);
     static void Assess(Loan loan, int day)
     {
@@ -392,7 +396,7 @@ public static class LibraryCatalog
         if (!participants.TryGetValue(loan.borrowerId, out var participant)) return;
         var inventory = participant.inventory;
         for (int i = 0; i < inventory.Capacity; i++)
-            if (inventory.GetSlot(i).InstanceId == loan.instanceId) inventory.TryRemove(i, 1, out _);
+            if (inventory.GetSlot(i).InstanceId == loan.instanceId && inventory.TryRemove(i, 1, out _)) TrustLibrary(inventory);
     }
     static long CollectPayment(string id)
     {

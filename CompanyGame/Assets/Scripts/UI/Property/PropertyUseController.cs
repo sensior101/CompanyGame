@@ -89,6 +89,7 @@ public sealed class PropertyUseController : MonoBehaviour
             if (IsStartingDeed(deed) && registry.GetOwner(deed.propertyId) == null)
             {
                 if (!inventory.TryAdd(deed, 1, out _)) { startingDeedDone = false; nextGrantTime = Time.unscaledTime + 1f; }
+                else InventoryLedgerRules.Trust(inventory, "grant"); // 12.10.4: trusted until 4d-4
                 return;
             }
     }

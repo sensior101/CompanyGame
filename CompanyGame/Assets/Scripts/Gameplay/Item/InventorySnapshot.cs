@@ -8,6 +8,7 @@ using UnityEngine;
 /// A stack that cannot be placed (unknown item, duplicate instance) is skipped; the server copy wins over local books.
 /// Book bodies (12.10.3): a sync-layer server keeps the pages apart, so a book exported without them carries only its
 /// title, author, permission and library ids (bodyless), and comes back with BookInstanceData.bodyLoaded false.
+/// Cash notes ("cash:금액") are found by value, and shop goods through the TradeCatalog, so both survive a save (12.10.4).
 /// </summary>
 public static class InventorySnapshot
 {
@@ -133,11 +134,18 @@ public static class InventorySnapshot
 
     public static ItemData Find(string itemId)
     {
+        // Cash is made at runtime (CashService.GetCurrency), never a Resources asset (12.10.4).
+        if (itemId != null && itemId.StartsWith("cash:", StringComparison.Ordinal) &&
+            long.TryParse(itemId.Substring(5), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out long value))
+            return CashService.GetCurrency(value);
         if (catalog == null)
         {
             catalog = new Dictionary<string, ItemData>();
             foreach (var item in Resources.LoadAll<ItemData>("Inventory"))
                 if (item && !string.IsNullOrEmpty(item.itemId)) catalog[item.itemId] = item;
+            // Shop goods (the convenience store's food) are kept outside Resources/Inventory (12.10.4).
+            foreach (var item in TradeCatalog.Items())
+                if (item && !string.IsNullOrEmpty(item.itemId) && !catalog.ContainsKey(item.itemId)) catalog[item.itemId] = item;
         }
         return itemId != null && catalog.TryGetValue(itemId, out var found) ? found : null;
     }

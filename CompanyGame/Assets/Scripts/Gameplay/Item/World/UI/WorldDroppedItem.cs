@@ -185,6 +185,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
         var drop = new DropRecord { id = Guid.NewGuid().ToString("N"), scenePath = SceneLoadManager.CurrentMap.path,
             position = point, rotation = rotation, placedVehicle = true, font = owner.uiFont };
         if (!owner.Inventory.TryTransferTo(drop.contents, owner.Inventory.SelectedHotbarIndex, 1, out error)) return false;
+        InventoryLedgerRules.Trust(owner.Inventory, "vehicle"); // 12.10.4: trusted until 4d-4 (the layout goes out as it is then)
         if (OnServer) return SyncCommit(drop, DropState.VehicleKind, out error) || GiveBack(drop);
         // In a room the car appears for everyone (this PC included) when the op comes back.
         if (SendVehicleOp("veh.put", drop)) return true;
@@ -314,6 +315,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
         if (source == null || source.IsEmpty) { error = "내려놓을 아이템이 없습니다."; return false; }
         if (!Prepare(owner, out var drop, out error)) return false;
         if (!owner.Inventory.TryTransferTo(drop.contents, index, count<0?source.Count:count, out error)) return false;
+        InventoryLedgerRules.Trust(owner.Inventory, "drop");
         if (OnServer) return SyncCommit(drop, DropState.ItemKind, out error) || GiveBack(drop);
         Commit(drop, SceneLoadManager.CurrentMap);
         return true;
@@ -328,6 +330,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
         // Prepare the destination first. A failed removal leaves the actual equipment unchanged.
         if (!drop.contents.TryAdd(source.Item, source.Count, out error)) return false;
         if (!owner.Inventory.TryRemoveEquipment(slot, out error)) return false;
+        InventoryLedgerRules.Trust(owner.Inventory, "drop");
         if (OnServer) return SyncCommit(drop, DropState.ItemKind, out error) || GiveBack(drop);
         Commit(drop, SceneLoadManager.CurrentMap);
         return true;
@@ -664,6 +667,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
         var bag = InventoryManager.Instance ? InventoryManager.Instance.State : null;
         if (stack != null && !stack.IsEmpty && (bag == null || !drop.contents.TryTransferTo(bag, 0, stack.Count, out _)))
             Debug.LogWarning("[WorldDroppedItem] could not return " + stack.DisplayName + " to the bag");
+        InventoryLedgerRules.Trust(bag, "drop");
         return false;
     }
 
@@ -739,6 +743,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
                 string error = "지금은 주울 수 없습니다.";
                 if (bag == null || !drop.contents.TryTransferTo(bag, 0, drop.contents.GetSlot(0).Count, out error))
                 { Status(error); SyncClient.Instance.Release(entity); return; }
+                InventoryLedgerRules.Trust(bag, "pickup"); // 12.10.4: trusted until 4d-4
                 // Despawned at once; the character save goes out after it, so a disconnect cannot keep both.
                 DestroyNet(drop);
                 Status("아이템을 주웠습니다.");

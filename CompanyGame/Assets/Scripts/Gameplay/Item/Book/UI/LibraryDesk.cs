@@ -7,9 +7,9 @@ using UnityEngine;
 public sealed class LibraryDesk : MonoBehaviour
 {
     public enum Service { Library, CafeCashier, CafeConversation }
-    // Retained for existing serialized scenes/API. New cafe NPCs use NpcTrader directly.
+    // Retained for existing serialized scenes/API. New cafe NPCs use NpcTrader directly; a cashier made here sells the
+    // TradeCatalog's library cafe (12.10.4).
     [HideInInspector] public Service service;
-    [HideInInspector] public TradeOffer[] cafeOffers = Array.Empty<TradeOffer>();
     DialogueData dialogue;
     DialogueManager manager;
     InventoryItemSelector selector;
@@ -31,7 +31,7 @@ public sealed class LibraryDesk : MonoBehaviour
             if(service==Service.CafeCashier)
             {
                 var trader=GetComponent<NpcTrader>();
-                if(!trader){trader=gameObject.AddComponent<NpcTrader>();trader.offers=cafeOffers;}
+                if(!trader){trader=gameObject.AddComponent<NpcTrader>();trader.shopId=TradeCatalog.LibraryCafe;}
                 trader.openAfterDialogue=true;
                 trader.radius=dialogue.radius;trader.heightTolerance=2f;
             }

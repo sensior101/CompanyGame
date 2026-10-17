@@ -4,7 +4,8 @@ using UnityEngine.SceneManagement;
 
 /// <summary>
 /// Put on any NPC to trade with it: the player walks up and presses Space, and the shared trade window opens.
-/// The range follows the NPC, so walking NPCs can trade too.
+/// The range follows the NPC, so walking NPCs can trade too. Its offers are shop <see cref="shopId"/> of the TradeCatalog
+/// (12.10.4), the same data a sync-layer server decides trades with.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class NpcTrader : MonoBehaviour
@@ -14,7 +15,8 @@ public sealed class NpcTrader : MonoBehaviour
     public string displayName;
     [Min(.1f)] public float radius = 2f;
     [Min(.1f)] public float heightTolerance = 1f;
-    public TradeOffer[] offers = System.Array.Empty<TradeOffer>();
+    [Tooltip("The shop in Resources/Trade/TradeCatalog (e.g. convenience).")]
+    public string shopId;
     [Tooltip("Open the common trade window after this NPC's greeting dialogue.")]
     public bool openAfterDialogue;
 
@@ -25,6 +27,17 @@ public sealed class NpcTrader : MonoBehaviour
 
     void OnEnable() { active.Add(this); NameTag.Ensure(gameObject, DialogueData.ResolveName(gameObject)); }
     void OnDisable() => active.Remove(this);
+
+    /// <summary>The shop's offers, or null (logged) when the shop is not in the catalog: then no trade window opens.</summary>
+    public TradeOffer[] Offers
+    {
+        get
+        {
+            var offers = TradeCatalog.Offers(shopId);
+            if (offers == null) Debug.LogWarning("[NpcTrader] " + name + ": shop '" + shopId + "' is not in the TradeCatalog; no trade", this);
+            return offers;
+        }
+    }
 
     public bool IsInRange(Transform player)
     {

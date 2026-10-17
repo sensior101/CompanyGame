@@ -50,13 +50,17 @@ public class InventoryManager : MonoBehaviour
         var items = new System.Collections.Generic.List<ItemData>(Resources.LoadAll<ItemData>("Inventory/Vehicles/CityBicycle"));
         items.AddRange(Resources.LoadAll<ItemData>("Inventory/Vehicles/Cars"));
         items.Sort((a,b) => string.CompareOrdinal(a.itemId,b.itemId));
+        bool granted = false;
         foreach (var item in items)
         {
             bool owned = false;
             for (int i = 0; i < State.Capacity; i++)
                 if (State.GetSlot(i).Item == item) { owned = true; break; }
-            if (!owned && !State.TryAdd(item,1,out string error)) Debug.LogWarning(error);
+            if (owned) continue;
+            if (State.TryAdd(item,1,out string error)) granted = true;
+            else Debug.LogWarning(error);
         }
+        if (granted) InventoryLedgerRules.Trust(State, "grant"); // 12.10.4: trusted until 4d-4
     }
 
     void SaveBooks() => BookSaveService.SaveInventory(state);

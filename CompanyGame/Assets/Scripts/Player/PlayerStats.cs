@@ -47,6 +47,7 @@ public class PlayerStats : MonoBehaviour, IDamageable
             return false;
         }
         if (!inventory.TryRemove(slot, 1, out error)) return false;
+        InventoryLedgerRules.Send(inventory, "p.eat", new SharedOpArgs { a = food.itemId }); // the vitals stay this client's
         health = nextHealth; stamina = nextStamina; stress = nextStress;
         Changed?.Invoke();
         return true;

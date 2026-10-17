@@ -329,6 +329,7 @@ public static partial class EconomySyncQA
         Section("a 30,000-character book");
         var bag = InventoryManager.Instance.State;
         Check(bag.TryAdd(Blank, 1, out _), "a blank book in the bag");
+        InventoryLedgerRules.Trust(bag, "grant"); // 12.10.4: the server keeps the bag; the blank comes in on a trusted path
         int blank = FindBlank(bag);
         var draft = NewBook("삼만 자 책", null, null, 20, 1500, 23);
         draft.isPublished = false;
@@ -369,6 +370,7 @@ public static partial class EconomySyncQA
 
         Section("refused book requests");
         Check(bag.TryAdd(Blank, 1, out _), "another blank");
+        InventoryLedgerRules.Trust(bag, "grant");
         var small = NewBook("권한 책", null, null, 2, 100, 24);
         small.isPublished = false;
         Check(bag.TryPublishBook(FindBlank(bag), small, me, GameSession.LocalPlayerName, out int smallSlot, out _), "the owner writes a short book");
@@ -385,12 +387,17 @@ public static partial class EconomySyncQA
         Check(bag.TrySetBookPermission(smallId, BookEditPermission.AddOnly, me, out _), "the owner sets 추가만 가능");
         await WaitFor(() => books.Find(smallId)?.permission == BookEditPermission.AddOnly, 5, "the permission on the server");
         answer = await FakeBookOp(fake, "book.page", new ServerBooks.Request { id = smallId, page = 0, text = page0 + " 가짜가 덧붙임" });
-        Check(answer.error == "" && books.Find(smallId).pages[0] == page0 + " 가짜가 덧붙임", "추가만 가능: the fake's addition is taken on the server");
+        Check(answer.error == "가지고 있지 않은 책입니다." && books.Find(smallId).pages[0] == page0,
+            "추가만 가능, but the book is not in the fake's bag: its addition is refused (12.10.4; the permission rules are in BookSyncQA.Run)");
         Check(bag.FindBook(smallId).BookData.pages[0] == page0, "and the owner's screen book is not touched by the server's work");
         answer = await FakeBookOp(fake, "book.page", new ServerBooks.Request { id = smallId, page = 0, text = page0.Substring(0, 10) });
         Check(answer.error != "", "a removal is refused: " + answer.error);
         answer = await FakeBookOp(fake, "book.new", new ServerBooks.Request { id = smallId, title = "가로채기" });
         Check(answer.error == "이미 있는 책입니다." && books.Find(smallId).IsAuthor(me), "book.new of an id that exists is refused");
+        var blankBag = new InventoryState();
+        blankBag.TryAdd(Blank, 1, out _);
+        answer = await FakeOp(fake, "p.inv.trust", new SharedOpArgs { a = "grant", b = InventoryLedgerRules.Pack(blankBag) });
+        Check(answer.error == "", "the fake gets a blank (a trusted grant, 12.10.4)");
         answer = await FakeBookOp(fake, "book.new", new ServerBooks.Request { id = "qa-fake-book", title = "가짜의 책" });
         Check(answer.error == "" && books.Find("qa-fake-book").IsAuthor(BookFake) && books.Find("qa-fake-book").authorName == "QA책가짜", "the fake's own new book (author: its account and character name)");
         string fakeText = Text(2000, 25);
@@ -440,6 +447,7 @@ public static partial class EconomySyncQA
         copy.permission = BookEditPermission.ReadOnly; copy.libraryLoanId = "qa-loan"; copy.libraryWorkId = "qa-work";
         string copyId = Guid.NewGuid().ToString("N");
         Check(bag.TryAddBookInstance(Blank, copyId, copy, out _), "a borrowed copy in the owner's bag");
+        InventoryLedgerRules.Trust(bag, "library"); // 12.10.4: LibraryCatalog does this
         await WaitFor(() => SamePages(books.Find(copyId), copy), 5, "the copy on the server");
         var copyOnServer = books.Find(copyId);
         Check(copyOnServer.IsAuthor("acc-other") && copyOnServer.authorName == "다른작가" && copyOnServer.IsLibraryLoan && copyOnServer.permission == BookEditPermission.ReadOnly,
@@ -462,7 +470,7 @@ public static partial class EconomySyncQA
         host = SyncHost.StartInApp(settings, true);
         await WaitFor(() => client.Connected && CharacterSync.Active && WorldStateSync.World, 30, "back on the restarted server");
         books = ServerWorld.Instance.Books;
-        Check(SamePages(books.Find(longId), draft) && books.Find(smallId).pages[0] == page0 + " 가짜가 덧붙임", "after the restart the server's books are the same");
+        Check(SamePages(books.Find(longId), draft) && books.Find(smallId).pages[0] == page0, "after the restart the server's books are the same");
         bag = InventoryManager.Instance.State;
         var again = bag.FindBook(smallId);
         Check(again != null && !again.BookData.bodyLoaded, "the owner's book came back without its pages");
@@ -471,8 +479,8 @@ public static partial class EconomySyncQA
         reader = PlayerSpawner.Player.GetComponent<BookReader>();
         OpenReader(reader, again, bag);
         await WaitFor(() => !Field<bool>(reader, "loading"), 5, "the pages");
-        Check(WorldStateSync.BookFetches == fetches + 1 && Field<BookInstanceData>(reader, "draft").pages[0] == page0 + " 가짜가 덧붙임",
-            "opened, it shows the server's pages (with the fake's addition)");
+        Check(WorldStateSync.BookFetches == fetches + 1 && Field<BookInstanceData>(reader, "draft").pages[0] == page0,
+            "opened, it shows the server's pages (the fake's refused addition is not there)");
         Check(LibraryCatalog.CanPublish(again, me), "with its pages it can be published in the library again");
         Invoke(reader, "ForceClose");
     }
@@ -564,6 +572,7 @@ public static partial class EconomySyncQA
         string me = GameSession.LocalPlayerId;
         var bag = InventoryManager.Instance.State;
         Check(bag.TryAdd(Blank, 1, out _), "a blank book");
+        InventoryLedgerRules.Trust(bag, "grant"); // 12.10.4
         var draft = NewBook("원격 긴 책", null, null, 20, 1500, 31);
         draft.isPublished = false;
         int results = WorldStateSync.Results, requests = WorldStateSync.BookRequests;

@@ -17,6 +17,10 @@ using UnityEngine;
 ///   book.new     an id the server does not have yet; the author is the sender (its character name), unless the
 ///                client says it is a copy of someone else's book (a shop or library copy, decided on the server in 4d-3/4d-5).
 ///                Whoever sent the book.new fills its pages (a read-only or loan copy too), for as long as this server runs
+///   ledger       with the inventory ledger (12.10.4, <see cref="Owned"/>): book.page and book.meta only on a book in the
+///                sender's bag; book.new of a book in the bag takes its details from there (a p.trade or trusted copy),
+///                else it is the sender's own new book and a blank of the bag is written on (<see cref="FromBlank"/>),
+///                and a copy that is not in the bag is refused
 /// Nothing here touches the inventory or the screen of this process (an in-app server's owner plays in it).
 /// </summary>
 public sealed class ServerBooks
@@ -28,6 +32,11 @@ public sealed class ServerBooks
     // ponytail: a count per server run; 4d-3 bounds books by what the inventory ledger holds instead.
     public const int MaxNewPerAccount = 200;
     const int MaxTitle = 80, MaxId = 64, TextChunk = 16000, PartBudget = SyncProtocol.MaxServerBlob - 1024;
+
+    /// <summary>The inventory ledger (ServerLedger): (account, book id) → that book in the account's bag, or null. Without it nothing is checked.</summary>
+    public Func<string, string, BookInstanceData> Owned;
+    /// <summary>The inventory ledger: (account, book id, book) → a blank of the account's bag became that book.</summary>
+    public Func<string, string, BookInstanceData, bool> FromBlank;
 
     /// <summary>A book request (the json of the Op). Unused fields stay empty.</summary>
     [Serializable]
@@ -141,6 +150,7 @@ public sealed class ServerBooks
         store.TryGetValue(q.id, out var book);
         if (kind == "book.new") return New(account, q, book);
         if (book == null) return "책을 찾을 수 없습니다.";
+        if (kind != "book.get" && Owned != null && Owned(account, q.id) == null) return "가지고 있지 않은 책입니다.";
         switch (kind)
         {
             case "book.get":
@@ -157,13 +167,15 @@ public sealed class ServerBooks
 
     string New(string account, Request q, BookInstanceData existing)
     {
-        if (existing != null) return "이미 있는 책입니다.";
+        // A book of my own bag the server has already (a client that lost track of it) changes nothing.
+        if (existing != null) return Owned?.Invoke(account, q.id) != null ? null : "이미 있는 책입니다.";
         if (string.IsNullOrWhiteSpace(q.title) || q.title.Length > MaxTitle) return "제목을 확인해 주세요.";
         if (!Enum.IsDefined(typeof(BookEditPermission), q.permission)) return "권한이 올바르지 않습니다.";
         made.TryGetValue(account, out int count);
         if (count >= MaxNewPerAccount) return "더 이상 새 책을 만들 수 없습니다.";
-        // ponytail: a copy keeps the author the client gave it; 4d-3/4d-5 make shop and library copies on the server.
         bool copy = !string.IsNullOrEmpty(q.authorId) && q.authorId != account;
+        var owned = Owned?.Invoke(account, q.id);
+        if (Owned != null && owned == null && copy) return "가지고 있지 않은 책입니다.";
         var book = new BookInstanceData
         {
             title = q.title, isPublished = true, permission = (BookEditPermission)q.permission,
@@ -171,6 +183,14 @@ public sealed class ServerBooks
             authorName = copy ? q.authorName : server.World.Find(account)?.name ?? "",
             libraryLoanId = string.IsNullOrEmpty(q.loan) ? null : q.loan, libraryWorkId = string.IsNullOrEmpty(q.work) ? null : q.work
         }.Clone();
+        if (owned != null)
+        {
+            // ponytail: a trusted (library) copy's details are the client's until 4d-5; a p.trade copy's are the catalog's.
+            book = owned.Clone();
+            book.bodyLoaded = true;
+            copy = !book.IsAuthor(account);
+        }
+        else if (FromBlank != null && !FromBlank(account, q.id, book)) return "빈 책이 없습니다.";
         store[q.id] = book;
         makers[q.id] = account;
         made[account] = count + 1;
