@@ -327,7 +327,6 @@ public sealed class WorldDroppedItem : MonoBehaviour
         if (!Prepare(owner, out var drop, out error)) return false;
         // Prepare the destination first. A failed removal leaves the actual equipment unchanged.
         if (!drop.contents.TryAdd(source.Item, source.Count, out error)) return false;
-        if (OnServer && !DropState.Fits(DropState.Pack(drop.contents))) { error = TooBig; return false; }
         if (!owner.Inventory.TryRemoveEquipment(slot, out error)) return false;
         if (OnServer) return SyncCommit(drop, DropState.ItemKind, out error) || GiveBack(drop);
         Commit(drop, SceneLoadManager.CurrentMap);
@@ -625,8 +624,6 @@ public sealed class WorldDroppedItem : MonoBehaviour
 
     // ---- sync-layer server (12.8): DropState entities ----
 
-    const string TooBig = "이 아이템은 지금 내려놓을 수 없습니다.";
-
     static bool OnServer => SyncClient.Instance && SyncClient.Instance.Connected;
     static string NetKey(ulong id) => "net:" + id;
 
@@ -643,8 +640,8 @@ public sealed class WorldDroppedItem : MonoBehaviour
     static bool SyncCommit(DropRecord drop, byte kind, out string error)
     {
         error = null;
+        WorldStateSync.UploadBooks(drop.contents); // a book's pages reach the server before the drop that names it (12.10.3)
         byte[] packed = DropState.Pack(drop.contents);
-        if (!DropState.Fits(packed)) { error = TooBig; return false; } // a long book; stage 4d stores books apart
         var go = Instantiate(DropState.Template());
         go.name = "WorldDrop (mine)";
         DontDestroyOnLoad(go);

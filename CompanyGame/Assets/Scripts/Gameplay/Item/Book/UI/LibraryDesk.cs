@@ -65,6 +65,14 @@ public sealed class LibraryDesk : MonoBehaviour
         }
         else if(id=="Publish")
         {
+            // On a server my books may still be without their pages (12.10.3): fetch them first, or nothing can be published.
+            for(int i=0;i<inventory.Inventory.Capacity;i++)
+            {
+                var book=inventory.Inventory.GetSlot(i);
+                if(book.IsUniqueBook && !book.BookData.bodyLoaded && book.BookData.IsAuthor(GameSession.LocalPlayerId))WorldStateSync.FetchBook(book.InstanceId);
+            }
+            for(float until=Time.unscaledTime+5f;WorldStateSync.FetchingBooks && Time.unscaledTime<until;)yield return null;
+            if(!this || !interaction || !dialogue.InRange(interaction.transform))yield break;
             selector=InventoryItemSelector.Open(inventory,stack=>LibraryCatalog.CanPublish(stack,GameSession.LocalPlayerId),
                 SelectedPublication,CancelledPublication,()=>this && dialogue.InRange(interaction.transform));
             if(selector)manager.Present(dialogue,"어떤 책을 출판할까요?",waitForResponse:true);

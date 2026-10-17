@@ -143,7 +143,7 @@ public sealed class CharacterSync : MonoBehaviour
             position = player ? player.transform.position : Vector3.zero,
             yaw = player ? player.transform.eulerAngles.y : 0f,
             personal = PersonalSave.Export(),
-            inventory = InventorySnapshot.Export(InventoryManager.Instance.State)
+            inventory = InventorySnapshot.Export(InventoryManager.Instance.State, false) // book pages stay on the server (12.10.3)
         });
     }
 

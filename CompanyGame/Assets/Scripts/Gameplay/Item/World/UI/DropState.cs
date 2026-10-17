@@ -8,7 +8,8 @@ using UnityEngine;
 /// A dropped item or a placed vehicle on a sync-layer server (Docs/Multiplayer_Redesign.md 12.8). The entity is a hidden
 /// empty object (<see cref="PrefabKey"/>, a runtime template like AvatarSync's); WorldDroppedItem keeps the record and the
 /// visual, keyed by the entity id. State: u8 kind, f32 x y z, f32 yaw, blob contents = gzip(InventorySnapshot.Export of
-/// the drop's one-stack inventory). The whole state must fit in an entity blob (4KB), see <see cref="Fits"/>.
+/// the drop's one-stack inventory). A book goes without its pages (the server keeps them, 12.10.3), so a drop stays far
+/// under the 4KB of an entity blob.
 /// </summary>
 public sealed class DropState : NetBehaviour
 {
@@ -42,15 +43,12 @@ public sealed class DropState : NetBehaviour
         return template;
     }
 
-    public static int SizeOf(byte[] contents) => 1 + 4 * 4 + 2 + contents.Length;
-    public static bool Fits(byte[] contents) => SizeOf(contents) <= SyncProtocol.MaxBlob;
-
     public static byte[] Pack(InventoryState inventory)
     {
         using var stream = new MemoryStream();
         using (var gzip = new GZipStream(stream, System.IO.Compression.CompressionLevel.Optimal, true))
         {
-            byte[] json = Encoding.UTF8.GetBytes(InventorySnapshot.Export(inventory));
+            byte[] json = Encoding.UTF8.GetBytes(InventorySnapshot.Export(inventory, false)); // a book without its pages (12.10.3)
             gzip.Write(json, 0, json.Length);
         }
         return stream.ToArray();

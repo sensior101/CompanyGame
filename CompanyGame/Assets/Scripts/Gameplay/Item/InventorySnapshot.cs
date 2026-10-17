@@ -6,6 +6,8 @@ using UnityEngine;
 /// JSON form of an inventory for the player-state server. Items are keyed by itemId and keep their
 /// instance IDs. Import builds a detached draft first, so a bad snapshot never half-replaces the live inventory.
 /// A stack that cannot be placed (unknown item, duplicate instance) is skipped; the server copy wins over local books.
+/// Book bodies (12.10.3): a sync-layer server keeps the pages apart, so a book exported without them carries only its
+/// title, author, permission and library ids (bodyless), and comes back with BookInstanceData.bodyLoaded false.
 /// </summary>
 public static class InventorySnapshot
 {
@@ -19,6 +21,7 @@ public static class InventorySnapshot
         public int equip = -1; // EquipmentSlot index, -1 = in the bag
         public bool hasBook;
         public BookInstanceData book;
+        public bool bodyless; // the pages were left out (12.10.3)
     }
 
     [Serializable]
@@ -35,12 +38,36 @@ public static class InventorySnapshot
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     static void ResetCatalog() { catalog = null; }
 
-    public static string Export(InventoryState inventory)
+    /// <summary><paramref name="bodies"/> false leaves the pages of every book with an identity out (a server's character and drops).</summary>
+    public static string Export(InventoryState inventory, bool bodies = true)
     {
         var data = new Data { capacity = inventory.Capacity, selected = inventory.SelectedHotbarIndex };
-        for (int i = 0; i < inventory.Capacity; i++) Add(data, inventory.GetSlot(i), i, -1);
-        for (int e = 0; e < 6; e++) Add(data, inventory.GetEquipment((EquipmentSlot)e), 0, e);
+        for (int i = 0; i < inventory.Capacity; i++) Add(data, inventory.GetSlot(i), i, -1, bodies);
+        for (int e = 0; e < 6; e++) Add(data, inventory.GetEquipment((EquipmentSlot)e), 0, e, bodies);
         return JsonUtility.ToJson(data);
+    }
+
+    /// <summary>
+    /// The snapshot <paramref name="json"/> without book pages (the server's save filter and the move of older saves,
+    /// 12.10.3): each book that still has its pages is handed to <paramref name="body"/> (instance id, the book) first.
+    /// The same string when nothing was left out or it is unreadable.
+    /// </summary>
+    public static string StripBodies(string json, Action<string, BookInstanceData> body)
+    {
+        Data data;
+        try { data = string.IsNullOrEmpty(json) ? null : JsonUtility.FromJson<Data>(json); }
+        catch (Exception) { return json; }
+        if (data?.items == null) return json;
+        bool changed = false;
+        foreach (var entry in data.items)
+        {
+            if (!entry.hasBook || entry.book == null || entry.bodyless || string.IsNullOrEmpty(entry.instanceId)) continue;
+            var book = entry.book.Clone();
+            if (book.HasContent) body?.Invoke(entry.instanceId, book);
+            entry.book.pages = Array.Empty<string>();
+            entry.bodyless = changed = true;
+        }
+        return changed ? JsonUtility.ToJson(data) : json;
     }
 
     public static bool Import(InventoryState inventory, string json)
@@ -62,13 +89,16 @@ public static class InventorySnapshot
         return true;
     }
 
-    static void Add(Data data, ItemStack stack, int slot, int equip)
+    static void Add(Data data, ItemStack stack, int slot, int equip, bool bodies)
     {
         if (stack == null || stack.IsEmpty) return;
+        var book = stack.BookData?.Clone();
+        bool bodyless = book != null && !string.IsNullOrEmpty(stack.InstanceId) && (!bodies || !book.bodyLoaded);
+        if (bodyless) book.pages = Array.Empty<string>();
         data.items.Add(new Entry
         {
             itemId = stack.Item.itemId, count = stack.Count, instanceId = stack.InstanceId,
-            slot = slot, equip = equip, hasBook = stack.BookData != null, book = stack.BookData?.Clone()
+            slot = slot, equip = equip, hasBook = book != null, book = book, bodyless = bodyless
         });
     }
 
@@ -96,7 +126,9 @@ public static class InventorySnapshot
     {
         var item = Find(entry.itemId);
         if (!item || entry.count <= 0) return null;
-        return new ItemStack(item, entry.count, entry.instanceId) { BookData = entry.hasBook ? entry.book?.Clone() : null };
+        var book = entry.hasBook ? entry.book?.Clone() : null;
+        if (book != null) book.bodyLoaded = !entry.bodyless;
+        return new ItemStack(item, entry.count, entry.instanceId) { BookData = book };
     }
 
     public static ItemData Find(string itemId)

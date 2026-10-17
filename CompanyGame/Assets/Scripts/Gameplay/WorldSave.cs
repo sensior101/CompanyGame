@@ -22,6 +22,15 @@ public sealed class WorldSaveData
     public ReportServiceState reports;
     public SnsFeedState sns;
     public List<PlacedVehicleSave> vehicles;
+    /// <summary>Book bodies by instance id: a sync-layer server's world only (ServerBooks, 12.10.3). A PC world leaves it empty.</summary>
+    public List<BookSave> books;
+}
+
+[Serializable]
+public sealed class BookSave
+{
+    public string id;
+    public BookInstanceData book;
 }
 
 /// <summary>A vehicle standing in the world (WorldDroppedItem). rider = room member driving it.</summary>

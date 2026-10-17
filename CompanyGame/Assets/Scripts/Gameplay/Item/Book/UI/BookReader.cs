@@ -2,7 +2,12 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
-/// <summary>One shared book editor on the persistent player, bound to the selected physical book.</summary>
+/// <summary>
+/// One shared book editor on the persistent player, bound to the selected physical book. On a sync-layer server a book
+/// without its pages is fetched when it is opened ("불러오는 중…", read-only until they are here, 12.10.3); what is
+/// written goes to the server with WorldStateSync. A page takes at most BookInstanceData.MaxPageChars characters (a
+/// longer page written before stays as it is).
+/// </summary>
 [DefaultExecutionOrder(-340)]
 [DisallowMultipleComponent]
 public sealed class BookReader : MonoBehaviour
@@ -19,6 +24,7 @@ public sealed class BookReader : MonoBehaviour
     int sourceSlot;
     bool ownsControls;
     bool titlePromptOpen, permissionsOpen;
+    bool loading; // the pages are on their way from the server
     static int dismissedFrame = -1;
     public static bool BlocksInventoryInput => IsAnyOpen || dismissedFrame == Time.frameCount;
     GameObject canvasRoot, titleModal, permissionsModal;
@@ -48,6 +54,7 @@ public sealed class BookReader : MonoBehaviour
         if (IsAnyOpen)
         {
             if (SceneLoadManager.IsLoading || (current != null && current.IsUniqueBook && playerInventory.Inventory.FindBook(current.InstanceId) == null)) { ForceClose(); return; }
+            if (loading && !WorldStateSync.BookLoading(current.InstanceId)) Loaded();
             if (permissionsOpen)
             {
                 if (GameInput.CancelPressed || !playerInventory.IsOpen) ForceClose();
@@ -79,7 +86,8 @@ public sealed class BookReader : MonoBehaviour
         if (!canvasRoot) Build();
         current = stack; sourceSlot = slot;
         draft = stack.BookData?.Clone() ?? new BookInstanceData().Clone();
-        editSession = draft.isPublished ? playerInventory.Inventory.BeginBookEdit(stack.InstanceId, GameSession.LocalPlayerId) : null;
+        loading = !draft.bodyLoaded && WorldStateSync.FetchBook(stack.InstanceId);
+        editSession = draft.isPublished && !loading ? playerInventory.Inventory.BeginBookEdit(stack.InstanceId, GameSession.LocalPlayerId) : null;
         writerId = writerName = null;
         pageStart = 0;
         PlayerInventory.ConsumeSpaceThisFrame();
@@ -91,6 +99,19 @@ public sealed class BookReader : MonoBehaviour
         titleModal.SetActive(false); permissionsModal.SetActive(false);
         Refresh();
         StartCoroutine(FocusPageNextFrame(0, 0));
+    }
+
+    // The fetch was answered: the book is shown again from my inventory (with its pages, or still without them).
+    void Loaded()
+    {
+        loading = false;
+        var stack = playerInventory.Inventory.FindBook(current.InstanceId);
+        if (stack == null) { ForceClose(); return; }
+        current = stack;
+        draft = stack.BookData.Clone();
+        editSession = draft.isPublished ? playerInventory.Inventory.BeginBookEdit(stack.InstanceId, GameSession.LocalPlayerId) : null;
+        Refresh();
+        StartCoroutine(FocusPageNextFrame(pageStart, 0));
     }
 
     void RequestClose()
@@ -131,6 +152,8 @@ public sealed class BookReader : MonoBehaviour
         if (!IsAnyOpen) return;
         if (EventSystem.current) EventSystem.current.SetSelectedGameObject(null);
         IsAnyOpen = false; titlePromptOpen = permissionsOpen = false;
+        if (current != null && !loading) WorldStateSync.FlushBooks(); // what was written goes to the server now
+        loading = false;
         dismissedFrame = Time.frameCount;
         if (canvasRoot) canvasRoot.SetActive(false);
         current = null; draft = null; editSession = null;
@@ -263,6 +286,9 @@ public sealed class BookReader : MonoBehaviour
         authorLabel.text = "저자 : " + draft.authorName;
         if (!cover)
         {
+            // A longer page written before keeps its length; nothing grows past the limit (12.10.3).
+            leftInput.characterLimit = BookInstanceData.PageLimit(draft.pages[pageStart]);
+            rightInput.characterLimit = BookInstanceData.PageLimit(draft.pages[pageStart + 1]);
             leftInput.SetTextWithoutNotify(draft.pages[pageStart] ?? "");
             rightInput.SetTextWithoutNotify(draft.pages[pageStart + 1] ?? "");
         }
@@ -283,11 +309,16 @@ public sealed class BookReader : MonoBehaviour
                 hint.text = "작성한 책을 분리할 인벤토리 한 칸을 비워 주세요.";
             }
         }
+        if (loading || !draft.bodyLoaded)
+        {
+            leftInput.readOnly = rightInput.readOnly = titleInput.readOnly = true;
+            hint.text = loading ? "불러오는 중…" : "책 내용을 불러오지 못했습니다. 다시 펼쳐 주세요.";
+        }
     }
 
     void SaveTitle(string value)
     {
-        if (draft == null || !draft.isPublished || !draft.CanRename(GameSession.LocalPlayerId)) return;
+        if (draft == null || !draft.isPublished || !draft.bodyLoaded || loading || !draft.CanRename(GameSession.LocalPlayerId)) return;
         var revision = draft.Clone(); revision.title = value.Trim();
         if (playerInventory.Inventory.TryUpdateBook(current.InstanceId, revision, GameSession.LocalPlayerId, out _, editSession))
             draft = playerInventory.Inventory.FindBook(current.InstanceId).BookData.Clone();
@@ -320,6 +351,13 @@ public sealed class BookReader : MonoBehaviour
             if (focusPage == i && caret >= fits) { focusPage++; caret -= fits; }
             flowed = true;
         }
+        for (int i = page; i < BookInstanceData.PageCount; i++)
+            if ((revision.pages[i] ?? "").Length > BookInstanceData.PageLimit(draft.pages[i]))
+            {
+                input.SetTextWithoutNotify(draft.pages[page]);
+                hint.text = "한 쪽에는 " + BookInstanceData.MaxPageChars.ToString("N0") + "자까지 쓸 수 있습니다.";
+                return;
+            }
         if (draft.isPublished)
         {
             if (playerInventory.Inventory.TryUpdateBook(current.InstanceId, revision, GameSession.LocalPlayerId, out _, editSession))

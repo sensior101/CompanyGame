@@ -72,7 +72,7 @@ public static partial class EconomySyncQA
     static async void Drive(string mode)
     {
         int original = PlayerPrefs.GetInt("Profile.Slot", 1), code = 0;
-        tag = mode.StartsWith("ledger", StringComparison.Ordinal) ? "LedgerQA" : "EconomySyncQA";
+        tag = mode.StartsWith("ledger", StringComparison.Ordinal) ? "LedgerQA" : mode.StartsWith("book", StringComparison.Ordinal) ? "BookSyncQA" : "EconomySyncQA";
         Begin();
         try
         {
@@ -80,6 +80,8 @@ public static partial class EconomySyncQA
             if (mode == "play") await PlayBody();
             else if (mode == "ledger-play") await LedgerPlayBody();
             else if (mode == "ledger-process") await LedgerProcessBody(exe);
+            else if (mode == "book-play") await BookPlayBody();
+            else if (mode == "book-process") await BookProcessBody(exe);
             else await ProcessBody(exe);
             Report("RESULT " + mode + " passed");
         }

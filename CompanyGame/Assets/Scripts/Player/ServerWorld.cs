@@ -17,9 +17,10 @@ using UnityEngine;
 ///   Op     a client's request (event 1) is applied with WorldOps.Apply as the account of its connection; the changed
 ///          sections go out first, then OpResult (event 2) to the requester. veh.* and unknown kinds are refused.
 ///          Personal requests (p.*, 12.10.1) and the payment of land.buy go to the <see cref="Ledger"/>, which answers
-///          the requester with a Ledger (event 3) before the OpResult
+///          the requester with a Ledger (event 3) before the OpResult. Book requests (book.*, 12.10.3) go to the
+///          <see cref="Books"/> (book.get answers with BookText, event 4); they change no section, so none is sent for them
 ///   stop   an in-app server puts this PC's own world back (world.json, else the fresh world)
-/// The full state is saved in world.dat through GameServer.WorldStateProvider; clients get only the newest
+/// The full state (with the book bodies, WorldSaveData.books) is saved in world.dat through GameServer.WorldStateProvider; clients get only the newest
 /// <see cref="Recent"/> reports and SNS posts. A section over 60KB gzipped is not sent (logged).
 /// </summary>
 public sealed class ServerWorld : MonoBehaviour
@@ -37,6 +38,8 @@ public sealed class ServerWorld : MonoBehaviour
 
     /// <summary>The personal ledger of this server's characters (12.10.1).</summary>
     public ServerLedger Ledger { get; private set; }
+    /// <summary>The book bodies of this server's world (12.10.3).</summary>
+    public ServerBooks Books { get; private set; }
 
     SyncHost host;
     GameServer server;
@@ -93,10 +96,16 @@ public sealed class ServerWorld : MonoBehaviour
             clock.SetNow(GameTime.FromTotalMinutes((long)Math.Floor(world.WorldMinutes)));
         }
         NightActivity.Enabled = syncHost.InApp; // a server process has no character of its own
-        server.WorldStateProvider = () => Encode(WorldSave.ToJson(WorldSave.CaptureShared()));
+        server.WorldStateProvider = () =>
+        {
+            var state = WorldSave.CaptureShared();
+            state.books = Books?.Capture();
+            return Encode(WorldSave.ToJson(state));
+        };
         server.ServerEvent += OnServerEvent;
         EntityId = server.SpawnServerEntity(PrefabKey, SyncProtocol.AllMaps, EntityFlags.None, new byte[SectionCount][]);
-        Ledger = new ServerLedger(server, EntityId);
+        Books = new ServerBooks(server, EntityId, saved?.books);
+        Ledger = new ServerLedger(server, EntityId, Books);
         SendSections();
         Debug.Log("[ServerWorld] world " + world.Id + ": " + (saved != null ? "shared economy restored" : "new shared economy") + ", clock " + GameClock.Current?.Now
                   + ", night " + world.NightSkipStart + "-" + world.NightSkipEnd);
@@ -107,6 +116,7 @@ public sealed class ServerWorld : MonoBehaviour
         if (server != null) { server.ServerEvent -= OnServerEvent; server.WorldStateProvider = null; }
         Ledger?.End();
         Ledger = null;
+        Books = null;
         server = null; host = null;
         if (GameClock.Current is SimpleGameClock clock) clock.Paused = false;
         GameTime.ResetNightSkip();
@@ -130,7 +140,7 @@ public sealed class ServerWorld : MonoBehaviour
             for (int i = 0; i < MaxStepsPerFrame && clock.Now.TotalMinutes < target; i++) clock.AdvanceMinutes(1);
         }
         if (target != lastClockMinute) SendClock(target);
-        if (Time.unscaledTime >= nextSendAt) SendSections();
+        if (Time.unscaledTime >= nextSendAt) { SendSections(); Books?.DropGoneParts(); }
     }
 
     void SendClock(long minute)
@@ -184,8 +194,8 @@ public sealed class ServerWorld : MonoBehaviour
         string from = server.AccountOf(sender);
         if (string.IsNullOrEmpty(from) || server.World.Find(from) == null) return; // no character, no say in the world
         string error;
-        bool personal = ServerLedger.Kinds.Contains(kind);
-        if (!personal && !Allowed.Contains(kind))
+        bool personal = ServerLedger.Kinds.Contains(kind), book = ServerBooks.Kinds.Contains(kind);
+        if (!personal && !book && !Allowed.Contains(kind))
         {
             Refused.Add(kind);
             Debug.LogWarning("[ServerWorld] refused request '" + kind + "' from " + from);
@@ -197,12 +207,13 @@ public sealed class ServerWorld : MonoBehaviour
             try
             {
                 error = personal ? Ledger.Apply(sender, from, kind, json)
+                    : book ? Books.Apply(sender, from, kind, json)
                     : kind == "land.buy" ? Ledger.BuyLand(from, json)
                     : WorldOps.Apply(0, from, kind, kind == "sns.post" ? WithAuthorName(json, from) : json);
             }
             catch (Exception e) { Debug.LogWarning("[ServerWorld] request '" + kind + "' failed: " + e.Message); error = "요청을 처리하지 못했습니다."; }
         }
-        SendSections(); // the change first, then the answer (one TCP stream keeps the order)
+        if (!book) SendSections(); // the change first, then the answer (one TCP stream keeps the order)
         if (ServerLedger.Counts(kind)) Ledger.Answered(sender, from); // the requester's own book, before its answer
         server.SendServerEvent(EntityId, 0, WorldSection.OpResultEvent, sender, Bytes(w =>
         {

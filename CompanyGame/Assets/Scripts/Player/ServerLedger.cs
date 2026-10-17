@@ -9,7 +9,8 @@ using UnityEngine;
 ///            baseline, PersonalSave.BaselinePersonal); every change is written back into the content at once (map,
 ///            position and inventory stay), so each world.dat save has it
 ///   save     GameServer.CharacterSaveFilter puts the book in place of the personal part a client uploads; unreadable
-///            content is dropped and the saved one kept
+///            content is dropped and the saved one kept. Book pages never stay in the content (12.10.3): ServerBooks
+///            keeps them (and takes those of a book it does not have yet)
 ///   p.*      personal requests (Op event 1) are decided on the book with the server's prices; land.buy is paid here
 ///   answer   Ledger (event 3, to the requester only, before its OpResult): u32 personal requests done on that
 ///            connection, i64 bank money, server blob = gzip(portfolio JSON)
@@ -36,6 +37,7 @@ public sealed class ServerLedger
 
     readonly GameServer server;
     readonly ulong entity;
+    readonly ServerBooks bodies;
     readonly Dictionary<string, PersonalSaveData> books = new Dictionary<string, PersonalSaveData>();
     readonly Dictionary<uint, uint> done = new Dictionary<uint, uint>(); // per connection: its numbers are never reused
     readonly Dictionary<uint, NightActivityKind> nights = new Dictionary<uint, NightActivityKind>();
@@ -43,10 +45,11 @@ public sealed class ServerLedger
     /// <summary>Ledgers sent, for QA.</summary>
     public int Sent { get; private set; }
 
-    public ServerLedger(GameServer server, ulong entity)
+    public ServerLedger(GameServer server, ulong entity, ServerBooks bodies)
     {
         this.server = server;
         this.entity = entity;
+        this.bodies = bodies;
         server.CharacterSaveFilter = Filter;
         GameClock.NightSkipped += OnNight;
     }
@@ -88,6 +91,7 @@ public sealed class ServerLedger
         if (character == null) return;
         if (!CharacterSync.Read(character.content, out var saved)) saved = new CharacterSync.Saved { inventory = PersonalSave.BaselineInventory };
         saved.personal = JsonUtility.ToJson(Book(account));
+        saved.inventory = bodies.Strip(saved.inventory);
         character.content = CharacterSync.Encode(saved);
     }
 
@@ -99,6 +103,7 @@ public sealed class ServerLedger
             return null;
         }
         saved.personal = JsonUtility.ToJson(Book(account)); // the client's money and stocks are never kept
+        saved.inventory = bodies.Strip(saved.inventory); // nor book pages: the world's books keep them
         return CharacterSync.Encode(saved);
     }
 
