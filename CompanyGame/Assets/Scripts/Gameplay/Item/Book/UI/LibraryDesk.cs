@@ -2,7 +2,12 @@ using System;
 using System.Collections;
 using UnityEngine;
 
-/// <summary>NPC dialogue supplies catalogue offers to the shared trading and item-selection flows.</summary>
+/// <summary>
+/// NPC dialogue supplies catalogue offers to the shared trading and item-selection flows. On a sync-layer server the
+/// library is the server's (12.10.6): a return, a publication and a withdrawal are told when the server answers (the late
+/// fee and the publication fee as the mirror reckoned them, the royalty as the server's Ledger paid it), and a refused
+/// library request is told with the server's words.
+/// </summary>
 [RequireComponent(typeof(DialogueData))]
 public sealed class LibraryDesk : MonoBehaviour
 {
@@ -13,6 +18,7 @@ public sealed class LibraryDesk : MonoBehaviour
     DialogueData dialogue;
     DialogueManager manager;
     InventoryItemSelector selector;
+    string waitingKind, waitingText, waitingTitle; // my request on a server whose notice waits for the answer
     public static DialogueOption[] CreateOptions() => new[]
     {
         new DialogueOption("Buy", "책을 구매한다"),
@@ -39,6 +45,7 @@ public sealed class LibraryDesk : MonoBehaviour
         }
         DialogueManager.EnsureInstance();manager=DialogueManager.Instance;
         manager.OptionSelected+=OnOption;
+        WorldStateSync.Answered+=OnAnswered;
         // Rebind runtime conditions after scene loading; delegates are not serialized.
         dialogue.options=CreateOptions();
     }
@@ -101,6 +108,7 @@ public sealed class LibraryDesk : MonoBehaviour
         selection.Close();selector=null;
         string message=returned?KoreanText.Subject(title)+" 반납되었습니다. 감사합니다.":error;
         if(returned && days>0)message+="\n"+days+"일 연체되었습니다. 연체비는 총 "+fee.ToString("N0")+"원입니다.";
+        if(returned && Await("p.lib.return",message))return;
         manager.PresentNotice(dialogue,message);
     }
     void CancelledReturn()
@@ -113,11 +121,9 @@ public sealed class LibraryDesk : MonoBehaviour
         if(!selector || selector.SelectedItem==null)return;
         bool ok=LibraryCatalog.PublishBook(GameSession.LocalPlayerId,selector.Handoff,BankManager.Instance,out var error);
         selector.Close();selector=null;
-        if(ok)
-        {
-            manager.PresentNotice(dialogue,"출판이 완료되었습니다. 많은 독자분들이 읽어주셨으면 좋겠네요!");
-        }
-        else manager.PresentNotice(dialogue,error);
+        const string done="출판이 완료되었습니다. 많은 독자분들이 읽어주셨으면 좋겠네요!";
+        if(ok && Await("p.lib.publish",done))return;
+        manager.PresentNotice(dialogue,ok?done:error);
     }
     void CancelledPublication()
     {
@@ -126,7 +132,31 @@ public sealed class LibraryDesk : MonoBehaviour
     }
     void Withdrawn(string title,long royalty)
     {
-        manager.Present(dialogue,KoreanText.Subject(title)+" 회수되었습니다. 지금까지 누적된 "+royalty.ToString("N0")+"원을 받아주세요.");
+        if(SharedWriteGate.OnServer){waitingKind="p.lib.withdraw";waitingTitle=title;return;} // the royalty the server paid comes with its answer
+        manager.Present(dialogue,WithdrawnText(title,royalty));
+    }
+    static string WithdrawnText(string title,long royalty)=>KoreanText.Subject(title)+" 회수되었습니다. 지금까지 누적된 "+royalty.ToString("N0")+"원을 받아주세요.";
+    // On a server the notice waits for the answer to my request. False off a server (told now).
+    bool Await(string kind,string text)
+    {
+        if(!SharedWriteGate.OnServer)return false;
+        waitingKind=kind;waitingText=text;
+        return true;
+    }
+    void OnAnswered(string kind,string json,string error)
+    {
+        if(!this || !manager || kind==null || !kind.StartsWith("p.lib.",StringComparison.Ordinal))return;
+        if(!string.IsNullOrEmpty(error))
+        {
+            // Refused: my bag and bank come back with the server's Ledger; its words are told here.
+            waitingKind=null;
+            manager.PresentNotice(dialogue,error);
+            return;
+        }
+        if(kind!=waitingKind)return;
+        waitingKind=null;
+        if(kind=="p.lib.withdraw")manager.Present(dialogue,WithdrawnText(waitingTitle,WorldStateSync.LastLedgerBankChange));
+        else manager.PresentNotice(dialogue,waitingText);
     }
     void Borrowed(string title)
     {
@@ -135,6 +165,7 @@ public sealed class LibraryDesk : MonoBehaviour
     }
     void OnDestroy()
     {
+        WorldStateSync.Answered-=OnAnswered;
         if(selector)selector.Cancel();
         if(!manager)return;
         manager.OptionSelected-=OnOption;

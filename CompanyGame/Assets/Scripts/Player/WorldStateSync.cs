@@ -5,14 +5,14 @@ using UnityEngine;
 
 /// <summary>
 /// Client side of the shared economy on a sync-layer server (Docs/Multiplayer_Redesign.md 12.9). Registers the Net/World
-/// template (eight WorldSections). On another process's server this PC turns Client (GameSession.RemoteServer while it
+/// template (nine WorldSections). On another process's server this PC turns Client (GameSession.RemoteServer while it
 /// lasts): the clock and sections from the server are applied to the managers, and leaving puts this PC's own world back.
 /// The owner of an in-app server keeps Host (its managers are the server's) and only reads the names.
 /// Requests: the gate (SharedWriteGate.ServerSender) sends Op events to the server; OpResult shows the same words as the
 /// old room and refunds a lost land purchase. veh.* never goes to a server. A clock that passed a skipped night applies
 /// the night activity once per night. While connected, this PC's world.json is neither read nor written.
 /// Personal requests (12.10.1): a money change this client already made (stock trade, shop, fine, land payment, the
-/// trusted p.bank) goes out with SharedWriteGate.SendPersonal and is counted. The server answers with its Ledger; once
+/// library's) goes out with SharedWriteGate.SendPersonal and is counted. The server answers with its Ledger; once
 /// every counted request is answered (and after the OpResult that comes with it, so a lost land purchase refunds
 /// first), a ledger that differs is written over the screen managers without any money message.
 /// Books (12.10.3): the server keeps the pages. A book this client writes or gets (published, edited, a shop or library
@@ -21,12 +21,13 @@ using UnityEngine;
 /// drop) is fetched with book.get when it is opened (FetchBook): BookText parts, then the OpResult puts them in.
 /// Inventory (12.10.4): the server keeps what my bag holds, this client where. A change I made goes out as its intent at
 /// once (p.trade, p.cash.*, p.eat, p.bag from where it is made; book.new here); at most a second after the bag changed its
-/// whole layout follows (p.inv.layout), or p.inv.trust when a path the server does not decide yet asked for it
-/// (InventoryLedgerRules.Trust). Nothing goes while a trade cursor holds items outside the bag. A Ledger's bag is compared
+/// whole layout follows (p.inv.layout). Nothing goes while a trade cursor holds items outside the bag. A Ledger's bag is compared
 /// only when every counted request is answered and no layout of mine is still to go, and written over the bag only when
 /// its contents differ (InventoryLedgerRules.SameContents). A new character takes its first Ledger's bag as its start.
 /// The world's items (12.10.5): drops, placed vehicles, pickups and dismantling are requests too (WorldDroppedItem), counted
 /// like the others; <see cref="Answered"/> tells their sender the answer.
+/// The library (12.10.6): the server's library section is the mirror LibraryCatalog shows (also on the in-app server's
+/// owner, whose LibraryCatalog is not the server's library); the days of the library pass on the server.
 /// </summary>
 public sealed class WorldStateSync : MonoBehaviour
 {
@@ -41,6 +42,8 @@ public sealed class WorldStateSync : MonoBehaviour
     static uint sentPersonal;
     static bool toldNight;
     static LedgerState held;
+    static long lastLedgerBank;
+    static bool hadLedger;
 
     sealed class LedgerState { public uint done; public long bank; public string portfolio, inventory; }
 
@@ -50,7 +53,6 @@ public sealed class WorldStateSync : MonoBehaviour
     static readonly HashSet<string> fetching = new HashSet<string>(), unreadable = new HashSet<string>();
     static InventoryState watched;
     static bool booksDirty, layoutDirty, started, awaitingStart;
-    static string trustReason;
     static float nextBookScan;
 
     /// <summary>The last request answer shown (Korean, as in the chat), for QA.</summary>
@@ -61,11 +63,13 @@ public sealed class WorldStateSync : MonoBehaviour
     /// <summary>Ledgers received, and the times one was written over the screen managers (they differed), for QA.</summary>
     public static int Ledgers { get; private set; }
     public static int Overwrites { get; private set; }
-    /// <summary>Overwrites that changed the bag, layouts (p.inv.layout and p.inv.trust) sent, for QA (12.10.4).</summary>
+    /// <summary>Overwrites that changed the bag, layouts (p.inv.layout) sent, for QA (12.10.4).</summary>
     public static int InventoryOverwrites { get; private set; }
     public static int LayoutsSent { get; private set; }
     /// <summary>QA only: received sections wait (the last of each) until this is false again.</summary>
     public static bool HoldSections { get; set; }
+    /// <summary>The bank change between the last two Ledgers: what the request answered last did to my bank (a royalty withdrawn, 12.10.6).</summary>
+    public static long LastLedgerBankChange { get; private set; }
     /// <summary>book.get sent, book requests sent, and the last refused book request (12.10.3), for QA.</summary>
     public static int BookFetches { get; private set; }
     public static int BookRequests { get; private set; }
@@ -82,14 +86,13 @@ public sealed class WorldStateSync : MonoBehaviour
     {
         names.Clear(); pending.Clear(); Array.Clear(heldSections, 0, heldSections.Length);
         world = null; remote = false; lastClock = -1; HoldSections = false; LastMessage = null; Results = NightsApplied = Ledgers = Overwrites = InventoryOverwrites = LayoutsSent = 0;
-        sentPersonal = 0; toldNight = false; held = null;
+        sentPersonal = 0; toldNight = false; held = null; hadLedger = false; LastLedgerBankChange = 0;
         ClearBooks(); BookFetches = BookRequests = 0; LastBookError = null; watched = null;
         var fallback = SyncClient.PrefabFactory; // reset at SubsystemRegistration, before this
         SyncClient.PrefabFactory = key => key == ServerWorld.PrefabKey ? Template() : fallback?.Invoke(key);
         SharedWriteGate.ServerCheck = () => SyncClient.Instance && SyncClient.Instance.Connected && SyncClient.Instance.HasCharacter;
         SharedWriteGate.ServerSender = SendOp;
         SharedWriteGate.PersonalSender = (kind, json) => SendOp(kind, json);
-        InventoryLedgerRules.TrustSender = reason => trustReason ??= reason;
         SharedWriteGate.ServerNameResolver = NameOf;
         WorldSaveRunner.WorldOnServer = () => SyncHost.Instance || SyncClient.Instance && SyncClient.Instance.Connected;
         NightActivity.ChangeVitals = (energy, stress) =>
@@ -121,8 +124,9 @@ public sealed class WorldStateSync : MonoBehaviour
     {
         names.Clear(); pending.Clear(); Array.Clear(heldSections, 0, heldSections.Length);
         lastClock = -1;
-        sentPersonal = 0; toldNight = false; held = null; // the server counts per connection
+        sentPersonal = 0; toldNight = false; held = null; hadLedger = false; // the server counts per connection
         ClearBooks();
+        if (!connected) LibraryCatalog.ApplyMirror(null); // off the server: this PC's own library again
         if (connected)
         {
             remote = !SyncHost.Instance; // my own in-app server computes on these managers: they stay Host
@@ -164,16 +168,18 @@ public sealed class WorldStateSync : MonoBehaviour
             catch (Exception e) { Debug.LogWarning("[WorldStateSync] unreadable names: " + e.Message); }
             return;
         }
-        if (GameSession.IsAuthority) return; // an in-app server's owner: the managers are the server's already
+        // An in-app server's owner: the managers are the server's already. Not its library: LibraryCatalog is this PC's (12.10.6).
+        if (GameSession.IsAuthority && section.index != ServerWorld.LibrarySection) return;
         if (HoldSections) { heldSections[section.index] = section.Blob; return; }
         Apply(section.index, section.Blob);
     }
 
     static void Apply(int index, byte[] blob)
     {
-        if (GameSession.IsAuthority) return;
         try
         {
+            if (index == ServerWorld.LibrarySection) { LibraryCatalog.ApplyMirror(ServerWorld.DecodeJson(blob)); return; }
+            if (GameSession.IsAuthority) return;
             if (index == ServerWorld.ClockSection) ApplyClock(blob);
             else if (index >= ServerWorld.FirstShared) WorldSave.ApplySection(index - ServerWorld.FirstShared, ServerWorld.DecodeJson(blob));
         }
@@ -196,7 +202,6 @@ public sealed class WorldStateSync : MonoBehaviour
                 long end = day * Day + skipEnd * GameTime.MinutesPerHour; // where the clock lands after that night
                 if (end > before && end <= now) { NightsApplied++; NightActivity.Apply(NightActivity.Selected); }
             }
-        if (now / Day != before / Day) LibraryCatalog.AdvanceTo((int)(now / Day)); // this PC keeps its library (12.9)
     }
 
     // ---- requests ----
@@ -231,7 +236,7 @@ public sealed class WorldStateSync : MonoBehaviour
         try { Answered?.Invoke(kind, json, error); }
         catch (Exception e) { Debug.LogException(e); }
         if (ServerBooks.Kinds.Contains(kind)) { BookAnswered(kind, json, error); ApplyLedger(); return; } // no chat line for books
-        if (kind == "p.inv.layout" || kind == "p.inv.trust") { ApplyLedger(); return; } // nor layouts: a refused one is put back by its Ledger
+        if (kind == "p.inv.layout") { ApplyLedger(); return; } // nor layouts: a refused one is put back by its Ledger
         string text;
         if (string.IsNullOrEmpty(error))
         {
@@ -259,6 +264,9 @@ public sealed class WorldStateSync : MonoBehaviour
         ledger.portfolio = ServerWorld.DecodeJson(SyncProtocol.ReadServerBlob(r));
         if (r.BaseStream.Position < r.BaseStream.Length) ledger.inventory = ServerWorld.DecodeJson(SyncProtocol.ReadServerBlob(r));
         Ledgers++;
+        LastLedgerBankChange = hadLedger ? ledger.bank - lastLedgerBank : 0;
+        lastLedgerBank = ledger.bank;
+        hadLedger = true;
         held = ledger; // the newest wins
         if (pending.Count == 0) ApplyLedger(); // nothing to answer first (a night)
     }
@@ -293,7 +301,7 @@ public sealed class WorldStateSync : MonoBehaviour
     static bool BagDiffers(string inventory, out InventoryState bag)
     {
         bag = null;
-        if (inventory == null || !CharacterSync.Active || layoutDirty || trustReason != null) return false;
+        if (inventory == null || !CharacterSync.Active || layoutDirty) return false;
         bag = InventoryManager.Instance.State;
         if (TradeSession.Holding(bag)) return false;
         var server = new InventoryState();
@@ -314,7 +322,6 @@ public sealed class WorldStateSync : MonoBehaviour
         serverBooks.Clear(); incomingBooks.Clear(); fetching.Clear(); unreadable.Clear();
         booksDirty = layoutDirty = true;
         started = awaitingStart = false;
-        trustReason = null;
     }
 
     /// <summary>True while the body of book <paramref name="id"/> is on its way.</summary>
@@ -360,7 +367,7 @@ public sealed class WorldStateSync : MonoBehaviour
         var bag = InventoryManager.Instance ? InventoryManager.Instance.State : null;
         var book = bag?.FindBook(id)?.BookData;
         if (book == null) return;
-        // The server's copy decides who may write it; the library ids stay this client's (the library is on this PC until 4d-5).
+        // The server's copy decides who may write it; the library ids stay as the bag has them (the ledger's, 12.10.6).
         Array.Copy(body.pages, book.pages, BookInstanceData.PageCount);
         book.title = body.title; book.authorPlayerId = body.authorPlayerId; book.authorName = body.authorName; book.permission = body.permission;
         book.bodyLoaded = true;
@@ -379,15 +386,14 @@ public sealed class WorldStateSync : MonoBehaviour
             bag.Changed += MarkBooks;
             booksDirty = layoutDirty = true;
         }
-        if ((booksDirty || layoutDirty || trustReason != null) && Time.unscaledTime >= nextBookScan) FlushBooks();
+        if ((booksDirty || layoutDirty) && Time.unscaledTime >= nextBookScan) FlushBooks();
     }
 
     static void MarkBooks() => booksDirty = layoutDirty = true;
 
     /// <summary>
-    /// Sends what changed in my inventory now (also BookReader on closing): a trusted layout first (a copy it brings must
-    /// be in the ledger before its book.new), then the books, then the layout (a new book before the layout that holds it).
-    /// Nothing while a trade cursor holds items outside the bag.
+    /// Sends what changed in my inventory now (also BookReader on closing): the books, then the layout (a new book before
+    /// the layout that holds it). Nothing while a trade cursor holds items outside the bag.
     /// </summary>
     public static void FlushBooks()
     {
@@ -396,18 +402,10 @@ public sealed class WorldStateSync : MonoBehaviour
         if (TradeSession.Holding(bag)) return;
         nextBookScan = Time.unscaledTime + BookScanInterval;
         if (!started) { started = true; awaitingStart = CharacterSync.FreshCharacter; } // its books wait for the start bag
-        string reason = trustReason;
         bool layout = layoutDirty;
         booksDirty = layoutDirty = false;
-        trustReason = null;
-        if (reason != null) SendLayout("p.inv.trust", reason, bag);
         if (!awaitingStart) UploadBooks(bag);
-        if (reason == null && layout) SendLayout("p.inv.layout", null, bag);
-    }
-
-    static void SendLayout(string kind, string reason, InventoryState bag)
-    {
-        if (SendOp(kind, JsonUtility.ToJson(new SharedOpArgs { a = reason, b = InventoryLedgerRules.Pack(bag) }))) LayoutsSent++;
+        if (layout && SendOp("p.inv.layout", JsonUtility.ToJson(new SharedOpArgs { b = InventoryLedgerRules.Pack(bag) }))) LayoutsSent++;
     }
 
     /// <summary>

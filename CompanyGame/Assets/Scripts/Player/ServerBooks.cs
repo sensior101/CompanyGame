@@ -18,9 +18,11 @@ using UnityEngine;
 ///                client says it is a copy of someone else's book (a shop or library copy, decided on the server in 4d-3/4d-5).
 ///                Whoever sent the book.new fills its pages (a read-only or loan copy too), for as long as this server runs
 ///   ledger       with the inventory ledger (12.10.4, <see cref="Owned"/>): book.page and book.meta only on a book in the
-///                sender's bag; book.new of a book in the bag takes its details from there (a p.trade or trusted copy),
+///                sender's bag; book.new of a book in the bag takes its details from there (a p.trade copy),
 ///                else it is the sender's own new book and a blank of the bag is written on (<see cref="FromBlank"/>),
 ///                and a copy that is not in the bag is refused
+///   library      the library's copies (bought, borrowed) get the published original's pages here, from the server
+///                (<see cref="CopyBody"/>, 12.10.6); a client never uploads them
 /// Nothing here touches the inventory or the screen of this process (an in-app server's owner plays in it).
 /// </summary>
 public sealed class ServerBooks
@@ -81,7 +83,25 @@ public sealed class ServerBooks
         return list;
     }
 
-    static bool ValidId(string id) => !string.IsNullOrEmpty(id) && id.Length <= MaxId;
+    public static bool ValidId(string id) => !string.IsNullOrEmpty(id) && id.Length <= MaxId;
+
+    /// <summary>
+    /// A library copy (12.10.6): the pages of book <paramref name="from"/> under the new id <paramref name="to"/>, with the
+    /// copy's own <paramref name="details"/> (title, author, permission, library ids). False when <paramref name="from"/>
+    /// is missing or <paramref name="to"/> is not a free id.
+    /// </summary>
+    public bool CopyBody(string from, string to, BookInstanceData details)
+    {
+        if (!CanCopy(from, to)) return false;
+        var copy = details.Clone();
+        Array.Copy(store[from].pages, copy.pages, BookInstanceData.PageCount);
+        copy.bodyLoaded = true;
+        store[to] = copy;
+        return true;
+    }
+
+    /// <summary>True when <see cref="CopyBody"/> would make the copy.</summary>
+    public bool CanCopy(string from, string to) => from != null && store.ContainsKey(from) && ValidId(to) && !store.ContainsKey(to);
 
     // ---- bodies out of characters and drops ----
 
@@ -185,7 +205,7 @@ public sealed class ServerBooks
         }.Clone();
         if (owned != null)
         {
-            // ponytail: a trusted (library) copy's details are the client's until 4d-5; a p.trade copy's are the catalog's.
+            // A p.trade copy's details are the catalog's (library copies are made here by the server, 12.10.6).
             book = owned.Clone();
             book.bodyLoaded = true;
             copy = !book.IsAuthor(account);

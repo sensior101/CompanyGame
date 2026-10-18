@@ -3,7 +3,7 @@ using System.IO;
 
 /// <summary>
 /// One section of the world entity Net/World (Docs/Multiplayer_Redesign.md 12.9): 0 clock, 1 names, 2..7 the shared
-/// economy (stocks, companies, properties, plots, reports, sns). The server owns it and sends each section as a whole
+/// economy (stocks, companies, properties, plots, reports, sns), 8 the library (12.10.6). The server owns it and sends each section as a whole
 /// blob; a copy hands what it gets to WorldStateSync. Events: 1 Op (client → server), 2 OpResult (server → requester),
 /// 3 Ledger (server → that character's connection only: its own bank money and stocks, 12.10.1), 4 BookText (server →
 /// the requester of book.get only: a book's body in parts, 12.10.3).

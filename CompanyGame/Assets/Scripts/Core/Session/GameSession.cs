@@ -104,8 +104,9 @@ public static class GameSession
     public static void Begin(SessionMode mode) => Mode = mode;
 
     /// <summary>
-    /// Temporary (12.9, removed in 4d/stage 5): true only while connected to a sync server in another process. Client mode
-    /// then, yet citizens, traffic and the library still run on this PC as before; only those places read it.
+    /// Temporary (12.9, removed in stage 5): true only while connected to a sync server in another process. Client mode
+    /// then, yet citizens and traffic still run on this PC as before; only those places read it (the library is the
+    /// server's since 12.10.6).
     /// </summary>
     public static bool RemoteServer { get; set; }
 }

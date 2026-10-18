@@ -458,9 +458,9 @@ public static partial class EconomySyncQA
         a = await InvOp(fake, "p.cash.withdraw", CashArgs(10000000, 1));
         Check(a.error != "" && CashService.CarriedTotal(fb) == 34100, "a withdrawal over the bank is refused: " + a.error);
         a = await InvOp(fake, "p.bank", new SharedOpArgs { n = 100000, a = "deposit" });
-        Check(a.error == "허용하지 않는 사유입니다.", "p.bank deposit is gone");
+        Check(a.error == "처리할 수 없는 요청입니다.", "p.bank deposit is gone (p.bank itself since 12.10.6)");
         a = await InvOp(fake, "p.bank", new SharedOpArgs { n = -1000, a = "withdraw" });
-        Check(a.error == "허용하지 않는 사유입니다." && ledger.Book(InvFake).bankBalance == fakeBank - 20000, "p.bank withdraw too");
+        Check(a.error == "처리할 수 없는 요청입니다." && ledger.Book(InvFake).bankBalance == fakeBank - 20000, "p.bank withdraw too");
 
         Section("eat, bag, trust, books");
         a = await InvOp(fake, "p.eat", new SharedOpArgs { a = "food:gimbap" });
@@ -469,8 +469,8 @@ public static partial class EconomySyncQA
         Check(a.error != "", "p.eat of a food not held is refused: " + a.error);
         a = await InvOp(fake, "p.bag", new SharedOpArgs());
         Check(a.error == "가방이 없습니다." && fb.Capacity == InventoryState.BaseCapacity, "p.bag without a bag is refused");
-        a = await InvOp(fake, "p.inv.trust", new SharedOpArgs { a = "cheat", b = InventoryLedgerRules.Pack(rich) });
-        Check(a.error == "허용하지 않는 사유입니다." && CashService.CarriedTotal(fb) == 34100, "p.inv.trust with a reason not allowed is refused");
+        a = await InvOp(fake, "p.inv.trust", new SharedOpArgs { a = "library", b = InventoryLedgerRules.Pack(rich) });
+        Check(a.error == "처리할 수 없는 요청입니다." && CashService.CarriedTotal(fb) == 34100, "p.inv.trust is refused (gone in 12.10.6)");
         var books = ServerWorld.Instance.Books;
         var br = await FakeBookOp(fake, "book.new", new ServerBooks.Request { id = "qa-inv-fake-book", title = "가짜의 책", permission = (int)BookEditPermission.FullEdit });
         Check(br.error == "" && books.Find("qa-inv-fake-book")?.IsAuthor(InvFake) == true, "the fake writes a book of its own");
@@ -486,8 +486,8 @@ public static partial class EconomySyncQA
         int overwrites = WorldStateSync.Overwrites;
         string err;
         Note("the owner's start bag: " + EmptySlotCount(bag) + " of " + bag.Capacity + " slots free");
+        Give(ledger, me, Backpack, 1); // no request brings items in on trust (12.10.6): the ledger is given it here
         Check(bag.TryAdd(Backpack, 1, out err), "a backpack (a runtime bag item; the game has none yet) " + err);
-        InventoryLedgerRules.Trust(bag, "library"); // the one trusted path left (12.10.5)
         await Settle(ledger, me, "the backpack");
         Check(bag.TryUseBag(SlotOf(bag, s => s.Item == Backpack), out err) && bag.Capacity == 24, "using the backpack shows 24 slots at once " + err);
         await Settle(ledger, me, "p.bag");
@@ -562,21 +562,21 @@ public static partial class EconomySyncQA
         int x = SlotOf(bag, s => s.Item.itemId == "food:water"), y = EmptySlot(bag);
         Check(bag.TryMove(x, y, out err), "a move " + x + " → " + y);
         await Settle(ledger, me, "the move");
+        Give(ledger, me, Shirt, 1);
         Check(bag.TryAdd(Shirt, 1, out err), "a shirt (a runtime clothing item; the game has none yet)");
-        InventoryLedgerRules.Trust(bag, "library"); // the one trusted path left (12.10.5)
         await Settle(ledger, me, "the shirt");
         Check(bag.TryEquip(SlotOf(bag, s => s.Item == Shirt), EquipmentSlot.Top, out err), "equipped " + err);
         await Settle(ledger, me, "equipping");
         Check(ledger.Bag(me).GetEquipment(EquipmentSlot.Top).Item == Shirt && WorldStateSync.InventoryOverwrites == 0, "moves and equipment reach the ledger, nothing written over");
 
-        Section("the library (trusted), the world's items");
+        Section("the library, the world's items");
         LibraryCatalog.ConnectLocal(bag);
         long cash1 = CashService.CarriedTotal(bag);
         int blanks = Blanks(bag);
         Check(LibraryCatalog.Purchase(me, bag, null, out err) && Blanks(bag) == blanks + 1 && CashService.CarriedTotal(bag) == cash1 - LibraryCatalog.BlankPrice,
             "a blank bought at the library desk (1,000원) " + err);
         await Settle(ledger, me, "the library");
-        Check(WorldStateSync.InventoryOverwrites == 0, "the library's change went as p.inv.trust: nothing written over");
+        Check(WorldStateSync.InventoryOverwrites == 0 && Blanks(ledger.Bag(me)) == blanks + 1, "the library's sale went as p.lib.buy (12.10.6): nothing written over");
         var draft = new BookInstanceData { title = "장부 책" };
         draft.pages[0] = "빈 책에 씀";
         int requests = WorldStateSync.BookRequests;

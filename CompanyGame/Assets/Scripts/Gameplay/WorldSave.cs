@@ -26,6 +26,8 @@ public sealed class WorldSaveData
     public List<BookSave> books;
     /// <summary>The goshiwon deed the server gave each account (ServerLedger, 12.10.5). A PC world leaves it empty.</summary>
     public List<StartDeedSave> startDeeds;
+    /// <summary>The library of a sync-layer server's world (ServerLibrary, 12.10.6): works without pages, loans, accounts. A PC world keeps library.json instead.</summary>
+    public LibraryCatalog.Ledger library;
 }
 
 [Serializable]

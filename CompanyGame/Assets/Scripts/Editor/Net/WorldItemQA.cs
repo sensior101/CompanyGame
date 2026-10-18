@@ -626,13 +626,11 @@ public static partial class EconomySyncQA
         Check(a.error == "" && InventoryLedgerRules.FindUnique(fb, carInstance)?.Item == carItem, "picked up, it is the original car (" + carInstance + ")");
 
         Section("trust and grant");
-        foreach (string reason in new[] { "drop", "pickup", "vehicle", "storage", "grant" })
+        foreach (string reason in new[] { "drop", "pickup", "vehicle", "storage", "grant", "library" })
         {
             a = await ItemOp(fake, "p.inv.trust", new SharedOpArgs { a = reason, b = InventoryLedgerRules.Pack(fb) });
-            Check(a.error == "허용하지 않는 사유입니다.", "p.inv.trust " + reason + ": refused");
+            Check(a.error == "처리할 수 없는 요청입니다.", "p.inv.trust " + reason + ": refused (library too since 12.10.6)");
         }
-        a = await ItemOp(fake, "p.inv.trust", new SharedOpArgs { a = "library", b = InventoryLedgerRules.Pack(fb) });
-        Check(a.error == "", "p.inv.trust library: taken (until 4d-5)");
         a = await ItemOp(fake, "p.grant", new SharedOpArgs { a = "food:gimbap" });
         Check(a.error == "지급할 수 없는 아이템입니다." && CountOf(fb, gimbap.itemId) == 3, "p.grant of an item not on the list: refused");
         a = await ItemOp(fake, "p.grant", new SharedOpArgs { a = Card });

@@ -13,24 +13,16 @@ using UnityEngine;
 ///                  and vehicles, by instance id) and the same capacity
 ///   TryTrade       a p.trade: the cash of every line in one payment (change as CashService.PlanPayment makes it), the
 ///                  items given, then everything got; all or nothing, as CashService.TryPurchase
-///   TryTakeLayout  a client's layout (p.inv.layout) only with the same contents, unique items keeping the server's data;
-///                  a trusted one (p.inv.trust) as it comes
+///   TryTakeLayout  a client's layout (p.inv.layout) only with the same contents, unique items keeping the server's data
 ///   TryTake / TryPutAll  the world's items (12.10.5): a drop or a placed vehicle leaves the ledger with the ledger's
 ///                  data; a pickup goes in whole or not at all
 ///   grants         the start vehicles and the goshiwon deed, the same rules on the server and off it (12.10.5)
-///   Send / Trust   client side: an intent about my own inventory (never a ledger's) goes out with SharedWriteGate.
-///                  SendPersonal; a change on a path not moved to the server yet (the library) asks for a trusted layout
+///   Send           client side: an intent about my own inventory (never a ledger's) goes out with SharedWriteGate.SendPersonal
 /// Nothing here touches a screen manager, CashService's lock or its events (the server runs these in the owner's process).
 /// </summary>
 public static class InventoryLedgerRules
 {
-    /// <summary>Installed by the client sync (WorldStateSync): a trusted layout is wanted, with this reason.</summary>
-    public static Action<string> TrustSender;
-
     const int MaxId = 64, MaxLayoutBytes = 256 * 1024;
-
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-    static void Reset() => TrustSender = null;
 
     // ---- contents ----
 
@@ -155,7 +147,8 @@ public static class InventoryLedgerRules
 
     /// <summary>
     /// A client's layout (InventorySnapshot JSON) becomes the ledger's: only with the same contents unless
-    /// <paramref name="trusted"/>. Unique items already in the ledger keep the ledger's data; only their places come from the client.
+    /// <paramref name="trusted"/> (QA and tools; no request is trusted). Unique items already in the ledger keep the
+    /// ledger's data; only their places come from the client.
     /// </summary>
     public static bool TryTakeLayout(InventoryState ledger, string json, bool trusted, out string error)
     {
@@ -383,15 +376,6 @@ public static class InventoryLedgerRules
     public static void SendGrant(InventoryState inventory, ItemData item)
     {
         if (item) Send(inventory, "p.grant", new SharedOpArgs { a = item.itemId });
-    }
-
-    /// <summary>
-    /// A change to my inventory on a path the server does not decide yet (the library): the layout goes out as
-    /// p.inv.trust with <paramref name="reason"/>. ponytail: trusted until 4d-5 moves the library.
-    /// </summary>
-    public static void Trust(InventoryState inventory, string reason)
-    {
-        if (IsMine(inventory) && SharedWriteGate.OnServer) TrustSender?.Invoke(reason);
     }
 
     /// <summary>The layout of an inventory for a request: gzip(InventorySnapshot without pages), base64.</summary>

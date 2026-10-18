@@ -13,8 +13,8 @@ using UnityEngine;
 ///            nor the bag (12.10.3): ServerBooks keeps them
 ///   p.*      personal requests (Op event 1) are decided on the book and the bag with the server's prices and the
 ///            TradeCatalog; land.buy is paid here. book.new changes the bag too (a blank is written on), so it is counted
-///   layout   p.inv.layout is taken only with the same contents (InventoryLedgerRules.SameContents); p.inv.trust (the
-///            library, not moved yet) as it comes, logged
+///   layout   p.inv.layout is taken only with the same contents (InventoryLedgerRules.SameContents). Nothing is taken on
+///            trust any more (p.bank and p.inv.trust are gone with the library's move to the server, 12.10.6)
 ///   given    a character entering (GameServer.CharacterEntering, before its Character goes out) gets the start vehicles
 ///            it lacks, and once per account a goshiwon deed of a room no other account was given or held (12.10.5);
 ///            p.grant gives one item of the TradeCatalog's grant list while the bag has none (the employee card)
@@ -27,26 +27,20 @@ using UnityEngine;
 /// </summary>
 public sealed class ServerLedger
 {
-    /// <summary>The personal kinds (12.10.1, 12.10.4). p.bank and p.inv.trust are temporary: only the reasons below.</summary>
+    /// <summary>The personal kinds (12.10.1, 12.10.4, 12.10.5).</summary>
     public static readonly HashSet<string> Kinds = new HashSet<string>
     {
-        "p.stock.buy", "p.stock.sell", "p.shop.buy", "p.fine", "p.night.select", "p.bank",
-        "p.trade", "p.cash.withdraw", "p.cash.deposit", "p.eat", "p.bag", "p.inv.layout", "p.inv.trust", "p.grant"
+        "p.stock.buy", "p.stock.sell", "p.shop.buy", "p.fine", "p.night.select",
+        "p.trade", "p.cash.withdraw", "p.cash.deposit", "p.eat", "p.bag", "p.inv.layout", "p.grant"
     };
-
-    // reason → sign of the amount. ponytail: trusted until 4d-5 moves the library to the server.
-    static readonly Dictionary<string, int> BankReasons = new Dictionary<string, int>
-    {
-        { "book.publish", -1 }, { "library.late", -1 }, { "library.fine", -1 }, { "book.royalty", 1 }
-    };
-
-    // ponytail: library layouts trusted until 4d-5 decides that path here (drop, pickup, vehicle and grant are decided since 4d-4).
-    static readonly HashSet<string> TrustReasons = new HashSet<string> { "library" };
 
     const string NoMoney = "은행 잔액이 부족합니다.";
 
-    /// <summary>Requests that change the book or the bag and so are counted and answered with a Ledger (also land.buy, book.new).</summary>
-    public static bool Counts(string kind) => kind == "land.buy" || kind == "book.new" || Kinds.Contains(kind) || ServerDrops.Kinds.Contains(kind);
+    /// <summary>Requests that change the book or the bag and so are counted and answered with a Ledger (also land.buy, book.new, the library's).</summary>
+    public static bool Counts(string kind) => kind == "land.buy" || kind == "book.new" || Kinds.Contains(kind) || ServerDrops.Kinds.Contains(kind) || ServerLibrary.Kinds.Contains(kind);
+
+    /// <summary>A speeding fine the bank could not pay: the library's penalty point (ServerLibrary.Penalty, 12.10.6).</summary>
+    public Action<string> UnpaidFine;
 
     readonly GameServer server;
     readonly ulong entity;
@@ -195,8 +189,7 @@ public sealed class ServerLedger
                 if (InventoryLedgerRules.TryBag(bag, out error)) error = null;
                 break;
             case "p.inv.layout":
-            case "p.inv.trust":
-                error = Layout(account, kind == "p.inv.trust", a, bag);
+                error = Layout(account, a, bag);
                 break;
             case "p.stock.buy":
             case "p.stock.sell":
@@ -207,7 +200,9 @@ public sealed class ServerLedger
                 error = price <= 0 ? "알 수 없는 상품입니다." : wallet.TrySpend(price, MoneyChangeReason.Purchase) ? null : NoMoney;
                 break;
             case "p.fine":
-                error = a.n <= 0 || a.n > SpeedCamera.MaxFine ? "벌금 금액이 올바르지 않습니다." : wallet.TrySpend(a.n, MoneyChangeReason.Tax) ? null : NoMoney;
+                if (a.n <= 0 || a.n > SpeedCamera.MaxFine) { error = "벌금 금액이 올바르지 않습니다."; break; }
+                if (!wallet.TrySpend(a.n, MoneyChangeReason.Tax)) UnpaidFine?.Invoke(account); // the bank cannot: a penalty point instead (12.10.6)
+                error = null;
                 break;
             case "p.night.select":
                 var night = (NightActivityKind)a.n;
@@ -215,9 +210,6 @@ public sealed class ServerLedger
                 if (a.n < 0 || a.n > (long)NightActivityKind.Contract || night == NightActivityKind.Contract) return "고를 수 없는 밤 활동입니다.";
                 nights[connection] = night;
                 return null;
-            case "p.bank":
-                error = Bank(account, a, wallet);
-                break;
             case "p.grant":
                 var given = TradeCatalog.Grant(a.a);
                 if (!given) error = "지급할 수 없는 아이템입니다.";
@@ -231,17 +223,12 @@ public sealed class ServerLedger
         return error;
     }
 
-    string Layout(string account, bool trusted, SharedOpArgs a, InventoryState bag)
+    string Layout(string account, SharedOpArgs a, InventoryState bag)
     {
-        if (trusted)
-        {
-            if (a.a == null || !TrustReasons.Contains(a.a)) return "허용하지 않는 사유입니다.";
-            Debug.Log("[ServerLedger] p.inv.trust " + a.a + " from " + account);
-        }
         string json = InventoryLedgerRules.Unpack(a.b);
-        if (json != null && InventoryLedgerRules.TryTakeLayout(bag, json, trusted, out _)) return null;
-        if (!trusted) LayoutsRefused++;
-        Debug.LogWarning("[ServerLedger] " + (trusted ? "p.inv.trust" : "p.inv.layout") + " from " + account + " refused ("
+        if (json != null && InventoryLedgerRules.TryTakeLayout(bag, json, false, out _)) return null;
+        LayoutsRefused++;
+        Debug.LogWarning("[ServerLedger] p.inv.layout from " + account + " refused ("
                          + (json == null ? "unreadable" : "the contents differ") + "); its Ledger puts the client back");
         return json == null ? "배치를 읽을 수 없습니다." : "인벤토리 내용이 서버와 다릅니다.";
     }
@@ -263,15 +250,6 @@ public sealed class ServerLedger
             case TradeResult.UnknownStock: return "알 수 없는 종목입니다.";
             default: return "수량을 확인하세요.";
         }
-    }
-
-    string Bank(string account, SharedOpArgs a, IWallet wallet)
-    {
-        Debug.Log("[ServerLedger] p.bank " + a.a + " " + a.n + " from " + account);
-        if (a.a == null || !BankReasons.TryGetValue(a.a, out int sign)) return "허용하지 않는 사유입니다.";
-        if (a.n == 0 || Math.Sign(a.n) != sign || a.n == long.MinValue) return "금액이 올바르지 않습니다.";
-        bool ok = sign > 0 ? wallet.AddMoney(a.n, MoneyChangeReason.Deposit) : wallet.TrySpend(-a.n, MoneyChangeReason.Withdrawal);
-        return ok ? null : NoMoney;
     }
 
     /// <summary>
@@ -299,6 +277,19 @@ public sealed class ServerLedger
         Send(connection, account);
     }
 
+    /// <summary>
+    /// The server changed <paramref name="account"/>'s book or bag by itself (a library recall, a royalty, 12.10.6): every
+    /// connection of it that is still here gets its Ledger.
+    /// </summary>
+    public void Push(string account)
+    {
+        foreach (uint connection in new List<uint>(done.Keys))
+            if (server.AccountOf(connection) == account) Send(connection, account);
+    }
+
+    /// <summary>An IWallet on <paramref name="account"/>'s bank money in this ledger (never BankManager).</summary>
+    public IWallet Wallet(string account) => new LedgerWallet(Book(account));
+
     void Send(uint connection, string account)
     {
         var book = Book(account);
@@ -318,6 +309,7 @@ public sealed class ServerLedger
     // Before the Character goes out, so what it is given is in the content it gets (a new one gets it in its first Ledger).
     void Enter(uint connection, string account)
     {
+        if (!done.ContainsKey(connection)) done[connection] = 0; // known from now on: a Push reaches it before its first request
         var character = server.World.Find(account);
         if (character == null) return;
         bool fresh = character.content == null || character.content.Length == 0;

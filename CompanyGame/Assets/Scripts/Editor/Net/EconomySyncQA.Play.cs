@@ -73,7 +73,8 @@ public static partial class EconomySyncQA
     {
         int original = PlayerPrefs.GetInt("Profile.Slot", 1), code = 0;
         tag = mode.StartsWith("ledger", StringComparison.Ordinal) ? "LedgerQA" : mode.StartsWith("book", StringComparison.Ordinal) ? "BookSyncQA"
-            : mode.StartsWith("inv", StringComparison.Ordinal) ? "InventoryLedgerQA" : mode.StartsWith("item", StringComparison.Ordinal) ? "WorldItemQA" : "EconomySyncQA";
+            : mode.StartsWith("inv", StringComparison.Ordinal) ? "InventoryLedgerQA" : mode.StartsWith("item", StringComparison.Ordinal) ? "WorldItemQA"
+            : mode.StartsWith("lib", StringComparison.Ordinal) ? "LibrarySyncQA" : "EconomySyncQA";
         Begin();
         try
         {
@@ -87,6 +88,8 @@ public static partial class EconomySyncQA
             else if (mode == "inv-process") await InventoryProcessBody(exe);
             else if (mode == "item-play") await ItemPlayBody();
             else if (mode == "item-process") await ItemProcessBody(exe);
+            else if (mode == "lib-play") await LibraryPlayBody();
+            else if (mode == "lib-process") await LibraryProcessBody(exe);
             else await ProcessBody(exe);
             Report("RESULT " + mode + " passed");
         }
@@ -139,8 +142,10 @@ public static partial class EconomySyncQA
         var r = await FakeOp(fake, "prop.reg", new SharedOpArgs { a = "qa:house-1", b = Acc(fake) });
         Check(r.error == "" && r.sections.Contains(Properties), "prop.reg: OpResult ok, and the properties section came before it");
         Check(registry.GetOwner("qa:house-1") == "QA가짜", "the Unity managers have it; the owner shows as the fake's character name (" + registry.GetOwner("qa:house-1") + ")");
-        r = await FakeOp(fake, "p.bank", new SharedOpArgs { n = LandPlot.DefaultPrice, a = "book.royalty" }); // the plot is paid from the fake's ledger (12.10.1); deposit is gone (12.10.4)
-        Check(r.error == "", "the fake deposits the plot's price");
+        // The plot is paid from the fake's ledger (12.10.1); no request gives money on trust (12.10.6): its ledger gets it here.
+        ServerWorld.Instance.Ledger.Book(Acc(fake)).bankBalance += LandPlot.DefaultPrice;
+        ServerWorld.Instance.Ledger.Store(Acc(fake));
+        Check(true, "the fake's ledger has the plot's price");
         r = await FakeOp(fake, "land.buy", new SharedOpArgs { a = "qa-plot-1" });
         Check(r.error == "" && r.sections.Contains(Plots) && LandPlotManager.Instance.GetOwner("qa-plot-1") == Acc(fake), "land.buy: the plot is the fake's, the plots section first");
         var company = new CompanyData { companyId = "qa_company_fake", displayName = "가짜회사", sector = "qa" };
@@ -314,6 +319,12 @@ public static partial class EconomySyncQA
         // ---- run A: day 1 10:30, -nightskip 2-5 ----
         Section("remote client");
         SetWorldClock(worldsRoot, settings.world, Day + 10 * 60 + 30);
+        // The fake buys a plot (1,000,000원) from its ledger: its character is made in the world file with that money
+        // (no request gives money on trust since 12.10.6).
+        var seeded = WorldStore.Open(worldsRoot, settings.world);
+        Check(seeded.Create("qa-econ-remote-fake", "QA가짜원격", "female", out var seededFake) == CharacterResult.Ok, "the fake's character in the world file");
+        seededFake.content = CharacterSync.Encode(new CharacterSync.Saved { map = "qa-map", personal = JsonUtility.ToJson(new PersonalSaveData { bankBalance = 5 * LandPlot.DefaultPrice }), inventory = "" });
+        seeded.Save();
         await StartProcessServer("A");
         pcHash = Hash(worldFile);
         Check(await TitleFlow.JoinServer("127.0.0.1:" + serverPort, "", false) == null, "the Unity client joins the server process");
@@ -361,11 +372,10 @@ public static partial class EconomySyncQA
         Section("land race lost");
         var plot = new GameObject("QA plot").AddComponent<LandPlot>();
         typeof(LandPlot).GetField("plotId", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(plot, "qa-plot-remote");
+        // This client's own plot costs what its new character has (the server never charges it: the fake buys first).
+        typeof(LandPlot).GetField("price", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(plot, 50000L);
         long price = plot.Price, money = BankManager.Instance.Money;
-        if (money < price) await Deposit(price - money + 1000); // the server's ledger must have it too (12.10.1)
-        money = BankManager.Instance.Money;
-        r = await FakeOp(fake, "p.bank", new SharedOpArgs { n = price, a = "book.royalty" });
-        Check(r.error == "", "the fake gets the plot's price (a trusted royalty; deposit is gone in 12.10.4)");
+        Check(money >= price, "the Unity client has the plot's price (" + money + ")");
         WorldStateSync.HoldSections = true; // the client has not heard of the fake's purchase yet: a real race
         r = await FakeOp(fake, "land.buy", new SharedOpArgs { a = "qa-plot-remote" });
         Check(r.error == "" && LandPlotManager.Instance.GetState("qa-plot-remote") == LandPlotState.Available, "the fake bought the plot first; this client does not know yet");
@@ -456,15 +466,6 @@ public static partial class EconomySyncQA
         Check(GameTime.NightSkipStart == 0 && GameTime.NightSkipEnd == 6 && GameSession.Mode == SessionMode.Host, "leaving puts the night back to 0-6");
         Check(Hash(worldFile) == pcHash, "world.json unchanged through run C");
         await StopProcessServer();
-    }
-
-    // Money on this client that the server is told of (a royalty, the trusted p.bank left after 12.10.4), and its answer.
-    static async Task Deposit(long amount)
-    {
-        int results = WorldStateSync.Results;
-        Check(BankManager.Instance.AddMoney(amount, MoneyChangeReason.BookRoyalty), "money of " + amount);
-        SharedWriteGate.SendPersonal("p.bank", new SharedOpArgs { n = amount, a = "book.royalty" });
-        await WaitFor(() => WorldStateSync.Results > results, 5, "the answer to the deposit");
     }
 
     static void SetWorldClock(string worldsRoot, string id, double minutes)
@@ -626,7 +627,7 @@ public static partial class EconomySyncQA
 
     static string Sizes(int[] bytes)
     {
-        string[] names = { "clock", "names", "stocks", "companies", "properties", "plots", "reports", "sns" };
+        string[] names = { "clock", "names", "stocks", "companies", "properties", "plots", "reports", "sns", "library" };
         var text = new StringBuilder();
         for (int i = 0; i < bytes.Length; i++) text.Append(i > 0 ? ", " : "").Append(names[i]).Append(' ').Append(bytes[i]);
         return text.ToString();

@@ -469,19 +469,19 @@ public static class CharacterQA
 
         Measure("new character");
         // change bank, inventory and position
-        // A deposit the server is told of (12.10.1: the bank is the server's ledger; a bare local change would be put back).
+        // The bank and the inventory are the server's ledger (12.10.1, 12.10.4); no request gives either on trust since
+        // 12.10.6, so the in-app server's ledger is changed here and this screen the same way.
+        var ledger = ServerWorld.Instance.Ledger;
+        string me = GameSession.LocalPlayerId;
         long deposit = 1234567 - BankManager.Instance.Money;
-        int ledgers = WorldStateSync.Ledgers;
+        ledger.Book(me).bankBalance += deposit;
         Check(BankManager.Instance.AddMoney(deposit, MoneyChangeReason.BookRoyalty), "money of " + deposit);
-        SharedWriteGate.SendPersonal("p.bank", new SharedOpArgs { n = deposit, a = "book.royalty" }); // deposit is gone (12.10.4); a royalty is still trusted
-        await WaitFor(() => WorldStateSync.Ledgers > ledgers, 5, "the server's ledger after the deposit");
         ItemData item = null;
         foreach (var i in Resources.LoadAll<ItemData>("Inventory")) if (i && !i.IsBook && InventorySnapshot.Find(i.itemId) == i) { item = i; break; }
-        Check(item && InventoryManager.Instance.State.TryAdd(item, 1, out _), "added " + (item ? item.itemId : "?") + " to the inventory");
-        // 12.10.4: the server keeps the inventory; an item comes in on the path it still trusts (the library, 12.10.5).
-        ledgers = WorldStateSync.Ledgers;
-        InventoryLedgerRules.Trust(InventoryManager.Instance.State, "library"); // the trusted path left (12.10.5)
-        await WaitFor(() => WorldStateSync.Ledgers > ledgers, 5, "the server's ledger after the grant");
+        Check(item && ledger.Bag(me).TryAdd(item, 1, out _) && InventoryManager.Instance.State.TryAdd(item, 1, out _), "added " + (item ? item.itemId : "?") + " to the inventory");
+        ledger.Store(me);
+        int ledgers = WorldStateSync.Ledgers;
+        await WaitFor(() => WorldStateSync.Ledgers > ledgers, 5, "the server's ledger after the layout");
         var player = PlayerSpawner.Player;
         player.spawn = player.transform.position + new Vector3(2.5f, 0f, 1.5f);
         player.ResetToSpawn();

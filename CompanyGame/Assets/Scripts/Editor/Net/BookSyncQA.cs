@@ -328,8 +328,8 @@ public static partial class EconomySyncQA
 
         Section("a 30,000-character book");
         var bag = InventoryManager.Instance.State;
-        Check(bag.TryAdd(Blank, 1, out _), "a blank book in the bag");
-        InventoryLedgerRules.Trust(bag, "library"); // the server keeps the bag; the blank comes in on the one trusted path left (12.10.5)
+        Give(ServerWorld.Instance.Ledger, me, Blank, 1); // the server keeps the bag (12.10.4); nothing comes in on trust since 12.10.6
+        Check(bag.TryAdd(Blank, 1, out _), "a blank book in the bag (and the ledger)");
         int blank = FindBlank(bag);
         var draft = NewBook("삼만 자 책", null, null, 20, 1500, 23);
         draft.isPublished = false;
@@ -368,8 +368,8 @@ public static partial class EconomySyncQA
         Note("book.get of 30,000 characters: " + got.parts + " parts, " + got.bytes + " bytes");
 
         Section("refused book requests");
+        Give(ServerWorld.Instance.Ledger, me, Blank, 1);
         Check(bag.TryAdd(Blank, 1, out _), "another blank");
-        InventoryLedgerRules.Trust(bag, "library");
         var small = NewBook("권한 책", null, null, 2, 100, 24);
         small.isPublished = false;
         Check(bag.TryPublishBook(FindBlank(bag), small, me, GameSession.LocalPlayerName, out int smallSlot, out _), "the owner writes a short book");
@@ -393,10 +393,8 @@ public static partial class EconomySyncQA
         Check(answer.error != "", "a removal is refused: " + answer.error);
         answer = await FakeBookOp(fake, "book.new", new ServerBooks.Request { id = smallId, title = "가로채기" });
         Check(answer.error == "이미 있는 책입니다." && books.Find(smallId).IsAuthor(me), "book.new of an id that exists is refused");
-        var blankBag = new InventoryState();
-        blankBag.TryAdd(Blank, 1, out _);
-        answer = await FakeOp(fake, "p.inv.trust", new SharedOpArgs { a = "library", b = InventoryLedgerRules.Pack(blankBag) });
-        Check(answer.error == "", "the fake gets a blank (the trusted library path, 12.10.5)");
+        Give(ServerWorld.Instance.Ledger, BookFake, Blank, 1);
+        Check(Blanks(ServerWorld.Instance.Ledger.Bag(BookFake)) == 1, "the fake's ledger gets a blank");
         answer = await FakeBookOp(fake, "book.new", new ServerBooks.Request { id = "qa-fake-book", title = "가짜의 책" });
         Check(answer.error == "" && books.Find("qa-fake-book").IsAuthor(BookFake) && books.Find("qa-fake-book").authorName == "QA책가짜", "the fake's own new book (author: its account and character name)");
         string fakeText = Text(2000, 25);
@@ -440,12 +438,15 @@ public static partial class EconomySyncQA
         var copy = NewBook("도서관 사본", "acc-other", "다른작가", 2, 300, 26);
         copy.permission = BookEditPermission.ReadOnly; copy.libraryLoanId = "qa-loan"; copy.libraryWorkId = "qa-work";
         string copyId = Guid.NewGuid().ToString("N");
-        Check(bag.TryAddBookInstance(Blank, copyId, copy, out _), "a borrowed copy in the owner's bag");
-        InventoryLedgerRules.Trust(bag, "library"); // 12.10.4: LibraryCatalog does this
+        // A copy the ledger has (12.10.6: the library's copies are made by the server; this one is put in the ledger here)
+        // whose pages only this client has: book.new takes the ledger's details, its maker sends the pages.
+        Check(ServerWorld.Instance.Ledger.Bag(me).TryAddBookInstance(Blank, copyId, LibraryCatalog.Bodyless(copy), out _), "a borrowed copy in the owner's ledger");
+        ServerWorld.Instance.Ledger.Store(me);
+        Check(bag.TryAddBookInstance(Blank, copyId, copy, out _), "and in its bag, with its pages");
         await WaitFor(() => SamePages(books.Find(copyId), copy), 5, "the copy on the server");
         var copyOnServer = books.Find(copyId);
         Check(copyOnServer.IsAuthor("acc-other") && copyOnServer.authorName == "다른작가" && copyOnServer.IsLibraryLoan && copyOnServer.permission == BookEditPermission.ReadOnly,
-            "it is sent as made (book.new + book.page): its author, read-only, a loan");
+            "it is sent (book.new + book.page) with the ledger's details: its author, read-only, a loan");
         answer = await FakeBookOp(fake, "book.page", new ServerBooks.Request { id = copyId, page = 0, text = "대여본 고침" });
         Check(answer.error != "" && books.Find(copyId).pages[0] == copy.pages[0], "a loan copy cannot be written on the server");
         await Awaitable.WaitForSecondsAsync(1.5f);
@@ -565,8 +566,11 @@ public static partial class EconomySyncQA
         await WaitFor(() => InGame && CharacterSync.Active && WorldStateSync.World, 90, "the game map");
         string me = GameSession.LocalPlayerId;
         var bag = InventoryManager.Instance.State;
-        Check(bag.TryAdd(Blank, 1, out _), "a blank book");
-        InventoryLedgerRules.Trust(bag, "library"); // the trusted path left (12.10.5)
+        await WaitFor(() => WorldStateSync.Ledgers > 0, 10, "the first Ledger (a new character's start bag)");
+        await Awaitable.WaitForSecondsAsync(2.5f);
+        // A blank bought at the library (p.lib.buy, 12.10.6) with a note taken from the bank (p.cash.withdraw).
+        Check(CashService.TryWithdraw(bag, LibraryCatalog.BlankPrice, 1, out string bought) && LibraryCatalog.Purchase(me, bag, null, out bought) && FindBlank(bag) >= 0,
+            "a blank book bought at the library " + bought);
         var draft = NewBook("원격 긴 책", null, null, 20, 1500, 31);
         draft.isPublished = false;
         int results = WorldStateSync.Results, requests = WorldStateSync.BookRequests;

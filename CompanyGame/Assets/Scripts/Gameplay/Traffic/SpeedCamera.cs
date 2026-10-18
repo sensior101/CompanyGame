@@ -4,7 +4,7 @@ using UnityEngine;
 /// <summary>
 /// Speed camera over a road stretch. It measures the player's horizontal speed from position changes (so it works
 /// on foot, by bicycle or by car) and fines the bank account. A fine the account cannot cover becomes a penalty
-/// point instead. Wallet cash is never touched.
+/// point instead (on a sync-layer server the server decides both, 12.10.6). Wallet cash is never touched.
 /// </summary>
 public sealed class SpeedCamera : MonoBehaviour
 {
@@ -96,13 +96,18 @@ public sealed class SpeedCamera : MonoBehaviour
     {
         if (payFine != null) return payFine(fine);
         BankManager bank = BankManager.EnsureInstance();
-        if (!bank || !bank.TrySpend(fine, MoneyChangeReason.Tax)) return false;
-        SharedWriteGate.SendPersonal("p.fine", new SharedOpArgs { n = fine }); // the server takes it from its ledger too (12.10.1)
-        return true;
+        bool paid = bank && bank.TrySpend(fine, MoneyChangeReason.Tax);
+        // On a server, paid or not: the server takes it from its ledger, or gives the penalty point itself (12.10.6).
+        SharedWriteGate.SendPersonal("p.fine", new SharedOpArgs { n = fine });
+        return paid;
     }
 
     // The bank could not cover the fine: record it on the library account's penalty points, like other violations.
-    void GiveOnePenaltyPoint() => LibraryCatalog.GetAccount(GameSession.LocalPlayerId).penaltyPoints++;
+    // On a server the server's library does (p.fine); this PC's mirror of it is never written.
+    void GiveOnePenaltyPoint()
+    {
+        if (!LibraryCatalog.Mirrored) LibraryCatalog.GetAccount(GameSession.LocalPlayerId).penaltyPoints++;
+    }
 
     void OnDrawGizmos()
     {

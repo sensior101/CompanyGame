@@ -20,7 +20,10 @@ using UnityEngine;
 ///          the requester with a Ledger (event 3) before the OpResult. Book requests (book.*, 12.10.3) go to the
 ///          <see cref="Books"/> (book.get answers with BookText, event 4); they change no section, so none is sent for them.
 ///          Items between the inventory and the world (p.drop, p.vehicle.place, p.pickup, p.dismantle, 12.10.5) go to the
-///          <see cref="Drops"/>, answered with a Ledger as the personal ones
+///          <see cref="Drops"/>, and the library's (p.lib.*, 12.10.6) to the <see cref="Library"/>, answered with a Ledger as
+///          the personal ones
+///   library  the server's library is its own (never LibraryCatalog's ledger, which the in-app owner's screen mirrors):
+///          section 8 (works without pages, active loans, accounts); its days pass with the world clock every frame
 ///   stop   an in-app server puts this PC's own world back (world.json, else the fresh world)
 /// The full state (with the book bodies, WorldSaveData.books) is saved in world.dat through GameServer.WorldStateProvider; clients get only the newest
 /// <see cref="Recent"/> reports and SNS posts. A section over 60KB gzipped is not sent (logged).
@@ -28,7 +31,7 @@ using UnityEngine;
 public sealed class ServerWorld : MonoBehaviour
 {
     public const string PrefabKey = "Net/World";
-    public const int SectionCount = 8, ClockSection = 0, NamesSection = 1, FirstShared = 2, Recent = 100;
+    public const int SectionCount = 9, ClockSection = 0, NamesSection = 1, FirstShared = 2, LibrarySection = 8, Recent = 100;
     const float SendInterval = 1f;
     const int MaxStepsPerFrame = 2000;
 
@@ -44,6 +47,8 @@ public sealed class ServerWorld : MonoBehaviour
     public ServerBooks Books { get; private set; }
     /// <summary>Dropped items and placed vehicles, made by the server from the ledger (12.10.5).</summary>
     public ServerDrops Drops { get; private set; }
+    /// <summary>The library of this server's world (12.10.6).</summary>
+    public ServerLibrary Library { get; private set; }
 
     SyncHost host;
     GameServer server;
@@ -105,6 +110,7 @@ public sealed class ServerWorld : MonoBehaviour
             var state = WorldSave.CaptureShared();
             state.books = Books?.Capture();
             state.startDeeds = Ledger?.CaptureDeeds();
+            state.library = Library?.Capture();
             return Encode(WorldSave.ToJson(state));
         };
         server.ServerEvent += OnServerEvent;
@@ -112,6 +118,9 @@ public sealed class ServerWorld : MonoBehaviour
         Books = new ServerBooks(server, EntityId, saved?.books);
         Ledger = new ServerLedger(server, EntityId, Books, saved?.startDeeds);
         Drops = new ServerDrops(server, Ledger, Books);
+        Library = new ServerLibrary(Ledger, Books, saved?.library);
+        Ledger.UnpaidFine = Library.Penalty;
+        Library.AdvanceTo(Day((long)Math.Floor(world.WorldMinutes)));
         SendSections();
         Debug.Log("[ServerWorld] world " + world.Id + ": " + (saved != null ? "shared economy restored" : "new shared economy") + ", clock " + GameClock.Current?.Now
                   + ", night " + world.NightSkipStart + "-" + world.NightSkipEnd);
@@ -122,6 +131,7 @@ public sealed class ServerWorld : MonoBehaviour
         if (server != null) { server.ServerEvent -= OnServerEvent; server.WorldStateProvider = null; }
         Drops?.End();
         Drops = null;
+        Library = null;
         Ledger?.End();
         Ledger = null;
         Books = null;
@@ -147,9 +157,12 @@ public sealed class ServerWorld : MonoBehaviour
             if (clock.Now.TotalMinutes > target) clock.SetNow(GameTime.FromTotalMinutes(target));
             for (int i = 0; i < MaxStepsPerFrame && clock.Now.TotalMinutes < target; i++) clock.AdvanceMinutes(1);
         }
+        Library?.AdvanceTo(Day(target)); // the library's day follows the world clock (12.10.6)
         if (target != lastClockMinute) SendClock(target);
         if (Time.unscaledTime >= nextSendAt) { SendSections(); Books?.DropGoneParts(); }
     }
+
+    static int Day(long minutes) => GameTime.FromTotalMinutes(minutes).absoluteDay;
 
     void SendClock(long minute)
     {
@@ -172,6 +185,8 @@ public sealed class ServerWorld : MonoBehaviour
             lastJson[section] = json; // also when too big: logged once per change, not every second
             Set(section, Encode(json));
         }
+        string library = Library?.SectionJson();
+        if (library != null && library != lastJson[LibrarySection]) { lastJson[LibrarySection] = library; Set(LibrarySection, Encode(library)); }
         Set(NamesSection, NamesBlob(server.World.Characters));
         if (lastClockMinute < 0) SendClock((long)Math.Floor(server.World.WorldMinutes));
     }
@@ -202,8 +217,9 @@ public sealed class ServerWorld : MonoBehaviour
         string from = server.AccountOf(sender);
         if (string.IsNullOrEmpty(from) || server.World.Find(from) == null) return; // no character, no say in the world
         string error;
-        bool personal = ServerLedger.Kinds.Contains(kind), book = ServerBooks.Kinds.Contains(kind), drop = ServerDrops.Kinds.Contains(kind);
-        if (!personal && !book && !drop && !Allowed.Contains(kind))
+        bool personal = ServerLedger.Kinds.Contains(kind), book = ServerBooks.Kinds.Contains(kind), drop = ServerDrops.Kinds.Contains(kind),
+            library = ServerLibrary.Kinds.Contains(kind);
+        if (!personal && !book && !drop && !library && !Allowed.Contains(kind))
         {
             Refused.Add(kind);
             Debug.LogWarning("[ServerWorld] refused request '" + kind + "' from " + from);
@@ -216,6 +232,7 @@ public sealed class ServerWorld : MonoBehaviour
             {
                 error = personal ? Ledger.Apply(sender, from, kind, json)
                     : drop ? Drops.Apply(sender, from, kind, json)
+                    : library ? Library.Apply(sender, from, kind, json)
                     : book ? Books.Apply(sender, from, kind, json)
                     : kind == "land.buy" ? Ledger.BuyLand(from, json)
                     : WorldOps.Apply(0, from, kind, kind == "sns.post" ? WithAuthorName(json, from) : json);

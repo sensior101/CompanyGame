@@ -1548,3 +1548,104 @@ SyncClient.Instance.Spawn(prefabKey: "Net/Door", instance, flags);
 - 4b에서 클라이언트가 만든 기존 드롭·탈것은 그 내용을 한 번 믿고 읽는다.
 - 줍기 거리와 놓을 자리는 검사하지 않는다.
 - `Docs/Architecture.md`, `Docs/Server.md`에 새 구조가 아직 반영되지 않았다.
+
+#### 12.10.6 4d-5 도서관 (완료 2026-10-19)
+
+**범위.** 새 서버(앱 안 서버 포함)에서 도서관 장부를 서버 월드로 옮기고, 도서관에서 돈과 책이 오가는 일을 서버가 판정합니다: 빈 책·책 구매, 대여, 반납(연체료), 출판(출판비), 회수(누적 인세), 미납 연체료 납부, 날마다 연체 부과·30일 회수, 시즌 끝 인세. 그 뒤 `p.bank`의 도서관 사유와 `p.inv.trust`가 없어지고, `RemoteServer`의 도서관 부분을 지웁니다. 옛 방과 서버 밖 혼자 하기는 바꾸지 않습니다(PC의 `library.json`).
+
+**조사한 것**
+- 장부(`LibraryCatalog.Ledger`)는 작품(출판한 책 원본, 판매 수, 쌓인 인세), 대여(대여 ID, 빌린 사람, 사본 ID, 시작일, 부과한 연체일), 계정(받을 돈, 미납 연체료, 벌점) 세 목록입니다. 지금 각 PC의 `library.json`이고, 새 서버에서는 참가자마다 따로 놉니다(`Authority`가 `RemoteServer`면 참).
+- 구매·대여·회수는 가게와 같은 `TradeSession`에 `LibraryFulfillment`를 붙인 것이고, 반납·출판은 고른 책을 넘기는 흐름(`handoff`)입니다. 가방 변경은 `p.inv.trust`(library), 은행 변경은 `p.bank`(book.publish, library.late, library.fine, book.royalty)로 서버에 믿고 올립니다.
+- 출판은 가방의 원본을 도서관이 가져갑니다(회수하면 같은 인스턴스 ID로 돌려받음). 작가는 출판 뒤에도 자기 책을 고칠 수 있지만, 출판본은 그 순간의 사본입니다.
+- 4d-2 이후 서버는 책 본문을 인스턴스 ID별로 갖고 있고(`ServerBooks`), 지우지 않습니다. 지금 도서관 사본은 클라이언트가 `book.new`(사본 표시) + `book.page`로 본문을 올립니다.
+- 벌점(`penaltyPoints`)은 도서관 계정에 있습니다. 30일 회수에 +5, 과속 벌금을 못 내면 +1(`SpeedCamera`, 지금 이 PC 장부에만). 읽는 곳은 `PenaltyManager.GetPoints` 하나이고 쓰는 화면은 없습니다. 신고 판결의 벌점은 따로입니다(`ReportService`).
+- 앱 안 서버는 서버와 주인 화면이 같은 프로세스입니다. 그래서 `LibraryCatalog`(정적 장부)를 서버 장부로 같이 쓰면 안 됩니다(4d-1~4d-4와 같은 원칙).
+
+**방식**
+- 새 `Player/ServerLibrary.cs`가 서버의 도서관 장부(같은 `LibraryCatalog.Ledger` 형식의 인스턴스)를 갖고, world state(world.dat)에 `library`로 저장합니다. 규칙(연체일, 부과, 회수일, 시즌 인세, 가격)은 `LibraryCatalog`의 것을 순수 함수로 꺼내 같이 씁니다.
+- 공유 구역을 하나 더 둡니다(`library`, `SectionCount` 8 → 9). 작품은 **본문 없이**(제목·저자·작품 ID·판매 여부), 대여와 계정은 그대로 보냅니다. 클라이언트의 `LibraryCatalog`는 서버에 있는 동안(`SharedWriteGate.OnServer`) 이 구역을 받아 쓰는 읽기 전용 거울이 되고, 파일에 저장하지 않습니다.
+- 작품의 본문은 원본 책 ID의 `ServerBooks` 본문입니다(원본은 출판 때 가방에서 빠지므로 아무도 고칠 수 없음). 사본을 만들 때 서버가 그 본문을 새 ID로 복사합니다. 클라이언트는 사본 본문을 올리지 않고, 열 때 받아 옵니다.
+- 돈은 서버 장부에서 바로 움직입니다. 인세·회수 정산은 작가가 접속하지 않았어도 그 은행 장부에 바로 넣고, 30일 회수는 접속하지 않은 사람의 가방에서도 바로 뺍니다(지금의 "받을 돈"·"다시 접속할 때 지움"이 필요 없어짐, 결과는 같음).
+- 날 넘김은 서버 시계의 `DayChanged`로 서버가 처리합니다. `WorldStateSync`의 `LibraryCatalog.AdvanceTo` 호출과 `LibraryCatalog.Authority`의 `RemoteServer`를 지웁니다(시민·교통의 `RemoteServer`는 그대로).
+
+**요청 (Op 이벤트 1, 개인 요청처럼 처리 수를 세고 Ledger로 답함)**
+
+| kind | 본문 | 서버 판정 |
+| --- | --- | --- |
+| `p.lib.buy` | 작품 ID(빈 책이면 없음), 새 책 ID | 판매 중인 작품. 가방의 현금 지폐로 값(빈 책 1,000원, 책 20,000원)을 치르고(`CashService.PlanPayment`, 거스름 포함) 사본(읽기 전용)을 넣음. 작품의 인세 +4,000, 판매 +1 |
+| `p.lib.borrow` | 작품 ID, 새 책 ID, 대여 ID | 빌린 책이 없고 그 작품이 대여 중이 아님. 읽기 전용 대여 사본을 넣고 대여 기록 |
+| `p.lib.return` | 책 ID | 장부의 그 책이 보낸 사람의 진행 중 대여이고 30일 전. 연체료를 은행에서(모자라면 거절), 책을 가방에서 뺌 |
+| `p.lib.publish` | 책 ID | 가방의 그 책이 보낸 사람이 저자이고, 다 쓴 책(`isPublished`)이고, 본문이 있고, 대여본이 아님. 출판비 10,000원을 은행에서, 책을 가방에서 빼서 작품으로(회수했던 원본이면 같은 작품을 다시 판매) |
+| `p.lib.withdraw` | 작품 ID | 보낸 사람이 저자. 판매 중지, 그 작품의 대여는 연체 부과 뒤 회수, 쌓인 인세를 은행에, 원본을 가방에(자리가 없으면 거절) |
+| `p.lib.fine` | 없음 | 미납 연체료 전부를 은행에서 |
+
+- 새 책 ID·대여 ID는 `p.trade`처럼 클라이언트가 정해 보내고, 서버는 형식과 중복만 검사합니다. 그래서 정상 플레이에서는 덮어쓰기가 없습니다.
+- 빈 책 구매는 `TradeCatalog` 상품으로 옮기지 않고 `p.lib.buy`에 둡니다(도서관 창 하나에서 같이 팔기 때문).
+- `p.bank`(임시)와 `p.inv.trust`(임시)를 **없앱니다**. 4d의 임시 믿는 요청이 모두 사라집니다.
+- 과속 벌금: 접속 중에는 클라이언트가 결과와 상관없이 `p.fine`을 보내고, 서버가 은행에서 못 받으면 벌점 +1을 서버 도서관 계정에 적습니다.
+
+**지연 없이 (클라이언트)**
+- 구매·대여·회수: 지금처럼 거래 창에서 먼저 가방에 넣고 요청을 보냅니다(4d-3 `p.trade`와 같음). 거울 장부는 직접 고치지 않고 서버 구역을 기다립니다. 회수 알림의 인세 금액은 답으로 받은 Ledger의 은행 변화로 띄웁니다.
+- 반납·출판: 고른 책을 먼저 빼고 요청을 보냅니다. 거절되면 Ledger가 되돌리고 오류 문구를 띄웁니다. 연체료·출판비 안내는 거울 장부로 미리 계산해 보여 줍니다.
+- 거울이 늦게 와서 같은 작품을 둘이 동시에 빌리면, 늦은 쪽은 거절되고 Ledger가 가방을 되돌립니다("누군가가 대여중입니다").
+
+**정할 것(기획)** → 확정 2026-10-18: 두 제안대로
+1. 서버 PC에 이미 있는 도서관(`library.json`)을 서버 월드로 가져올지. 제안: **가져오지 않음.** 서버 월드는 빈 도서관에서 시작합니다(땅·회사처럼 서버 월드는 따로라서). 옛 방과 혼자 하기는 지금 파일을 그대로 씁니다.
+2. 도서관 구역은 모두에게 가므로 다른 사람의 미납 연체료·벌점도 받게 됩니다(화면에는 내 것만 보임). 제안: **지금은 그대로 보냄.** 숨겨야 하면 계정 부분만 개인 Ledger로 옮깁니다.
+
+**바꿀 파일**
+
+| 구분 | 파일 | 내용 |
+| --- | --- | --- |
+| 새 | `Player/ServerLibrary.cs` | 서버 도서관 장부, `p.lib.*` 판정, 날 넘김, 저장·복원 |
+| 고침 | `Gameplay/Item/Book/LibraryCatalog.cs` | 규칙을 순수 함수로, 서버에 있는 동안 거울(구역 적용, 파일 저장 안 함), 요청 보내기, `RemoteServer` 지움 |
+| 고침 | `Gameplay/Item/Book/UI/LibraryDesk.cs` | 반납·출판·회수 알림을 요청 답으로 |
+| 고침 | `Player/ServerWorld.cs`, `Player/ServerLedger.cs`, `Player/ServerBooks.cs` | 구역 9개, 요청 연결, `p.bank`·`p.inv.trust` 삭제, 서버가 사본 본문 복사 |
+| 고침 | `Player/WorldStateSync.cs`, `Gameplay/WorldSave.cs` | 날 넘김 호출 삭제, `library` 구역과 저장 |
+| 고침 | `Gameplay/Traffic/SpeedCamera.cs` | 접속 중 벌점은 서버가 |
+| 고침 | 기존 QA(`InventoryLedgerQA`, `BookSyncQA`, `LedgerQA` 등) | `p.bank`·`p.inv.trust` 삭제에 맞춤 |
+| 새 | `Editor/Net/LibrarySyncQA.cs` | 아래 검수 |
+
+**하지 않는 것:** 도서관 화면 디자인 변경. 시민 NPC의 책 구매. 신고 판결 벌점과 도서관 벌점 합치기. 프로토콜 버전은 바뀌지 않습니다(구역 수는 같은 빌드끼리 맞음).
+
+**완료 기준**
+1. 컴파일 오류 없음. 기존 QA 회귀 없음(`WorldItemQA` 셋, `DropSyncQA` 둘, `InventoryLedgerQA` 셋, `LedgerQA` 셋, `BookSyncQA` 셋, `CharacterQA`, `EconomySyncQA`, `WorldSaveQA`, `SyncLayerQA`, `npm test`). 서버 밖 혼자 하기 도서관 동작은 그대로
+2. `LibrarySyncQA.Run`(메모리 서버): 요청별 허용·거절, 연체일·부과·30일 회수·시즌 인세 계산이 옛 `LibraryCatalog`와 같은 값
+3. `LibrarySyncQA.RunPlay`(앱 안 서버 + Unity 주인 + 가짜 클라이언트 둘)
+   - 출판 → 다른 사람 구매 → 작가 회수에서 돈의 합: 출판비, 값, 인세가 각 장부에 정확히. 접속하지 않은 작가도 시즌 끝 인세를 은행에서 받음
+   - 사본 본문은 서버가 복사함(가짜가 다른 본문을 올릴 수 없음). 사본을 열면 출판본 본문
+   - 같은 작품을 둘이 동시에 빌리면 한 명만. 두 권 대여 거절. 남의 책 출판·남의 작품 회수 거절
+   - 시계를 넘겨 연체료와 30일 회수(접속하지 않은 사람의 가방에서도 빠짐, 벌점 +5). 반납 연체료가 은행에서
+   - `p.bank`·`p.inv.trust` 거절
+   - 주인 화면: 구매·대여·반납·출판·회수·연체료 납부에서 덮어쓰기 0번, 거울 장부가 서버와 같음
+4. `LibrarySyncQA.RunProcess`(빌드한 서버 프로세스 + 원격 Unity): 출판·대여 뒤 서버를 다시 켜도 도서관 장부와 사본 본문이 그대로
+5. 스크린샷(QA_SHOTS 게임 화면만): 원격에서 빌린 책의 남은 대여 기간 툴팁, 동시 대여에서 진 쪽 화면
+
+**총괄 검수 방법.** diff 전체 읽기. 특히 돈이나 책이 생기거나 사라지는 경로(거절, 끊김, 재시작, 경합), 서버가 클라이언트 값을 믿는 경로, 서버 계산이 주인 화면의 `LibraryCatalog`·`BankManager`를 건드리는 경로. 그다음 QA를 직접 다시 돌리고 스크린샷을 직접 봅니다.
+
+#### 12.10.6 결과 (총괄 검수 완료)
+
+**테스트 수치**
+
+총괄이 다시 돌린 것: `LibrarySyncQA` `Run` 58개·`RunPlay` 79개·`RunProcess` 31개, `BookSyncQA.RunPlay` 73개·`RunProcess` 14개, `LedgerQA.RunPlay` 66개, `InventoryLedgerQA.RunPlay` 94개, `WorldItemQA.RunPlay` 93개, `EconomySyncQA.RunPlay` 61개, `CharacterQA.RunProcess` 14개.
+
+구현 에이전트 실행 기록으로 확인한 것: `WorldItemQA` 67·19, `InventoryLedgerQA` 50·25, `LedgerQA` 10·18, `BookSyncQA` 51, `CharacterQA` 36·33, `EconomySyncQA` 42·49, `DropSyncQA` 38·58, `SyncLayerQA` 59·13·6, `WorldSaveQA` 68, `npm test` 42개·31개. 수가 줄어든 것(`LedgerQA.RunPlay` 74 → 66, `EconomySyncQA.RunPlay` 62 → 61)은 지운 `p.bank` 확인 때문이다.
+
+스크린샷: 원격에서 빌린 책의 툴팁("남은 대여기간 : 10일"), 동시 대여에서 진 쪽 화면("누군가가 대여중입니다.")을 확인했다.
+
+**측정.** 주인 화면의 구매·글쓰기·출판·회수·대여·연체료 납부·반납에서 덮어쓰기 0번. 동시 대여에서 진 쪽만 1번(설계대로 Ledger가 되돌림). 가짜 클라이언트 요청이 주인 은행·가방과 주인 PC의 `library.json`을 바꾸지 않았다.
+
+**설계와 달라진 점**
+- 날 넘김: `DayChanged`를 구독하지 않고 ServerWorld가 매 프레임 월드 분으로 `ServerLibrary.AdvanceTo`를 부른다(같은 효과, 시계가 바뀌어도 끊기지 않음).
+- 구역에 작품의 인세·판매 수도 보낸다(회수 인세를 클라이언트가 미리 적용해야 덮어쓰기가 없음). 끝난 대여는 서버도 보관하지 않는다.
+- `p.fine`을 은행에서 못 받으면 벌점 +1을 적고 성공으로 답한다.
+- 반납·출판·회수에서 가방의 책은 직접 지운다(`TryTake`는 대여본 양도 금지에 걸림).
+- `WorldSaveData.library`가 PC의 world.json에도 빈 장부로 쓰인다(동작은 같음).
+- 요청 형식(`SharedOpArgs`): `a` 작품 ID, `b` 책 ID, `c` 대여 ID.
+
+**남은 문제**
+- 새 책 ID 중복은 서버 책 저장소와 보낸 사람의 가방에서만 검사한다.
+- 거울에서 `ReturnFee`가 계정 없는 대여자를 잠깐 추가할 수 있다(다음 구역에서 사라지는 표시 문제).
+- 계정 목록에 상한이 없다. 계정 수가 아주 많아지면 구역 60KB 한도를 확인해야 한다.
+- 구역이 9개라 이전 빌드와 섞이지 않는다.
+- `Docs/Architecture.md`, `Docs/Server.md`에 4d 구조가 아직 반영되지 않았다.

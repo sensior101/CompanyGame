@@ -175,8 +175,9 @@ public static partial class EconomySyncQA
         a = await LedgerOp(fake, "land.buy", new SharedOpArgs { a = "qa-ledger-plot" });
         Check(a.error == "은행 잔액이 부족합니다." && LandPlotManager.Instance.GetState("qa-ledger-plot") == LandPlotState.Available && ledger.Book(LedgerFake).bankBalance == left,
             "land.buy over the ledger's balance (" + left + " < " + LandPlot.DefaultPrice + "): no plot, nothing charged");
-        a = await LedgerOp(fake, "p.bank", new SharedOpArgs { n = LandPlot.DefaultPrice, a = "book.royalty" });
-        Check(a.error == "" && ledger.Book(LedgerFake).bankBalance == left + LandPlot.DefaultPrice, "a royalty (trusted p.bank; deposit is gone in 12.10.4)");
+        ledger.Book(LedgerFake).bankBalance += LandPlot.DefaultPrice; // money on the server's ledger itself (no request gives money on trust since 12.10.6)
+        ledger.Store(LedgerFake);
+        Check(ledger.Book(LedgerFake).bankBalance == left + LandPlot.DefaultPrice, "the fake's ledger gets the plot's price");
         a = await LedgerOp(fake, "land.buy", new SharedOpArgs { a = "qa-ledger-plot" });
         Check(a.error == "" && LandPlotManager.Instance.GetOwner("qa-ledger-plot") == LedgerFake && ledger.Book(LedgerFake).bankBalance == left && a.bank == left,
             "with the money the plot is the fake's and its price came off the ledger");
@@ -195,14 +196,11 @@ public static partial class EconomySyncQA
         a = await LedgerOp(fake, "p.shop.buy", new SharedOpArgs { a = "item_water" });
         Check(a.error == "" && ledger.Book(LedgerFake).bankBalance == now - ShopApplication.DefaultPrice("item_water"), "p.shop.buy item_water costs the server's price (" + ShopApplication.DefaultPrice("item_water") + ")");
         now = ledger.Book(LedgerFake).bankBalance;
-        a = await LedgerOp(fake, "p.bank", new SharedOpArgs { n = -(now + 1), a = "library.fine" });
-        Check(a.error == "은행 잔액이 부족합니다." && ledger.Book(LedgerFake).bankBalance == now, "a p.bank payment over the balance is refused");
-        a = await LedgerOp(fake, "p.bank", new SharedOpArgs { n = 1000, a = "deposit" });
-        Check(a.error == "허용하지 않는 사유입니다." && ledger.Book(LedgerFake).bankBalance == now, "p.bank deposit is gone (12.10.4: cash goes through p.cash.*)");
-        a = await LedgerOp(fake, "p.bank", new SharedOpArgs { n = 1000, a = "cheat" });
-        Check(a.error == "허용하지 않는 사유입니다." && ledger.Book(LedgerFake).bankBalance == now, "a p.bank reason that is not allowed is refused");
-        a = await LedgerOp(fake, "p.bank", new SharedOpArgs { n = 1000, a = "library.fine" });
-        Check(a.error != "" && ledger.Book(LedgerFake).bankBalance == now, "a p.bank amount with the wrong sign for its reason is refused");
+        foreach (string reason in new[] { "book.royalty", "library.fine", "deposit" })
+        {
+            var gone = await FakeOp(fake, "p.bank", new SharedOpArgs { n = reason == "library.fine" ? -1000 : 1000, a = reason }); // not a personal kind any more: no Ledger
+            Check(gone.error == "처리할 수 없는 요청입니다." && ledger.Book(LedgerFake).bankBalance == now, "p.bank " + reason + " is gone (12.10.6: no money on trust)");
+        }
         a = await LedgerOp(fake, "p.night.select", new SharedOpArgs { n = (long)NightActivityKind.Contract });
         Check(a.error != "", "살인 청부 cannot be picked before it is unlocked: " + a.error);
         Check(WorldStateSync.Ledgers == ownerLedgers && bank.Money == ownerBank, "still nothing of the fake's reached the Unity owner");
