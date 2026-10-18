@@ -7,7 +7,7 @@ using UnityEngine;
 
 /// <summary>
 /// Renders the title screen and each submenu to PNG through the title camera (Camera.Render into a RenderTexture),
-/// Overlay canvases (clock HUD, phone, chat) are not drawn by Camera.Render; the screen hides them anyway. Needs graphics (no -nographics) and the test server for the room list.
+/// Overlay canvases (clock HUD, phone, chat) are not drawn by Camera.Render; the screen hides them anyway. Needs graphics (no -nographics).
 ///   -executeMethod TitleShots.Run   (env QA_SHOTS = output folder; no -quit)
 /// Uses profile slot 3 like TitleFlowQA.
 /// </summary>
@@ -48,21 +48,18 @@ public static class TitleShots
     {
         string dir = Environment.GetEnvironmentVariable("QA_SHOTS") ?? Path.Combine(Application.dataPath, "../../_temp/shots");
         Directory.CreateDirectory(dir);
-        string server = Environment.GetEnvironmentVariable("QA_SERVER") ?? "http://localhost:3000";
         ProfileSlot.Set(3);
-        LocalAccount.ServerUrl = server;
-        TitleFlow.PrepareWorld(true); // so "create" shows an existing world
         await Awaitable.NextFrameAsync();
         var screen = TitleScreen.Current;
         var camera = Camera.main;
         screen.UseCamera(camera);
-        foreach (string name in new[] { "main", "create", "confirm", "name", "settings", "settings-advanced", "error", "busy" })
+        foreach (string name in new[] { "main", "worlds", "serveropen", "serverjoin", "confirm", "name", "settings", "settings-advanced", "error", "busy" })
         {
             screen.Open(name);
             await Snap(camera, Path.Combine(dir, "T_" + name.Replace('-', '_') + ".png"));
         }
 
-        // the in-game ESC menu without a room (offline view), drawn over the same backdrop
+        // the in-game ESC menu off a server (offline view), drawn over the same backdrop
         var titleCanvas = screen.GetComponentInChildren<Canvas>();
         titleCanvas.enabled = false;
         PauseMenu.Instance.Open();
@@ -70,61 +67,6 @@ public static class TitleShots
         await Snap(camera, Path.Combine(dir, "T_pause_offline.png"));
         PauseMenu.Instance.Close();
         titleCanvas.enabled = true;
-
-        // with a real server: join-by-code screens, the room list, then a real room for the code card and the ESC menu
-        using (var host = new QaRawClient(server))
-        {
-            string tag = UnityEngine.Random.Range(100, 999).ToString();
-            await host.Register("원격방장" + tag);
-            await host.Connect();
-            await host.CreateRoom("달동네 테스트방");
-            using var host2 = new QaRawClient(server);
-            await host2.Register("두번째" + tag);
-            await host2.Connect();
-            await host2.CreateRoom("방이 가득 찬 방");
-            Check(await TitleFlow.SignIn("촬영용" + tag, "male"), "sign in");
-            Check(await TitleFlow.Connect(), "connect");
-
-            screen.Open("join");
-            screen.FirstInput().text = "k7m-2qx"; // typed lowercase with a hyphen: the field shows K7M2QX
-            await Snap(camera, Path.Combine(dir, "T_join.png"));
-            screen.FirstInput().text = "zzzzzz";
-            screen.Click("참가");
-            await WaitFor(() => screen.Screen == "error");
-            await Snap(camera, Path.Combine(dir, "T_join_notfound.png"));
-            screen.Click("뒤로");
-
-            screen.Open("rooms");
-            await Task.Delay(1500);
-            await Awaitable.NextFrameAsync();
-            await Snap(camera, Path.Combine(dir, "T_rooms.png"));
-
-            Check(await TitleFlow.HostOnline("촬영방"), "host a room");
-            var net = NetSession.Instance;
-            titleCanvas.enabled = false;
-            RoomCodeCard.Instance.Show(net.RoomId);
-            RoomCodeCard.Instance.UseCamera(camera);
-            await Snap(camera, Path.Combine(dir, "T_create_code.png"));
-            RoomCodeCard.Instance.Hide();
-            PauseMenu.Instance.Open();
-            PauseMenu.Instance.UseCamera(camera);
-            await Snap(camera, Path.Combine(dir, "T_pause.png"));
-            PauseMenu.Instance.Close();
-            net.Leave();
-            titleCanvas.enabled = true;
-            TitleFlow.ResetAccount();
-        }
-    }
-
-    static async Task WaitFor(Func<bool> condition)
-    {
-        for (int i = 0; i < 600 && !condition(); i++) await Awaitable.NextFrameAsync();
-        if (!condition()) throw new Exception("TIMEOUT in TitleShots");
-    }
-
-    static void Check(string error, string what)
-    {
-        if (error != null) throw new Exception(what + " failed: " + error);
     }
 
     public static async Task Snap(Camera camera, string path)

@@ -264,7 +264,7 @@ public sealed class ServerLedger
         long price = LandPlot.PriceOf(a?.a);
         bool free = plots && a != null && plots.GetState(a.a) == LandPlotState.Available;
         if (free && !wallet.CanAfford(price)) return NoMoney;
-        string error = WorldOps.Apply(0, account, "land.buy", json); // a taken plot fails here, and nothing is charged
+        string error = WorldOps.Apply(account, "land.buy", json); // a taken plot fails here, and nothing is charged
         if (error == null && wallet.TrySpend(price, MoneyChangeReason.Purchase)) Store(account);
         return error;
     }

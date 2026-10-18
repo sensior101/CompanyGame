@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -6,8 +5,8 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 /// <summary>
-/// In-game ESC menu: continue, room or server info, hand the host role to another player, leave the room or server
-/// (back to the title; TitleFlow.ReturnToTitle also stops an in-app server, never a PC server process) and quit.
+/// In-game ESC menu: continue, server info, leave the server (back to the title; TitleFlow.ReturnToTitle also stops an
+/// in-app server, never a PC server process) and quit.
 /// The game keeps running underneath (it is a multiplayer game, so there is no real pause).
 /// Opens only when ESC is pressed while the player could move at the start of the frame, so ESC that closes the
 /// inventory, a shop, the phone, chat or a dialogue never also opens this menu. Created automatically.
@@ -101,16 +100,11 @@ public sealed class PauseMenu : MonoBehaviour
     void ShowMain()
     {
         Begin(640);
-        var net = NetSession.Instance;
-        bool inRoom = net && net.InRoom;
         TitleUi.Label(panel, "일시정지", 46, TitleUi.Cream, TextAlignmentOptions.Center, FontStyles.Bold);
         note = TitleUi.Label(panel, "", 24, TitleUi.Muted);
-        if (inRoom) { TitleUi.Label(panel, "방 코드", 24, TitleUi.Muted); RoomCodeCard.AddCode(panel, net.RoomId, false); }
         var resume = TitleUi.Button(panel, "계속하기", Close, 64, true, 30);
-        if (inRoom && net.IsSteam) TitleUi.Button(panel, "친구 초대 (Steam)", () => net.InviteFriends(), 64, true, 30);
-        if (inRoom && net.IsHost && net.Peers.Count > 1) TitleUi.Button(panel, "방장 넘기기", ShowTransfer, 64, true, 30);
         bool onServer = SyncClient.Instance && SyncClient.Instance.Connected;
-        TitleUi.Button(panel, inRoom ? "방 나가기 (타이틀로)" : onServer ? "서버 나가기 (타이틀로)" : "타이틀로", Leave, 64, true, 30);
+        TitleUi.Button(panel, onServer ? "서버 나가기 (타이틀로)" : "타이틀로", Leave, 64, true, 30);
         TitleUi.Button(panel, "게임 종료", Quit, 56, false, 26);
         RefreshNote();
         if (EventSystem.current) EventSystem.current.SetSelectedGameObject(resume.gameObject); // Enter continues, not copies
@@ -119,38 +113,14 @@ public sealed class PauseMenu : MonoBehaviour
     void RefreshNote()
     {
         if (!note) return;
-        var net = NetSession.Instance;
         var sync = SyncClient.Instance;
         string text = "오프라인 (혼자 플레이)";
         if (sync && sync.Connected) text = "서버: " + sync.ServerName + (SyncHost.Instance && SyncHost.Instance.InApp ? " (내가 연 서버)" : "");
-        if (net && net.InRoom)
-            text = (net.IsHost ? "방장" : "참가자") + " · " + net.Peers.Count + "명" + (string.IsNullOrEmpty(net.StatusText) ? "" : "\n" + net.StatusText);
-        if (notice != null) text += "\n<color=#FF9A8A>" + notice + "</color>";
         if (note.text != text) note.text = text;
-    }
-
-    string notice;
-
-    void ShowTransfer()
-    {
-        Begin(640);
-        var net = NetSession.Instance;
-        TitleUi.Label(panel, "방장 넘기기", 46, TitleUi.Cream, TextAlignmentOptions.Center, FontStyles.Bold);
-        TitleUi.Label(panel, "고른 사람이 방장이 되고, 월드 데이터가 그 사람의 PC로 넘어갑니다. 넘긴 뒤 이 PC의 월드 파일은 정리됩니다.", 24, TitleUi.Muted);
-        foreach (var peer in new List<PeerInfo>(net.Peers))
-        {
-            if (peer.id == net.MyId) continue;
-            string id = peer.id;
-            TitleUi.Button(panel, peer.name, () => { net.TransferHost(id); Close(); }, 60, true, 28);
-        }
-        TitleUi.Button(panel, "뒤로", ShowMain, 56, false, 26);
-        TitleUi.FocusFirst(panel);
     }
 
     void Leave()
     {
-        string why = TitleFlow.WhyCannotLeave();
-        if (why != null) { notice = TitleFlow.Message(why); RefreshNote(); return; }
         Close();
         TitleFlow.ReturnToTitle();
     }

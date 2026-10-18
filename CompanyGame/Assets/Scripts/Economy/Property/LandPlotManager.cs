@@ -21,7 +21,7 @@ public enum LandPlotResult
     InvalidName,
     InvalidInitials,
     NameTaken,
-    SendFailed, // in a room but the op could not be sent; nothing was charged
+    SendFailed, // on a server but the request could not be sent; nothing was charged
     NotOwner    // the plot belongs to someone else
 }
 
@@ -54,7 +54,7 @@ public class LandPlotManager : GameSystem<LandPlotManager>
     // Price this client paid for a plot whose purchase op is in flight. A lost race refunds exactly this, never an op field.
     readonly Dictionary<string, long> pendingPayments = new Dictionary<string, long>();
 
-    /// <summary>A new room starts: payments of the old room's unanswered ops are gone with it.</summary>
+    /// <summary>Leaving a server: payments of its unanswered requests are gone with it.</summary>
     public void ClearPending() => pendingPayments.Clear();
 
     public LandPlotState GetState(string plotId) =>
@@ -75,7 +75,7 @@ public class LandPlotManager : GameSystem<LandPlotManager>
         if (wallet == null) return LandPlotResult.NoWallet;
         if (!wallet.TrySpend(plot.Price, MoneyChangeReason.Purchase)) return LandPlotResult.NotEnoughMoney;
 
-        // In a room the payment is personal and made now; WorldOps refunds it if the op loses the race.
+        // On a server the payment is personal and made now; a lost race is refunded (WorldStateSync).
         if (SharedWriteGate.TrySend("land.buy", new SharedOpArgs { a = plot.Id })) { pendingPayments[plot.Id] = plot.Price; return LandPlotResult.Ok; }
         if (SharedWriteGate.SendFailed) { wallet.AddMoney(plot.Price, MoneyChangeReason.Purchase); return LandPlotResult.SendFailed; }
         ApplyPurchase(plot.Id, GameSession.LocalPlayerId);

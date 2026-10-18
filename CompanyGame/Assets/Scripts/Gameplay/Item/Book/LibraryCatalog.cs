@@ -7,7 +7,7 @@ public enum LibraryTradeMode { Buy, Borrow, Withdraw }
 
 /// <summary>
 /// The library ledger: works (published originals, sales, royalties), loans and accounts (fines, penalty points).
-/// Off a sync-layer server (playing alone off a server, the old room's host) it is this PC's library.json, decided here.
+/// Off a sync-layer server (offline) it is this PC's library.json, decided here.
 /// On a sync-layer server (Docs/Multiplayer_Redesign.md 12.10.6) the server decides it (ServerLibrary): this class is then
 /// a read-only mirror of the server's library section (<see cref="ApplyMirror"/>, never written to a file), and a library
 /// action of mine shows its effect on my bag and bank at once and goes out as a request (p.lib.*); the server's Ledger

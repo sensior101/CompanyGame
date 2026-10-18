@@ -2,8 +2,7 @@ using System;
 using UnityEngine;
 
 /// <summary>
-/// Fixed-cycle traffic light (green, yellow, red). The phase is a pure function of a shared clock, so a client
-/// only has to match <see cref="TimeOffset"/> to the host (TrafficSync) to show the same light.
+/// Fixed-cycle traffic light (green, yellow, red). The phase is a pure function of <see cref="Clock"/>.
 /// </summary>
 public sealed class TrafficSignal : MonoBehaviour
 {
@@ -23,9 +22,6 @@ public sealed class TrafficSignal : MonoBehaviour
     public float offset;
     public Head[] heads = Array.Empty<Head>();
 
-    /// <summary>Added to Time.timeAsDouble. The host keeps it as is; clients align it to the host clock.</summary>
-    public static double TimeOffset;
-
     static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
     static readonly int EmissionId = Shader.PropertyToID("_EmissionColor");
     static readonly Color RedOn = new Color(1f, .12f, .1f);
@@ -36,7 +32,7 @@ public sealed class TrafficSignal : MonoBehaviour
 
     Phase shown = (Phase)(-1);
 
-    public static double Clock => Time.timeAsDouble + TimeOffset;
+    public static double Clock => Time.timeAsDouble;
     public float Cycle => green + yellow + red;
     public Phase Current => PhaseAt(Clock, out _, out _);
     public float TimeInPhase { get { PhaseAt(Clock, out float inPhase, out _); return inPhase; } }

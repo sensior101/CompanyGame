@@ -139,7 +139,7 @@ public sealed class ServerWorld : MonoBehaviour
         if (GameClock.Current is SimpleGameClock clock) clock.Paused = false;
         GameTime.ResetNightSkip();
         NightActivity.Enabled = true;
-        // This PC's own world comes back, as an old-room visitor's does (memory only; nothing of the server's is written).
+        // This PC's own world comes back (memory only; nothing of the server's is written).
         if (restorePcWorld && !WorldSave.LoadFromDisk()) WorldSave.RestoreBaseline();
         if (Instance == this) Instance = null;
         Destroy(gameObject);
@@ -235,7 +235,7 @@ public sealed class ServerWorld : MonoBehaviour
                     : library ? Library.Apply(sender, from, kind, json)
                     : book ? Books.Apply(sender, from, kind, json)
                     : kind == "land.buy" ? Ledger.BuyLand(from, json)
-                    : WorldOps.Apply(0, from, kind, kind == "sns.post" ? WithAuthorName(json, from) : json);
+                    : WorldOps.Apply(from, kind, kind == "sns.post" ? WithAuthorName(json, from) : json);
             }
             catch (Exception e) { Debug.LogWarning("[ServerWorld] request '" + kind + "' failed: " + e.Message); error = "요청을 처리하지 못했습니다."; }
         }

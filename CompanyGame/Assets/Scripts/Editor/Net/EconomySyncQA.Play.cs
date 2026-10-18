@@ -128,7 +128,7 @@ public static partial class EconomySyncQA
         Check(await TitleFlow.CreateServerCharacter("QA경제", "male") == null, "the Unity owner made its character");
         Check(TitleFlow.EnterServerWorld() == null, "entering the world");
         await WaitFor(() => InGame && CharacterSync.Active && WorldStateSync.World, 90, "the game map");
-        Check(GameSession.Mode == SessionMode.Host && !GameSession.RemoteServer && ServerWorld.Instance, "the in-app server's owner stays Host; ServerWorld runs here");
+        Check(GameSession.Mode == SessionMode.Host && ServerWorld.Instance, "the in-app server's owner stays Host; ServerWorld runs here");
         Check(RawOwner(PcMark) == null, "the server's shared economy is not this PC's world (the PC-only record is not there)");
         await Awaitable.WaitForSecondsAsync(1.2f);
         Note("new world, section sizes (gzip bytes): " + Sizes(ServerWorld.Instance.SectionBytes));
@@ -328,7 +328,7 @@ public static partial class EconomySyncQA
         await StartProcessServer("A");
         pcHash = Hash(worldFile);
         Check(await TitleFlow.JoinServer("127.0.0.1:" + serverPort, "", false) == null, "the Unity client joins the server process");
-        Check(GameSession.Mode == SessionMode.Client && GameSession.RemoteServer, "on another process's server the client turns Client (RemoteServer)");
+        Check(GameSession.Mode == SessionMode.Client && !GameSession.IsAuthority, "on another process's server the client turns Client (not the authority)");
         Check(await TitleFlow.CreateServerCharacter("QA원격", "male") == null, "its character");
         Check(TitleFlow.EnterServerWorld() == null, "entering the world");
         await WaitFor(() => InGame && CharacterSync.Active && WorldStateSync.World, 90, "the game map");
@@ -417,9 +417,23 @@ public static partial class EconomySyncQA
         await Awaitable.WaitForSecondsAsync(.5f);
         Check(!fake.Has(m => m.kind == ToClient.Owner && m.id == car), "and no Claim went to the server");
 
+        Section("citizens and traffic on the remote client (12.11)");
+        int walked = await NpcQa.CitizensMoved(8f);
+        Check(walked > 0, "the remote client's citizens walk on " + SceneLoadManager.CurrentMap.path + " (" + walked + " of " + CitizenSpawner.Current.Citizens.Count + " moved in 8 s)");
+        await NpcQa.ShotNearest(false, "E_remote_citizens.png");
+        const string business = "Assets/Scenes/Maps/BusinessDistrict.unity";
+        Check(SceneLoadManager.TryLoadMap(business, SceneLoadManager.DefaultSpawnId), "the remote client travels to the traffic map");
+        await WaitFor(() => SceneManager.GetActiveScene().path == business && PlayerSpawner.Player && PlayerSpawner.Player.isActiveAndEnabled && !SceneLoadManager.IsLoading, 90, "BusinessDistrict on the remote client");
+        Check(client.Connected && GameSession.Mode == SessionMode.Client, "still on the server process as a Client");
+        int drove = await NpcQa.CarsMoved(10f);
+        Check(drove > 0, "the remote client's traffic drives (" + drove + " cars moved in 10 s)");
+        await NpcQa.ShotNearest(true, "E_remote_traffic.png");
+        Check(SceneLoadManager.TryLoadMap(TitleFlow.GameScene, SceneLoadManager.DefaultSpawnId), "back to the game map (run B joins where the character was saved)");
+        await WaitFor(() => InGame, 90, "the game map again");
+
         Section("leaving");
         await LeaveRemote(client);
-        Check(GameSession.Mode == SessionMode.Host && !GameSession.RemoteServer && GameTime.NightSkipStart == 0 && GameTime.NightSkipEnd == 6, "off the server: Host again, the night back to 0-6");
+        Check(GameSession.Mode == SessionMode.Host && GameTime.NightSkipStart == 0 && GameTime.NightSkipEnd == 6, "off the server: Host again, the night back to 0-6");
         Check(RawOwner(PcMark) == "PC의주인" && RawOwner(deed.propertyId) == null && Hash(worldFile) == pcHash, "this PC's world is back and world.json is unchanged");
         await StopProcessServer();
 

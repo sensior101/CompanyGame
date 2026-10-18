@@ -41,9 +41,9 @@ public static class WorldSaveQA
         try
         {
             GameClock.Current = null;
-            GameSession.ClearAccount(); // the QA runs as the legacy offline identity until the fake `hello`
+            GameSession.ClearAccount(); // the QA runs as the offline identity
             Execute(report, holder, dir);
-            ExecuteRoom(report, holder, dir);
+            ExecuteOps(report, holder, dir);
             ExecuteVehicles(report);
         }
         catch (Exception e) { report.failures.Add("Exception: " + e); }
@@ -133,158 +133,56 @@ public static class WorldSaveQA
         Check(r, price == after, "Client does not simulate prices");
     }
 
-    // ---- room flow: real NetSession + NetWorldBridge fed with the messages the server sends ----
+    // ---- shared-world requests: WorldOps (the server applies them as the account of the connection) and the gate ----
 
     static readonly BindingFlags Any = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
 
-    static void Feed(NetSession session, NetMsg m) => typeof(NetSession).GetMethod("Handle", Any).Invoke(session, new object[] { m });
+    static string Apply(string from, string kind, SharedOpArgs a) => WorldOps.Apply(from, kind, JsonUtility.ToJson(a));
 
-    static NetMsg Op(long seq, string from, string kind, SharedOpArgs a) =>
-        new NetMsg { t = "op", seq = seq, from = from, ev = kind, data = JsonUtility.ToJson(a) };
-
-    static NetMsg Joined(string host, string snap) => new NetMsg
+    static void ExecuteOps(Report r, GameObject holder, string dir)
     {
-        t = "joined", rid = "r1", host = host, snap = snap,
-        players = new[] { new PeerInfo { id = "42", name = "Tom" }, new PeerInfo { id = "7", name = "Bob" } }
-    };
-
-    static string WithIdentity(string json, string worldId, int generation, long opSeq)
-    {
-        var d = JsonUtility.FromJson<WorldSaveData>(json);
-        d.worldId = worldId; d.generation = generation; d.opSeq = opSeq;
-        return JsonUtility.ToJson(d);
-    }
-
-    static string Ack(string worldId, int generation) =>
-        "{\"handover\":\"ok\",\"worldId\":\"" + worldId + "\",\"generation\":" + generation + "}";
-
-    static void ExecuteRoom(Report r, GameObject holder, string dir)
-    {
-        WorldSave.PathOverride = Path.Combine(dir, "room", "world.json");
-        PersonalSave.DirOverride = Path.Combine(dir, "room", "player");
+        WorldSave.PathOverride = Path.Combine(dir, "ops", "world.json");
+        PersonalSave.DirOverride = Path.Combine(dir, "ops", "player");
         GameSession.Begin(SessionMode.Host);
         var props = PropertyRegistry.Instance; var land = Make<LandPlotManager>(holder);
         var bank = BankManager.Instance; var sns = SnsManager.Instance;
-        var sessionGo = new GameObject("QA Session"); sessionGo.transform.SetParent(holder.transform);
-        var session = sessionGo.AddComponent<NetSession>();
-        var bridge = sessionGo.AddComponent<NetWorldBridge>();
-        typeof(NetWorldBridge).GetMethod("Bind", Any).Invoke(bridge, new object[] { session });
         try
         {
-            // Own world made offline under the legacy identity ("Player" and the per-PC GUID).
             props.RestoreState(new List<PropertySave>());
-            props.TryRegister("qa:own", GameSession.LocalPlayerName);
-            land.ApplyPurchase("plotOld", GameSession.OfflinePlayerId);
-            Check(r, WorldSave.SaveToDisk(), "own world saved before login");
 
-            // First login: records move to the account id; identity comes from hello.
-            Feed(session, new NetMsg { t = "hello", id = "42", name = "Tom" });
-            Check(r, GameSession.LocalPlayerId == "42" && GameSession.LocalPlayerName == "Tom", "hello sets LocalPlayerId/Name from the account");
-            Check(r, props.CaptureState().Exists(p => p.id == "qa:own" && p.owner == "42"), "legacy property owner migrated to the account id");
-            Check(r, props.GetOwner("qa:own") == "Tom", "UI still sees the own record as LocalPlayerName");
-            Check(r, land.GetOwner("plotOld") == "42", "legacy land owner migrated to the account id");
-            Check(r, WorldSave.SaveToDisk(), "own world saved after migration");
-            string ownFile = File.ReadAllText(WorldSave.Path), ownId = WorldSave.WorldId;
+            // Security H1: the actor named in a request must be the account of the connection.
+            Check(r, Apply("7", "prop.reg", new SharedOpArgs { a = "vehicle:ok", b = "7" }) == null && props.GetOwner("vehicle:ok") == "7", "a request with actor == from is applied");
+            Check(r, Apply("7", "prop.reg", new SharedOpArgs { a = "vehicle:spoof", b = "42" }) != null && props.GetOwner("vehicle:spoof") == null, "a request with actor != from is rejected");
+            Check(r, Apply("7", "prop.ab", new SharedOpArgs { a = "vehicle:ok", b = "42" }) != null && props.GetOwner("vehicle:ok") == "7", "abandon naming another actor is rejected");
+            Check(r, Apply("7", "sns.post", new SharedOpArgs { a = "spoof", b = "42", c = "Tom" }) != null && !sns.Feed.GetRecent(10).Exists(p => p.text == "spoof"), "SNS post under another id is rejected");
+            Check(r, Apply("7", "report.sub", new SharedOpArgs { a = "42", b = "ev", c = "42", d = "0" }) != null, "report under another reporter id is rejected");
 
-            // H1: op numbering restarts with every room.
-            WorldSave.OpSeq = 9;
-            Feed(session, Joined("7", ""));
-            Check(r, WorldSave.OpSeq == 0 && session.LastOpSeq == 0, "joining a room resets OpSeq");
-            Feed(session, Op(1, "7", "prop.reg", new SharedOpArgs { a = "vehicle:first", b = "7" }));
-            Check(r, props.GetOwner("vehicle:first") == "Bob", "seq 1 of a new room is applied (not skipped as old)");
-            session.Leave();
-            Check(r, WorldSave.OpSeq == 0 && props.GetOwner("vehicle:first") == null, "leaving a room resets OpSeq and drops the room's changes");
-
-            // The room's world as the host would send it.
-            props.TryRegister("qa:room", "7");
-            string roomSnap = WithIdentity(WorldSave.ToJson(WorldSave.Capture()), "roomworld", 4, 3);
-            Check(r, WorldSave.Restore(ownFile), "own world restored for the next step");
-            Feed(session, Joined("7", roomSnap));
-            Check(r, GameSession.Mode == SessionMode.Client && WorldSave.OpSeq == 3 && session.LastOpSeq == 3 && props.GetOwner("qa:room") == "Bob",
-                "joined adopts the snapshot and its opSeq");
-
-            // H2 / security H1: the actor named in an op must be the server-attached `from`.
-            Feed(session, Op(4, "7", "prop.reg", new SharedOpArgs { a = "vehicle:ok", b = "7" }));
-            Feed(session, Op(5, "7", "prop.reg", new SharedOpArgs { a = "vehicle:spoof", b = "42" }));
-            Check(r, props.GetOwner("vehicle:ok") == "Bob", "op with actor == from is applied");
-            Check(r, props.GetOwner("vehicle:spoof") == null, "op with actor != from is rejected");
-            Feed(session, Op(6, "7", "prop.ab", new SharedOpArgs { a = "vehicle:ok", b = "42" }));
-            Check(r, props.GetOwner("vehicle:ok") == "Bob", "abandon naming another actor is rejected");
-            Check(r, WorldOps.Apply(0, "7", "sns.post", JsonUtility.ToJson(new SharedOpArgs { a = "spoof", b = "42", c = "Tom" })) != null &&
-                !sns.Feed.GetRecent(10).Exists(p => p.text == "spoof"), "SNS post under another id is rejected");
-            Check(r, WorldOps.Apply(0, "7", "report.sub", JsonUtility.ToJson(new SharedOpArgs { a = "42", b = "ev", c = "42", d = "0" })) != null,
-                "report under another reporter id is rejected");
-
-            // Security H2: land has an owner; only the owner registers; refunds use the plot price.
-            Feed(session, Op(7, "7", "land.buy", new SharedOpArgs { a = "plotB" }));
-            Check(r, land.GetOwner("plotB") == "7" && land.GetState("plotB") == LandPlotState.Owned, "land.buy sets the owner from `from`");
-            Feed(session, Op(8, "42", "land.reg", new SharedOpArgs { a = "plotB", b = "Stolen Co", c = "ST" }));
-            Check(r, land.GetState("plotB") == LandPlotState.Owned, "land.reg by a non-owner is rejected");
-            Feed(session, Op(9, "7", "land.reg", new SharedOpArgs { a = "plotB", b = "Seven Co", c = "SC" }));
-            Check(r, land.GetState("plotB") == LandPlotState.Registered, "land.reg by the owner works");
+            // Security H2: land has an owner; only the owner registers.
+            Check(r, Apply("7", "land.buy", new SharedOpArgs { a = "plotB" }) == null && land.GetOwner("plotB") == "7" && land.GetState("plotB") == LandPlotState.Owned, "land.buy sets the owner from `from`");
+            Check(r, Apply("7", "land.buy", new SharedOpArgs { a = "plotB" }) != null, "a second land.buy of the same plot fails (first wins)");
+            Check(r, Apply("42", "land.reg", new SharedOpArgs { a = "plotB", b = "Stolen Co", c = "ST" }) != null && land.GetState("plotB") == LandPlotState.Owned, "land.reg by a non-owner is rejected");
+            Check(r, Apply("7", "land.reg", new SharedOpArgs { a = "plotB", b = "Seven Co", c = "SC" }) == null && land.GetState("plotB") == LandPlotState.Registered, "land.reg by the owner works");
             Check(r, !land.RefundPending("plotB"), "no refund without a pending payment of this client");
 
-            // M7: a purchase whose op cannot be sent is refunded and fails; a lost race refunds the plot price.
+            // M7 on a server: a purchase whose request cannot be sent is refunded and fails; a lost race refunds the plot price.
+            SharedWriteGate.ServerCheck = () => true;
+            SharedWriteGate.ServerSender = (k, j) => false;
             bank.RestoreBalance(100000);
             var plotC = MakePlot(holder, "plotC", 50000);
             Check(r, land.TryPurchase(plotC) == LandPlotResult.SendFailed && bank.Money == 100000, "unsent land purchase is refunded and reported");
-            var plotD = MakePlot(holder, "plotD", 40000);
-            var realSender = SharedWriteGate.Sender;
-            SharedWriteGate.Sender = (k, j) => true;
-            Check(r, land.TryPurchase(plotD) == LandPlotResult.Ok && bank.Money == 60000, "sent land purchase is charged");
-            SharedWriteGate.Sender = realSender;
-            Feed(session, Op(10, "7", "land.buy", new SharedOpArgs { a = "plotD" }));
-            Feed(session, Op(11, "42", "land.buy", new SharedOpArgs { a = "plotD", n = 999999999L }));
-            Check(r, bank.Money == 100000 && land.GetOwner("plotD") == "7", "lost race refunds the plot price, not the op's n");
             Check(r, sns.Post("x") == SnsPostResult.OnCooldown, "SNS post honours a failed send");
+            SharedWriteGate.ServerSender = (k, j) => true;
+            var plotD = MakePlot(holder, "plotD", 40000);
+            Check(r, land.TryPurchase(plotD) == LandPlotResult.Ok && bank.Money == 60000, "sent land purchase is charged");
+            Check(r, land.RefundPending("plotD") && bank.Money == 100000, "a lost race refunds the plot price");
+            SharedWriteGate.ServerCheck = null; SharedWriteGate.ServerSender = null;
 
-            // M6: a snapshot older than the ops already applied is ignored.
-            Feed(session, new NetMsg { t = "state", snap = roomSnap });
-            Check(r, props.GetOwner("vehicle:ok") == "Bob" && session.LastOpSeq == 11, "older snapshot does not undo applied ops");
-
-            // M4: a visitor leaving gets its own world back and does not overwrite its file.
-            string before = File.ReadAllText(WorldSave.Path);
-            session.Leave();
-            Check(r, GameSession.Mode == SessionMode.Host && props.GetOwner("qa:room") == null && props.GetOwner("qa:own") == "Tom",
-                "visitor leave restores the own world");
-            Check(r, File.ReadAllText(WorldSave.Path) == before && before == ownFile && WorldSave.WorldId == ownId,
-                "visitor leave leaves world.json untouched");
-
-            // Creating a room: numbering restarts, the first op counts.
-            Feed(session, Joined("42", ""));
-            Feed(session, Op(1, "42", "prop.reg", new SharedOpArgs { a = "vehicle:mine", b = "42" }));
-            Check(r, props.GetOwner("vehicle:mine") == "Tom", "own op in a newly created room is applied");
-
-            // H3 / M5: handover lock.
-            Feed(session, new NetMsg { t = "host", host = "7", snap = "" });
-            Check(r, WorldSave.HandedOver, "losing the host role locks the world");
-            session.Leave();
-            Check(r, WorldSave.HandedOver, "leaving the room does not undo the handover lock");
-            Feed(session, Joined("7", ""));
-            Feed(session, new NetMsg { t = "host", host = "42", snap = "" });
-            Check(r, !WorldSave.HandedOver, "the server giving the room back undoes the lock");
-            Feed(session, new NetMsg { t = "host", host = "7", snap = "" });
-            bool locked = WorldSave.TryReadLocked(out string lockedId, out int lockedGen);
-            Check(r, WorldSave.HandedOver && locked, "locked again");
-            Feed(session, new NetMsg { t = "msg", from = "7", data = Ack("other", lockedGen + 1) });
-            Check(r, WorldSave.HandedOver, "ack for another world is ignored");
-            Feed(session, new NetMsg { t = "msg", from = "7", data = Ack(lockedId, lockedGen - 1) });
-            Check(r, WorldSave.HandedOver, "ack with an older generation is ignored");
-            Feed(session, new NetMsg { t = "msg", from = "7", data = Ack(lockedId, lockedGen + 1) });
-            Check(r, !WorldSave.HandedOver && !File.Exists(WorldSave.Path), "matching ack deletes the locked world");
-            session.Leave();
-
-            // M8: another account on this PC starts fresh and keeps nothing of the previous one.
-            bank.RestoreBalance(555);
-            Feed(session, new NetMsg { t = "hello", id = "43", name = "Ann" });
-            Check(r, GameSession.LocalPlayerId == "43" && bank.Money == 100000, "second account starts with the fresh bank");
-            Check(r, File.Exists(PersonalSave.PathFor("42")) && File.ReadAllText(PersonalSave.PathFor("42")).Contains("555"),
-                "first account's data kept in its own file");
+            // Offline the gate is open: the managers write at once.
+            Check(r, !SharedWriteGate.InRoom && props.TryRegister("qa:offline", "me") && props.GetOwner("qa:offline") == "me", "offline a registration applies at once");
         }
         finally
         {
-            SharedWriteGate.Sender = null; SharedWriteGate.InRoomCheck = null; SharedWriteGate.NameResolver = null;
-            typeof(NetWorldBridge).GetMethod("OnDestroy", Any).Invoke(bridge, null);
+            SharedWriteGate.ServerCheck = null; SharedWriteGate.ServerSender = null;
         }
     }
 
@@ -307,38 +205,31 @@ public static class WorldSaveQA
         return c;
     }
 
-    // Placed vehicles as shared-world ops (two other members, so nothing mounts on this PC) and in the snapshot.
+    // Placed vehicles of this PC's offline world: they ride along in the world snapshot (world.json).
     static void ExecuteVehicles(Report r)
     {
         var cars = Resources.LoadAll<ItemData>("Inventory/Vehicles/Cars");
         Check(r, cars.Length > 0, "a car item exists for the vehicle checks");
         if (cars.Length == 0) return;
         WorldDroppedItem.RestoreVehicles(null);
-        string Op(PlacedVehicleSave v) => JsonUtility.ToJson(v);
         var car = new PlacedVehicleSave { id = "qacar", item = cars[0].itemId, inst = "qainst", scene = "Assets/Scenes/none.unity", pos = new Vector3(1, 2, 3), ry = 90 };
         PlacedVehicleSave Only() { var all = WorldDroppedItem.CaptureVehicles(); return all.Count == 1 ? all[0] : null; }
 
-        Check(r, WorldDroppedItem.ApplyVehicleOp("veh.put", Op(car), "qa-a") == null && Only()?.inst == "qainst", "veh.put places the car for everyone, keeping its instance id");
-        Check(r, WorldDroppedItem.ApplyVehicleOp("veh.put", Op(car), "qa-a") == null && WorldDroppedItem.CaptureVehicles().Count == 1, "a repeated veh.put adds nothing");
-        Check(r, WorldDroppedItem.ApplyVehicleOp("veh.ride", Op(car), "qa-a") == null && Only()?.rider == "qa-a", "veh.ride: the first rider gets the car");
-        Check(r, WorldDroppedItem.ApplyVehicleOp("veh.ride", Op(car), "qa-b") != null && Only()?.rider == "qa-a", "a second veh.ride loses: one car, one driver");
-        Check(r, WorldDroppedItem.ApplyVehicleOp("veh.del", Op(car), "qa-b") == null && Only() != null, "a car being driven cannot be removed");
-        var moved = new PlacedVehicleSave { id = "qacar", pos = new Vector3(10, 2, 30), ry = 180 };
-        Check(r, WorldDroppedItem.ApplyVehicleOp("veh.park", Op(moved), "qa-b") == null && Only()?.rider == "qa-a", "only the driver can park it");
-        WorldDroppedItem.ApplyVehicleOp("veh.park", Op(moved), "qa-a");
-        var parked = Only();
-        Check(r, parked != null && string.IsNullOrEmpty(parked.rider) && parked.pos == moved.pos && Mathf.Approximately(parked.ry, 180), "veh.park frees the car where the driver left it");
-
-        WorldDroppedItem.ApplyVehicleOp("veh.ride", Op(car), "qa-b");
-        WorldDroppedItem.ReleaseRider("qa-b", new Vector3(5, 0, 5), 0);
-        Check(r, Only() != null && string.IsNullOrEmpty(Only().rider) && Only().pos == new Vector3(5, 0, 5), "a driver leaving the room leaves the car where they were last seen");
+        WorldDroppedItem.RestoreVehicles(new List<PlacedVehicleSave> { car });
+        Check(r, Only()?.inst == "qainst" && Only().pos == car.pos, "a saved car comes back, keeping its instance id");
+        WorldDroppedItem.RestoreVehicles(new List<PlacedVehicleSave> { car });
+        Check(r, WorldDroppedItem.CaptureVehicles().Count == 1, "restoring the same world again adds nothing");
+        var moved = new PlacedVehicleSave { id = "qacar", item = car.item, inst = car.inst, scene = car.scene, pos = new Vector3(5, 0, 5), ry = 180 };
+        WorldDroppedItem.RestoreVehicles(new List<PlacedVehicleSave> { moved });
+        Check(r, Only() != null && Only().pos == moved.pos && Mathf.Approximately(Only().ry, 180), "a moved car is parked where the world has it");
 
         var snap = JsonUtility.FromJson<WorldSaveData>(JsonUtility.ToJson(new WorldSaveData { vehicles = WorldDroppedItem.CaptureVehicles() }));
         WorldDroppedItem.RestoreVehicles(new List<PlacedVehicleSave>());
         Check(r, WorldDroppedItem.CaptureVehicles().Count == 0, "a snapshot without the car removes it");
         WorldDroppedItem.RestoreVehicles(snap.vehicles);
         Check(r, Only()?.id == "qacar" && Only().pos == new Vector3(5, 0, 5), "the car survives the world snapshot JSON");
-        Check(r, WorldDroppedItem.ApplyVehicleOp("veh.del", Op(car), "qa-b") == null && WorldDroppedItem.CaptureVehicles().Count == 0, "veh.del removes it for the other members");
+        WorldDroppedItem.RestoreVehicles(null);
+        Check(r, WorldDroppedItem.CaptureVehicles().Count == 0, "an empty world has no cars");
     }
 
     static void Teardown()

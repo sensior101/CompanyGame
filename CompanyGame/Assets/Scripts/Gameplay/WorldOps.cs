@@ -2,31 +2,25 @@ using System;
 using UnityEngine;
 
 /// <summary>
-/// Applies shared-world ops received from the server (every peer, in seq order, the sender included).
-/// The managers' own Try* methods send an op while in a room (SharedWriteGate); this is the other half.
-/// Application is deterministic: the first op wins, later conflicting ones fail for everyone and the
-/// sender gets a Korean message. Net wiring lives in NetWorldBridge.
+/// Applies a shared-world request on the server (ServerWorld, ServerLedger) as the account of its connection.
+/// The managers' own Try* methods send it while on a server (SharedWriteGate); this is the other half.
+/// The first request wins; a later conflicting one fails and its sender gets a Korean message.
 /// </summary>
 public static class WorldOps
 {
     const string WrongActor = "요청한 사람이 올바르지 않아 거부했습니다.";
 
-    /// <summary>Placed-vehicle ops (veh.*): (kind, json, from) -> error or null. Installed by WorldDroppedItem.</summary>
-    public static Func<string, string, string, string> VehicleOp;
-
     /// <summary>
-    /// Returns null on success (or when the op was already reflected), else a Korean failure message.
+    /// Returns null on success, else a Korean failure message.
     /// <paramref name="from"/> is the account id the server attached; the actor named inside the op must equal it.
     /// </summary>
-    public static string Apply(long seq, string from, string kind, string json)
+    public static string Apply(string from, string kind, string json)
     {
-        if (seq > 0 && seq <= WorldSave.OpSeq) return null; // already inside the snapshot we restored
-        if (seq > 0) WorldSave.OpSeq = seq;
         var a = JsonUtility.FromJson<SharedOpArgs>(json);
         if (a == null) return null;
         if (string.IsNullOrEmpty(from) || !ActorMatches(kind, a, from)) return WrongActor;
         SharedWriteGate.Applying = true;
-        try { return kind.StartsWith("veh.") ? VehicleOp?.Invoke(kind, json, from) : Run(kind, a, from); }
+        try { return Run(kind, a, from); }
         catch (Exception e) { Debug.LogException(e); return "요청을 처리하지 못했습니다."; }
         finally { SharedWriteGate.Applying = false; }
     }
@@ -40,15 +34,6 @@ public static class WorldOps
             case "report.sub": return a.c == from;
             default: return true;
         }
-    }
-
-    /// <summary>Same as Apply, but also refunds the sender's own pending land payment when it lost the race.</summary>
-    public static string ApplyFor(long seq, string from, bool mine, string kind, string json)
-    {
-        string error = Apply(seq, from, kind, json);
-        if (error == null || !mine || kind != "land.buy") return error;
-        bool refunded = LandPlotManager.Instance && LandPlotManager.Instance.RefundPending(JsonUtility.FromJson<SharedOpArgs>(json)?.a);
-        return refunded ? error + " 결제 금액은 돌려드렸습니다." : error;
     }
 
     static string Run(string kind, SharedOpArgs a, string from)

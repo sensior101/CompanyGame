@@ -1,6 +1,5 @@
 using System;
 using System.Net;
-using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEditor;
@@ -8,9 +7,9 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 
 /// <summary>
-/// The Cloudflare server's daily budget: HTTP 503 {"error":"daily_budget"} + Retry-After, and WebSocket close 4503.
-/// A local HttpListener plays the server and counts requests. After the first 503 the game must send nothing more
-/// (login, register, state GET/PUT, new sockets) until the next UTC day. Also checks the autosave interval (120s).
+/// The Cloudflare account server's daily budget: HTTP 503 {"error":"daily_budget"} + Retry-After.
+/// A local HttpListener plays the server and counts requests. After the first 503 the game must send no more account
+/// requests (login, register, ping) until the next UTC day.
 /// Run WITHOUT -quit:  Unity.exe -batchmode -nographics -projectPath ... -executeMethod ServerBudgetQA.Run
 /// </summary>
 [InitializeOnLoad]
@@ -52,8 +51,6 @@ public static class ServerBudgetQA
             listener = StartServer(out string url);
             Clock();
             await Http(url);
-            await Socket(url);
-            Interval();
             Debug.Log("[ServerBudgetQA] RESULT passed, checks=" + checks);
         }
         catch (Exception e)
@@ -122,35 +119,12 @@ public static class ServerBudgetQA
         Check(seconds > 3500 && seconds <= 3601, "blocked for about Retry-After (3600s), was " + (int)seconds);
         var again = await data.Login("u123456789012", "password123");
         var reg = await data.Register("u123456789012", "password123");
-        var get = await data.GetState("qa");
-        var put = await data.PutState("qa", new PlayerState { map = "m", inventory_json = "", personal_json = "" });
-        Check(again.Error == "daily_budget" && reg.Error == "daily_budget" && get.result.Error == "daily_budget" && put.Error == "daily_budget", "login, register, state GET and PUT all refuse with daily_budget");
+        var profile = await data.LoadProfile();
+        Check(again.Error == "daily_budget" && reg.Error == "daily_budget" && profile.Error == "daily_budget", "login, register and the profile all refuse with daily_budget");
         Check(hits == 1, "no further HTTP request reached the server (hits=" + hits + ")");
         Check(await data.Ping(url), "connection test does not send a request while blocked");
         Check(hits == 1, "ping sent nothing either");
+        Check(TitleFlow.Message("daily_budget") == ServerBudget.Message, "the title text for it is the friendly message");
         UnityEngine.Object.Destroy(data.gameObject);
-    }
-
-    // WebSocket close 4503 comes in as a synthetic {t:"closed",code:"4503"}; afterwards NetSession.Connect opens no socket.
-    static async Task Socket(string url)
-    {
-        ServerBudget.Clear();
-        var net = NetSession.Instance;
-        net.Disconnect();
-        var handle = typeof(NetSession).GetMethod("Handle", BindingFlags.NonPublic | BindingFlags.Instance);
-        handle.Invoke(net, new object[] { new NetMsg { t = "closed", code = "4503" } });
-        Check(net.LastError == "daily_budget" && ServerBudget.Blocked, "close code 4503: LastError daily_budget and blocked until the next UTC day");
-        hits = 0;
-        net.Connect(url, "token");
-        await Awaitable.NextFrameAsync();
-        Check(!net.Connecting && !net.Connected && net.LastError == "daily_budget" && hits == 0, "no socket attempt while blocked");
-        Check(TitleFlow.Message(net.LastError) == ServerBudget.Message, "title screen shows the friendly message");
-        ServerBudget.Clear();
-    }
-
-    static void Interval()
-    {
-        var field = typeof(NetPlayerSave).GetField("SaveInterval", BindingFlags.NonPublic | BindingFlags.Static);
-        Check(field != null && (float)field.GetRawConstantValue() == 120f, "autosave interval is 120 seconds");
     }
 }

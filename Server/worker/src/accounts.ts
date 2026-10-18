@@ -1,4 +1,4 @@
-// Accounts + per-player saved state, in the SQLite of one Durable Object. Tables mirror Server/src/db.ts.
+// Accounts, in the SQLite of one Durable Object. Tables mirror Server/src/db.ts.
 // Password hashing lives here (not in the Worker) on purpose: scrypt needs ~50-100 ms of CPU, which is over the
 // Workers Free 10 ms/request limit but fine for a Durable Object (30 s CPU per request, also on Free).
 import { DurableObject } from 'cloudflare:workers';
@@ -7,11 +7,6 @@ import { WindowLimiter } from '../../src/limit.ts';
 import { BUDGET_SCHEMA, budgetsOf, type Budgets } from './budget.ts';
 import { limitsOf, type Env } from './env.ts';
 
-export interface PlayerPos { map: string; x: number; y: number; z: number; ry: number }
-export interface PlayerState extends PlayerPos { inventory_json: string; personal_json: string; updated_at: number }
-// One character per world (a room's world): its own name, look, position, inventory and money.
-export interface CharacterState extends PlayerState { name: string; gender: string }
-export interface Character { name?: string; gender?: string }
 export interface Me { id: number; username: string; nickname: string | null; gender: string | null }
 type Fail<E extends string> = { error: E };
 
@@ -25,29 +20,8 @@ const SCHEMA = [
     gender     TEXT CHECK (gender IN ('male', 'female')),
     created_at INTEGER NOT NULL DEFAULT (unixepoch())
   )`,
-  `CREATE TABLE IF NOT EXISTS player_state (
-    player_id      INTEGER PRIMARY KEY REFERENCES players(id),
-    map            TEXT NOT NULL DEFAULT '',
-    x REAL NOT NULL DEFAULT 0, y REAL NOT NULL DEFAULT 0, z REAL NOT NULL DEFAULT 0, ry REAL NOT NULL DEFAULT 0,
-    inventory_json TEXT NOT NULL DEFAULT '',
-    personal_json  TEXT NOT NULL DEFAULT '',
-    updated_at     INTEGER NOT NULL DEFAULT 0
-  )`,
-  `CREATE TABLE IF NOT EXISTS character_state (
-    player_id      INTEGER NOT NULL REFERENCES players(id),
-    world          TEXT NOT NULL,
-    name           TEXT NOT NULL DEFAULT '',
-    gender         TEXT NOT NULL DEFAULT '',
-    map            TEXT NOT NULL DEFAULT '',
-    x REAL NOT NULL DEFAULT 0, y REAL NOT NULL DEFAULT 0, z REAL NOT NULL DEFAULT 0, ry REAL NOT NULL DEFAULT 0,
-    inventory_json TEXT NOT NULL DEFAULT '',
-    personal_json  TEXT NOT NULL DEFAULT '',
-    updated_at     INTEGER NOT NULL DEFAULT 0,
-    PRIMARY KEY (player_id, world)
-  )`,
 ];
 
-const EMPTY: PlayerState = { map: '', x: 0, y: 0, z: 0, ry: 0, inventory_json: '', personal_json: '', updated_at: 0 };
 const isUnique = (e: unknown) => String((e as Error).message).includes('UNIQUE');
 
 // Same parameters and storage format as the Node server (scrypt N=16384 r=8 p=1, "salt:hash" hex), so hashes are portable.
@@ -81,24 +55,24 @@ export class Accounts extends DurableObject<Env> {
     for (const q of SCHEMA) this.sql.exec(q);
     // ponytail: counters live in memory, so a restart/eviction resets them; an attacker slow enough to benefit
     // (idle > 10 s between requests) stays below every limit anyway. Persist them if limits ever need to be hard.
-    this.budget = budgetsOf(this.sql, env, 'accounts');
+    this.budget = budgetsOf(this.sql, env);
     const lim = limitsOf(env);
     this.regIp = new WindowLimiter(lim.registerPerIpPerMin, 60_000);
     this.loginIp = new WindowLimiter(lim.loginPerIpPerMin, 60_000);
     this.loginUser = new WindowLimiter(lim.loginPerUserPerMin, 60_000);
   }
 
-  // Every call is one Durable Object request; REST calls are also one HTTP request of our Worker.
+  // Every call is one Durable Object request and one HTTP request of our Worker.
   // true = today's budget is spent (the Worker answers 503 daily_budget).
-  private spent(rest: boolean): boolean {
-    const over = this.budget.dos.over() || (rest && this.budget.http.over());
+  private spent(): boolean {
+    const over = this.budget.dos.over() || this.budget.http.over();
     this.budget.dos.add();
-    if (rest) this.budget.http.add();
+    this.budget.http.add();
     return over;
   }
 
   async register(ip: string, username: string, password: string): Promise<{ id: number } | Fail<'rate_limited' | 'username_taken' | 'daily_budget'>> {
-    if (this.spent(true)) return { error: 'daily_budget' };
+    if (this.spent()) return { error: 'daily_budget' };
     if (!this.regIp.hit(ip)) return { error: 'rate_limited' };
     const hash = await hashPassword(password);
     try {
@@ -110,7 +84,7 @@ export class Accounts extends DurableObject<Env> {
   }
 
   async login(ip: string, username: string, password: string): Promise<{ id: number } | Fail<'rate_limited' | 'invalid_credentials' | 'daily_budget'>> {
-    if (this.spent(true)) return { error: 'daily_budget' };
+    if (this.spent()) return { error: 'daily_budget' };
     if (!this.loginIp.hit(ip) || !this.loginUser.hit(username)) return { error: 'rate_limited' };
     const row = this.rows<{ id: number; pw_hash: string }>('SELECT id, pw_hash FROM players WHERE username = ?', username)[0];
     // same error for unknown user and wrong password, so usernames can't be probed
@@ -119,7 +93,7 @@ export class Accounts extends DurableObject<Env> {
   }
 
   me(id: number): Me | null | Fail<'daily_budget'> {
-    if (this.spent(true)) return { error: 'daily_budget' };
+    if (this.spent()) return { error: 'daily_budget' };
     return this.meRow(id);
   }
 
@@ -127,15 +101,8 @@ export class Accounts extends DurableObject<Env> {
     return this.rows<Me>('SELECT id, username, nickname, gender FROM players WHERE id = ?', id)[0] ?? null;
   }
 
-  // Display name for the realtime hello; null when the account does not exist (token of a deleted account).
-  playerName(id: number): string | null {
-    this.spent(false); // called by the Lobby on connect: counted, never refused (the Lobby has its own gate)
-    const row = this.rows<{ nickname: string | null }>('SELECT nickname FROM players WHERE id = ?', id)[0];
-    return row ? (row.nickname ?? `player${id}`) : null;
-  }
-
   setProfile(id: number, nickname: string, gender: string): { nickname: string; gender: string } | Fail<'nickname_taken' | 'daily_budget'> {
-    if (this.spent(true)) return { error: 'daily_budget' };
+    if (this.spent()) return { error: 'daily_budget' };
     try {
       this.sql.exec('UPDATE players SET nickname = ?, gender = ? WHERE id = ?', nickname, gender, id);
       return { nickname, gender };
@@ -145,72 +112,8 @@ export class Accounts extends DurableObject<Env> {
     }
   }
 
-  // No row yet -> all defaults with updated_at = 0 (clients treat 0 as "nothing saved").
-  getState(id: number): PlayerState | Fail<'daily_budget'> {
-    if (this.spent(true)) return { error: 'daily_budget' };
-    return this.stateRow(id);
-  }
-
-  private stateRow(id: number): PlayerState {
-    const row = this.rows<PlayerState>(
-      'SELECT map, x, y, z, ry, inventory_json, personal_json, updated_at FROM player_state WHERE player_id = ?', id,
-    )[0];
-    return row ?? { ...EMPTY };
-  }
-
-  // A null JSON field keeps the stored value.
-  putState(id: number, p: PlayerPos, inventory: string | null, personal: string | null): PlayerState | Fail<'not_found' | 'daily_budget'> {
-    if (this.spent(true)) return { error: 'daily_budget' };
-    if (!this.meRow(id)) return { error: 'not_found' };
-    this.save(id, p, inventory, personal);
-    return this.stateRow(id);
-  }
-
-  getCharacter(id: number, world: string): CharacterState | Fail<'daily_budget'> {
-    if (this.spent(true)) return { error: 'daily_budget' };
-    return this.characterRow(id, world);
-  }
-
-  private characterRow(id: number, world: string): CharacterState {
-    const row = this.rows<CharacterState>(
-      'SELECT name, gender, map, x, y, z, ry, inventory_json, personal_json, updated_at FROM character_state WHERE player_id = ? AND world = ?', id, world,
-    )[0];
-    return row ?? { ...EMPTY, name: '', gender: '' };
-  }
-
-  // Like putState; a missing name/gender keeps the stored one.
-  putCharacter(id: number, world: string, p: PlayerPos & Character, inventory: string | null, personal: string | null): CharacterState | Fail<'not_found' | 'daily_budget'> {
-    if (this.spent(true)) return { error: 'daily_budget' };
-    if (!this.meRow(id)) return { error: 'not_found' };
-    const name = p.name || null, gender = p.gender || null;
-    this.sql.exec(`
-      INSERT INTO character_state (player_id, world, name, gender, map, x, y, z, ry, inventory_json, personal_json, updated_at)
-      VALUES (?, ?, COALESCE(?, ''), COALESCE(?, ''), ?, ?, ?, ?, ?, COALESCE(?, ''), COALESCE(?, ''), unixepoch())
-      ON CONFLICT(player_id, world) DO UPDATE SET map = excluded.map, x = excluded.x, y = excluded.y, z = excluded.z,
-        ry = excluded.ry, updated_at = excluded.updated_at,
-        name = COALESCE(?, name), gender = COALESCE(?, gender),
-        inventory_json = COALESCE(?, inventory_json), personal_json = COALESCE(?, personal_json)
-    `, id, world, name, gender, p.map, p.x, p.y, p.z, p.ry, inventory, personal, name, gender, inventory, personal);
-    return this.characterRow(id, world);
-  }
-
-  // Last position when a realtime connection ends (JSON fields untouched).
-  savePos(id: number, p: PlayerPos): void {
-    this.spent(false);
-    if (this.meRow(id)) this.save(id, p, null, null);
-  }
-
   private rows<T>(query: string, ...bindings: unknown[]): T[] {
     return this.sql.exec(query, ...bindings).toArray() as unknown as T[];
   }
 
-  private save(id: number, p: PlayerPos, inventory: string | null, personal: string | null): void {
-    this.sql.exec(`
-      INSERT INTO player_state (player_id, map, x, y, z, ry, inventory_json, personal_json, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, ''), COALESCE(?, ''), unixepoch())
-      ON CONFLICT(player_id) DO UPDATE SET map = excluded.map, x = excluded.x, y = excluded.y, z = excluded.z,
-        ry = excluded.ry, updated_at = excluded.updated_at,
-        inventory_json = COALESCE(?, inventory_json), personal_json = COALESCE(?, personal_json)
-    `, id, p.map, p.x, p.y, p.z, p.ry, inventory, personal, inventory, personal);
-  }
 }

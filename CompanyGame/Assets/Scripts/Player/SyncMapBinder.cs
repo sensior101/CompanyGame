@@ -2,7 +2,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 
 /// <summary>
-/// Tells SyncClient the current map (SceneLoadManager.CurrentMap.path, the same key NetPlayerSync uses).
+/// Tells SyncClient the current map (SceneLoadManager.CurrentMap.path).
 /// Lives here because Net cannot reference World.
 /// </summary>
 static class SyncMapBinder

@@ -62,6 +62,13 @@ public sealed class CitizenSpawner : MonoBehaviour
         SceneLoadManager.MapReady += OnMapReady;
     }
 
+    // A map played directly in the editor (the offline dev path) gets no MapReady for its first scene.
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+    static void FirstScene()
+    {
+        if (!FindAnyObjectByType<CitizenSpawner>()) OnMapReady(SceneManager.GetActiveScene(), SceneLoadManager.DefaultSpawnId, false);
+    }
+
     static void OnMapReady(Scene scene, string spawnId, bool arrival)
     {
         if (!IsOutdoorMap(scene.path) && !Indoors.ContainsKey(scene.path)) return;
@@ -109,8 +116,7 @@ public sealed class CitizenSpawner : MonoBehaviour
         }
         Destroy(holder);
         IgnoreEachOther();
-        gameObject.AddComponent<CitizenSync>();
-        Debug.Log("[Citizens] " + MapPath + ": " + Citizens.Count + " citizens, " + seats.Length + " benches, " + ((GameSession.IsAuthority || GameSession.RemoteServer) ? "simulating" : "proxy") + ".");
+        Debug.Log("[Citizens] " + MapPath + ": " + Citizens.Count + " citizens, " + seats.Length + " benches.");
     }
 
     void Create(GameObject prefab, Transform holder, int index, int mapHash, Vector3 point, int yaw, Seat[] seats, string[] lines = null, CitizenWalker.Role role = CitizenWalker.Role.Street)
@@ -129,7 +135,6 @@ public sealed class CitizenSpawner : MonoBehaviour
         CitizenInfo.Dress(citizen, seed);
         citizen.transform.SetParent(null, true); // becomes active here: Awake/OnEnable see the data above
         SceneManager.MoveGameObjectToScene(citizen, gameObject.scene); // DialogueData only works for objects in the current map
-        walker.SetProxy(!(GameSession.IsAuthority || GameSession.RemoteServer));
         Citizens.Add(walker);
     }
 
@@ -155,8 +160,7 @@ public sealed class CitizenSpawner : MonoBehaviour
         for (int k = 0; k < spec.chatPairs && starts.Count > 0; k++) MakePair(spec, ref index, mapHash, starts, rng, holder.transform, male, female);
         Destroy(holder);
         IgnoreEachOther();
-        gameObject.AddComponent<CitizenSync>();
-        Debug.Log("[Citizens] " + MapPath + ": " + Citizens.Count + " indoor citizens (" + starts.Count + " free start points left), " + ((GameSession.IsAuthority || GameSession.RemoteServer) ? "simulating" : "proxy") + ".");
+        Debug.Log("[Citizens] " + MapPath + ": " + Citizens.Count + " indoor citizens (" + starts.Count + " free start points left).");
     }
 
     CitizenWalker Make(int index, int mapHash, Vector3 point, int yaw, Transform holder, GameObject male, GameObject female, string[] lines, CitizenWalker.Role role)

@@ -1,17 +1,16 @@
 /// <summary>
-/// How this game instance runs. Single player and the host own the simulation
-/// (economy, clock, events); a client only mirrors what the host sends.
-/// Online random matching is a way to find a host, so it is still Host or Client.
+/// How this game instance runs. Host = this process computes the shared world (offline play, a server process, or
+/// the owner of an in-app server); Client = connected to another process's sync-layer server, which computes it.
 /// </summary>
-public enum SessionMode { Single, Host, Client }
+public enum SessionMode { Host, Client }
 
 public static class GameSession
 {
-    // 기본은 방장 호스트. 네트워크가 붙기 전에는 Single과 같게 동작한다.
+    // 기본은 Host(오프라인). 다른 프로세스의 서버에 접속한 동안만 Client(WorldStateSync).
     public static SessionMode Mode { get; private set; } = SessionMode.Host;
 
-    // Offline identity: a per-PC GUID and the default name. A server account (hello) replaces both and is
-    // remembered on this PC, so the same person keeps the same owner id offline and in rooms.
+    // Offline identity: a per-PC GUID and the default name. An account id set with SetAccount replaces both and is
+    // remembered on this PC (accounts move to EOS in 2b-2).
     static string AccountIdKey => ProfileSlot.Key("Session.AccountId");
     static string AccountNameKey => ProfileSlot.Key("Session.AccountName");
     static string offlineName = "Player", guid, accountId, accountName, characterName, characterGender;
@@ -54,7 +53,7 @@ public static class GameSession
     /// <summary>Raised after the account changed: (oldId, newId). Owners of records can migrate then.</summary>
     public static event System.Action<string, string> AccountChanged;
 
-    /// <summary>The server said who this PC is (hello). Sticky until a different account logs in.</summary>
+    /// <summary>Who this PC is (an account id). Sticky until a different account is set.</summary>
     public static void SetAccount(string id, string name)
     {
         if (string.IsNullOrEmpty(id)) return;
@@ -67,8 +66,8 @@ public static class GameSession
     }
 
     /// <summary>
-    /// The character of the room's world: every world has its own name and look per account (saved with the
-    /// per-world player state). While set it is the name everyone sees and ownership uses. Cleared on leaving the room.
+    /// The character of the server's world: every world has its own name and look per account (the server's world file
+    /// keeps it). While set it is the name everyone sees and ownership uses. Cleared on leaving the server.
     /// </summary>
     public static void SetCharacter(string name, string gender) { characterName = name; characterGender = gender == "female" ? "female" : "male"; }
     public static void ClearCharacter() { characterName = characterGender = null; }
@@ -95,20 +94,17 @@ public static class GameSession
     }
 
     [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.SubsystemRegistration)]
-    static void ResetStatics() { guid = null; accountId = accountName = characterName = characterGender = null; accountLoaded = false; AccountChanged = null; RemoteServer = false; }
+    static void ResetStatics() { guid = null; accountId = accountName = characterName = characterGender = null; accountLoaded = false; AccountChanged = null; }
 
-    /// <summary>True where economy, time and events are computed. Gate every simulation write on this.</summary>
+    /// <summary>
+    /// True where economy, time and events are computed: offline, in a server process, and on the owner of an in-app
+    /// server. False only while connected to another process's server. Gate every simulation write on this.
+    /// </summary>
     public static bool IsAuthority => Mode != SessionMode.Client;
 
     /// <summary>Called by the network layer (Net) when a session starts or ends.</summary>
     public static void Begin(SessionMode mode) => Mode = mode;
 
-    /// <summary>
-    /// Temporary (12.9, removed in stage 5): true only while connected to a sync server in another process. Client mode
-    /// then, yet citizens and traffic still run on this PC as before; only those places read it (the library is the
-    /// server's since 12.10.6).
-    /// </summary>
-    public static bool RemoteServer { get; set; }
 }
 
 /// <summary>

@@ -142,16 +142,14 @@ public static class ServerOpenQA
     {
         await WaitFor(() => OnTitle && !Screen.Busy, 15, "title");
         Screen.UseCamera(Camera.main);
-        foreach (string label in new[] { "서버 열기", "참가하기", "설정", "종료", "옛 방식(개발용)" })
+        foreach (string label in new[] { "혼자 하기", "서버 열기", "참가하기", "설정", "종료" })
             Check(HasButton(label), "main menu has '" + label + "'");
+        Check(!HasButton("옛 방식"), "main menu has no 옛 방식(개발용) (12.11)");
         const string oldServer = "http://localhost:3999";
-        LocalAccount.ServerUrl = oldServer; // an old-rooms address override: only the old menus may show it
+        LocalAccount.ServerUrl = oldServer; // an account server override: no menu shows it
         Screen.Open("main");
-        Check(!TextOf(Screen.transform).Contains(oldServer) && TextOf(Screen.transform).Contains("프로필 슬롯 3"), "main footer: the profile slot only, no old server address");
+        Check(!TextOf(Screen.transform).Contains(oldServer) && TextOf(Screen.transform).Contains("프로필 슬롯 3"), "main footer: the profile slot only, no server address");
         await Shot("O_main.png");
-        Screen.Open("legacy");
-        Check(TextOf(Screen.transform).Contains("서버 " + oldServer) && HasButton("방 만들기") && HasButton("연결 방식"), "옛 방식 menu: old rooms with the old server address in the footer");
-        await Shot("O_legacy.png");
         Screen.Open("serverjoin");
         Check(!TextOf(Screen.transform).Contains(oldServer), "참가하기 footer: no old server address");
         Screen.Open("main");

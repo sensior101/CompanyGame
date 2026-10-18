@@ -4,7 +4,7 @@ using System.IO;
 using UnityEngine;
 
 /// <summary>
-/// Client of the sync layer (Docs/Multiplayer_Redesign.md 12.1). Created at startup like NetSession, idle until Connect.
+/// Client of the sync layer (Docs/Multiplayer_Redesign.md 12.1). Created at startup, idle until Connect.
 /// Says Hello, tells the server the current map (SyncMapBinder), makes and removes the remote entities, applies their
 /// states and events, and sends the dirty states of my entities every 0.1s. The socket threads only move bytes;
 /// everything here runs in Update on the main thread. Right after Welcome the server sends this account's character of

@@ -4,8 +4,7 @@ using UnityEngine.AI;
 
 /// <summary>
 /// An NPC car that follows <see cref="TrafficLane"/> points. It brakes for red lights, for cars ahead in its
-/// direction and for people, and picks a random continuation at the end of each lane. A proxy (client) copy has
-/// no driving logic: it only eases toward the pose the host sent.
+/// direction and for people, and picks a random continuation at the end of each lane.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class TrafficCar : MonoBehaviour
@@ -22,7 +21,6 @@ public sealed class TrafficCar : MonoBehaviour
     public string itemId = "";
     public int key;
 
-    public bool Proxy { get; private set; }
     public bool Finished { get; private set; }
     public float Speed { get; private set; }
     public TrafficLane Lane => lane;
@@ -31,9 +29,9 @@ public sealed class TrafficCar : MonoBehaviour
 
     TrafficLane lane, planned;
     int index;
-    Vector3 pos, remotePos, remoteVelocity;
-    float lift, yaw, remoteYaw, lastPacket, wheelDegrees, blockedTime, ignoreCarsUntil;
-    bool hasRemote, runLight, blockedByCar;
+    Vector3 pos;
+    float lift, yaw, wheelDegrees, blockedTime, ignoreCarsUntil;
+    bool runLight, blockedByCar;
     Bounds body = new Bounds(new Vector3(0f, .7f, .3f), new Vector3(1.8f, 1.4f, 4.2f));
     readonly List<Transform> wheels = new List<Transform>();
     readonly List<Quaternion> wheelBase = new List<Quaternion>();
@@ -43,9 +41,8 @@ public sealed class TrafficCar : MonoBehaviour
     Vector3 Forward => Quaternion.Euler(0f, yaw, 0f) * Vector3.forward;
 
     /// <summary>Builds the collider, finds wheels and puts the car on a lane at distance s. A null lane keeps the current transform.</summary>
-    public void Init(TrafficLane startLane, float distance, bool proxy)
+    public void Init(TrafficLane startLane, float distance)
     {
-        Proxy = proxy;
         MeasureBody();
         BuildPhysics();
         CollectWheels();
@@ -106,9 +103,8 @@ public sealed class TrafficCar : MonoBehaviour
         float dt = Mathf.Min(Time.deltaTime, .1f);
         if (dt <= 0f) return;
         Vector3 before = pos;
-        if (Proxy) FollowRemote(dt); else Drive(dt);
+        Drive(dt);
         float moved = Vector3.Dot(pos - before, Forward);
-        if (Proxy) Speed = moved / dt;
         wheelDegrees += moved / Mathf.Max(.05f, wheelRadius) * Mathf.Rad2Deg;
         ApplyPose();
     }
@@ -258,61 +254,4 @@ public sealed class TrafficCar : MonoBehaviour
         hit.GetComponentInParent<CharacterController>() || hit.GetComponentInParent<NavMeshAgent>();
 
     static Vector3 Flat(Vector3 v) { v.y = 0f; return v; }
-
-    // ---- client copy and host hand-over ---------------------------------------------------------------------
-
-    /// <summary>Latest pose from the host. The proxy extrapolates with the speed implied by the last two packets.</summary>
-    public void SetRemote(Vector3 position, float yawDegrees)
-    {
-        float now = Time.time;
-        if (hasRemote) remoteVelocity = Vector3.ClampMagnitude((position - remotePos) / Mathf.Max(.05f, now - lastPacket), 60f);
-        else pos = position;
-        remotePos = position;
-        remoteYaw = yawDegrees;
-        lastPacket = now;
-        hasRemote = true;
-    }
-
-    void FollowRemote(float dt)
-    {
-        if (!hasRemote) return;
-        Vector3 predicted = remotePos + remoteVelocity * Mathf.Min(Time.time - lastPacket, .4f);
-        float blend = 1f - Mathf.Exp(-10f * dt);
-        pos = (predicted - pos).sqrMagnitude > 900f ? predicted : Vector3.Lerp(pos, predicted, blend);
-        yaw = Mathf.LerpAngle(yaw, remoteYaw, blend);
-    }
-
-    /// <summary>This PC became the host: take over driving from the current pose on the nearest lane going the same way.</summary>
-    public void BecomeReal(IReadOnlyList<TrafficLane> lanes)
-    {
-        Proxy = false;
-        hasRemote = false;
-        if (!AttachToNearestLane(lanes)) Finished = true;
-    }
-
-    bool AttachToNearestLane(IReadOnlyList<TrafficLane> lanes)
-    {
-        float best = 12f;
-        Vector3 fwd = Forward;
-        lane = null;
-        foreach (TrafficLane candidate in lanes)
-        {
-            if (!candidate) continue;
-            for (int i = 1; i < candidate.Count; i++)
-            {
-                Vector3 a = candidate.Point(i - 1), b = candidate.Point(i);
-                if (Vector3.Dot(Flat(b - a).normalized, fwd) < .3f) continue;
-                float t = Mathf.Clamp01(Vector3.Dot(Flat(pos - a), Flat(b - a)) / Mathf.Max(.01f, Flat(b - a).sqrMagnitude));
-                float distance = Flat(pos - Vector3.Lerp(a, b, t)).magnitude;
-                if (distance >= best) continue;
-                best = distance;
-                lane = candidate;
-                index = i;
-            }
-        }
-        if (!lane) return false;
-        runLight = false;
-        PlanNext();
-        return true;
-    }
 }

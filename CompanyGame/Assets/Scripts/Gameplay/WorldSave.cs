@@ -4,17 +4,15 @@ using System.IO;
 using UnityEngine;
 
 /// <summary>
-/// Shared world state computed by the host (or single player): clock, stock prices, companies, property,
-/// reports and SNS. Personal data (bank balance, portfolio, wallet cash) is NOT here, see PersonalSave.
+/// Shared world state computed where GameSession.IsAuthority (offline, or a server): clock, stock prices, companies,
+/// property, reports and SNS. Personal data (bank balance, portfolio, wallet cash) is NOT here, see PersonalSave.
 /// </summary>
 [Serializable]
 public sealed class WorldSaveData
 {
     public int version = 1;
     public long clockMinutes;
-    public string worldId;   // GUID created with the world; copies share it
-    public int generation;   // +1 on every host handover; the higher copy is the valid one
-    public long opSeq;   // last shared-world op already reflected in this snapshot
+    public string worldId;   // GUID created with the world
     public StockExchangeState stocks;
     public CompanyMarketState companies;
     public List<PropertySave> properties;
@@ -44,11 +42,11 @@ public sealed class StartDeedSave
     public string account, deed;
 }
 
-/// <summary>A vehicle standing in the world (WorldDroppedItem). rider = room member driving it.</summary>
+/// <summary>A vehicle standing in this PC's offline world (WorldDroppedItem).</summary>
 [Serializable]
 public sealed class PlacedVehicleSave
 {
-    public string id, item, inst, scene, rider;
+    public string id, item, inst, scene;
     public Vector3 pos;
     public float ry;
 }
@@ -69,42 +67,24 @@ public static class WorldSave
     /// <summary>Last JSON built, written or applied. Used for change detection.</summary>
     public static string LastJson { get; private set; }
 
-    /// <summary>Last shared-world op seq reflected in local state. Written into snapshots; the net layer keeps it current.</summary>
-    public static long OpSeq { get; set; }
-
-    /// <summary>The fresh world as it was before anything was loaded; a visitor falls back to it when it has no world file.</summary>
+    /// <summary>The fresh world as it was before anything was loaded; used when there is no world file.</summary>
     public static string Baseline { get; private set; }
 
     public static void CaptureBaseline()
     {
         if (Baseline != null) return;
         var d = Capture();
-        d.worldId = null; d.generation = 0; d.opSeq = 0;
+        d.worldId = null;
         Baseline = ToJson(d);
-        WorldId = null; Generation = 0;
+        WorldId = null;
     }
 
     /// <summary>Back to the untouched fresh world with no identity (the next save creates a new worldId).</summary>
     public static bool RestoreBaseline()
     {
-        bool ok = !string.IsNullOrEmpty(Baseline) && Restore(Baseline, false);
-        WorldId = null; Generation = 0; OpSeq = 0;
+        bool ok = !string.IsNullOrEmpty(Baseline) && Restore(Baseline);
+        WorldId = null;
         return ok;
-    }
-
-    /// <summary>Worldid and generation of the locked (handed-over) file, if any.</summary>
-    public static bool TryReadLocked(out string worldId, out int generation)
-    {
-        worldId = null; generation = 0;
-        try
-        {
-            if (!File.Exists(HandoverPath)) return false;
-            var d = JsonUtility.FromJson<WorldSaveData>(File.ReadAllText(HandoverPath));
-            if (d == null) return false;
-            worldId = d.worldId; generation = d.generation;
-            return !string.IsNullOrEmpty(worldId);
-        }
-        catch (Exception) { return false; }
     }
 
     /// <summary>
@@ -121,78 +101,18 @@ public static class WorldSave
     }
 
     public static string WorldId { get; private set; }
-    public static int Generation { get; private set; }
-
-    /// <summary>The new host calls this when it takes the world over from a previous host.</summary>
-    public static void BumpGeneration() { Generation++; Remember(); }
-
-    static string KnownKey(string id) => ProfileSlot.Key("World.Gen." + id);
-
-    // Highest generation this PC has seen per world; a lower-generation copy is refused on load.
-    static void Remember()
-    {
-        if (string.IsNullOrEmpty(WorldId)) return;
-        if (PlayerPrefs.GetInt(KnownKey(WorldId), -1) < Generation) PlayerPrefs.SetInt(KnownKey(WorldId), Generation);
-    }
-
-    public static string HandoverPath => System.IO.Path.Combine(System.IO.Path.GetDirectoryName(Path), "world.handover.json");
-
-    /// <summary>A loadable local world exists (a file that is not locked by a handover).</summary>
-    public static bool HasLocalWorld => File.Exists(Path) && !HandedOver;
-
-    /// <summary>When the local world was last saved and how far its clock had run, for the title screen. False if unreadable.</summary>
-    public static bool TryPeek(out DateTime savedAt, out long clockMinutes)
-    {
-        savedAt = default; clockMinutes = 0;
-        try
-        {
-            if (!HasLocalWorld) return false;
-            var d = JsonUtility.FromJson<WorldSaveData>(File.ReadAllText(Path));
-            if (d == null) return false;
-            savedAt = File.GetLastWriteTime(Path); clockMinutes = d.clockMinutes;
-            return true;
-        }
-        catch (Exception) { return false; }
-    }
-
-    /// <summary>
-    /// "New world": the current world file (and a handover-locked one) is MOVED to a timestamped backup next to it,
-    /// never deleted, then the fresh baseline world with a new identity is saved as the new world.json.
-    /// Returns false (and changes nothing in memory) if the backup could not be made.
-    /// </summary>
-    public static bool StartNewWorld(out string backupPath)
-    {
-        backupPath = null;
-        string stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
-        try
-        {
-            foreach (string f in new[] { Path, HandoverPath })
-            {
-                if (!File.Exists(f)) continue;
-                string dst = System.IO.Path.ChangeExtension(f, null) + ".backup-" + stamp + ".json";
-                File.Move(f, dst);
-                backupPath ??= dst;
-            }
-        }
-        catch (Exception e) { Debug.LogWarning("WorldSave: backup failed, world kept. " + e.Message); return false; }
-        RestoreBaseline();
-        return SaveToDisk();
-    }
-
-    /// <summary>True while the local world file is locked because it was handed to another host.</summary>
-    public static bool HandedOver => File.Exists(HandoverPath);
 
     /// <summary>The id of the world in memory, created now if it has none yet (a fresh world gets one on its first save).</summary>
     public static string EnsureWorldId()
     {
-        if (string.IsNullOrEmpty(WorldId)) { WorldId = Guid.NewGuid().ToString("N"); Remember(); }
+        if (string.IsNullOrEmpty(WorldId)) WorldId = Guid.NewGuid().ToString("N");
         return WorldId;
     }
 
     public static WorldSaveData Capture()
     {
         EnsureWorldId();
-        var data = new WorldSaveData { opSeq = OpSeq, worldId = WorldId, generation = Generation };
+        var data = new WorldSaveData { worldId = WorldId };
         if (GameClock.Current != null) data.clockMinutes = GameClock.Current.Now.TotalMinutes;
         if (StockMarketManager.Instance) data.stocks = StockMarketManager.Instance.Exchange.CaptureState();
         if (CompanyManager.Instance) data.companies = CompanyManager.Instance.Market.CaptureState();
@@ -288,18 +208,12 @@ public static class WorldSave
     }
 
     /// <summary>Applies shared state in memory only. Never touches disk or personal values.</summary>
-    public static bool Restore(string json) => Restore(json, true);
-
-    /// <summary>Like Restore, but ignores a snapshot older than the ops already applied (opSeq below <paramref name="appliedSeq"/>).</summary>
-    public static bool RestoreIfNotOlder(string json, long appliedSeq) => Restore(json, true, appliedSeq);
-
-    static bool Restore(string json, bool adoptOpSeq, long minOpSeq = 0)
+    public static bool Restore(string json)
     {
         WorldSaveData d;
         try { d = string.IsNullOrEmpty(json) ? null : JsonUtility.FromJson<WorldSaveData>(json); }
         catch (Exception e) { Debug.LogWarning("WorldSave: unreadable snapshot. " + e.Message); return false; }
         if (d == null || d.version != CurrentVersion) { Debug.LogWarning("WorldSave: unsupported snapshot version."); return false; }
-        if (d.opSeq < minOpSeq) return false; // older than what this peer already applied: the ops after it would be lost
 
         var failed = new List<string>();
         Apply(failed, "clock", () => { if (GameClock.Current != null) GameClock.Current.SetNow(GameTime.FromTotalMinutes(d.clockMinutes)); });
@@ -311,8 +225,7 @@ public static class WorldSave
         Apply(failed, "sns", () => { if (d.sns != null && SnsManager.Instance) SnsManager.Instance.Feed.RestoreState(d.sns); });
         Apply(failed, "vehicles", () => RestoreVehicles?.Invoke(d.vehicles));
         LastJson = json;
-        OpSeq = adoptOpSeq ? d.opSeq : 0;
-        if (!string.IsNullOrEmpty(d.worldId)) { WorldId = d.worldId; Generation = d.generation; Remember(); }
+        if (!string.IsNullOrEmpty(d.worldId)) WorldId = d.worldId;
         if (failed.Count > 0) Debug.LogWarning("WorldSave: failed to restore " + string.Join(", ", failed));
         return failed.Count == 0;
     }
@@ -323,12 +236,12 @@ public static class WorldSave
         catch (Exception e) { failed.Add(name); Debug.LogException(e); }
     }
 
-    /// <summary>Host/single only. Keeps one backup (world.prev.json) of the previous file.</summary>
+    /// <summary>Authority only (offline). Keeps one backup (world.prev.json) of the previous file.</summary>
     public static bool SaveToDisk() => SaveToDisk(Path);
 
     public static bool SaveToDisk(string path)
     {
-        if (!GameSession.IsAuthority || HandedOver) return false;
+        if (!GameSession.IsAuthority) return false;
         try
         {
             string json = ToJson(Capture());
@@ -346,56 +259,10 @@ public static class WorldSave
     {
         try
         {
-            bool ok = File.Exists(path) && !HandedOver && !IsStale(path) && Restore(File.ReadAllText(path), false); // a new room restarts op numbering
+            bool ok = File.Exists(path) && Restore(File.ReadAllText(path));
             if (ok) MigrateOwners();
             return ok;
         }
         catch (Exception e) { Debug.LogWarning("WorldSave: load failed. " + e.Message); return false; }
-    }
-
-    static bool IsStale(string path)
-    {
-        var d = JsonUtility.FromJson<WorldSaveData>(File.ReadAllText(path));
-        if (d == null || string.IsNullOrEmpty(d.worldId) || PlayerPrefs.GetInt(KnownKey(d.worldId), -1) <= d.generation) return false;
-        Debug.LogWarning("WorldSave: refusing an outdated copy of this world (a newer host has it).");
-        return true;
-    }
-
-    /// <summary>Locks the local world (renames it) once it is handed to another host. Locked worlds cannot be loaded or saved.</summary>
-    public static bool LockForHandover()
-    {
-        try
-        {
-            if (File.Exists(Path)) { if (File.Exists(HandoverPath)) File.Delete(HandoverPath); File.Move(Path, HandoverPath); }
-            else SaveManager.WriteJsonFile(HandoverPath, LastJson ?? ToJson(Capture())); // no file yet: still leave a lock marker
-            return File.Exists(HandoverPath);
-        }
-        catch (Exception e) { Debug.LogWarning("WorldSave: lock failed. " + e.Message); return false; }
-    }
-
-    /// <summary>Rollback: the server made this PC host again before the new host confirmed. Restores the locked file.</summary>
-    public static bool UnlockHandover()
-    {
-        try
-        {
-            if (!File.Exists(HandoverPath)) return false;
-            if (File.Exists(Path)) File.Delete(Path);
-            File.Move(HandoverPath, Path);
-            return true;
-        }
-        catch (Exception e) { Debug.LogWarning("WorldSave: unlock failed. " + e.Message); return false; }
-    }
-
-    /// <summary>Removes the local world file and its backup (after the world was handed to a new host).</summary>
-    public static bool Delete()
-    {
-        try
-        {
-            string path = Path;
-            foreach (string f in new[] { path, HandoverPath, System.IO.Path.ChangeExtension(path, ".prev.json"), path + ".tmp" })
-                if (File.Exists(f)) File.Delete(f);
-            return true;
-        }
-        catch (Exception e) { Debug.LogWarning("WorldSave: delete failed. " + e.Message); return false; }
     }
 }

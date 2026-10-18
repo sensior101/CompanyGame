@@ -271,7 +271,7 @@ public static class TrafficQA
         TrafficLane[] lanes = root.GetComponentsInChildren<TrafficLane>(true);
         Check(report, lanes.Length > 0, "map has lanes");
         TrafficSpawner spawner = root.GetComponent<TrafficSpawner>();
-        Check(report, spawner && spawner.lanes != null && spawner.lanes.Length == lanes.Length && root.GetComponent<TrafficSync>(), "spawner and sync are set up with every lane");
+        Check(report, spawner && spawner.lanes != null && spawner.lanes.Length == lanes.Length, "the spawner is set up with every lane");
         CheckLanes(report, lanes, surface);
         CheckSignals(report, lanes);
         CheckSignalHeads(report, root, surface);

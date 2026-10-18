@@ -2,14 +2,14 @@ using System;
 using UnityEngine;
 
 /// <summary>
-/// The Cloudflare server stops serving once its daily budget is used up: HTTP 503 {"error":"daily_budget"} (with Retry-After)
-/// and WebSocket close code 4503. From then on this PC sends no more requests (login, autosave, reconnect) until the
-/// next UTC day, which is 09:00 Korean time. The block is remembered across restarts (PlayerPrefs).
+/// The Cloudflare account server stops serving once its daily budget is used up: HTTP 503 {"error":"daily_budget"} (with
+/// Retry-After). From then on this PC sends no more account requests (register, login, profile) until the next UTC day,
+/// which is 09:00 Korean time. The block is remembered across restarts (PlayerPrefs).
 /// </summary>
 public static class ServerBudget
 {
     public const string Code = "daily_budget";
-    public const string Message = "오늘 서버 사용 한도에 도달했어요. 내일 오전 9시 이후 다시 접속할 수 있어요. 오프라인으로 하거나 Steam 모드로 바꿀 수 있어요.";
+    public const string Message = "오늘 서버 사용 한도에 도달했어요. 내일 오전 9시 이후 다시 접속할 수 있어요. 혼자 하기나 서버 열기·참가하기는 그대로 할 수 있어요.";
     const string Key = "net.budget_until";
 
     /// <summary>Tests replace the clock.</summary>

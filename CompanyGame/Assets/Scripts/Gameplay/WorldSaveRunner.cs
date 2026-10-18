@@ -3,7 +3,7 @@ using System.Collections;
 using UnityEngine;
 
 /// <summary>
-/// Drives WorldSave (host/single only, shared world) and PersonalSave (always, local file).
+/// Drives WorldSave (offline shared world, authority only) and PersonalSave (local file, off a server).
 /// Loads one frame after startup so every GameSystems.Create() has finished. Created automatically.
 /// </summary>
 public sealed class WorldSaveRunner : MonoBehaviour
@@ -52,7 +52,7 @@ public sealed class WorldSaveRunner : MonoBehaviour
         loaded = true;
     }
 
-    /// <summary>Immediate world save (host/single only) and personal save. Safe to call from anywhere.</summary>
+    /// <summary>Immediate world save (offline authority only) and personal save. Safe to call from anywhere.</summary>
     public static void SaveNow()
     {
         if (!Instance || !Instance.loaded) return;
@@ -92,8 +92,6 @@ public sealed class WorldSaveRunner : MonoBehaviour
 
     void SavePersonal(bool force)
     {
-        // In a room the money is the room character's; it is saved per world by NetPlayerSave, never into this PC's own file.
-        if (SharedWriteGate.InRoomCheck != null && SharedWriteGate.InRoomCheck()) return;
         if (OnServer != null && OnServer()) return; // the server's world file keeps it
         string json = PersonalSave.Export();
         if (!force && json == lastPersonal) return;

@@ -118,7 +118,7 @@ public sealed class CharacterSync : MonoBehaviour
         client.SaveCharacter(Capture());
     }
 
-    // The character's look wins over the prefab default (and the Alt+1/2 debug toggle), as NetPlayerSave does for rooms.
+    // The character's look wins over the prefab default (and the Alt+1/2 debug toggle).
     static void KeepLook()
     {
         var player = PlayerSpawner.Player;

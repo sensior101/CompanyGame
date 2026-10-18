@@ -4,9 +4,9 @@ using UnityEngine.AI;
 
 /// <summary>
 /// One citizen on the baked NavMesh: walk, stand and look around, sometimes sit on a bench.
-/// Waits at crosswalk links until Crosswalk.CanCross. A proxy (non-authority) does nothing but
-/// follow the transform that CitizenSync gives it. The walking pose comes from DaldongneAvatarMotion
-/// reading position changes, so only the transform is moved.
+/// Waits at crosswalk links until Crosswalk.CanCross. Every PC simulates its own crowd (also on a server,
+/// until stage 5). The walking pose comes from DaldongneAvatarMotion reading position changes, so only the
+/// transform is moved.
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(NavMeshAgent))]
@@ -19,7 +19,6 @@ public sealed class CitizenWalker : MonoBehaviour
 
     public int Index { get; private set; }
     public bool Seated => state == State.Seated;
-    public bool IsProxy => proxy;
 
     NavMeshAgent agent;
     DaldongneAvatarMotion motion;
@@ -30,7 +29,7 @@ public sealed class CitizenWalker : MonoBehaviour
     NavMeshPath path; // created in Awake: NavMeshPath cannot be built in a field initializer
     System.Random rng = new System.Random(1);
     State state = State.Pause, afterCross = State.Walk;
-    bool proxy, culled, visualSeated;
+    bool culled;
     float timer = 1f, grace, stuck, nextCull, baseYaw, lookPhase;
     Vector3 crossEnd, standPos;
     Role role;
@@ -71,9 +70,8 @@ public sealed class CitizenWalker : MonoBehaviour
         if (agent.enabled) agent.enabled = false;
         transform.SetPositionAndRotation(fixedSeat.transform.position - Vector3.up * .44f, fixedSeat.transform.rotation);
         seat = fixedSeat;
-        if (!proxy) fixedSeat.Reserve(transform);
+        fixedSeat.Reserve(transform);
         if (motion) motion.SetSeated(true);
-        visualSeated = true;
         state = State.Seated;
     }
 
@@ -101,7 +99,6 @@ public sealed class CitizenWalker : MonoBehaviour
     void Update()
     {
         Cull();
-        if (proxy) return;
         if (role == Role.Sit) { if (fixedSeat) FaceVisitors(Time.deltaTime); return; }
         if (state == State.Seated) { UpdateSeated(Time.deltaTime); return; }
         if (!agent.enabled || !agent.isOnNavMesh) return;
@@ -114,36 +111,6 @@ public sealed class CitizenWalker : MonoBehaviour
             case State.Pause: LookAround(Time.deltaTime); break;
             case State.Cross: Cross(Time.deltaTime); break;
         }
-    }
-
-    // ---- authority <-> proxy -------------------------------------------------
-
-    /// <summary>Proxy: the agent is off and CitizenSync moves the transform. Back to false: simulate from the current spot.</summary>
-    public void SetProxy(bool on)
-    {
-        if (proxy == on) return;
-        proxy = on;
-        if (on)
-        {
-            if (seat && role != Role.Sit) seat.Release(transform);
-            if (role != Role.Sit) seat = null;
-            if (agent.enabled) agent.enabled = false;
-            return;
-        }
-        if (role == Role.Sit && fixedSeat) { ApplyFixedSeat(); return; }
-        SetSeatedVisual(false);
-        state = State.Pause;
-        timer = .5f;
-        agent.enabled = true;
-        if (!agent.isOnNavMesh && NavMesh.SamplePosition(transform.position, out var hit, 3f, NavMesh.AllAreas)) agent.Warp(hit.position);
-    }
-
-    /// <summary>Proxy only: mirror the host's sitting pose.</summary>
-    public void SetSeatedVisual(bool value)
-    {
-        if (visualSeated == value) return;
-        visualSeated = value;
-        if (motion) motion.SetSeated(value);
     }
 
     // ---- behaviour -------------------------------------------------------------
@@ -159,7 +126,7 @@ public sealed class CitizenWalker : MonoBehaviour
         return talk;
     }
 
-    // Local player plus the remote avatars of the room (Resources/Net/RemotePlayer clones, root name "RemotePlayer...").
+    // Local player plus the remote avatars on the map (Resources/Net/RemotePlayer clones, root name "RemotePlayer...").
     Vector3 NearestPlayerOffset(out bool near)
     {
         Vector3 best = Vector3.zero;
@@ -182,7 +149,7 @@ public sealed class CitizenWalker : MonoBehaviour
     static readonly System.Collections.Generic.List<Transform> remoteAvatars = new System.Collections.Generic.List<Transform>();
     static float nextRemoteScan;
 
-    // One scan per half second for all citizens. NetPlayerSync (Player assembly) is not referenced from here, so avatars are found by name.
+    // One scan per half second for all citizens. The remote avatars (Player assembly) are not referenced from here, so avatars are found by name.
     internal static System.Collections.Generic.List<Transform> RemoteAvatars()
     {
         if (Time.time < nextRemoteScan) return remoteAvatars;
@@ -354,7 +321,6 @@ public sealed class CitizenWalker : MonoBehaviour
         agent.enabled = false;
         transform.SetPositionAndRotation(seat.transform.position - Vector3.up * .44f, seat.transform.rotation);
         if (motion) motion.SetSeated(true);
-        visualSeated = true;
         state = State.Seated;
         timer = 20f + R() * 40f;
         return true;
@@ -372,7 +338,6 @@ public sealed class CitizenWalker : MonoBehaviour
         if (seat) seat.Release(transform);
         seat = null;
         if (motion) motion.SetSeated(false);
-        visualSeated = false;
         transform.position = standPos;
         agent.enabled = true;
         if (!agent.isOnNavMesh && NavMesh.SamplePosition(standPos, out var hit, 3f, NavMesh.AllAreas)) agent.Warp(hit.position);

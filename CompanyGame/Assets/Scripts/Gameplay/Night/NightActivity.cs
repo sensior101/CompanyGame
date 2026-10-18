@@ -73,7 +73,7 @@ public static class NightActivity
         GameClock.NightSkipped += OnNightSkipped;
     }
 
-    // Where this PC's clock runs itself (offline, the old room's host, an in-app server's owner).
+    // Where this PC's clock runs itself (offline, an in-app server's owner).
     static void OnNightSkipped(GameTime after)
     {
         if (GameSession.IsAuthority) Apply(Selected);

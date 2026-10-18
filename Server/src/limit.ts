@@ -18,10 +18,9 @@ export interface Limits {
   registerPerIpPerMin: number; // /auth/register per IP
   loginPerIpPerMin: number; // /auth/login per IP
   loginPerUserPerMin: number; // /auth/login per username
-  wsPerIp: number; // simultaneous WebSockets per IP
 }
 export const DEFAULT_LIMITS: Limits = {
-  registerPerIpPerMin: 10, loginPerIpPerMin: 30, loginPerUserPerMin: 10, wsPerIp: 20,
+  registerPerIpPerMin: 10, loginPerIpPerMin: 30, loginPerUserPerMin: 10,
 };
 
 export const PLACEHOLDER_SECRET = 'change-me-to-a-long-random-string';

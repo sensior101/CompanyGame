@@ -4,8 +4,7 @@ using UnityEngine;
 /// <summary>
 /// How another player looks on a Resources/Net/RemotePlayer avatar: the male or female look, the ridden vehicle's model
 /// (in a car only the car is seen), bicycle pedalling, the punch swing, sitting, the held item and the NameTag.
-/// Whoever knows that player's state sets the fields and moves the transform: NetPlayerSync for old rooms,
-/// AvatarState for sync-layer servers (Docs/Multiplayer_Redesign.md 12.7). DaldongneAvatarMotion animates the walk.
+/// AvatarState (sync-layer servers, Docs/Multiplayer_Redesign.md 12.7) sets the fields and moves the transform. DaldongneAvatarMotion animates the walk.
 /// </summary>
 [DefaultExecutionOrder(500)] // after DaldongneAvatarMotion's LateUpdate, so the punch and the held-item arm override the walk arm
 public sealed class RemoteAvatarView : MonoBehaviour

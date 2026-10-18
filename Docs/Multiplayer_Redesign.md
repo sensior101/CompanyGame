@@ -1649,3 +1649,78 @@ SyncClient.Instance.Spawn(prefabKey: "Net/Door", instance, flags);
 - 계정 목록에 상한이 없다. 계정 수가 아주 많아지면 구역 60KB 한도를 확인해야 한다.
 - 구역이 9개라 이전 빌드와 섞이지 않는다.
 - `Docs/Architecture.md`, `Docs/Server.md`에 4d 구조가 아직 반영되지 않았다.
+
+### 12.11 4e단계: 옛 경로 삭제 (설계·구현 2026-10-19)
+
+**범위.** 새 서버(동기화 계층)로 옮긴 기능의 옛 경로를 지웁니다. 옛 방(Cloudflare·Steam 방)과 "옛 방식(개발용)" 메뉴가 없어지고, 멀티는 혼자 하기·서버 열기·참가하기만 남습니다. 에디터에서 게임 씬을 바로 플레이하는 오프라인 경로(세션 없음)는 개발용으로 그대로 둡니다.
+
+**결정(2026-10-19): Steam 모드는 지금 지웁니다.** PC는 EOS로 갑니다. Steam판을 낼 때 새 서버용 Steam 통로로 다시 붙입니다. Steamworks.NET 패키지는 EOS 플러그인이 쓰므로 남깁니다(12.4 결정).
+
+**조사한 것**
+- 옛 방 경로: `NetSession`(`pos`/`op`/`state`/`world`/`msg`), `NetClient`, `INetTransport`, `SteamTransport`, `SteamBackend`, `HostRoom`, `RoomNode`, `RoomCode`, `NetMode`(연결 방식 전환), `NetWorldBridge`(op 중계, 방장 넘기기), `NetPlayerSync`(옛 아바타), `NetPlayerSave`·`SteamLocalState`·`PlayerData`의 월드별 개인 저장(`/me/state?world=`), `WorldSave`의 잠금·세대 번호, `WorldOps`의 `veh.*`, `WorldDroppedItem`의 `RemoteLeft`, `SharedWriteGate`의 옛 방 출구, 타이틀의 옛 메뉴(`ShowLegacy`, 방 만들기·참가, `RoomCodeCard`, `SteamInviteRunner`), `PauseMenu`의 방 부분.
+- 시민·교통: 옛 방에서만 동기화합니다(`CitizenSync`, `TrafficSync`, 방장 계산 → 나머지는 대리 표시). 새 서버에서는 지금도 **각 PC가 따로 계산**합니다(`IsAuthority || RemoteServer`). 그래서 10장의 "5단계 전까지 월드 엔티티 이벤트로 임시로 옮김"은 하지 않고, 옛 동기화만 지웁니다. 새 서버에서 달라지는 것이 없고, 곧 5단계에서 시간 기반으로 다시 만들기 때문입니다.
+- 새 흐름도 쓰는 것: 계정 로그인(`LocalAccount`, `PlayerData`의 가입·로그인·핑, Node·Worker의 `/auth/*`, `/me`, `/me/profile`)은 새 서버 입장에도 쓰입니다. 2b-2에서 EOS 계정으로 바뀔 때까지 남깁니다. `NetWorldBridge.Say`·`DoneText`(채팅 알림 문구)는 `WorldStateSync`가 씁니다.
+- `GameSession.RemoteServer`는 4c 임시 플래그입니다. 남은 쓰임은 시민·교통의 "계산할지"뿐입니다.
+
+**지우는 것**
+
+| 구분 | 대상 |
+| --- | --- |
+| 클라이언트 통신 | `NetSession`, `NetClient`, `INetTransport`, `SteamTransport`, `SteamBackend`, `SteamLocalState`, `HostRoom`, `RoomNode`, `RoomCode`, `NetMode`, `NetMessages`(옛 메시지만, 새 계층이 쓰는 것은 남김) |
+| 게임 쪽 옛 경로 | `NetWorldBridge`(알림 문구는 `WorldStateSync`로 옮김), `NetPlayerSync`(표시는 이미 `RemoteAvatarView`), `NetPlayerSave`, `PlayerData`의 월드별 개인 저장, `WorldSave`의 방장 넘기기(잠금·세대 번호·`CaptureVehicles`/`RestoreVehicles` 훅 중 옛 방 것), `WorldOps.VehicleOp`, `WorldDroppedItem`의 `RemoteLeft`, `SharedWriteGate`의 옛 방 출구, `CitizenSync`, `TrafficSync`, 시민·교통의 대리 표시(proxy) 모드 |
+| 세션 | `GameSession.RemoteServer` 삭제. 시민·교통은 세션이 무엇이든 각자 계산. `IsAuthority`가 "서버 프로세스 또는 오프라인"만 뜻하도록 정리(옛 방장 의미 삭제) |
+| 타이틀 | "옛 방식(개발용)" 버튼과 그 아래 화면 전부, Steam 초대, 옛 서버 주소 꼬리말 |
+| Node 서버 | 방(`rooms.ts`, `ws.ts`, `protocol.ts`, `budget.ts`), `/rooms`, `/me/state`와 `character_state` 표(있는 DB에서는 그대로 두고 쓰지 않음) |
+| Worker | 방(`lobby.ts`, Durable Object, `budget.ts`), `/me/state`. **배포는 하지 않습니다**(배포된 Worker는 요청이 있을 때 바꿈. Durable Object를 지우는 배포에는 `wrangler.toml` 삭제 migration이 필요하므로 그것까지 코드에 넣어 둠) |
+| QA | `NetSessionQA`, `SteamHostRoomQA`, `RemoteAvatarQA`(옛 방 아바타), `ServerBudgetQA`, `TitleFlowQA`의 옛 메뉴 부분, Node `rooms.test.ts`·`ws.test.ts`·`budget.test.ts`, Worker `hibernate.test.ts`의 방 부분 |
+| 문서 | `Docs/Server_API.md`에서 방·`pos`·`op`·`veh.*`·`/me/state`. `Docs/Architecture.md`, `Docs/Server.md`를 지금 구조(동기화 계층, 서버 월드, 4c·4d 서버 판정)로 고침(4d 남은 문제) |
+
+**남기는 것:** 동기화 계층 전체, 계정 로그인, EOS 시험 코드(`EosProbe`, 2b-2의 출발점), 오프라인 경로(서버 밖에서는 지금처럼 이 PC가 계산하고 PC 파일에 저장), Steamworks.NET 패키지.
+
+**바꿀 파일:** 위 표의 파일을 지우고, 참조하던 곳(`TitleFlow`, `TitleScreen`, `PauseMenu`, `WorldStateSync`, `WorldSave`, `WorldSaveRunner`, `WorldOps`, `WorldDroppedItem`, `SharedWriteGate`, `CitizenSpawner`, `CitizenWalker`, `TrafficSpawner`, `TrafficSignal`, `GameSession`, `CharacterSync`, `SyncMapBinder` 주석 등)을 정리합니다. 새 기능은 만들지 않습니다.
+
+**하지 않는 것:** 계정을 EOS로 바꾸기(2b-2). 시민·교통 동기화(5단계). 오프라인 경로 삭제. Worker 배포.
+
+**완료 기준**
+1. 컴파일 오류 없음. 지운 이름(`NetSession`, `HostRoom`, `RoomNode`, `NetWorldBridge`, `NetPlayerSync`, `SteamTransport`, `RemoteServer`, `CitizenSync`, `TrafficSync` 등)이 코드에 남지 않음(grep으로 확인, 문서의 역사 기록 제외)
+2. 새 경로 회귀 없음: `SyncLayerQA` 넷, `AvatarSyncQA` 둘, `CharacterQA` 셋, `DropSyncQA` 둘, `EconomySyncQA` 셋, `LedgerQA` 셋, `BookSyncQA` 셋, `InventoryLedgerQA` 셋, `WorldItemQA` 셋, `LibrarySyncQA` 셋, `ServerOpenQA` 둘, `WorldSaveQA`, `EosTestQA`(에디터에서 되는 것), `TitleFlowQA`(새 메뉴만), `npm test`(Server, worker)
+3. 오프라인 경로: 에디터에서 게임 씬을 바로 플레이하면 시민·교통이 움직이고 저장이 PC 파일에 됨(기존 QA가 있으면 그것, 없으면 짧은 확인을 `TitleFlowQA`나 새 QA에)
+4. 새 서버에서 시민·교통이 각 PC에서 움직임(원격 클라이언트에서 확인)
+5. 스크린샷(QA_SHOTS 게임 화면만): 타이틀 메인 메뉴(옛 방식 버튼 없음), 원격 클라이언트의 시민·교통
+
+**총괄 검수 방법.** diff 전체 읽기. 특히 지운 코드가 새 경로에서 쓰이던 것(알림 문구, 저장, 세션 모드), 오프라인 경로가 깨지지 않았는지, Node·Worker에서 계정 API가 그대로인지. 그다음 QA를 직접 다시 돌리고 스크린샷을 봅니다.
+
+#### 12.11 결과 (구현 완료, 총괄 검수 전)
+
+**테스트 수치**(2026-10-19, `_temp/qa4e/regress.sh`, 로그 `_temp/qa4e/r_*.log`). 모두 통과.
+- `SyncLayerQA` 59·13·6·load, `AvatarSyncQA` 11·27, `CharacterQA` 36·33·14, `DropSyncQA` 38·58
+- `EconomySyncQA` 42·61·54(원격 시민·교통 구역 추가 뒤), `LedgerQA` 10·66·18, `BookSyncQA` 51·73·14, `InventoryLedgerQA` 50·94·25
+- `WorldItemQA` 67·93·19, `LibrarySyncQA` 58·79·31, `ServerOpenQA` 61·43, `WorldSaveQA` 41, `TrafficQA` 2909
+- `ServerBudgetQA` 13(계정 HTTP만), `EosTestQA.RunPlay` 2회 PUID 받음
+- `TitleFlowQA.Run` 40(새 메뉴), `TitleFlowQA.RunOffline` 11(오프라인 경로)
+- `npm test` Node 11개(10 통과, 1 워커 전용 건너뜀), Worker 11개
+
+**완료 기준 확인**
+1. 컴파일 오류 0. 지운 이름 grep(`.cs`·`.asmdef`) 결과 없음. 에디터 복구 씬 `Assets/_Recovery/0.unity`(추적 안 함)에만 `TrafficSync` 흔적이 있음.
+2. 위 수치.
+3. `TitleFlowQA.RunOffline`: 게임 씬을 바로 플레이(세션 없음) → 시민 8명 중 8명이 8초 안에 움직임, `world.json`이 이 슬롯 폴더에 저장되고 오프라인 변경이 맵 이동 저장에 들어감, BusinessDistrict에서 NPC 차가 달림.
+4. `EconomySyncQA.RunProcess`(서버 프로세스 + Unity 원격 클라이언트, Client 모드): daldongnaemap에서 시민 8/8이 움직이고, BusinessDistrict로 옮겨 NPC 차가 달림.
+5. 스크린샷(`_temp/qa4e/shots/`): `T_main.png`(옛 방식 버튼 없음), `E_remote_citizens.png`, `E_remote_traffic.png`, `T_offline_citizens.png`, `T_offline_traffic.png`.
+
+**설계와 달라진 점**
+- `WorldDroppedItem.riderId`는 남김. 새 서버에서 다른 사람이 모는 서버 차를 숨기고 세우는 데 씀(`SyncState`·`SyncOwner`). 옛 방 쓰임(veh.* op, `ReleaseRider`, 스냅샷의 `rider`)만 지움.
+- `ServerBudgetQA`는 지우지 않고 계정 HTTP 부분만 남김(계정 Worker에 일일 예산이 남아 있음).
+- `SessionMode.Single`도 지움(쓰는 곳 없음). 모드는 `Host`·`Client`뿐.
+- 맵 이동 저장(`LoadStarted` → `WorldSaveRunner.SaveNow`)은 `NetWorldBridge`에서 `WorldStateSync`로 옮김. 종료 저장은 원래 `WorldSaveRunner.OnApplicationQuit`가 하므로 옮길 것 없음.
+- **고친 버그(기존):** 에디터에서 맵 씬을 바로 플레이하면 첫 씬에 `MapReady`가 오지 않아 시민이 생기지 않았음. `CitizenSpawner`에 `AfterSceneLoad` 보충을 넣음(이미 있으면 건너뜀).
+- `TitleShots`는 지금 화면만 찍음. NPC 스크린샷은 플레이어 카메라가 언덕에 가리기 쉬워 임시 카메라로 찍음(`NpcQa.ShotNearest`, QA 전용).
+
+**남은 문제**
+- `TitleFlow.SignIn`을 부르는 곳이 없음. 새 흐름(혼자 하기·서버 열기·참가하기)은 계정 서버를 쓰지 않고 `GameSession`의 계정 id(기억된 계정 id, 없으면 PC별 GUID)로 들어감. 위 "조사한 것"의 "계정 로그인은 새 서버 입장에도 쓰입니다"는 사실과 다름. 설정의 "계정 초기화"와 고급의 서버 주소도 지금은 쓰이지 않는 계정 서버용. 2b-2(EOS 계정)에서 함께 정리할 것.
+- Worker는 배포하지 않음. 배포하면 migration v2가 `Lobby`와 그 데이터를 지움.
+
+### 12.12 이후 단계에 미리 정한 것 (2026-10-19)
+
+- 2b-2: 계정이 EOS PUID로 바뀔 때 기존 월드의 옛 계정 캐릭터는 **옮기지 않음**(테스트 데이터). EOS로 처음 들어오면 새 캐릭터를 만듦
+- 6단계 전용 서버 빌드: **Windows만 먼저**. 리눅스는 모듈 설치 뒤 추가
+- 6단계 관리자 명령: **서버 콘솔 + 게임 채팅**(설정 파일의 관리자 계정, 서버 연 사람은 자동 관리자)

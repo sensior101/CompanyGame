@@ -5,11 +5,12 @@ using UnityEngine;
 
 /// <summary>
 /// Client side of the shared economy on a sync-layer server (Docs/Multiplayer_Redesign.md 12.9). Registers the Net/World
-/// template (nine WorldSections). On another process's server this PC turns Client (GameSession.RemoteServer while it
-/// lasts): the clock and sections from the server are applied to the managers, and leaving puts this PC's own world back.
-/// The owner of an in-app server keeps Host (its managers are the server's) and only reads the names.
-/// Requests: the gate (SharedWriteGate.ServerSender) sends Op events to the server; OpResult shows the same words as the
-/// old room and refunds a lost land purchase. veh.* never goes to a server. A clock that passed a skipped night applies
+/// template (nine WorldSections). On another process's server this PC turns Client while it lasts: the clock and
+/// sections from the server are applied to the managers, and leaving puts this PC's own world back. The owner of an
+/// in-app server keeps Host (its managers are the server's) and only reads the names. Citizens and traffic run on every
+/// PC either way (Docs/Multiplayer_Redesign.md 12.11).
+/// Requests: the gate (SharedWriteGate.ServerSender) sends Op events to the server; OpResult shows its words in the chat
+/// (<see cref="Say"/>) and refunds a lost land purchase. A clock that passed a skipped night applies
 /// the night activity once per night. While connected, this PC's world.json is neither read nor written.
 /// Personal requests (12.10.1): a money change this client already made (stock trade, shop, fine, land payment, the
 /// library's) goes out with SharedWriteGate.SendPersonal and is counted. The server answers with its Ledger; once
@@ -28,6 +29,7 @@ using UnityEngine;
 /// like the others; <see cref="Answered"/> tells their sender the answer.
 /// The library (12.10.6): the server's library section is the mirror LibraryCatalog shows (also on the in-app server's
 /// owner, whose LibraryCatalog is not the server's library); the days of the library pass on the server.
+/// Also saves this PC's files (WorldSaveRunner.SaveNow) when a map change starts; on a server that writes nothing.
 /// </summary>
 public sealed class WorldStateSync : MonoBehaviour
 {
@@ -102,6 +104,8 @@ public sealed class WorldStateSync : MonoBehaviour
         };
         SyncClient.ConnectionChanged -= OnConnection;
         SyncClient.ConnectionChanged += OnConnection;
+        SceneLoadManager.LoadStarted -= WorldSaveRunner.SaveNow;
+        SceneLoadManager.LoadStarted += WorldSaveRunner.SaveNow; // the player is still in the old map: position and bag are the ones to keep
         if (instance) return;
         var go = new GameObject("WorldStateSync");
         DontDestroyOnLoad(go);
@@ -130,14 +134,13 @@ public sealed class WorldStateSync : MonoBehaviour
         if (connected)
         {
             remote = !SyncHost.Instance; // my own in-app server computes on these managers: they stay Host
-            if (remote) { GameSession.Begin(SessionMode.Client); GameSession.RemoteServer = true; }
+            if (remote) GameSession.Begin(SessionMode.Client);
             return;
         }
         world = null;
         if (!remote) return;
         remote = false;
         GameSession.Begin(SessionMode.Host);
-        GameSession.RemoteServer = false;
         GameTime.ResetNightSkip();
         if (LandPlotManager.Instance) LandPlotManager.Instance.ClearPending();
         // The server's world was only shown here: this PC's own world comes back (memory only, nothing written).
@@ -208,22 +211,21 @@ public sealed class WorldStateSync : MonoBehaviour
 
     static bool SendOp(string kind, string json)
     {
-        if (kind.StartsWith("veh.", StringComparison.Ordinal)) return false; // a server's cars are entities (12.8)
         var section = world ? world.GetComponent<WorldSection>() : null;
         if (!section || !SyncClient.Instance || !SyncClient.Instance.Connected)
         {
-            NetWorldBridge.Say("서버에 연결되어 있지 않아 요청을 보내지 못했습니다. 연결을 확인해 주세요.");
+            Say("서버에 연결되어 있지 않아 요청을 보내지 못했습니다. 연결을 확인해 주세요.");
             return false;
         }
         if (System.Text.Encoding.UTF8.GetByteCount(kind) + System.Text.Encoding.UTF8.GetByteCount(json) + 4 > SyncProtocol.MaxBlob)
         {
-            NetWorldBridge.Say("요청이 너무 길어 보내지 못했습니다.");
+            Say("요청이 너무 길어 보내지 못했습니다.");
             return false;
         }
         section.SendEvent(WorldSection.OpEvent, EventTarget.Server, w => { SyncProtocol.WriteStr(w, kind); SyncProtocol.WriteStr(w, json); });
         pending.Enqueue(new[] { kind, json });
         if (ServerLedger.Counts(kind)) sentPersonal++;
-        if (kind.StartsWith("land.", StringComparison.Ordinal) || kind == "company.add") NetWorldBridge.Say("처리 중…");
+        if (kind.StartsWith("land.", StringComparison.Ordinal) || kind == "company.add") Say("처리 중…");
         return true;
     }
 
@@ -241,7 +243,7 @@ public sealed class WorldStateSync : MonoBehaviour
         if (string.IsNullOrEmpty(error))
         {
             if (kind == "land.buy" && json != null && LandPlotManager.Instance) LandPlotManager.Instance.ConfirmPending(JsonUtility.FromJson<SharedOpArgs>(json)?.a);
-            text = NetWorldBridge.DoneText(kind);
+            text = DoneText(kind);
         }
         else
         {
@@ -251,7 +253,7 @@ public sealed class WorldStateSync : MonoBehaviour
         if (text != null)
         {
             LastMessage = text;
-            NetWorldBridge.Say(text);
+            Say(text);
         }
         ApplyLedger(); // after a refund, so the ledger finds the same money
     }
@@ -461,6 +463,29 @@ public sealed class WorldStateSync : MonoBehaviour
     static void BookOp(string kind, ServerBooks.Request request)
     {
         if (SendOp(kind, JsonUtility.ToJson(request))) BookRequests++;
+    }
+
+    /// <summary>The chat line for a request of mine the server did (null = say nothing).</summary>
+    internal static string DoneText(string kind)
+    {
+        switch (kind)
+        {
+            case "prop.reg": return "소유권을 등록했습니다.";
+            case "prop.ab": return "소유권을 포기했습니다.";
+            case "land.buy": return "땅을 구매했습니다.";
+            case "land.reg": return "사업자 등록을 완료했습니다.";
+            case "company.add": return "회사를 설립했습니다.";
+            case "sns.post": return "게시했습니다.";
+            case "report.sub": return "신고를 접수했습니다.";
+            default: return null;
+        }
+    }
+
+    // ChatUIManager lives in UI (not visible from here); its public ShowSystemMessage is reached by name.
+    internal static void Say(string message)
+    {
+        foreach (var b in FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None))
+            if (b && b.GetType().Name == "ChatUIManager") b.SendMessage("ShowSystemMessage", message, SendMessageOptions.DontRequireReceiver);
     }
 
     /// <summary>The character name of <paramref name="account"/> in this server's world (null when unknown).</summary>

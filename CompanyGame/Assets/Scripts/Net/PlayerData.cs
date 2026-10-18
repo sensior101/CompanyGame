@@ -3,20 +3,6 @@ using System.Text;
 using UnityEngine;
 using UnityEngine.Networking;
 
-/// <summary>Body of GET/PUT /me/state. Field names match the server's JSON.</summary>
-[Serializable]
-public class PlayerState
-{
-    public string map;
-    public float x, y, z, ry;
-    public string inventory_json;
-    public string personal_json;
-    public string name, gender; // the character of this world (GET/PUT /me/state?world=)
-    public long updated_at;
-
-    public bool IsSaved => updated_at > 0;
-}
-
 [Serializable]
 public class PlayerProfile
 {
@@ -140,23 +126,6 @@ public class PlayerData : MonoBehaviour
         Profile.gender = saved.gender;
         return default;
     }
-
-    /// <summary>Loads the character of <paramref name="world"/> (name, look, position, inventory, personal economy). Nothing saved yet: updated_at == 0.</summary>
-    public async Awaitable<(ApiResult result, PlayerState state)> GetState(string world)
-    {
-        var (code, body) = await Send("GET", StatePath(world));
-        if (code != 200) return (Fail(code, body), null);
-        try { return (default, JsonUtility.FromJson<PlayerState>(body)); }
-        catch (Exception) { return (new ApiResult("network"), null); }
-    }
-
-    public async Awaitable<ApiResult> PutState(string world, PlayerState state)
-    {
-        var (code, body) = await Send("PUT", StatePath(world), JsonUtility.ToJson(state));
-        return code == 200 ? default : Fail(code, body);
-    }
-
-    static string StatePath(string world) => "/me/state?world=" + UnityWebRequest.EscapeURL(world ?? "");
 
     private async Awaitable<ApiResult> Authenticate(string path, string username, string password)
     {

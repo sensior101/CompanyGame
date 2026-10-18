@@ -23,11 +23,11 @@ public sealed class WorldDroppedItem : MonoBehaviour
         public Vector3 position;
         public Quaternion rotation = Quaternion.identity;
         public bool placedVehicle;
-        public string riderId; // room member driving it (a placed vehicle only)
+        public string riderId; // another player driving this server car (a placed vehicle only)
         public InventoryState contents = new InventoryState();
         public TMP_FontAsset font;
         public WorldDroppedItem instance;
-        // Sync-layer server (12.8): the entity id (0 = this PC's own drop or an old room's car) and its state.
+        // Sync-layer server (12.8): the entity id (0 = a drop or car of this PC's offline world) and its state.
         public ulong netId;
         public DropState sync;
         public bool riding; // my Claim to ride it is on its way
@@ -100,8 +100,6 @@ public sealed class WorldDroppedItem : MonoBehaviour
         if (!PropertyRegistry.Instance || !PropertyRegistry.Instance.CanDismantleVehicle(VehicleOwnershipKey,actor))
         { error="소유자가 해체를 허용하지 않았습니다."; return false; }
         if (record.netId != 0) return Ask("p.dismantle", new SharedOpArgs { n = (long)record.netId }, out error); // the server answers for everyone
-        // ponytail: other members only lose the car; the dropped item stays on this PC (plain drops are not shared yet).
-        if (!SendVehicleOp("veh.del", record) && SharedWriteGate.SendFailed) { error="서버에 연결되어 있지 않아 해체하지 못했습니다."; return false; }
         record.placedVehicle=false;
         foreach (var collider in GetComponents<Collider>()) { collider.enabled=false; Destroy(collider); }
         foreach (Transform child in transform) { child.gameObject.SetActive(false); Destroy(child.gameObject); }
@@ -195,9 +193,6 @@ public sealed class WorldDroppedItem : MonoBehaviour
         var drop = new DropRecord { id = Guid.NewGuid().ToString("N"), scenePath = SceneLoadManager.CurrentMap.path,
             position = point, rotation = rotation, placedVehicle = true, font = owner.uiFont };
         if (!owner.Inventory.TryTransferTo(drop.contents, owner.Inventory.SelectedHotbarIndex, 1, out error)) return false;
-        // In a room the car appears for everyone (this PC included) when the op comes back.
-        if (SendVehicleOp("veh.put", drop)) return true;
-        if (SharedWriteGate.SendFailed) { drop.contents.TryTransferTo(owner.Inventory, 0, 1, out _); error = "서버에 연결되어 있지 않아 설치하지 못했습니다."; return false; }
         Commit(drop, SceneLoadManager.CurrentMap);
         return true;
     }
@@ -257,9 +252,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
         { owner.SetStatus("잠긴 탈것입니다. 소유자만 탑승할 수 있습니다."); return false; }
         SetVehicleHover(false);
         if (record.netId != 0) return TryClaimRide();
-        // In a room the first ride op wins; this PC gets in when its own op comes back (ApplyVehicleOp).
-        if (SendVehicleOp("veh.ride", record)) return true;
-        return !SharedWriteGate.SendFailed && MountLocal(driver);
+        return MountLocal(driver);
     }
 
     bool MountLocal(PlayerVehicle driver)
@@ -272,7 +265,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
         return true;
     }
 
-    // Another member drives this car: their avatar shows it (NetPlayerSync), so the parked copy hides.
+    // Another player drives this server car: their avatar shows it (RemoteAvatarView), so the parked copy hides.
     void ShowParked(bool visible)
     {
         if (vehicleModel) vehicleModel.SetActive(visible);
@@ -295,7 +288,6 @@ public sealed class WorldDroppedItem : MonoBehaviour
         rider = null;
         if (vehicleCollider) vehicleCollider.enabled = true;
         RebuildVehicleCollider();
-        if (!string.IsNullOrEmpty(record.riderId)) { SendPark(record); record.riderId = null; }
         // Server: where it stands now goes out before the car is given back (also on the way to another map).
         if (record.sync && record.sync.IsOwner)
         {
@@ -471,17 +463,14 @@ public sealed class WorldDroppedItem : MonoBehaviour
         if (drop.placedVehicle && !string.IsNullOrEmpty(drop.riderId)) component.ShowParked(false);
     }
 
-    // ---- placed vehicles in the shared world (room ops + world save) ----
+    // ---- placed vehicles in this PC's offline world (world save) ----
 
-    // WorldSave/WorldOps (Gameplay) and NetPlayerSync (Player) cannot see this UI-assembly class, so it plugs itself in.
+    // WorldSave (Gameplay) cannot see this UI-assembly class, so it plugs itself in.
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
     static void InstallHooks()
     {
         WorldSave.CaptureVehicles = CaptureVehicles;
         WorldSave.RestoreVehicles = RestoreVehicles;
-        WorldOps.VehicleOp = ApplyVehicleOp;
-        NetPlayerSync.RemoteLeft -= ReleaseRider;
-        NetPlayerSync.RemoteLeft += ReleaseRider;
         SyncClient.ConnectionChanged -= OnServerConnection;
         SyncClient.ConnectionChanged += OnServerConnection;
         WorldStateSync.Answered -= OnAnswered;
@@ -495,7 +484,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
         // A car this PC is driving is wherever the player is now.
         bool driving = model && drop.instance.rider;
         return new PlacedVehicleSave { id = drop.id, item = stack.Item ? stack.Item.itemId : null, inst = stack.InstanceId,
-            scene = drop.scenePath, rider = drop.riderId,
+            scene = drop.scenePath,
             pos = driving ? model.transform.position : drop.position,
             ry = driving ? model.transform.eulerAngles.y : drop.rotation.eulerAngles.y };
     }
@@ -505,7 +494,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
         var item = InventorySnapshot.Find(v.item);
         if (!item || !item.IsVehicle || string.IsNullOrEmpty(v.id)) return null;
         var drop = new DropRecord { id = v.id, scenePath = v.scene, position = v.pos, rotation = Quaternion.Euler(0, v.ry, 0),
-            placedVehicle = true, riderId = string.IsNullOrEmpty(v.rider) ? null : v.rider, font = LocalFont() };
+            placedVehicle = true, font = LocalFont() };
         return drop.contents.TryAdd(item, 1, out _, v.inst) ? drop : null;
     }
 
@@ -513,23 +502,6 @@ public sealed class WorldDroppedItem : MonoBehaviour
     {
         var inventory = PlayerSpawner.Player ? PlayerSpawner.Player.GetComponent<PlayerInventory>() : null;
         return inventory ? inventory.uiFont : null;
-    }
-
-    // True when the op went to the room; false outside a room (apply locally) or when sending failed (SharedWriteGate.SendFailed).
-    static bool SendVehicleOp(string kind, DropRecord drop)
-    {
-        SharedWriteGate.SetSendFailed(false);
-        if (!SharedWriteGate.InOldRoom) return false; // veh.* is the old room's only; a sync server's cars are entities (12.8)
-        bool sent = SharedWriteGate.Sender != null && SharedWriteGate.Sender(kind, JsonUtility.ToJson(ToSave(drop)));
-        SharedWriteGate.SetSendFailed(!sent);
-        return sent;
-    }
-
-    // Also sent while an op is being applied (a ride this PC could not start), so it skips the gate's Applying check.
-    static void SendPark(DropRecord drop)
-    {
-        if (SharedWriteGate.InRoomCheck != null && SharedWriteGate.InRoomCheck())
-            SharedWriteGate.Sender?.Invoke("veh.park", JsonUtility.ToJson(ToSave(drop)));
     }
 
     static void Add(DropRecord drop)
@@ -556,48 +528,6 @@ public sealed class WorldDroppedItem : MonoBehaviour
         drop.instance.RebuildVehicleCollider();
     }
 
-    /// <summary>veh.put / veh.ride / veh.park / veh.del from the server echo (every member, the sender included).</summary>
-    public static string ApplyVehicleOp(string kind, string json, string from)
-    {
-        var v = JsonUtility.FromJson<PlacedVehicleSave>(json);
-        if (v == null || string.IsNullOrEmpty(v.id)) return null;
-        records.TryGetValue(v.id, out var drop);
-        bool mine = from == GameSession.LocalPlayerId;
-        switch (kind)
-        {
-            case "veh.put":
-                if (drop != null) return null;
-                drop = FromSave(v);
-                if (drop == null) return "알 수 없는 탈것이라 설치하지 못했습니다.";
-                drop.riderId = null;
-                Add(drop);
-                return null;
-            case "veh.ride":
-                if (drop == null || !drop.placedVehicle || !string.IsNullOrEmpty(drop.riderId)) return "이미 다른 사람이 탄 탈것입니다.";
-                drop.riderId = from;
-                if (!mine) { if (drop.instance) drop.instance.ShowParked(false); return null; }
-                var driver = PlayerSpawner.Player ? PlayerSpawner.Player.GetComponent<PlayerVehicle>() : null;
-                if (drop.instance && drop.instance.MountLocal(driver)) return null;
-                SendPark(drop); // could not get in after all (moved away, loading): free it for everyone
-                return "지금은 탑승할 수 없습니다.";
-            case "veh.park":
-                if (drop == null || drop.riderId != from) return null;
-                if (mine) { drop.riderId = null; return null; } // this PC already parked it
-                Park(drop, v.pos, v.ry);
-                return null;
-            case "veh.del":
-                if (drop != null && !mine && string.IsNullOrEmpty(drop.riderId)) Remove(drop);
-                return null;
-            default: return null;
-        }
-    }
-
-    /// <summary>A member left while driving: the car stays where they were last seen.</summary>
-    public static void ReleaseRider(string riderId, Vector3 position, float ry)
-    {
-        foreach (var drop in records.Values) if (drop.riderId == riderId) Park(drop, position, ry);
-    }
-
     public static List<PlacedVehicleSave> CaptureVehicles()
     {
         var list = new List<PlacedVehicleSave>();
@@ -607,8 +537,8 @@ public sealed class WorldDroppedItem : MonoBehaviour
     }
 
     /// <summary>
-    /// Makes the placed vehicles equal to a snapshot's. Clients get one every 10s, so unchanged cars are left alone
-    /// and a car this PC is driving keeps going; it is only left when the snapshot no longer has it (another world).
+    /// Makes the placed vehicles equal to a saved world's. Unchanged cars are left alone and a car this PC is driving
+    /// keeps going; it is only left when the world no longer has it (another world).
     /// </summary>
     public static void RestoreVehicles(List<PlacedVehicleSave> list)
     {
@@ -620,9 +550,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
                 keep.Add(v.id);
                 if (!records.TryGetValue(v.id, out var drop)) { drop = FromSave(v); if (drop != null) Add(drop); continue; }
                 if (drop.instance && drop.instance.rider) continue; // driving it here
-                string riderId = string.IsNullOrEmpty(v.rider) || v.rider == GameSession.LocalPlayerId ? null : v.rider;
-                if (riderId != null) { drop.riderId = riderId; if (drop.instance) drop.instance.ShowParked(false); }
-                else if (drop.riderId != null || (drop.position - v.pos).sqrMagnitude > 1e-4f) Park(drop, v.pos, v.ry);
+                if ((drop.position - v.pos).sqrMagnitude > 1e-4f) Park(drop, v.pos, v.ry);
             }
         foreach (var drop in new List<DropRecord>(records.Values))
         {
