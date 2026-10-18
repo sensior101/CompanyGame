@@ -8,7 +8,8 @@ using UnityEngine;
 /// A stack that cannot be placed (unknown item, duplicate instance) is skipped; the server copy wins over local books.
 /// Book bodies (12.10.3): a sync-layer server keeps the pages apart, so a book exported without them carries only its
 /// title, author, permission and library ids (bodyless), and comes back with BookInstanceData.bodyLoaded false.
-/// Cash notes ("cash:금액") are found by value, and shop goods through the TradeCatalog, so both survive a save (12.10.4).
+/// Cash notes ("cash:금액") are found by value, and shop goods through the TradeCatalog, so both survive a save (12.10.4);
+/// so are the TradeCatalog's grants (the employee card, 12.10.5).
 /// </summary>
 public static class InventorySnapshot
 {
@@ -143,7 +144,7 @@ public static class InventorySnapshot
             catalog = new Dictionary<string, ItemData>();
             foreach (var item in Resources.LoadAll<ItemData>("Inventory"))
                 if (item && !string.IsNullOrEmpty(item.itemId)) catalog[item.itemId] = item;
-            // Shop goods (the convenience store's food) are kept outside Resources/Inventory (12.10.4).
+            // Shop goods (the convenience store's food) and the grant list (the employee card) are kept outside Resources/Inventory (12.10.4, 12.10.5).
             foreach (var item in TradeCatalog.Items())
                 if (item && !string.IsNullOrEmpty(item.itemId) && !catalog.ContainsKey(item.itemId)) catalog[item.itemId] = item;
         }

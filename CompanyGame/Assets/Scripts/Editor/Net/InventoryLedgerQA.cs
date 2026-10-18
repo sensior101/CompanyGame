@@ -273,7 +273,7 @@ public static partial class EconomySyncQA
         string keep = InventorySnapshot.Export(ledger);
         Check(!InventoryLedgerRules.TryTakeLayout(ledger, InventorySnapshot.Export(forged, false), false, out e) && InventorySnapshot.Export(ledger) == keep, "a layout with 50,000원 more is refused: " + e);
         Check(InventoryLedgerRules.TryTakeLayout(ledger, InventorySnapshot.Export(forged, false), true, out e) && CashService.CarriedTotal(ledger) == CashService.CarriedTotal(forged),
-            "a trusted one is taken as it is (the hole left until 4d-4)");
+            "a trusted one (the library, until 4d-5) is taken as it is");
         string packed = InventoryLedgerRules.Pack(ledger);
         Check(InventoryLedgerRules.Unpack(packed) == InventorySnapshot.Export(ledger, false) && InventoryLedgerRules.Unpack("not base64") == null,
             "a packed layout is " + packed.Length + " characters and unpacks to the snapshot");
@@ -404,6 +404,10 @@ public static partial class EconomySyncQA
         Check(WorldStateSync.Overwrites == 0 && WorldStateSync.InventoryOverwrites == 0, "right after joining: the ledger's bag is the owner's, nothing written over");
         var fake = await JoinFake(host.Port, map, InvFake, "QA인벤가짜");
         var fb = ledger.Bag(InvFake);
+        // 12.10.5: entering, the server gave it the start vehicles and a deed; this QA's trades need the room, so they go.
+        for (int i = 0; i < fb.Capacity; i++)
+            if (!fb.GetSlot(i).IsEmpty && (fb.GetSlot(i).Item.IsVehicle || InventoryLedgerRules.IsStartingDeed(fb.GetSlot(i).Item))) fb.TryRemove(i, 1, out _);
+        ledger.Store(InvFake);
         Check(CashService.CarriedTotal(fb) == 20000 && CountOf(fb, "food:gimbap") == 2 && Blanks(fb) == 1,
             "the fake's ledger starts from its saved inventory, its 20,000원 in notes too (the cash: fix)");
 
@@ -483,7 +487,7 @@ public static partial class EconomySyncQA
         string err;
         Note("the owner's start bag: " + EmptySlotCount(bag) + " of " + bag.Capacity + " slots free");
         Check(bag.TryAdd(Backpack, 1, out err), "a backpack (a runtime bag item; the game has none yet) " + err);
-        InventoryLedgerRules.Trust(bag, "grant");
+        InventoryLedgerRules.Trust(bag, "library"); // the one trusted path left (12.10.5)
         await Settle(ledger, me, "the backpack");
         Check(bag.TryUseBag(SlotOf(bag, s => s.Item == Backpack), out err) && bag.Capacity == 24, "using the backpack shows 24 slots at once " + err);
         await Settle(ledger, me, "p.bag");
@@ -559,13 +563,13 @@ public static partial class EconomySyncQA
         Check(bag.TryMove(x, y, out err), "a move " + x + " → " + y);
         await Settle(ledger, me, "the move");
         Check(bag.TryAdd(Shirt, 1, out err), "a shirt (a runtime clothing item; the game has none yet)");
-        InventoryLedgerRules.Trust(bag, "grant");
+        InventoryLedgerRules.Trust(bag, "library"); // the one trusted path left (12.10.5)
         await Settle(ledger, me, "the shirt");
         Check(bag.TryEquip(SlotOf(bag, s => s.Item == Shirt), EquipmentSlot.Top, out err), "equipped " + err);
         await Settle(ledger, me, "equipping");
         Check(ledger.Bag(me).GetEquipment(EquipmentSlot.Top).Item == Shirt && WorldStateSync.InventoryOverwrites == 0, "moves and equipment reach the ledger, nothing written over");
 
-        Section("paths not moved yet (trusted)");
+        Section("the library (trusted), the world's items");
         LibraryCatalog.ConnectLocal(bag);
         long cash1 = CashService.CarriedTotal(bag);
         int blanks = Blanks(bag);
@@ -581,18 +585,24 @@ public static partial class EconomySyncQA
         await Settle(ledger, me, "the new book");
         Check(InventoryLedgerRules.FindUnique(ledger.Bag(me), bookId) != null && Blanks(ledger.Bag(me)) == blanks && books.Find(bookId)?.pages[0] == "빈 책에 씀"
               && WorldStateSync.LastBookError == null && WorldStateSync.InventoryOverwrites == 0, "book.new took the ledger's blank and the server has its page");
-        var bikes = Resources.LoadAll<ItemData>("Inventory/Vehicles/CityBicycle");
-        int bikeSlot = SlotOf(bag, s => Array.IndexOf(bikes, s.Item) >= 0);
-        string oldBike = bag.GetSlot(bikeSlot).InstanceId;
-        Check(bag.TryRemove(bikeSlot, 1, out err), "a bicycle gone (as a drop does)");
-        InventoryLedgerRules.Trust(bag, "drop");
+        // Drops and pickups are the server's since 12.10.5 (WorldItemQA): one of each here, in normal play.
+        var invUi = PlayerSpawner.Player.GetComponent<PlayerInventory>();
+        int waterNow = CountOf(bag, "food:water");
+        Check(invUi.OpenInventory(), "inventory open");
+        bool dropped = WorldDroppedItem.TryDropStorage(invUi, SlotOf(bag, s => s.Item.itemId == "food:water"), out err, 1);
+        invUi.CloseInventory();
+        Check(dropped && CountOf(bag, "food:water") == waterNow - 1, "a water dropped (p.drop) " + err);
+        WorldDroppedItem waterDrop = null;
+        await WaitFor(() => (waterDrop = Array.Find(Object.FindObjectsByType<WorldDroppedItem>(), v => v && v.NetId != 0 && v.Item && v.Item.itemId == "food:water")) != null, 5, "the water on the ground");
         await Settle(ledger, me, "the drop");
-        InventoryManager.Instance.GrantCityBicycles();
-        string newBike = bag.GetSlot(SlotOf(bag, s => Array.IndexOf(bikes, s.Item) >= 0 && s.InstanceId != null && InventoryLedgerRules.FindUnique(ledger.Bag(me), s.InstanceId) == null))?.InstanceId;
-        Check(newBike != null && newBike != oldBike, "GrantCityBicycles gives a new one");
-        await Settle(ledger, me, "the grant");
-        Check(InventoryLedgerRules.FindUnique(ledger.Bag(me), newBike) != null && WorldStateSync.InventoryOverwrites == 0 && WorldStateSync.Overwrites == overwrites,
-            "the granted bicycle is in the ledger (p.inv.trust grant): 0 overwrites in all of normal play");
+        Check(CountOf(ledger.Bag(me), "food:water") == waterNow - 1 && WorldStateSync.InventoryOverwrites == 0, "it left the ledger too");
+        var mover = PlayerSpawner.Player.GetComponent<CharacterController>();
+        mover.enabled = false; PlayerSpawner.Player.transform.position = waterDrop.transform.position + Vector3.right; mover.enabled = true;
+        Physics.SyncTransforms();
+        Check(waterDrop.TryPickUp(invUi, out err) && CountOf(bag, "food:water") == waterNow, "picked up again (p.pickup) " + err);
+        await Settle(ledger, me, "the pickup");
+        Check(CountOf(ledger.Bag(me), "food:water") == waterNow && WorldStateSync.InventoryOverwrites == 0 && WorldStateSync.Overwrites == overwrites,
+            "the ledger has it back: 0 overwrites in all of normal play");
 
         Section("a changed bag goes back");
         int waters = CountOf(bag, "food:water");
@@ -656,6 +666,14 @@ public static partial class EconomySyncQA
         Check(CashService.TryWithdraw(bag, 10000, 2, out string err) && CashService.TryWithdraw(bag, 1000, 3, out err), "withdraw 10,000원 x 2 and 1,000원 x 3 " + err);
         await WaitFor(() => WorldStateSync.Ledgers >= ledgers + 2, 5, "the Ledgers");
         var player = PlayerSpawner.Player;
+        // 12.10.5: the server gave this new character a deed too; it goes on the ground, so the cart and the cursor have room.
+        var dropper = player.GetComponent<PlayerInventory>();
+        Check(dropper.OpenInventory(), "inventory open");
+        bool deedDropped = WorldDroppedItem.TryDropStorage(dropper, SlotOf(bag, s => InventoryLedgerRules.IsStartingDeed(s.Item)), out err);
+        dropper.CloseInventory();
+        Check(deedDropped, "the deed dropped (p.drop) " + err);
+        ledgers = WorldStateSync.Ledgers;
+        await WaitFor(() => WorldStateSync.Ledgers > ledgers, 5, "its Ledger");
         Check(SceneLoadManager.TryLoadMap("Assets/Scenes/Interiors/ConvenienceStoreInterior.unity", "store_entry", player), "into the convenience store");
         await WaitFor(() => !SceneLoadManager.IsLoading && SceneLoadManager.CurrentMap.name == "ConvenienceStoreInterior" && PlayerSpawner.Player && PlayerSpawner.Player.isActiveAndEnabled, 60, "the convenience store");
         await Awaitable.WaitForSecondsAsync(1f);

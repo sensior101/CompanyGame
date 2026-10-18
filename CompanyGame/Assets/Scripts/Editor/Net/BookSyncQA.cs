@@ -329,7 +329,7 @@ public static partial class EconomySyncQA
         Section("a 30,000-character book");
         var bag = InventoryManager.Instance.State;
         Check(bag.TryAdd(Blank, 1, out _), "a blank book in the bag");
-        InventoryLedgerRules.Trust(bag, "grant"); // 12.10.4: the server keeps the bag; the blank comes in on a trusted path
+        InventoryLedgerRules.Trust(bag, "library"); // the server keeps the bag; the blank comes in on the one trusted path left (12.10.5)
         int blank = FindBlank(bag);
         var draft = NewBook("삼만 자 책", null, null, 20, 1500, 23);
         draft.isPublished = false;
@@ -358,19 +358,18 @@ public static partial class EconomySyncQA
         bool dropped = WorldDroppedItem.TryDropStorage(inv, slot, out string dropError);
         inv.CloseInventory();
         Check(dropped, "the 30,000-character book can be dropped (the 4KB limit is gone) " + dropError);
-        var dropMsg = await WaitMsg(fake, m => m.kind == ToClient.Spawn && m.key == DropKey && m.owner == client.MyConnection, "the drop at the fake");
+        var dropMsg = await WaitMsg(fake, m => m.kind == ToClient.Spawn && m.key == DropKey && m.flags == DroppedFlags, "the drop at the fake");
         Check(dropMsg.blobs[0].Length < 1024 && BookIn(SnapshotOf(dropMsg.blobs[0]), longId)?.title == "삼만 자 책", "the drop's state is " + dropMsg.blobs[0].Length + " bytes: the book without pages");
-        await WaitMsg(fake, m => m.kind == ToClient.Owner && m.id == dropMsg.id && m.owner == 0, "the drop given to the server");
-        fake.Send(SyncProtocol.Claim(dropMsg.id));
-        Check((await WaitMsg(fake, m => m.kind == ToClient.Owner && m.id == dropMsg.id, "the fake's claim")).owner == fake.number, "the fake picks it up");
-        fake.Send(SyncProtocol.Despawn(dropMsg.id));
+        Check(dropMsg.owner == 0, "the server made it (12.10.5)");
+        var pickAnswer = await FakeOp(fake, "p.pickup", new SharedOpArgs { n = (long)dropMsg.id });
+        Check(pickAnswer.error == "", "the fake picks it up (p.pickup) " + pickAnswer.error);
         got = await FakeGet(fake, longId);
         Check(SamePages(got.book, draft) && got.book.title == "삼만 자 책", "and reads the same 30,000 characters with book.get (" + got.parts + " BookText parts, " + got.bytes + " bytes)");
         Note("book.get of 30,000 characters: " + got.parts + " parts, " + got.bytes + " bytes");
 
         Section("refused book requests");
         Check(bag.TryAdd(Blank, 1, out _), "another blank");
-        InventoryLedgerRules.Trust(bag, "grant");
+        InventoryLedgerRules.Trust(bag, "library");
         var small = NewBook("권한 책", null, null, 2, 100, 24);
         small.isPublished = false;
         Check(bag.TryPublishBook(FindBlank(bag), small, me, GameSession.LocalPlayerName, out int smallSlot, out _), "the owner writes a short book");
@@ -396,8 +395,8 @@ public static partial class EconomySyncQA
         Check(answer.error == "이미 있는 책입니다." && books.Find(smallId).IsAuthor(me), "book.new of an id that exists is refused");
         var blankBag = new InventoryState();
         blankBag.TryAdd(Blank, 1, out _);
-        answer = await FakeOp(fake, "p.inv.trust", new SharedOpArgs { a = "grant", b = InventoryLedgerRules.Pack(blankBag) });
-        Check(answer.error == "", "the fake gets a blank (a trusted grant, 12.10.4)");
+        answer = await FakeOp(fake, "p.inv.trust", new SharedOpArgs { a = "library", b = InventoryLedgerRules.Pack(blankBag) });
+        Check(answer.error == "", "the fake gets a blank (the trusted library path, 12.10.5)");
         answer = await FakeBookOp(fake, "book.new", new ServerBooks.Request { id = "qa-fake-book", title = "가짜의 책" });
         Check(answer.error == "" && books.Find("qa-fake-book").IsAuthor(BookFake) && books.Find("qa-fake-book").authorName == "QA책가짜", "the fake's own new book (author: its account and character name)");
         string fakeText = Text(2000, 25);
@@ -412,15 +411,10 @@ public static partial class EconomySyncQA
         Section("the owner picks up the fake's book and opens it");
         var look = Vector3.ProjectOnPlane(Camera.main.transform.forward, Vector3.up).normalized;
         Vector3 spot = Ground(player.transform.position + look * 2.5f);
-        var fakeCopy = new BookInstanceData { title = "가짜의 책", authorPlayerId = BookFake, authorName = "QA책가짜", isPublished = true }.Clone();
-        var contents = new InventoryState();
-        Check(contents.TryAddBookInstance(Blank, "qa-fake-book", fakeCopy, out _), "the fake's drop contents");
-        ulong fakeDrop = SyncProtocol.MakeId(fake.number, 7);
-        fake.Send(SyncProtocol.Spawn(fakeDrop, DropKey, map, DroppedFlags, new[] { DropOf(InventorySnapshot.Export(contents, false), spot) }));
-        fake.Send(SyncProtocol.Release(fakeDrop));
+        answer = await FakeOp(fake, "p.drop", new SharedOpArgs { a = Blank.itemId, b = "qa-fake-book", n = 1, c = "-1", d = DropBlob.FormatPlace(spot, 0f) });
+        Check(answer.error == "", "the fake drops its book (p.drop) " + answer.error);
         WorldDroppedItem view = null;
-        await WaitFor(() => view = Array.Find(Object.FindObjectsByType<WorldDroppedItem>(), v => v.NetId == fakeDrop), 5, "the fake's drop on the Unity screen");
-        await WaitFor(() => client.Find(fakeDrop) && client.Find(fakeDrop).Owner == 0, 3, "the fake's drop given to the server");
+        await WaitFor(() => view = Array.Find(Object.FindObjectsByType<WorldDroppedItem>(), v => v.NetId != 0 && v.Item == Blank), 5, "the fake's drop on the Unity screen");
         await StandBeside(player.GetComponent<PlayerMovement>(), view.transform.position);
         view.TryPickUp(inv, out _);
         await WaitFor(() => bag.FindBook("qa-fake-book") != null, 5, "the book in the owner's bag");
@@ -572,7 +566,7 @@ public static partial class EconomySyncQA
         string me = GameSession.LocalPlayerId;
         var bag = InventoryManager.Instance.State;
         Check(bag.TryAdd(Blank, 1, out _), "a blank book");
-        InventoryLedgerRules.Trust(bag, "grant"); // 12.10.4
+        InventoryLedgerRules.Trust(bag, "library"); // the trusted path left (12.10.5)
         var draft = NewBook("원격 긴 책", null, null, 20, 1500, 31);
         draft.isPublished = false;
         int results = WorldStateSync.Results, requests = WorldStateSync.BookRequests;

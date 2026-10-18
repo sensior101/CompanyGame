@@ -18,7 +18,9 @@ using UnityEngine;
 ///          sections go out first, then OpResult (event 2) to the requester. veh.* and unknown kinds are refused.
 ///          Personal requests (p.*, 12.10.1) and the payment of land.buy go to the <see cref="Ledger"/>, which answers
 ///          the requester with a Ledger (event 3) before the OpResult. Book requests (book.*, 12.10.3) go to the
-///          <see cref="Books"/> (book.get answers with BookText, event 4); they change no section, so none is sent for them
+///          <see cref="Books"/> (book.get answers with BookText, event 4); they change no section, so none is sent for them.
+///          Items between the inventory and the world (p.drop, p.vehicle.place, p.pickup, p.dismantle, 12.10.5) go to the
+///          <see cref="Drops"/>, answered with a Ledger as the personal ones
 ///   stop   an in-app server puts this PC's own world back (world.json, else the fresh world)
 /// The full state (with the book bodies, WorldSaveData.books) is saved in world.dat through GameServer.WorldStateProvider; clients get only the newest
 /// <see cref="Recent"/> reports and SNS posts. A section over 60KB gzipped is not sent (logged).
@@ -40,6 +42,8 @@ public sealed class ServerWorld : MonoBehaviour
     public ServerLedger Ledger { get; private set; }
     /// <summary>The book bodies of this server's world (12.10.3).</summary>
     public ServerBooks Books { get; private set; }
+    /// <summary>Dropped items and placed vehicles, made by the server from the ledger (12.10.5).</summary>
+    public ServerDrops Drops { get; private set; }
 
     SyncHost host;
     GameServer server;
@@ -100,12 +104,14 @@ public sealed class ServerWorld : MonoBehaviour
         {
             var state = WorldSave.CaptureShared();
             state.books = Books?.Capture();
+            state.startDeeds = Ledger?.CaptureDeeds();
             return Encode(WorldSave.ToJson(state));
         };
         server.ServerEvent += OnServerEvent;
         EntityId = server.SpawnServerEntity(PrefabKey, SyncProtocol.AllMaps, EntityFlags.None, new byte[SectionCount][]);
         Books = new ServerBooks(server, EntityId, saved?.books);
-        Ledger = new ServerLedger(server, EntityId, Books);
+        Ledger = new ServerLedger(server, EntityId, Books, saved?.startDeeds);
+        Drops = new ServerDrops(server, Ledger, Books);
         SendSections();
         Debug.Log("[ServerWorld] world " + world.Id + ": " + (saved != null ? "shared economy restored" : "new shared economy") + ", clock " + GameClock.Current?.Now
                   + ", night " + world.NightSkipStart + "-" + world.NightSkipEnd);
@@ -114,6 +120,8 @@ public sealed class ServerWorld : MonoBehaviour
     void End(bool restorePcWorld)
     {
         if (server != null) { server.ServerEvent -= OnServerEvent; server.WorldStateProvider = null; }
+        Drops?.End();
+        Drops = null;
         Ledger?.End();
         Ledger = null;
         Books = null;
@@ -194,8 +202,8 @@ public sealed class ServerWorld : MonoBehaviour
         string from = server.AccountOf(sender);
         if (string.IsNullOrEmpty(from) || server.World.Find(from) == null) return; // no character, no say in the world
         string error;
-        bool personal = ServerLedger.Kinds.Contains(kind), book = ServerBooks.Kinds.Contains(kind);
-        if (!personal && !book && !Allowed.Contains(kind))
+        bool personal = ServerLedger.Kinds.Contains(kind), book = ServerBooks.Kinds.Contains(kind), drop = ServerDrops.Kinds.Contains(kind);
+        if (!personal && !book && !drop && !Allowed.Contains(kind))
         {
             Refused.Add(kind);
             Debug.LogWarning("[ServerWorld] refused request '" + kind + "' from " + from);
@@ -207,6 +215,7 @@ public sealed class ServerWorld : MonoBehaviour
             try
             {
                 error = personal ? Ledger.Apply(sender, from, kind, json)
+                    : drop ? Drops.Apply(sender, from, kind, json)
                     : book ? Books.Apply(sender, from, kind, json)
                     : kind == "land.buy" ? Ledger.BuyLand(from, json)
                     : WorldOps.Apply(0, from, kind, kind == "sns.post" ? WithAuthorName(json, from) : json);

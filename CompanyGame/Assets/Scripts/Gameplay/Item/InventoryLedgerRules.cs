@@ -15,8 +15,11 @@ using UnityEngine;
 ///                  items given, then everything got; all or nothing, as CashService.TryPurchase
 ///   TryTakeLayout  a client's layout (p.inv.layout) only with the same contents, unique items keeping the server's data;
 ///                  a trusted one (p.inv.trust) as it comes
+///   TryTake / TryPutAll  the world's items (12.10.5): a drop or a placed vehicle leaves the ledger with the ledger's
+///                  data; a pickup goes in whole or not at all
+///   grants         the start vehicles and the goshiwon deed, the same rules on the server and off it (12.10.5)
 ///   Send / Trust   client side: an intent about my own inventory (never a ledger's) goes out with SharedWriteGate.
-///                  SendPersonal; a change on a path not moved to the server yet asks for a trusted layout
+///                  SendPersonal; a change on a path not moved to the server yet (the library) asks for a trusted layout
 /// Nothing here touches a screen manager, CashService's lock or its events (the server runs these in the owner's process).
 /// </summary>
 public static class InventoryLedgerRules
@@ -205,6 +208,156 @@ public static class InventoryLedgerRules
 
     static bool ValidId(string id) => !string.IsNullOrEmpty(id) && id.Length <= MaxId;
 
+    // ---- the world's items (12.10.5) ----
+
+    static bool Matches(ItemStack stack, ItemData item, string instanceId) =>
+        stack != null && !stack.IsEmpty && stack.Item == item &&
+        (string.IsNullOrEmpty(instanceId) ? !IsUnique(stack) : IsUnique(stack) && stack.InstanceId == instanceId);
+
+    /// <summary>
+    /// p.drop / p.vehicle.place: <paramref name="count"/> of <paramref name="itemId"/> (a unique item by its
+    /// <paramref name="instanceId"/>) leave the ledger's <paramref name="inventory"/> into <paramref name="taken"/>, with the
+    /// ledger's own data (a book's details). From the slot named (a bag slot, or with <paramref name="equipment"/> an
+    /// equipment slot) when it holds them, else from anywhere in the bag and equipment; cash, else by its total (change as
+    /// CashService.PlanPayment makes it). Never more than one stack. Nothing changes on failure.
+    /// </summary>
+    public static bool TryTake(InventoryState inventory, int slot, bool equipment, string itemId, string instanceId, int count, out InventoryState taken, out string error)
+    {
+        taken = null;
+        var item = string.IsNullOrEmpty(itemId) ? null : InventorySnapshot.Find(itemId);
+        bool unique = !string.IsNullOrEmpty(instanceId);
+        if (inventory == null || !item || count <= 0 || count > Math.Max(1, item.StackLimit) || unique && count != 1)
+            return Fail("내려놓을 아이템을 확인해 주세요.", out error);
+        var draft = inventory.Copy();
+        var into = new InventoryState();
+        if (!TakeAt(draft, into, slot, equipment, item, instanceId, count, out error))
+        {
+            draft = inventory.Copy();
+            into = new InventoryState();
+            if (!TakeAnywhere(draft, into, item, instanceId, count, out error))
+            {
+                if (unique || !item.IsCurrency) return Fail("가지고 있지 않은 아이템입니다.", out error);
+                long amount;
+                try { amount = checked(item.CurrencyValue * count); }
+                catch (OverflowException) { return Fail("금액이 처리 가능한 범위를 초과합니다.", out error); }
+                into = new InventoryState();
+                if (!CashService.PlanPayment(inventory, amount, out draft, out error) || !into.TryAdd(item, count, out error)) return false;
+            }
+        }
+        inventory.ReplaceWith(draft);
+        inventory.NotifyChanged();
+        taken = into;
+        return true;
+    }
+
+    static bool TakeAt(InventoryState draft, InventoryState into, int slot, bool equipment, ItemData item, string instanceId, int count, out string error)
+    {
+        error = null;
+        if (!equipment)
+        {
+            var stack = draft.GetSlot(slot);
+            return Matches(stack, item, instanceId) && stack.Count >= count && draft.TryTransferTo(into, slot, count, out error);
+        }
+        var worn = slot >= 0 && slot < 6 ? draft.GetEquipment((EquipmentSlot)slot) : null;
+        return Matches(worn, item, instanceId) && worn.Count == count && into.TryAdd(worn.Item, count, out error, worn.InstanceId)
+               && draft.TryRemoveEquipment((EquipmentSlot)slot, out error);
+    }
+
+    static bool TakeAnywhere(InventoryState draft, InventoryState into, ItemData item, string instanceId, int count, out string error)
+    {
+        error = null;
+        long held = 0;
+        foreach (var stack in Stacks(draft)) if (Matches(stack, item, instanceId)) held += stack.Count;
+        if (held < count) return false;
+        int left = count;
+        for (int i = 0; i < draft.Capacity && left > 0; i++)
+        {
+            var stack = draft.GetSlot(i);
+            if (!Matches(stack, item, instanceId)) continue;
+            int take = Math.Min(left, stack.Count);
+            if (!draft.TryTransferTo(into, i, take, out error)) return false;
+            left -= take;
+        }
+        for (int e = 0; e < 6 && left > 0; e++)
+        {
+            var worn = draft.GetEquipment((EquipmentSlot)e);
+            if (!Matches(worn, item, instanceId) || worn.Count > left) continue;
+            int take = worn.Count;
+            if (!into.TryAdd(worn.Item, take, out error, worn.InstanceId) || !draft.TryRemoveEquipment((EquipmentSlot)e, out error)) return false;
+            left -= take;
+        }
+        return left == 0;
+    }
+
+    /// <summary>p.pickup: everything in <paramref name="contents"/> goes into <paramref name="inventory"/>, or nothing does.</summary>
+    public static bool TryPutAll(InventoryState inventory, InventoryState contents, out string error)
+    {
+        error = null;
+        if (inventory == null || contents == null) return Fail("주울 수 없습니다.", out error);
+        var draft = inventory.Copy();
+        foreach (var stack in Stacks(contents))
+        {
+            if (IsUnique(stack) && FindUnique(draft, stack.InstanceId) != null) return Fail("이미 가지고 있는 아이템입니다.", out error);
+            bool ok = stack.IsUniqueBook ? draft.TryAddBookInstance(stack.Item, stack.InstanceId, stack.BookData, out error)
+                : draft.TryAdd(stack.Item, stack.Count, out error, stack.InstanceId);
+            if (!ok) return Fail("가방에 자리가 없습니다.", out error);
+        }
+        inventory.ReplaceWith(draft);
+        inventory.NotifyChanged();
+        return true;
+    }
+
+    /// <summary>True when <paramref name="inventory"/> holds any <paramref name="itemId"/> (bag or equipment).</summary>
+    public static bool Holds(InventoryState inventory, string itemId)
+    {
+        if (inventory == null || string.IsNullOrEmpty(itemId)) return false;
+        foreach (var stack in Stacks(inventory)) if (stack.Item.itemId == itemId) return true;
+        return false;
+    }
+
+    // ---- what a character is given (12.10.5): the same rules on the server and off it ----
+
+    public const string StartingDeedPrefix = "goshiwon_";
+
+    /// <summary>The start vehicles (one of each bicycle colour and car) <paramref name="inventory"/> lacks go in. True when any did.</summary>
+    public static bool GrantStartVehicles(InventoryState inventory)
+    {
+        var items = new List<ItemData>(Resources.LoadAll<ItemData>("Inventory/Vehicles/CityBicycle"));
+        items.AddRange(Resources.LoadAll<ItemData>("Inventory/Vehicles/Cars"));
+        items.Sort((a, b) => string.CompareOrdinal(a.itemId, b.itemId));
+        bool granted = false;
+        foreach (var item in items)
+        {
+            bool owned = false;
+            for (int i = 0; i < inventory.Capacity; i++)
+                if (inventory.GetSlot(i).Item == item) { owned = true; break; }
+            if (owned) continue;
+            if (inventory.TryAdd(item, 1, out string error)) granted = true;
+            else Debug.LogWarning(error);
+        }
+        return granted;
+    }
+
+    public static bool IsStartingDeed(ItemData item) =>
+        item && item.IsDeed && item.propertyId != null && item.propertyId.StartsWith(StartingDeedPrefix, StringComparison.Ordinal);
+
+    /// <summary>A goshiwon deed is in the bag.</summary>
+    public static bool HasStartingDeed(InventoryState inventory)
+    {
+        for (int i = 0; inventory != null && i < inventory.Capacity; i++)
+            if (!inventory.GetSlot(i).IsEmpty && IsStartingDeed(inventory.GetSlot(i).Item)) return true;
+        return false;
+    }
+
+    /// <summary>The first goshiwon deed (by item id) that <paramref name="free"/> allows, or null.</summary>
+    public static ItemData NextStartingDeed(Func<ItemData, bool> free)
+    {
+        var deeds = new List<ItemData>(Resources.LoadAll<ItemData>("Inventory/Deeds"));
+        deeds.Sort((a, b) => string.CompareOrdinal(a.itemId, b.itemId));
+        foreach (var deed in deeds) if (IsStartingDeed(deed) && free(deed)) return deed;
+        return null;
+    }
+
     // ---- client side ----
 
     /// <summary>True for this PC's own session inventory (never a server ledger's, a drop's or a merchant's).</summary>
@@ -220,9 +373,21 @@ public static class InventoryLedgerRules
         if (IsMine(inventory)) SharedWriteGate.SendPersonal(kind, args);
     }
 
+    /// <summary>On a sync-layer server with my character (the server decides what I am given, 12.10.5).</summary>
+    public static bool OnServer => SharedWriteGate.OnServer;
+
     /// <summary>
-    /// A change to my inventory on a path the server does not decide yet (drop, pickup, vehicle, storage, grant, library):
-    /// the layout goes out as p.inv.trust with <paramref name="reason"/>. ponytail: trusted until 4d-4 and 4d-5 move these paths.
+    /// p.grant (12.10.5): this client gave itself one <paramref name="item"/> of the server's grant list already; the server
+    /// gives it too while the ledger has none.
+    /// </summary>
+    public static void SendGrant(InventoryState inventory, ItemData item)
+    {
+        if (item) Send(inventory, "p.grant", new SharedOpArgs { a = item.itemId });
+    }
+
+    /// <summary>
+    /// A change to my inventory on a path the server does not decide yet (the library): the layout goes out as
+    /// p.inv.trust with <paramref name="reason"/>. ponytail: trusted until 4d-5 moves the library.
     /// </summary>
     public static void Trust(InventoryState inventory, string reason)
     {

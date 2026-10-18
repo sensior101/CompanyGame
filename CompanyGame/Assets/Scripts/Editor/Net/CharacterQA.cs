@@ -478,9 +478,9 @@ public static class CharacterQA
         ItemData item = null;
         foreach (var i in Resources.LoadAll<ItemData>("Inventory")) if (i && !i.IsBook && InventorySnapshot.Find(i.itemId) == i) { item = i; break; }
         Check(item && InventoryManager.Instance.State.TryAdd(item, 1, out _), "added " + (item ? item.itemId : "?") + " to the inventory");
-        // 12.10.4: the server keeps the inventory; an item comes in on a path it trusts (as a grant does).
+        // 12.10.4: the server keeps the inventory; an item comes in on the path it still trusts (the library, 12.10.5).
         ledgers = WorldStateSync.Ledgers;
-        InventoryLedgerRules.Trust(InventoryManager.Instance.State, "grant");
+        InventoryLedgerRules.Trust(InventoryManager.Instance.State, "library"); // the trusted path left (12.10.5)
         await WaitFor(() => WorldStateSync.Ledgers > ledgers, 5, "the server's ledger after the grant");
         var player = PlayerSpawner.Player;
         player.spawn = player.transform.position + new Vector3(2.5f, 0f, 1.5f);

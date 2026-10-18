@@ -17,7 +17,6 @@ public sealed class PropertyUseController : MonoBehaviour
 
     const float HoldSeconds = 5f;
     const float GaugeDelay = .25f;
-    const string StartingDeedPrefix = "goshiwon_";
 
     State state;
     float held;
@@ -73,29 +72,16 @@ public sealed class PropertyUseController : MonoBehaviour
     }
 
     // Once per session; waits (retrying each frame) until the inventory exists.
+    // On a sync-layer server the server gives it as the character enters (12.10.5), never this client.
     void GrantStartingDeed(PropertyRegistry registry)
     {
         var inventory = InventoryManager.Instance ? InventoryManager.Instance.State : null;
-        if (startingDeedDone || inventory == null || Time.unscaledTime < nextGrantTime) return;
-        for (int i = 0; i < inventory.Capacity; i++)
-        {
-            var stack = inventory.GetSlot(i);
-            if (stack != null && !stack.IsEmpty && IsStartingDeed(stack.Item)) { startingDeedDone = true; return; }
-        }
+        if (startingDeedDone || inventory == null || Time.unscaledTime < nextGrantTime || InventoryLedgerRules.OnServer) return;
         startingDeedDone = true;
-        var deeds = new List<ItemData>(Resources.LoadAll<ItemData>("Inventory/Deeds"));
-        deeds.Sort((a, b) => string.CompareOrdinal(a.itemId, b.itemId));
-        foreach (var deed in deeds)
-            if (IsStartingDeed(deed) && registry.GetOwner(deed.propertyId) == null)
-            {
-                if (!inventory.TryAdd(deed, 1, out _)) { startingDeedDone = false; nextGrantTime = Time.unscaledTime + 1f; }
-                else InventoryLedgerRules.Trust(inventory, "grant"); // 12.10.4: trusted until 4d-4
-                return;
-            }
+        if (InventoryLedgerRules.HasStartingDeed(inventory)) return;
+        var deed = InventoryLedgerRules.NextStartingDeed(d => registry.GetOwner(d.propertyId) == null);
+        if (deed && !inventory.TryAdd(deed, 1, out _)) { startingDeedDone = false; nextGrantTime = Time.unscaledTime + 1f; }
     }
-
-    static bool IsStartingDeed(ItemData item) =>
-        item && item.IsDeed && item.propertyId.StartsWith(StartingDeedPrefix, StringComparison.Ordinal);
 
     void UpdateDeed(PropertyRegistry registry)
     {

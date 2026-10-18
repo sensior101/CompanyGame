@@ -25,6 +25,8 @@ using UnityEngine;
 /// (InventoryLedgerRules.Trust). Nothing goes while a trade cursor holds items outside the bag. A Ledger's bag is compared
 /// only when every counted request is answered and no layout of mine is still to go, and written over the bag only when
 /// its contents differ (InventoryLedgerRules.SameContents). A new character takes its first Ledger's bag as its start.
+/// The world's items (12.10.5): drops, placed vehicles, pickups and dismantling are requests too (WorldDroppedItem), counted
+/// like the others; <see cref="Answered"/> tells their sender the answer.
 /// </summary>
 public sealed class WorldStateSync : MonoBehaviour
 {
@@ -68,6 +70,9 @@ public sealed class WorldStateSync : MonoBehaviour
     public static int BookFetches { get; private set; }
     public static int BookRequests { get; private set; }
     public static string LastBookError { get; private set; }
+
+    /// <summary>(kind, json, error) of each answered request of mine, "" error when done (WorldDroppedItem shows a refused pickup's drop again, 12.10.5).</summary>
+    public static event Action<string, string, string> Answered;
 
     /// <summary>The world entity on this client (null when not connected).</summary>
     public static NetEntity World => world;
@@ -223,6 +228,8 @@ public sealed class WorldStateSync : MonoBehaviour
         string json = null;
         if (pending.Count > 0 && pending.Peek()[0] == kind) json = pending.Dequeue()[1];
         Results++;
+        try { Answered?.Invoke(kind, json, error); }
+        catch (Exception e) { Debug.LogException(e); }
         if (ServerBooks.Kinds.Contains(kind)) { BookAnswered(kind, json, error); ApplyLedger(); return; } // no chat line for books
         if (kind == "p.inv.layout" || kind == "p.inv.trust") { ApplyLedger(); return; } // nor layouts: a refused one is put back by its Ledger
         string text;

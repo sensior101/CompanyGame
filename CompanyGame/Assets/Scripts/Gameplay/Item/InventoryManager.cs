@@ -45,22 +45,11 @@ public class InventoryManager : MonoBehaviour
     }
 
     // Temporary traversal kit requested for this development build. One of each colour per session.
+    // On a sync-layer server the server gives it as the character enters (12.10.5), never this client.
     public void GrantCityBicycles()
     {
-        var items = new System.Collections.Generic.List<ItemData>(Resources.LoadAll<ItemData>("Inventory/Vehicles/CityBicycle"));
-        items.AddRange(Resources.LoadAll<ItemData>("Inventory/Vehicles/Cars"));
-        items.Sort((a,b) => string.CompareOrdinal(a.itemId,b.itemId));
-        bool granted = false;
-        foreach (var item in items)
-        {
-            bool owned = false;
-            for (int i = 0; i < State.Capacity; i++)
-                if (State.GetSlot(i).Item == item) { owned = true; break; }
-            if (owned) continue;
-            if (State.TryAdd(item,1,out string error)) granted = true;
-            else Debug.LogWarning(error);
-        }
-        if (granted) InventoryLedgerRules.Trust(State, "grant"); // 12.10.4: trusted until 4d-4
+        if (InventoryLedgerRules.OnServer) return;
+        InventoryLedgerRules.GrantStartVehicles(State);
     }
 
     void SaveBooks() => BookSaveService.SaveInventory(state);

@@ -1,7 +1,5 @@
 using System;
 using System.IO;
-using System.IO.Compression;
-using System.Text;
 using UnityEngine;
 
 /// <summary>
@@ -9,12 +7,12 @@ using UnityEngine;
 /// empty object (<see cref="PrefabKey"/>, a runtime template like AvatarSync's); WorldDroppedItem keeps the record and the
 /// visual, keyed by the entity id. State: u8 kind, f32 x y z, f32 yaw, blob contents = gzip(InventorySnapshot.Export of
 /// the drop's one-stack inventory). A book goes without its pages (the server keeps them, 12.10.3), so a drop stays far
-/// under the 4KB of an entity blob.
+/// under the 4KB of an entity blob. The bytes are DropBlob's (the server makes these entities from its ledger, 12.10.5).
 /// </summary>
 public sealed class DropState : NetBehaviour
 {
-    public const string PrefabKey = "Net/WorldDrop";
-    public const byte ItemKind = 0, VehicleKind = 1;
+    public const string PrefabKey = DropBlob.PrefabKey;
+    public const byte ItemKind = DropBlob.ItemKind, VehicleKind = DropBlob.VehicleKind;
 
     static GameObject template;
 
@@ -43,35 +41,14 @@ public sealed class DropState : NetBehaviour
         return template;
     }
 
-    public static byte[] Pack(InventoryState inventory)
-    {
-        using var stream = new MemoryStream();
-        using (var gzip = new GZipStream(stream, System.IO.Compression.CompressionLevel.Optimal, true))
-        {
-            byte[] json = Encoding.UTF8.GetBytes(InventorySnapshot.Export(inventory, false)); // a book without its pages (12.10.3)
-            gzip.Write(json, 0, json.Length);
-        }
-        return stream.ToArray();
-    }
+    public static byte[] Pack(InventoryState inventory) => DropBlob.Pack(inventory);
 
     /// <summary>The contents into <paramref name="inventory"/> (replaced); false when unreadable.</summary>
-    public static bool Unpack(byte[] contents, InventoryState inventory)
-    {
-        try
-        {
-            using var gzip = new GZipStream(new MemoryStream(contents, false), CompressionMode.Decompress);
-            using var reader = new StreamReader(gzip, Encoding.UTF8);
-            return InventorySnapshot.Import(inventory, reader.ReadToEnd());
-        }
-        catch (Exception e) { Debug.LogWarning("[DropState] unreadable contents: " + e.Message); return false; }
-    }
+    public static bool Unpack(byte[] contents, InventoryState inventory) => DropBlob.Unpack(contents, inventory);
 
     public override void Write(BinaryWriter w)
     {
-        w.Write(kind);
-        w.Write(position.x); w.Write(position.y); w.Write(position.z);
-        w.Write(yaw);
-        SyncProtocol.WriteBlob(w, contents);
+        DropBlob.Write(w, kind, position, yaw, contents);
     }
 
     public override void Read(BinaryReader r)

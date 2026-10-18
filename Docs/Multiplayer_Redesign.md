@@ -1414,3 +1414,137 @@ SyncClient.Instance.Spawn(prefabKey: "Net/Door", instance, flags);
 - 배치는 4KB 요청 한도 안이어야 한다. 책 제목이 아주 많으면 배치가 반영되지 않는다(덮어쓰기는 없음).
 - 0원 동전을 입금하면 서버 장부에서는 빠지지 않는다. 다음 배치 때 맞춰진다.
 - 도서관 사본의 정보는 trust로 들어온 클라이언트 값이다(4d-5까지).
+
+#### 12.10.5 4d-4 세상과 오가는 아이템 (완료 2026-10-18)
+
+**범위.** 새 서버(앱 안 서버 포함)에서 아이템이 인벤토리와 세상 사이를 오가는 일을 서버가 판정합니다: 내려놓기(소지품·장비), 줍기, 탈것 설치, 해체(탈것 → 드롭), 탑승 잠금 검사, 지급 아이템(시작 탈것, 고시원 증서, 직원증). 그 뒤 `p.inv.trust`에는 `library`(4d-5)만 남습니다. 옛 방과 서버 밖 혼자 하기는 바꾸지 않습니다.
+
+**조사한 것**
+- 지금 드롭과 설치한 탈것은 **클라이언트가 만드는 엔티티**입니다(12.8: Spawn → Release). 서버는 blob을 읽지 않습니다. 그래서 가짜 클라이언트가 아무 내용의 드롭을 만들고 다시 주우면 아이템이 생깁니다. 탑승 중에는 주인이 State를 쓸 수 있어서 내용 blob도 바꿀 수 있습니다.
+- 줍기는 Claim → 클라이언트가 가방에 넣고 Despawn → `p.inv.trust`(pickup)입니다. 해체도 클라이언트가 새 드롭을 Spawn합니다.
+- `storage` 사유는 쓰는 곳이 없습니다. 보관함(가구 수납)은 분류 규칙만 있고 아직 내용물이 없습니다(`FurnitureStorageRules`). 그래서 사유만 지웁니다.
+- 지급은 세 곳입니다.
+  - 시작 탈것: `InventoryManager.GrantCityBicycles`, 세션마다 없는 것만
+  - 고시원 증서: `PropertyUseController.GrantStartingDeed`, 세션마다, 증서가 없고 주인 없는 방이 있으면
+  - 직원증: `EmployeeCardPickup`, 씬에 들어올 때마다 한 장 더 주울 수 있음
+- 직원증 아이템(`HandaeEmployeeCard`)은 Resources에 없습니다. 편의점 음식처럼 `InventorySnapshot.Find`가 못 찾아 저장 뒤 빠질 수 있습니다(구현 때 확인하고 고침).
+- 서버 쪽(`ServerWorld`)은 공유 등록부(`PropertyRegistry`)를 갖고 있습니다(4c). 그래서 잠금·해체 허용을 서버에서 검사할 수 있습니다.
+
+**방식: 드롭과 설치한 탈것은 서버가 만들고 지움**
+- 클라이언트는 `Net/WorldDrop`을 더는 Spawn하지 않습니다. 서버가 거절합니다(Despawn 응답, 12.8 규칙).
+- 내려놓기·설치·줍기·해체는 의도 요청(`p.*`)으로 보냅니다. 서버는 장부에서 빼거나 넣고, 엔티티를 직접 만들거나 지웁니다. 내용 blob은 서버가 **장부의 데이터로** 만듭니다(책 제목·탈것 ID 등 클라이언트 값 아님).
+- 탑승(Claim → 탄 동안 위치 State → Release)은 지금 그대로입니다. 다만 서버가 두 가지를 더 검사합니다.
+  - Claim: 탈것이면 등록부의 탑승 허용(`CanRideVehicle`). 아이템 드롭은 Claim 거절(줍기는 요청으로 함)
+  - State: 탄 사람이 보낸 State에서 위치·회전만 받고, 종류와 내용은 서버가 가진 것을 그대로 둠
+
+**GameServer에 더하는 것** (기능을 모르는 서버 원칙 유지, `CharacterSaveFilter`와 같은 꼴의 훅)
+
+| 이름 | 내용 |
+| --- | --- |
+| `SpawnWorldEntity(prefab, map, flags, blobs)` | 서버가 주인 0인 영구 엔티티를 만듦. world.dat에 저장됨(12.8 엔티티 목록). ID는 서버가 시작할 때 접속 번호 하나를 자기 몫으로 받아 씀(접속 번호는 파일에 이어 쓰므로 재시작해도 겹치지 않음). 영구 엔티티 한도(4096)를 지킴 |
+| `RemoveWorldEntity(id)` | 주인이 0인 엔티티를 지우고 맵 전원에게 Despawn |
+| `TryGetEntity(id, …)`, `MapOf(접속)` | 서버 게임 층이 프리팹·맵·주인·blob과 접속자의 맵을 읽음 |
+| `SpawnFilter` | (접속, 프리팹) → 거절 여부. 거절이면 Despawn 응답 |
+| `ClaimFilter` | (접속, 엔티티) → 허용 여부. 거절이면 지금처럼 Owner(그대로) 응답 |
+| `StateFilter` | (접속, 엔티티, 컴포넌트, blob) → 받을 blob(null이면 버림) |
+
+- 프로토콜 버전과 world.dat 버전은 바뀌지 않습니다. 4b에서 클라이언트가 만든 기존 드롭·탈것도 그대로 읽히고, 새 규칙(요청으로 줍기, 잠금 검사)을 따릅니다.
+
+**요청 (Op 이벤트 1)**
+
+| kind | 본문 | 서버 판정 |
+| --- | --- | --- |
+| `p.drop` | 칸(소지품 번호 또는 장비 칸), 아이템 ID(고유 아이템은 인스턴스 ID), 개수, 위치·회전 | 장부의 그 칸에 그 아이템이 그만큼 있으면 거기서, 아니면 같은 아이템을 장부 어디서든 뺌. 없으면 거절. 보낸 사람의 맵에 버린 아이템 엔티티(`Expiring`)를 만듦 |
+| `p.vehicle.place` | 탈것 인스턴스 ID, 위치·회전 | 장부에 그 탈것이 있으면 빼고 설치한 탈것 엔티티를 만듦. 실내 맵이면 거절 |
+| `p.pickup` | 엔티티 ID | 아이템 드롭이고, 주인이 0이고, 보낸 사람과 같은 맵이고, 내용 전부가 장부에 들어가면 넣고 엔티티를 지움. 아니면 거절("다른 사람이 먼저 주웠습니다", "가방에 자리가 없습니다") |
+| `p.dismantle` | 엔티티 ID | 설치한 탈것이고, 주인이 0이고, 같은 맵이고, 등록부가 해체를 허용(`CanDismantleVehicle`)하면 탈것 엔티티를 지우고 같은 내용의 버린 아이템 엔티티를 만듦. 장부는 바뀌지 않음 |
+| `p.grant` | 아이템 ID | 지급 목록(아래)에 있는 아이템이고 장부에 아직 없으면 1개 넣음(정할 것 1) |
+
+- 시작 탈것과 고시원 증서는 요청 없이 서버가 줍니다. 캐릭터가 들어올 때(Hello 뒤 첫 Ledger 전) 장부에 같은 규칙을 적용합니다. 규칙 함수는 `InventoryLedgerRules`로 옮겨 클라이언트(서버 밖)와 서버가 같이 씁니다. 접속 중인 클라이언트는 스스로 지급하지 않습니다.
+- 지급 목록: `TradeCatalog`에 `grants`(아이템 목록)를 더하고 직원증을 넣습니다. `InventorySnapshot.Find`도 이 목록을 찾습니다(위의 저장 버그).
+- `p.inv.trust`의 `drop`·`pickup`·`vehicle`·`storage`·`grant` 사유를 지웁니다. `library`만 남습니다(4d-5).
+- 위치는 믿습니다. 서버는 맵만 확인하고, 플레이어와의 거리나 놓을 자리는 검사하지 않습니다(남은 문제로 기록).
+
+**지연 없이 (클라이언트)**
+- 내려놓기·설치: 지금처럼 가방에서 먼저 빼고 요청을 보냅니다. 바닥의 모습은 서버의 Spawn이 오면 나타납니다(왕복 한 번 늦음). 거절되면 다음 Ledger가 가방을 되돌립니다(알림: 오류 문구).
+- 줍기: 클라이언트가 먼저 가방에 넣고 바닥의 모습을 숨긴 뒤 `p.pickup`을 보냅니다. Ledger가 OpResult보다 먼저 오므로, 기다렸다 넣으면 덮어쓰기가 생기기 때문입니다. 다른 사람이 먼저 주웠으면 Ledger가 가방을 되돌리고 "다른 사람이 먼저 주웠습니다"를 띄웁니다.
+- 해체·탑승: 지금처럼 서버 답을 기다립니다(가방이 바뀌지 않음).
+- 지우는 것: 클라이언트의 드롭 Spawn·Release(`SyncCommit`), `GiveBack`, `pending`, Claim으로 줍기·해체(`ClaimFor.PickUp/Dismantle`).
+
+**정할 것(기획)** → 확정 2026-10-18: 두 제안대로
+1. 직원증: 지금은 로비에 다시 들어올 때마다 한 장 더 주울 수 있습니다. 제안: 서버에서는 **가방에 없을 때만** 한 장 줌(드롭하거나 잃어버리면 다시 받을 수 있음).
+2. 고시원 증서: 지금 규칙을 그대로 옮기면, 아직 아무도 등록하지 않은 같은 방 증서를 두 사람이 받을 수 있습니다. 제안: 서버에서 **계정마다 처음 한 번만**, 다른 계정이 받거나 가진 적 없는 방을 줌(고시원 방은 20개라서 21번째 사람부터는 받지 못함).
+
+**바꿀 파일**
+
+| 구분 | 파일 | 내용 |
+| --- | --- | --- |
+| 고침 | `NetCore/GameServer.cs` | 위 표의 함수와 훅, 서버 몫 접속 번호 |
+| 새 | `Player/ServerDrops.cs` | `p.drop`·`p.vehicle.place`·`p.pickup`·`p.dismantle` 판정, 세 훅, 내용 blob 만들기 |
+| 고침 | `Player/ServerWorld.cs`, `Player/ServerLedger.cs` | 요청 연결, 들어올 때 지급, `p.grant`, trust 사유 정리 |
+| 고침 | `Gameplay/Item/InventoryLedgerRules.cs` | 칸·아이템으로 빼기, 지급 규칙 |
+| 고침 | `Gameplay/Item/World/UI/WorldDroppedItem.cs`, `DropState.cs` | 요청으로 바꾼 흐름, 서버가 만든 엔티티 받기. blob 형식은 서버 쪽 어셈블리에서도 읽고 쓸 수 있게(필요하면 옮김) |
+| 고침 | `Gameplay/Item/InventoryManager.cs`, `UI/Property/PropertyUseController.cs`, `World/Maps/EmployeeCardPickup.cs` | 접속 중엔 스스로 지급하지 않음, 직원증은 `p.grant` |
+| 고침 | `Gameplay/Trade/TradeCatalog.cs`, `Resources/Trade/TradeCatalog.asset`, `Gameplay/Item/InventorySnapshot.cs` | `grants` 목록과 찾기 |
+| 고침 | `Editor/Net/DropSyncQA.cs` 등 기존 QA | 새 흐름에 맞춤 |
+| 새 | `Editor/Net/WorldItemQA.cs` | 아래 검수 |
+
+**하지 않는 것:** 보관함 내용물(아직 시스템이 없음). 줍기 거리·놓을 자리 서버 검사. 분실물센터 화면. 도서관(4d-5).
+
+**완료 기준**
+1. 컴파일 오류 없음. 기존 QA 회귀 없음(특히 `DropSyncQA` 셋, `InventoryLedgerQA` 셋, `LedgerQA`, `BookSyncQA`, `CharacterQA`, `WorldSaveQA`, `SyncLayerQA`, `npm test`)
+2. `WorldItemQA.Run`(메모리 서버): `SpawnWorldEntity` ID가 재시작 뒤에도 겹치지 않음, 한도, 세 훅의 거절·응답, 4b 형식 엔티티 읽기
+3. `WorldItemQA.RunPlay`(앱 안 서버 + Unity 주인 + 가짜 클라이언트)
+   - 가짜가 `Net/WorldDrop`을 Spawn하면 거절되고 세상에 아무것도 생기지 않음
+   - 가짜의 `p.drop`: 장부에 없는 아이템·개수는 거절. 있으면 장부에서 빠지고 드롭이 생기며 내용은 장부 데이터임(가짜가 말한 책 제목 등이 아님)
+   - `p.pickup`: 다른 맵·가방 가득·이미 주운 것 거절. 둘이 같은 드롭을 주우면 한 명만 받고, 세상과 두 장부를 합한 아이템 수가 그대로
+   - 탄 채로 내용이 다른 State를 보내도 서버 내용은 그대로이고, 해체 뒤 주운 것은 원래 탈것
+   - 잠긴 탈것의 Claim, 허용 안 된 `p.dismantle`, 실내 `p.vehicle.place` 거절
+   - `p.inv.trust`의 drop·pickup·vehicle·storage·grant 거절, library는 받음. 지급 목록 밖 `p.grant` 거절
+   - 새 캐릭터와 다시 들어온 캐릭터가 시작 탈것·증서를 서버 규칙대로 받음(정할 것 2대로)
+   - Unity 주인: 내려놓기(소지품·장비·현금)·줍기·설치·탑승·하차·해체·탈것 줍기·직원증 줍기에서 덮어쓰기 0번. 가짜의 요청이 주인 화면의 가방을 바꾸지 않음
+4. `WorldItemQA.RunProcess`(빌드한 서버 프로세스 + 원격 Unity): 내려놓고 설치한 뒤 서버를 다시 켜면 드롭·탈것이 그대로이고 장부에는 없음. 다시 켠 뒤 주우면 장부에 들어옴
+5. 스크린샷(QA_SHOTS 게임 화면만): 원격에서 내려놓은 직후, 줍기 경합에서 진 쪽 화면
+
+**총괄 검수 방법.** diff 전체 읽기. 특히 다음을 봅니다.
+- 아이템이 복제되거나 사라지는 경로: 요청 거절, 끊김, 재시작, 경합
+- 서버가 클라이언트 blob을 믿는 경로
+- 서버 계산이 주인 화면 매니저를 건드리는 경로
+- 처리 수 규칙
+
+그다음 QA를 직접 다시 돌려 수치를 확인하고, 스크린샷을 직접 봅니다.
+
+#### 12.10.5 결과 (총괄 검수 완료)
+
+**테스트 수치**
+
+총괄이 다시 돌린 것:
+- `WorldItemQA`: `Run` 67개, `RunPlay` 93개, `RunProcess` 19개
+- `DropSyncQA.RunPlay` 58개
+- `InventoryLedgerQA.RunPlay` 94개
+- `EconomySyncQA.RunPlay` 62개
+- `CharacterQA.RunProcess` 14개
+
+구현 에이전트 실행 기록으로 확인한 것: 나머지 회귀 QA(`DropSyncQA.Run` 38, `InventoryLedgerQA` 50·25, `BookSyncQA` 51·73·14, `LedgerQA` 10·74·18, `CharacterQA` 36·33, `EconomySyncQA` 42·51, `WorldSaveQA` 68, `SyncLayerQA`, `AvatarSyncQA`, `ServerOpenQA`, `SteamHostRoomQA`, `NetSessionQA`, `TitleFlowQA`, `RemoteAvatarQA`), `npm test` 42개·31개.
+
+스크린샷: 줍기 경합에서 진 쪽 화면("다른 사람이 먼저 주웠습니다."), 원격에서 현금을 내려놓은 직후 화면을 확인했다.
+
+**측정.** Unity 주인의 정상 동작(내려놓기: 소지품·장비·현금, 줍기, 설치, 탑승, 하차, 해체, 탈것 줍기, 직원증)에서 덮어쓰기는 0번이었다.
+
+**설계와 달라진 점**
+- GameServer 훅을 하나 더 뒀다: `CharacterEntering`(접속, 계정). 이미 있는 캐릭터는 Character를 보내기 전에 지급해야 받은 내용에 지급분이 들어 있어 덮어쓰기가 생기지 않는다. 새 캐릭터는 첫 Ledger로 받는다.
+- Claim한 엔티티는 그 접속이 Despawn할 수 없다(ID 속 접속 번호가 보낸 접속이 아닐 때). 탄 사람이 차를 지워 아이템이 사라지는 길을 막았다.
+- 서버 몫 접속 번호는 첫 `SpawnWorldEntity` 때 받는다(기존 QA의 "첫 접속 번호 1" 유지). 재시작해도 ID가 겹치지 않는다.
+- 증서 기록은 world state `startDeeds`(계정 → 방)에 저장한다. "가진 적 있는 방"은 준 기록, 등록부(포기한 방 포함), 모든 캐릭터의 저장된 가방을 본다. 4d-4 전에 받아 가진 계정은 받은 것으로 기록한다.
+- `p.drop`의 현금 지폐가 장부에 그 액면 그대로 없으면 소지 현금 총액에서 거슬러 뺀다(4d-3 입금과 같은 이유).
+- 드롭 blob 형식은 `Gameplay/Item/World/DropBlob.cs`로 옮겨 서버와 클라이언트가 같이 쓴다. 요청 답은 `WorldStateSync.Answered`로 전해지고, 거절된 줍기는 숨겼던 드롭을 다시 보인다.
+- 직원증: 접속 중 이미 가방에 있으면 줍는 자리만 사라지고 요청은 보내지 않는다.
+- 요청 형식(`SharedOpArgs`): `p.drop`은 `a` 아이템 ID, `b` 인스턴스 ID, `n` 개수, `c` 칸, `f` 장비 칸 여부, `d` "x,y,z,yaw". `p.vehicle.place`는 `a` 탈것 ID, `d` 위치. `p.pickup`·`p.dismantle`은 `n` 엔티티 ID. `p.grant`는 `a` 아이템 ID.
+
+**남은 문제**
+- 시작 탈것은 들어올 때마다 없는 종류를 준다(옮기기 전 규칙 그대로, 개발용). 설치하거나 버린 뒤 다시 들어오면 탈것이 늘어난다.
+- 들어올 때 지급이 16칸 가방의 11칸을 차지한다. 칸이 모자라면 증서는 다음에 들어올 때 다시 시도한다.
+- 땅에 떨어졌거나 분실물 목록에 있는 증서는 "가진 적 있는 방"에 들어가지 않는다.
+- 4b에서 클라이언트가 만든 기존 드롭·탈것은 그 내용을 한 번 믿고 읽는다.
+- 줍기 거리와 놓을 자리는 검사하지 않는다.
+- `Docs/Architecture.md`, `Docs/Server.md`에 새 구조가 아직 반영되지 않았다.

@@ -59,11 +59,21 @@ namespace CompanyGame.World.Maps
                 UIEventSystem.IsEditingText() || (PhoneManager.Instance && PhoneManager.Instance.IsPhoneOpen)) return;
             var player = SceneLoadManager.Traveller;
             if (!player || FindNearest(player.transform) != this) return;
-            var inventory = InventoryManager.Instance ? InventoryManager.Instance.State : null;
-            if (inventory == null || !inventory.TryAdd(card, 1, out _)) return;
-            InventoryLedgerRules.Trust(inventory, "grant"); // 12.10.4: trusted until 4d-4
+            TryCollect(InventoryManager.Instance ? InventoryManager.Instance.State : null);
+        }
+
+        /// <summary>The card into <paramref name="inventory"/> (my own) and the pickup gone. False when it could not be taken.</summary>
+        public bool TryCollect(InventoryState inventory)
+        {
+            if (!IsAvailable || inventory == null) return false;
+            // On a sync-layer server the card is the server's to give (p.grant, 12.10.5): one while the bag has none.
+            bool server = InventoryLedgerRules.OnServer;
+            bool held = server && InventoryLedgerRules.Holds(inventory, card.itemId);
+            if (!held && !inventory.TryAdd(card, 1, out _)) return false;
+            if (server && !held) InventoryLedgerRules.SendGrant(inventory, card);
             taken = true;
             gameObject.SetActive(false);
+            return !held;
         }
 
     }

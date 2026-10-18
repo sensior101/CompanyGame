@@ -20,17 +20,20 @@ public sealed class TradeCatalog : ScriptableObject
     }
 
     public Shop[] shops = Array.Empty<Shop>();
+    /// <summary>Items the server gives on p.grant while the bag has none (12.10.5): the employee card.</summary>
+    public ItemData[] grants = Array.Empty<ItemData>();
 
     static TradeCatalog loaded;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     static void ResetLoaded() => loaded = null;
 
-    /// <summary>Every item the shops trade (some live outside Resources/Inventory: InventorySnapshot finds them here).</summary>
+    /// <summary>Every item the shops trade and the grant list (some live outside Resources/Inventory: InventorySnapshot finds them here).</summary>
     public static System.Collections.Generic.IEnumerable<ItemData> Items()
     {
         if (!loaded) loaded = Resources.Load<TradeCatalog>(ResourcePath);
         if (!loaded) yield break;
+        if (loaded.grants != null) foreach (var item in loaded.grants) if (item) yield return item;
         foreach (var shop in loaded.shops)
             if (shop?.offers != null)
                 foreach (var offer in shop.offers)
@@ -39,6 +42,16 @@ public sealed class TradeCatalog : ScriptableObject
                     if (offer.give.item) yield return offer.give.item;
                     if (offer.get.item) yield return offer.get.item;
                 }
+    }
+
+    /// <summary>The item <paramref name="itemId"/> of the grant list (12.10.5), or null when it is not on it.</summary>
+    public static ItemData Grant(string itemId)
+    {
+        if (string.IsNullOrEmpty(itemId)) return null;
+        if (!loaded) loaded = Resources.Load<TradeCatalog>(ResourcePath);
+        if (!loaded || loaded.grants == null) return null;
+        foreach (var item in loaded.grants) if (item && item.itemId == itemId) return item;
+        return null;
     }
 
     /// <summary>The offers of shop <paramref name="shopId"/>, or null when there is no such shop.</summary>

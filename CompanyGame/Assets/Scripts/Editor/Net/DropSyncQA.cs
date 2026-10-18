@@ -18,6 +18,9 @@ using QaMsg = SyncLayerQA.QaMsg;
 ///                                      limits answering Despawn, the 06:00 lost-and-found rule and its 7 days
 ///   -executeMethod DropSyncQA.RunPlay  play mode (WITHOUT -quit; the QA exits the editor): in-app server + the Unity player
 ///                                      + a fake TCP second player. Env QA_SHOTS = folder for D_*.png. Profile slot 4, its own world.
+///                                      Since 12.10.5 the server makes drops and placed cars from the ledger: both players
+///                                      drop, place, pick up and dismantle with requests (p.*); the fake's items are put in
+///                                      its ledger by the QA (in-app: the same process).
 /// Each run prints the passed checks per item.
 /// </summary>
 [InitializeOnLoad]
@@ -348,7 +351,6 @@ public static class DropSyncQA
         var inv = player.GetComponent<PlayerInventory>();
         var driver = player.GetComponent<PlayerVehicle>();
         var bag = InventoryManager.Instance.State;
-        var carItem = Resources.LoadAll<ItemData>("Inventory/Vehicles/Cars")[0];
         ItemData stuff = null;
         foreach (var item in Resources.LoadAll<ItemData>("Inventory"))
             if (item && !item.IsVehicle && !item.IsBook && !item.IsCurrency && item.StackLimit >= 5 && InventorySnapshot.Find(item.itemId) == item) { stuff = item; break; }
@@ -365,10 +367,13 @@ public static class DropSyncQA
         var socket = new TcpClientTransport();
         await socket.Connect("127.0.0.1", host.Port);
         var fake = new QaPeer(socket);
-        fake.Send(SyncProtocol.Hello("qa-drop-fake", "fake", map));
+        fake.Send(SyncProtocol.Hello(FakeAccount, "fake", map));
         fake.number = (await WaitMsg(fake, m => m.kind == ToClient.Welcome, "fake welcome")).number;
         fake.Send(SyncProtocol.CharacterCreate("QA가짜", "female"));
         Check((await WaitMsg(fake, m => m.kind == ToClient.CharacterResult, "fake character")).result == CharacterResult.Ok, "the fake second player made its character");
+        worldEntity = (await WaitMsg(fake, m => m.kind == ToClient.Spawn && m.key == ServerWorld.PrefabKey, "the world entity at the fake")).id;
+        var ledger = ServerWorld.Instance.Ledger;
+        string me = GameSession.LocalPlayerId;
 
         int carSlot = -1;
         for (int i = 0; i < InventoryState.HotbarSize; i++) if (bag.GetSlot(i).Item && bag.GetSlot(i).Item.IsCar) { carSlot = i; break; }
@@ -376,42 +381,49 @@ public static class DropSyncQA
         string carName = bag.GetSlot(carSlot).Item.itemId;
         bag.SelectHotbar(carSlot);
         Check(WorldDroppedItem.TryPlaceVehicle(inv, out string placeError), "the Unity player placed " + carName + " " + placeError);
-        var myCarMsg = await WaitMsg(fake, m => m.kind == ToClient.Spawn && m.key == Key && m.owner == client.MyConnection && m.flags == Placed, "Unity's car at the fake");
+        var myCarMsg = await WaitMsg(fake, m => m.kind == ToClient.Spawn && m.key == Key && m.flags == Placed, "Unity's car at the fake");
         ulong myCar = myCarMsg.id;
         var myCarState = ReadDrop(myCarMsg.blobs[0]);
         Check(myCarState.kind == DropState.VehicleKind && myCarState.itemId == carName, "the fake got it as a placed vehicle of " + carName + " (state " + myCarMsg.blobs[0].Length + " bytes)");
-        Check((await WaitMsg(fake, m => m.kind == ToClient.Owner && m.id == myCar, "Owner of Unity's car")).owner == 0, "then Owner(0): the server keeps it");
+        Check(myCarMsg.owner == 0 && SyncProtocol.ConnectionOf(myCar) != client.MyConnection, "made by the server (owner 0, not the Unity player's id)");
         var myCarView = await FindView(myCar);
         Check(myCarView.IsPlacedVehicle && !myCarView.IsOccupied, "the Unity screen shows its own placed car (record id = entity id)");
 
-        Check(bag.TryAdd(stuff, 2, out _), "two " + stuff.itemId + " in the bag");
+        Give(ledger, me, stuff, 2);
+        Check(bag.TryAdd(stuff, 2, out _), "two " + stuff.itemId + " in the bag (and in the ledger)");
         int stuffSlot = FindSlot(bag, stuff);
         Check(inv.OpenInventory(), "inventory open");
         bool dropped = WorldDroppedItem.TryDropStorage(inv, stuffSlot, out string dropError, 2);
         inv.CloseInventory();
         Check(dropped, "the Unity player dropped 2 " + stuff.itemId + " " + dropError);
-        var myDropMsg = await WaitMsg(fake, m => m.kind == ToClient.Spawn && m.key == Key && m.owner == client.MyConnection && m.flags == Dropped, "Unity's drop at the fake");
+        var myDropMsg = await WaitMsg(fake, m => m.kind == ToClient.Spawn && m.key == Key && m.flags == Dropped, "Unity's drop at the fake");
         ulong myDrop = myDropMsg.id;
         var myDropState = ReadDrop(myDropMsg.blobs[0]);
-        Check(myDropState.kind == DropState.ItemKind && myDropState.itemId == stuff.itemId && myDropState.count == 2, "the fake got the drop: Expiring, 2 " + stuff.itemId);
-        await WaitMsg(fake, m => m.kind == ToClient.Owner && m.id == myDrop && m.owner == 0, "Owner(0) of Unity's drop");
+        Check(myDropState.kind == DropState.ItemKind && myDropState.itemId == stuff.itemId && myDropState.count == 2 && myDropMsg.owner == 0,
+            "the fake got the drop: Expiring, 2 " + stuff.itemId + ", server-owned from the start");
 
         // ---- the fake player places a car and drops an item; the Unity screen shows them ----
         Section("the fake's car and drop on the Unity screen");
         Vector3 carSpot = Ground(home + ahead * 4.5f + side * 4.5f), dropSpot = Ground(home + ahead * 3f + side * 2.2f);
         float carYaw = faceYaw;
-        ulong fakeCar = SyncProtocol.MakeId(fake.number, 1), fakeDrop = SyncProtocol.MakeId(fake.number, 2);
-        fake.Send(SyncProtocol.Spawn(fakeCar, Key, map, Placed, new[] { DropBlob(DropState.VehicleKind, carSpot, carYaw, carItem, 1) }));
-        fake.Send(SyncProtocol.Release(fakeCar));
-        fake.Send(SyncProtocol.Spawn(fakeDrop, Key, map, Dropped, new[] { DropBlob(DropState.ItemKind, dropSpot, 0f, stuff, 3) }));
-        fake.Send(SyncProtocol.Release(fakeDrop));
+        var fakeBag = ledger.Bag(FakeAccount);
+        var fakeCarStack = FirstOf(fakeBag, s => s.Item.IsCar);
+        Check(fakeCarStack != null, "the fake's ledger has a car (its start vehicles)");
+        var carItem = fakeCarStack.Item;
+        Give(ledger, FakeAccount, stuff, 3);
+        string answer = await FakeOp(fake, "p.vehicle.place", new SharedOpArgs { a = fakeCarStack.InstanceId, d = DropBlob.FormatPlace(carSpot, carYaw) });
+        Check(answer == "", "the fake's p.vehicle.place " + answer);
+        ulong fakeCar = (await WaitMsg(fake, m => m.kind == ToClient.Spawn && m.key == Key && m.flags == Placed, "the fake's car")).id;
+        answer = await FakeOp(fake, "p.drop", new SharedOpArgs { a = stuff.itemId, n = 3, c = "-1", d = DropBlob.FormatPlace(dropSpot, 0f) });
+        Check(answer == "", "the fake's p.drop " + answer);
+        ulong fakeDrop = (await WaitMsg(fake, m => m.kind == ToClient.Spawn && m.key == Key && m.flags == Dropped, "the fake's drop")).id;
         var fakeCarView = await FindView(fakeCar);
         var fakeDropView = await FindView(fakeDrop);
-        await WaitFor(() => !fakeCarView.IsOccupied, 3, "the fake's car given to the server");
         Check(fakeCarView.IsPlacedVehicle && fakeCarView.Item == carItem && (fakeCarView.transform.position - carSpot).magnitude < .01f
               && fakeCarView.GetComponentInChildren<MeshRenderer>(), "the fake's car stands where it was placed, visible");
         Check(!fakeDropView.IsPlacedVehicle && fakeDropView.Item == stuff && fakeDropView.Count == 3 && (fakeDropView.transform.position - dropSpot).magnitude < .01f,
             "the fake's drop lies there: 3 " + stuff.itemId);
+        Check(CountOf(fakeBag, stuff) == 0 && InventoryLedgerRules.FindUnique(fakeBag, fakeCarStack.InstanceId) == null, "both left the fake's ledger");
         await StandBeside(player, home - ahead * 3f, ahead);
         await Shot("D_others_car_and_drop.png");
 
@@ -444,7 +456,7 @@ public static class DropSyncQA
         // ---- the fake drives off and leaves in the car ----
         Section("rider leaves");
         Vector3 lastSpot = Ground(carSpot - ahead * 2f + side * .5f);
-        fake.Send(SyncProtocol.State(fakeCar, 0, DropBlob(DropState.VehicleKind, lastSpot, carYaw + 30f, carItem, 1)));
+        fake.Send(SyncProtocol.State(fakeCar, 0, StateBlob(DropState.VehicleKind, lastSpot, carYaw + 30f, carItem, 1)));
         await Awaitable.WaitForSecondsAsync(.3f);
         socket.Close();
         await WaitFor(() => !fakeCarView.IsOccupied && ModelShown(fakeCarView), 5, "the car parked again on the Unity screen");
@@ -479,19 +491,20 @@ public static class DropSyncQA
         // ---- one drop, two pickers ----
         Section("one drop, two pickers");
         await StandBeside(player, fakeDropView.transform.position);
-        int before = CountOf(bag, stuff);
+        int before = CountOf(bag, stuff), ledgersBefore = CountOf(ledger.Bag(me), stuff) + CountOf(ledger.Bag(FakeAccount), stuff);
         Drain(fake);
-        fake.Send(SyncProtocol.Claim(fakeDrop));
-        fakeDropView.TryPickUp(inv, out _);
-        var winner = await WaitMsg(fake, m => m.kind == ToClient.Owner && m.id == fakeDrop, "the pickup race");
-        int fakeGot = 0;
-        if (winner.owner == fake.number) { fakeGot = 3; fake.Send(SyncProtocol.Despawn(fakeDrop)); }
-        else await WaitMsg(fake, m => m.kind == ToClient.Despawn && m.id == fakeDrop, "the Unity pickup's Despawn");
+        int results = WorldStateSync.Results;
+        fake.Send(OpFrame("p.pickup", new SharedOpArgs { n = (long)fakeDrop }));
+        bool asked = fakeDropView.TryPickUp(inv, out string pickError);
+        string fakeAnswer = await WaitOp(fake);
+        await WaitFor(() => WorldStateSync.Results > results, 5, "the Unity player's answer");
         await WaitFor(() => !fakeDropView, 3, "the drop gone from the Unity screen");
-        await Awaitable.WaitForSecondsAsync(.3f);
-        int unityGot = CountOf(bag, stuff) - before;
+        await Awaitable.WaitForSecondsAsync(2.5f); // a lost pickup is put back by the Ledger after its layout
+        int unityGot = CountOf(bag, stuff) - before, fakeGot = fakeAnswer == "" ? 3 : 0;
+        Check(asked, "the Unity player asked too " + pickError);
         Check(unityGot + fakeGot == 3 && (unityGot == 0 || fakeGot == 0), "only one picked it up (" + (fakeGot > 0 ? "the fake" : "the Unity player") + "): " + unityGot + " + " + fakeGot + " = 3, nothing more");
-        await Awaitable.WaitForSecondsAsync(.3f);
+        Check(CountOf(ledger.Bag(me), stuff) + CountOf(ledger.Bag(FakeAccount), stuff) == ledgersBefore + 3 && CountOf(ledger.Bag(me), stuff) == CountOf(bag, stuff),
+            "the two ledgers hold the 3 once, and the Unity screen agrees with its ledger");
         fake.Pump();
         Check(client.Find(fakeDrop) == null && !fake.Has(m => m.kind == ToClient.Spawn && m.id == fakeDrop), "and it is gone for both");
 
@@ -503,16 +516,16 @@ public static class DropSyncQA
         var pieces = await WaitMsg(fake, m => m.kind == ToClient.Spawn && m.key == Key && m.flags == Dropped, "the dismantled car as a drop at the fake");
         await WaitMsg(fake, m => m.kind == ToClient.Despawn && m.id == myCar, "the car's Despawn at the fake");
         var piecesState = ReadDrop(pieces.blobs[0]);
-        Check(piecesState.kind == DropState.ItemKind && piecesState.itemId == carName, "the fake sees it become an ordinary dropped " + carName);
+        Check(piecesState.kind == DropState.ItemKind && piecesState.itemId == carName && pieces.owner == 0, "the fake sees it become an ordinary dropped " + carName + ", server-owned");
         var piecesView = await FindView(pieces.id);
+        await WaitFor(() => !myCarView, 3, "the placed car gone from the Unity screen");
         Check(!piecesView.IsPlacedVehicle && piecesView.Item.IsCar && !myCarView, "the Unity screen shows the same: a dropped car item, no placed car");
-        await WaitMsg(fake, m => m.kind == ToClient.Owner && m.id == pieces.id && m.owner == 0, "Owner(0) of the pieces");
-        await WaitFor(() => client.Find(pieces.id) && client.Find(pieces.id).Owner == 0, 3, "the pieces given to the server");
         int carsBefore = CountOfId(bag, carName);
-        piecesView.TryPickUp(inv, out _);
+        Check(piecesView.TryPickUp(inv, out string piecesError) && CountOfId(bag, carName) == carsBefore + 1, "the dropped car is in the bag at once " + piecesError);
         await WaitFor(() => !piecesView, 3, "the Unity player picking the pieces up");
-        Check(CountOfId(bag, carName) == carsBefore + 1, "the dropped car can be picked up: it is back in the bag");
         Check(await WaitFor(() => fake.Has(m => m.kind == ToClient.Despawn && m.id == pieces.id), 3), "the fake saw it go");
+        await Awaitable.WaitForSecondsAsync(1.5f);
+        Check(CountOfId(ledger.Bag(me), carName) == CountOfId(bag, carName), "the ledger has the car back too");
 
         // ---- interest: another map and back ----
         Section("another map");
@@ -585,6 +598,46 @@ public static class DropSyncQA
 
     // ---- play helpers ----
 
+    const string FakeAccount = "qa-drop-fake";
+    static ulong worldEntity;
+
+    // The fake's items (12.10.5): the ledger is the server's, so the QA puts them there (in-app: this very process).
+    static void Give(ServerLedger ledger, string account, ItemData item, int count)
+    {
+        if (!ledger.Bag(account).TryAdd(item, count, out string error)) throw new Exception("[DropSyncQA] FAIL: give " + error);
+        ledger.Store(account);
+    }
+
+    static ItemStack FirstOf(InventoryState bag, Func<ItemStack, bool> match)
+    {
+        foreach (var stack in InventoryLedgerRules.Stacks(bag)) if (match(stack)) return stack;
+        return null;
+    }
+
+    static byte[] OpFrame(string kind, SharedOpArgs args)
+    {
+        using var stream = new MemoryStream();
+        using var w = new BinaryWriter(stream, Encoding.UTF8);
+        SyncProtocol.WriteStr(w, kind); SyncProtocol.WriteStr(w, JsonUtility.ToJson(args));
+        w.Flush();
+        return SyncProtocol.Event(worldEntity, 0, WorldSection.OpEvent, EventTarget.Server, stream.ToArray());
+    }
+
+    // The error of the fake's request ("" when done).
+    static async Task<string> FakeOp(QaPeer fake, string kind, SharedOpArgs args)
+    {
+        fake.Send(OpFrame(kind, args));
+        return await WaitOp(fake);
+    }
+
+    static async Task<string> WaitOp(QaPeer fake)
+    {
+        var m = await WaitMsg(fake, x => x.kind == ToClient.Event && x.id == worldEntity && x.eventId == WorldSection.OpResultEvent && x.sender == 0, "an OpResult");
+        using var r = SyncProtocol.Reader(m.blob);
+        SyncProtocol.ReadStr(r);
+        return SyncProtocol.ReadStr(r);
+    }
+
     struct DropInfo
     {
         public byte kind;
@@ -604,7 +657,7 @@ public static class DropSyncQA
     }
 
     // What the fake sends: the real DropState codec.
-    static byte[] DropBlob(byte kind, Vector3 position, float yaw, ItemData item, int count)
+    static byte[] StateBlob(byte kind, Vector3 position, float yaw, ItemData item, int count)
     {
         var contents = new InventoryState();
         if (!contents.TryAdd(item, count, out string error)) throw new Exception("[DropSyncQA] FAIL: " + error);
@@ -666,7 +719,7 @@ public static class DropSyncQA
         var socket = new TcpClientTransport();
         await socket.Connect("127.0.0.1", port);
         var p = new QaPeer(socket);
-        p.Send(SyncProtocol.Hello("qa-drop-fake", "fake", map));
+        p.Send(SyncProtocol.Hello(FakeAccount, "fake", map));
         p.number = (await WaitMsg(p, m => m.kind == ToClient.Welcome, what)).number;
         Check((await WaitMsg(p, m => m.kind == ToClient.Character, what + " character")).has, "the fake comes back with its character");
         return p;
@@ -683,14 +736,14 @@ public static class DropSyncQA
     static int CountOf(InventoryState bag, ItemData item)
     {
         int n = 0;
-        for (int i = 0; i < bag.Capacity; i++) if (item && bag.GetSlot(i).Item == item) n += bag.GetSlot(i).Count;
+        foreach (var stack in InventoryLedgerRules.Stacks(bag)) if (item && stack.Item == item) n += stack.Count;
         return n;
     }
 
     static int CountOfId(InventoryState bag, string itemId)
     {
         int n = 0;
-        for (int i = 0; i < bag.Capacity; i++) if (bag.GetSlot(i).Item && bag.GetSlot(i).Item.itemId == itemId) n += bag.GetSlot(i).Count;
+        foreach (var stack in InventoryLedgerRules.Stacks(bag)) if (stack.Item.itemId == itemId) n += stack.Count;
         return n;
     }
 

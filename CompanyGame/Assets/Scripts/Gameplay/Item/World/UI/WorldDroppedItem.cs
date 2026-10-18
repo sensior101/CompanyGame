@@ -8,7 +8,10 @@ using UnityEngine.SceneManagement;
 /// A pickable world stack. Session records survive Single-scene travel; each visual
 /// and collider belongs only to its map. Pickup removes the record after an atomic transfer.
 /// On a sync-layer server (12.8) drops and placed vehicles are DropState entities: the record is keyed by the entity id,
-/// pickup, riding and dismantling go through the server's Claim, and this PC's own drops are hidden and never written.
+/// and this PC's own drops are hidden and never written. The server makes and removes them (12.10.5): dropping and placing
+/// take the item out of the bag first and ask (p.drop, p.vehicle.place: the drop shows when the server's Spawn comes);
+/// picking up puts it in the bag first, hides the drop and asks (p.pickup: a refusal shows it again and the Ledger puts the
+/// bag back); dismantling asks and waits (p.dismantle); riding is still the server's Claim.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class WorldDroppedItem : MonoBehaviour
@@ -27,11 +30,10 @@ public sealed class WorldDroppedItem : MonoBehaviour
         // Sync-layer server (12.8): the entity id (0 = this PC's own drop or an old room's car) and its state.
         public ulong netId;
         public DropState sync;
-        public bool pending; // spawned here, the server has not taken it yet
-        public ClaimFor claim;
+        public bool riding; // my Claim to ride it is on its way
+        public bool picking; // put in my bag, hidden, p.pickup on its way (12.10.5)
         public float nextSyncAt;
     }
-    enum ClaimFor { None, PickUp, Ride, Dismantle }
     static readonly Dictionary<string, DropRecord> records = new Dictionary<string, DropRecord>();
     DropRecord record;
     Transform billboard;
@@ -97,7 +99,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
         if (!IsPlacedVehicle || IsOccupied) return false;
         if (!PropertyRegistry.Instance || !PropertyRegistry.Instance.CanDismantleVehicle(VehicleOwnershipKey,actor))
         { error="소유자가 해체를 허용하지 않았습니다."; return false; }
-        if (record.netId != 0) return TryClaim(ClaimFor.Dismantle, out error);
+        if (record.netId != 0) return Ask("p.dismantle", new SharedOpArgs { n = (long)record.netId }, out error); // the server answers for everyone
         // ponytail: other members only lose the car; the dropped item stays on this PC (plain drops are not shared yet).
         if (!SendVehicleOp("veh.del", record) && SharedWriteGate.SendFailed) { error="서버에 연결되어 있지 않아 해체하지 못했습니다."; return false; }
         record.placedVehicle=false;
@@ -182,11 +184,17 @@ public sealed class WorldDroppedItem : MonoBehaviour
         { error = "탈것은 실외에서 설치해 주세요."; return false; }
         if (!TryFindVehiclePoint(owner, source.Item, out var point, out var rotation))
         { error = "앞쪽에 탈것을 설치할 평평한 공간이 부족합니다."; return false; }
+        if (OnServer)
+        {
+            // Out of the bag now; the car stands when the server's Spawn comes (a refusal: its Ledger puts it back).
+            var args = new SharedOpArgs { a = source.InstanceId, d = DropBlob.FormatPlace(point, rotation.eulerAngles.y) };
+            if (!SharedWriteGate.OnServer) { error = "지금은 탈것을 설치할 수 없습니다."; return false; }
+            if (!owner.Inventory.TryRemove(owner.Inventory.SelectedHotbarIndex, 1, out error)) return false;
+            return Ask("p.vehicle.place", args, out error);
+        }
         var drop = new DropRecord { id = Guid.NewGuid().ToString("N"), scenePath = SceneLoadManager.CurrentMap.path,
             position = point, rotation = rotation, placedVehicle = true, font = owner.uiFont };
         if (!owner.Inventory.TryTransferTo(drop.contents, owner.Inventory.SelectedHotbarIndex, 1, out error)) return false;
-        InventoryLedgerRules.Trust(owner.Inventory, "vehicle"); // 12.10.4: trusted until 4d-4 (the layout goes out as it is then)
-        if (OnServer) return SyncCommit(drop, DropState.VehicleKind, out error) || GiveBack(drop);
         // In a room the car appears for everyone (this PC included) when the op comes back.
         if (SendVehicleOp("veh.put", drop)) return true;
         if (SharedWriteGate.SendFailed) { drop.contents.TryTransferTo(owner.Inventory, 0, 1, out _); error = "서버에 연결되어 있지 않아 설치하지 못했습니다."; return false; }
@@ -248,7 +256,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
         if (!PropertyRegistry.Instance || !PropertyRegistry.Instance.CanRideVehicle(VehicleOwnershipKey,GameSession.LocalPlayerName))
         { owner.SetStatus("잠긴 탈것입니다. 소유자만 탑승할 수 있습니다."); return false; }
         SetVehicleHover(false);
-        if (record.netId != 0) return TryClaim(ClaimFor.Ride, out _);
+        if (record.netId != 0) return TryClaimRide();
         // In a room the first ride op wins; this PC gets in when its own op comes back (ApplyVehicleOp).
         if (SendVehicleOp("veh.ride", record)) return true;
         return !SharedWriteGate.SendFailed && MountLocal(driver);
@@ -314,9 +322,8 @@ public sealed class WorldDroppedItem : MonoBehaviour
         var source = owner ? owner.Inventory.GetSlot(index) : null;
         if (source == null || source.IsEmpty) { error = "내려놓을 아이템이 없습니다."; return false; }
         if (!Prepare(owner, out var drop, out error)) return false;
+        if (OnServer) return SendDrop(owner.Inventory, index, false, count < 0 ? source.Count : count, drop.position, out error);
         if (!owner.Inventory.TryTransferTo(drop.contents, index, count<0?source.Count:count, out error)) return false;
-        InventoryLedgerRules.Trust(owner.Inventory, "drop");
-        if (OnServer) return SyncCommit(drop, DropState.ItemKind, out error) || GiveBack(drop);
         Commit(drop, SceneLoadManager.CurrentMap);
         return true;
     }
@@ -327,11 +334,10 @@ public sealed class WorldDroppedItem : MonoBehaviour
         var source = owner ? owner.Inventory.GetEquipment(slot) : null;
         if (source == null || source.IsEmpty) { error = "내려놓을 장비가 없습니다."; return false; }
         if (!Prepare(owner, out var drop, out error)) return false;
+        if (OnServer) return SendDrop(owner.Inventory, (int)slot, true, source.Count, drop.position, out error);
         // Prepare the destination first. A failed removal leaves the actual equipment unchanged.
         if (!drop.contents.TryAdd(source.Item, source.Count, out error)) return false;
         if (!owner.Inventory.TryRemoveEquipment(slot, out error)) return false;
-        InventoryLedgerRules.Trust(owner.Inventory, "drop");
-        if (OnServer) return SyncCommit(drop, DropState.ItemKind, out error) || GiveBack(drop);
         Commit(drop, SceneLoadManager.CurrentMap);
         return true;
     }
@@ -372,8 +378,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
         { error = "아이템에 조금 더 가까이 가 주세요."; return false; }
         int quantity = Count;
         if (quantity <= 0) { error = "이미 주운 아이템입니다."; return false; }
-        // Server: the first Claim wins; the answer finishes it (SyncOwner), so nothing is picked up yet.
-        if (record.netId != 0) { TryClaim(ClaimFor.PickUp, out error); return false; }
+        if (record.netId != 0) return RequestPickUp(owner.Inventory, out error);
         if (!record.contents.TryTransferTo(owner.Inventory, 0, quantity, out error)) return false;
         records.Remove(record.id);
         BookSaveService.RemoveWorldDrop(record.id);
@@ -454,7 +459,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
 
     static void CreateVisual(DropRecord drop, Scene scene)
     {
-        if (!scene.IsValid() || !scene.isLoaded || drop.contents.GetSlot(0).IsEmpty) return;
+        if (!scene.IsValid() || !scene.isLoaded || drop.contents.GetSlot(0).IsEmpty || drop.picking) return;
         if (drop.netId == 0 && OnServer) return; // this PC's own drops stay out of a server's world
         var host = new GameObject("DroppedItem_" + drop.id);
         host.transform.SetPositionAndRotation(drop.position,drop.rotation);
@@ -479,6 +484,8 @@ public sealed class WorldDroppedItem : MonoBehaviour
         NetPlayerSync.RemoteLeft += ReleaseRider;
         SyncClient.ConnectionChanged -= OnServerConnection;
         SyncClient.ConnectionChanged += OnServerConnection;
+        WorldStateSync.Answered -= OnAnswered;
+        WorldStateSync.Answered += OnAnswered;
     }
 
     static PlacedVehicleSave ToSave(DropRecord drop)
@@ -639,50 +646,68 @@ public sealed class WorldDroppedItem : MonoBehaviour
         if (inventory) inventory.SetStatus(message);
     }
 
-    // Shares a drop or a placed car this PC just made: Spawn, then give it to the server at once (Release).
-    static bool SyncCommit(DropRecord drop, byte kind, out string error)
+    // A request about the world's items (12.10.5), counted like every personal one; its answer comes in OnAnswered.
+    static bool Ask(string kind, SharedOpArgs args, out string error)
     {
         error = null;
-        WorldStateSync.UploadBooks(drop.contents); // a book's pages reach the server before the drop that names it (12.10.3)
-        byte[] packed = DropState.Pack(drop.contents);
-        var go = Instantiate(DropState.Template());
-        go.name = "WorldDrop (mine)";
-        DontDestroyOnLoad(go);
-        var state = go.GetComponent<DropState>();
-        state.kind = kind; state.position = drop.position; state.yaw = drop.rotation.eulerAngles.y; state.contents = packed;
-        go.SetActive(true);
-        var flags = EntityFlags.PersistOnLeave | EntityFlags.Claimable | (kind == DropState.ItemKind ? EntityFlags.Expiring : EntityFlags.None);
-        var entity = SyncClient.Instance.Spawn(DropState.PrefabKey, go, flags);
-        if (!entity) { Destroy(go); error = "서버에 연결되어 있지 않아 내려놓지 못했습니다."; return false; }
-        drop.id = NetKey(entity.Id); drop.netId = entity.Id; drop.sync = state; drop.pending = true;
-        Add(drop);
-        SyncClient.Instance.Release(entity);
+        if (!SharedWriteGate.OnServer) { error = "서버에 연결되어 있지 않습니다."; return false; }
+        SharedWriteGate.SendPersonal(kind, args);
         return true;
     }
 
-    // The drop could not be shared: its contents go back to the bag. Always false (the caller's answer).
-    static bool GiveBack(DropRecord drop)
+    // p.drop: out of my bag now (with a book's pages sent first); the drop shows when the server's Spawn comes.
+    static bool SendDrop(InventoryState bag, int slot, bool equipment, int count, Vector3 position, out string error)
     {
-        var stack = drop.contents.GetSlot(0);
-        var bag = InventoryManager.Instance ? InventoryManager.Instance.State : null;
-        if (stack != null && !stack.IsEmpty && (bag == null || !drop.contents.TryTransferTo(bag, 0, stack.Count, out _)))
-            Debug.LogWarning("[WorldDroppedItem] could not return " + stack.DisplayName + " to the bag");
-        InventoryLedgerRules.Trust(bag, "drop");
-        return false;
+        error = null;
+        if (!SharedWriteGate.OnServer) { error = "지금은 내려놓을 수 없습니다."; return false; }
+        var source = equipment ? bag.GetEquipment((EquipmentSlot)slot) : bag.GetSlot(slot);
+        var args = new SharedOpArgs { a = source.Item.itemId, b = InventoryLedgerRules.IsUnique(source) ? source.InstanceId : null, n = count,
+            c = slot.ToString(System.Globalization.CultureInfo.InvariantCulture), f = equipment, d = DropBlob.FormatPlace(position, 0f) };
+        var taken = new InventoryState();
+        if (equipment ? !taken.TryAdd(source.Item, source.Count, out error) || !bag.TryRemoveEquipment((EquipmentSlot)slot, out error)
+            : !bag.TryTransferTo(taken, slot, count, out error)) return false;
+        WorldStateSync.UploadBooks(taken); // a book's pages reach the server before the drop that names it (12.10.3)
+        return Ask("p.drop", args, out error);
     }
 
-    // Only a server-owned entity can be claimed; while my own Release is on its way it is still mine here.
-    bool TryClaim(ClaimFor what, out string error)
+    // p.pickup: into my bag now and hidden; the server's Despawn takes the record, a refusal shows it again (OnAnswered).
+    bool RequestPickUp(InventoryState bag, out string error)
     {
-        error = "";
+        error = null;
+        if (record.picking) { error = "이미 주운 아이템입니다."; return false; }
+        var copy = new InventoryState();
+        if (!SharedWriteGate.OnServer || !record.sync || !DropState.Unpack(record.sync.contents, copy)) { error = "지금은 주울 수 없습니다."; return false; }
+        if (!InventoryLedgerRules.TryPutAll(bag, copy, out error)) return false;
+        record.picking = true;
+        gameObject.SetActive(false);
+        return Ask("p.pickup", new SharedOpArgs { n = (long)record.netId }, out error);
+    }
+
+    // A refused request about the world's items: its words, and a refused pickup's drop is back (its Ledger puts the bag back).
+    static void OnAnswered(string kind, string json, string error)
+    {
+        if (!ServerDrops.Kinds.Contains(kind) || string.IsNullOrEmpty(error)) return;
+        Status(error);
+        if (kind != "p.pickup" || json == null) return;
+        var a = JsonUtility.FromJson<SharedOpArgs>(json);
+        if (a == null || !records.TryGetValue(NetKey((ulong)a.n), out var drop) || !drop.picking) return;
+        drop.picking = false;
+        if (drop.instance) { drop.instance.gameObject.SetActive(true); return; }
+        var scene = SceneManager.GetSceneByPath(drop.scenePath);
+        if (scene.IsValid() && scene.isLoaded) CreateVisual(drop, scene);
+    }
+
+    // Only a server-owned car can be claimed; while my own Release is on its way it is still mine here.
+    bool TryClaimRide()
+    {
         var entity = record.sync ? record.sync.Entity : null;
-        if (!OnServer || !entity || entity.Owner != 0 || record.claim != ClaimFor.None) { error = "잠시 후 다시 해 주세요."; return false; }
-        record.claim = what;
+        if (!OnServer || !entity || entity.Owner != 0 || record.riding) { Status("잠시 후 다시 해 주세요."); return false; }
+        record.riding = true;
         SyncClient.Instance.Claim(entity);
         return true;
     }
 
-    // Removes a record of mine and its entity (a Despawn for everyone, since I own it).
+    // Removes a server record and its entity copy (leaving the server: nothing goes out).
     static void DestroyNet(DropRecord drop)
     {
         var go = drop.sync ? drop.sync.gameObject : null;
@@ -720,61 +745,32 @@ public sealed class WorldDroppedItem : MonoBehaviour
         var drop = RecordOf(state);
         if (drop == null) return;
         uint owner = state.Entity.Owner, me = SyncClient.Instance ? SyncClient.Instance.MyConnection : 0;
-        var claim = drop.claim;
-        drop.claim = ClaimFor.None;
-        if (owner == 0) drop.pending = false; // the server has it now
-        if (claim != ClaimFor.None)
+        bool riding = drop.riding;
+        drop.riding = false;
+        if (riding)
         {
-            if (owner != 0 && owner == me) { Claimed(drop, claim); return; }
-            Status(owner == 0 ? "지금은 할 수 없습니다. 잠시 후 다시 해 주세요." : claim == ClaimFor.PickUp ? "다른 사람이 먼저 주웠습니다." : "다른 사람이 사용 중인 탈것입니다.");
+            if (owner != 0 && owner == me) { Ride(drop); return; }
+            Status(owner == 0 ? "지금은 탑승할 수 없습니다." : "다른 사람이 사용 중인 탈것입니다.");
         }
         if (!drop.placedVehicle) return;
         if (owner != 0 && owner != me) { drop.riderId = Rider(owner); if (drop.instance) drop.instance.ShowParked(false); }
         else if (owner == 0 && drop.riderId != null) Park(drop, state.position, state.yaw); // got out or left: where it was last seen
     }
 
-    static void Claimed(DropRecord drop, ClaimFor claim)
+    // My Claim won: in I get, or the car goes back.
+    static void Ride(DropRecord drop)
     {
-        var entity = drop.sync.Entity;
-        switch (claim)
-        {
-            case ClaimFor.PickUp:
-                var bag = InventoryManager.Instance ? InventoryManager.Instance.State : null;
-                string error = "지금은 주울 수 없습니다.";
-                if (bag == null || !drop.contents.TryTransferTo(bag, 0, drop.contents.GetSlot(0).Count, out error))
-                { Status(error); SyncClient.Instance.Release(entity); return; }
-                InventoryLedgerRules.Trust(bag, "pickup"); // 12.10.4: trusted until 4d-4
-                // Despawned at once; the character save goes out after it, so a disconnect cannot keep both.
-                DestroyNet(drop);
-                Status("아이템을 주웠습니다.");
-                return;
-            case ClaimFor.Ride:
-                var driver = PlayerSpawner.Player ? PlayerSpawner.Player.GetComponent<PlayerVehicle>() : null;
-                if (drop.instance && drop.instance.MountLocal(driver)) return;
-                Status("지금은 탑승할 수 없습니다.");
-                SyncClient.Instance.Release(entity);
-                return;
-            case ClaimFor.Dismantle:
-                // The same contents become an ordinary dropped item anyone can pick up; then the car goes.
-                var item = new DropRecord { scenePath = drop.scenePath, position = drop.position, rotation = drop.rotation, font = drop.font };
-                if (!drop.contents.TryTransferTo(item.contents, 0, 1, out error) || !SyncCommit(item, DropState.ItemKind, out error))
-                {
-                    if (!item.contents.GetSlot(0).IsEmpty) item.contents.TryTransferTo(drop.contents, 0, 1, out _);
-                    Status(error);
-                    SyncClient.Instance.Release(entity);
-                    return;
-                }
-                DestroyNet(drop);
-                return;
-        }
+        var driver = PlayerSpawner.Player ? PlayerSpawner.Player.GetComponent<PlayerVehicle>() : null;
+        if (drop.instance && drop.instance.MountLocal(driver)) return;
+        Status("지금은 탑승할 수 없습니다.");
+        SyncClient.Instance.Release(drop.sync.Entity);
     }
 
-    /// <summary>The entity is gone (picked up, cleared at 06:00, off my map, or my Spawn was refused): so is the record.</summary>
+    /// <summary>The entity is gone (picked up, dismantled, cleared at 06:00, or off my map): so is the record.</summary>
     internal static void SyncGone(DropState state)
     {
         var drop = RecordOf(state);
         if (drop == null) return;
-        if (drop.pending && OnServer) { GiveBack(drop); Status("서버가 받지 않아 내려놓지 못했습니다."); }
         drop.sync = null;
         Remove(drop);
     }

@@ -73,7 +73,7 @@ public static partial class EconomySyncQA
     {
         int original = PlayerPrefs.GetInt("Profile.Slot", 1), code = 0;
         tag = mode.StartsWith("ledger", StringComparison.Ordinal) ? "LedgerQA" : mode.StartsWith("book", StringComparison.Ordinal) ? "BookSyncQA"
-            : mode.StartsWith("inv", StringComparison.Ordinal) ? "InventoryLedgerQA" : "EconomySyncQA";
+            : mode.StartsWith("inv", StringComparison.Ordinal) ? "InventoryLedgerQA" : mode.StartsWith("item", StringComparison.Ordinal) ? "WorldItemQA" : "EconomySyncQA";
         Begin();
         try
         {
@@ -85,6 +85,8 @@ public static partial class EconomySyncQA
             else if (mode == "book-process") await BookProcessBody(exe);
             else if (mode == "inv-play") await InventoryPlayBody();
             else if (mode == "inv-process") await InventoryProcessBody(exe);
+            else if (mode == "item-play") await ItemPlayBody();
+            else if (mode == "item-process") await ItemProcessBody(exe);
             else await ProcessBody(exe);
             Report("RESULT " + mode + " passed");
         }
@@ -384,10 +386,16 @@ public static partial class EconomySyncQA
         var cam = Camera.main.transform;
         var ahead = Vector3.ProjectOnPlane(cam.forward, Vector3.up).normalized;
         Vector3 carSpot = Ground(player.transform.position + ahead * 4f);
-        ulong car = SyncProtocol.MakeId(fake.number, 1);
-        fake.Send(SyncProtocol.Spawn(car, DropState.PrefabKey, map, EntityFlags.PersistOnLeave | EntityFlags.Claimable,
-            new[] { CarBlob(carSpot, Quaternion.LookRotation(ahead).eulerAngles.y) }));
-        fake.Send(SyncProtocol.Release(car));
+        // 12.10.5: the server places a car of the fake's ledger (an unreadable layout brings the ledger's bag back).
+        var fakeBag = new InventoryState();
+        Check(InventorySnapshot.Import(fakeBag, (await InvOp(fake, "p.inv.layout", new SharedOpArgs { b = "" })).inventory), "the fake's ledger bag");
+        string carId = null;
+        foreach (var s in InventoryLedgerRules.Stacks(fakeBag)) if (s.Item.IsCar) { carId = s.InstanceId; break; }
+        Drain(fake);
+        Check(carId != null && (await FakeOp(fake, "p.vehicle.place", new SharedOpArgs { a = carId, d = DropBlob.FormatPlace(carSpot, Quaternion.LookRotation(ahead).eulerAngles.y) })).error == "",
+            "the fake places a car of its ledger");
+        ulong car = 0;
+        await WaitFor(() => (car = Array.Find(Object.FindObjectsByType<WorldDroppedItem>(), v => v && v.NetId != 0 && v.IsPlacedVehicle && v.VehicleOwnershipKey == "vehicle:" + carId)?.NetId ?? 0) != 0, 5, "the fake's car");
         WorldDroppedItem view = null;
         await WaitFor(() => (view = Array.Find(Object.FindObjectsByType<WorldDroppedItem>(), v => v && v.NetId == car)) != null && !view.IsOccupied, 5, "the fake's car on the Unity screen");
         r = await FakeOp(fake, "prop.reg", new SharedOpArgs { a = view.VehicleOwnershipKey, b = Acc(fake) });
@@ -640,22 +648,6 @@ public static partial class EconomySyncQA
         int port = ((IPEndPoint)listener.LocalEndpoint).Port;
         listener.Stop();
         return port;
-    }
-
-    static byte[] CarBlob(Vector3 position, float yaw)
-    {
-        var item = Resources.LoadAll<ItemData>("Inventory/Vehicles/Cars")[0];
-        var contents = new InventoryState();
-        if (!contents.TryAdd(item, 1, out string error)) throw new Exception("[EconomySyncQA] FAIL: " + error);
-        var go = new GameObject("EconomySyncQA state");
-        var state = go.AddComponent<DropState>();
-        state.kind = DropState.VehicleKind; state.position = position; state.yaw = yaw; state.contents = DropState.Pack(contents);
-        using var stream = new MemoryStream();
-        using var w = new BinaryWriter(stream);
-        state.Write(w);
-        w.Flush();
-        Object.DestroyImmediate(go);
-        return stream.ToArray();
     }
 
     static Vector3 Ground(Vector3 at)

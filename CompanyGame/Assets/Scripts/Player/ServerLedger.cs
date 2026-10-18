@@ -14,7 +14,10 @@ using UnityEngine;
 ///   p.*      personal requests (Op event 1) are decided on the book and the bag with the server's prices and the
 ///            TradeCatalog; land.buy is paid here. book.new changes the bag too (a blank is written on), so it is counted
 ///   layout   p.inv.layout is taken only with the same contents (InventoryLedgerRules.SameContents); p.inv.trust (the
-///            paths not moved yet) as it comes, logged
+///            library, not moved yet) as it comes, logged
+///   given    a character entering (GameServer.CharacterEntering, before its Character goes out) gets the start vehicles
+///            it lacks, and once per account a goshiwon deed of a room no other account was given or held (12.10.5);
+///            p.grant gives one item of the TradeCatalog's grant list while the bag has none (the employee card)
 ///   answer   Ledger (event 3, to the requester only, before its OpResult): u32 counted requests done on that
 ///            connection, i64 bank money, server blob = gzip(portfolio JSON), server blob = gzip(bag snapshot, no pages)
 ///   night    on GameClock.NightSkipped the money part of each connection's night activity goes on its book, and that
@@ -28,7 +31,7 @@ public sealed class ServerLedger
     public static readonly HashSet<string> Kinds = new HashSet<string>
     {
         "p.stock.buy", "p.stock.sell", "p.shop.buy", "p.fine", "p.night.select", "p.bank",
-        "p.trade", "p.cash.withdraw", "p.cash.deposit", "p.eat", "p.bag", "p.inv.layout", "p.inv.trust"
+        "p.trade", "p.cash.withdraw", "p.cash.deposit", "p.eat", "p.bag", "p.inv.layout", "p.inv.trust", "p.grant"
     };
 
     // reason → sign of the amount. ponytail: trusted until 4d-5 moves the library to the server.
@@ -37,13 +40,13 @@ public sealed class ServerLedger
         { "book.publish", -1 }, { "library.late", -1 }, { "library.fine", -1 }, { "book.royalty", 1 }
     };
 
-    // ponytail: layouts trusted until 4d-4 (drop, pickup, vehicle, storage, grant) and 4d-5 (library) decide these paths here.
-    static readonly HashSet<string> TrustReasons = new HashSet<string> { "drop", "pickup", "vehicle", "storage", "grant", "library" };
+    // ponytail: library layouts trusted until 4d-5 decides that path here (drop, pickup, vehicle and grant are decided since 4d-4).
+    static readonly HashSet<string> TrustReasons = new HashSet<string> { "library" };
 
     const string NoMoney = "은행 잔액이 부족합니다.";
 
     /// <summary>Requests that change the book or the bag and so are counted and answered with a Ledger (also land.buy, book.new).</summary>
-    public static bool Counts(string kind) => kind == "land.buy" || kind == "book.new" || Kinds.Contains(kind);
+    public static bool Counts(string kind) => kind == "land.buy" || kind == "book.new" || Kinds.Contains(kind) || ServerDrops.Kinds.Contains(kind);
 
     readonly GameServer server;
     readonly ulong entity;
@@ -52,17 +55,21 @@ public sealed class ServerLedger
     readonly Dictionary<string, InventoryState> bags = new Dictionary<string, InventoryState>();
     readonly Dictionary<uint, uint> done = new Dictionary<uint, uint>(); // per connection: its numbers are never reused
     readonly Dictionary<uint, NightActivityKind> nights = new Dictionary<uint, NightActivityKind>();
+    readonly Dictionary<string, string> deeds = new Dictionary<string, string>(); // account → the goshiwon room the server gave it
 
     /// <summary>Ledgers sent, and layouts refused (their contents differed), for QA.</summary>
     public int Sent { get; private set; }
     public int LayoutsRefused { get; private set; }
 
-    public ServerLedger(GameServer server, ulong entity, ServerBooks bodies)
+    public ServerLedger(GameServer server, ulong entity, ServerBooks bodies, List<StartDeedSave> givenDeeds = null)
     {
         this.server = server;
         this.entity = entity;
         this.bodies = bodies;
+        if (givenDeeds != null)
+            foreach (var d in givenDeeds) if (d != null && !string.IsNullOrEmpty(d.account) && !string.IsNullOrEmpty(d.deed)) deeds[d.account] = d.deed;
         server.CharacterSaveFilter = Filter;
+        server.CharacterEntering = Enter;
         GameClock.NightSkipped += OnNight;
         bodies.Owned = (account, id) => InventoryLedgerRules.FindUnique(Bag(account), id)?.BookData;
         bodies.FromBlank = (account, id, book) =>
@@ -76,8 +83,20 @@ public sealed class ServerLedger
     public void End()
     {
         server.CharacterSaveFilter = null;
+        server.CharacterEntering = null;
         GameClock.NightSkipped -= OnNight;
     }
+
+    /// <summary>The deeds given, for the world state (WorldSaveData.startDeeds).</summary>
+    public List<StartDeedSave> CaptureDeeds()
+    {
+        var list = new List<StartDeedSave>(deeds.Count);
+        foreach (var pair in deeds) list.Add(new StartDeedSave { account = pair.Key, deed = pair.Value });
+        return list;
+    }
+
+    /// <summary>The goshiwon room the server gave <paramref name="account"/> (QA), or null.</summary>
+    public string DeedOf(string account) => account != null && deeds.TryGetValue(account, out var deed) ? deed : null;
 
     /// <summary>The book of <paramref name="account"/> (read from its content the first time). QA reads it too.</summary>
     public PersonalSaveData Book(string account)
@@ -119,8 +138,8 @@ public sealed class ServerLedger
         return bag;
     }
 
-    // The book and the bag go into the saved content now (map and position stay).
-    void Store(string account)
+    /// <summary>The book and the bag go into the saved content now (map and position stay). ServerDrops calls it after a change.</summary>
+    public void Store(string account)
     {
         var character = server.World.Find(account);
         if (character == null) return;
@@ -198,6 +217,12 @@ public sealed class ServerLedger
                 return null;
             case "p.bank":
                 error = Bank(account, a, wallet);
+                break;
+            case "p.grant":
+                var given = TradeCatalog.Grant(a.a);
+                if (!given) error = "지급할 수 없는 아이템입니다.";
+                else if (InventoryLedgerRules.Holds(bag, given.itemId)) error = "이미 가지고 있습니다.";
+                else if (bag.TryAdd(given, 1, out error)) error = null;
                 break;
             default:
                 return "처리할 수 없는 요청입니다.";
@@ -286,6 +311,51 @@ public sealed class ServerLedger
                 SyncProtocol.WriteServerBlob(w, ServerWorld.Encode(InventorySnapshot.Export(Bag(account), false)));
             })))
             Sent++;
+    }
+
+    // ---- given on entering (12.10.5) ----
+
+    // Before the Character goes out, so what it is given is in the content it gets (a new one gets it in its first Ledger).
+    void Enter(uint connection, string account)
+    {
+        var character = server.World.Find(account);
+        if (character == null) return;
+        bool fresh = character.content == null || character.content.Length == 0;
+        var bag = Bag(account);
+        bool vehicles = InventoryLedgerRules.GrantStartVehicles(bag);
+        string deed = GiveDeed(account, bag);
+        if (!vehicles && deed == null) return;
+        if (!fresh) Store(account); // a new character keeps its empty content: CharacterSync takes the first Ledger's bag
+        Debug.Log("[ServerLedger] " + account + " entering:" + (vehicles ? " start vehicles" : "") + (deed != null ? " deed " + deed : ""));
+    }
+
+    // Once per account (a deed it holds already counts), a room nobody was given or held. The room given, or null.
+    string GiveDeed(string account, InventoryState bag)
+    {
+        if (deeds.ContainsKey(account)) return null;
+        for (int i = 0; i < bag.Capacity; i++)
+            if (!bag.GetSlot(i).IsEmpty && InventoryLedgerRules.IsStartingDeed(bag.GetSlot(i).Item)) { deeds[account] = bag.GetSlot(i).Item.propertyId; return null; }
+        var deed = InventoryLedgerRules.NextStartingDeed(d => !RoomTaken(d));
+        if (!deed) { Debug.Log("[ServerLedger] no goshiwon room left for " + account); return null; }
+        if (!bag.TryAdd(deed, 1, out string error)) { Debug.LogWarning("[ServerLedger] the deed for " + account + " does not fit (next time): " + error); return null; }
+        deeds[account] = deed.propertyId;
+        return deed.propertyId;
+    }
+
+    // Given to an account, on the registry (owned or given up), or in any character's bag.
+    // ponytail: reads every character's saved inventory per new account; keep a set of held deeds if worlds grow past a few hundred characters.
+    bool RoomTaken(ItemData deed)
+    {
+        if (deeds.ContainsValue(deed.propertyId)) return true;
+        var registry = PropertyRegistry.Instance;
+        if (registry && registry.CaptureState().Exists(p => p.id == deed.propertyId)) return true;
+        string mark = "\"itemId\":\"" + deed.itemId + "\"";
+        foreach (var c in server.World.Characters)
+        {
+            if (bags.TryGetValue(c.account, out var held)) { if (InventoryLedgerRules.Holds(held, deed.itemId)) return true; }
+            else if (CharacterSync.Read(c.content, out var saved) && saved.inventory != null && saved.inventory.Contains(mark)) return true;
+        }
+        return false;
     }
 
     // ---- the night (9장-7) ----

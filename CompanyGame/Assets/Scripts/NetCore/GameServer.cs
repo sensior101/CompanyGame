@@ -26,6 +26,10 @@ using System.Text;
 /// each, so no frame passes 64KB. Entities on map SyncProtocol.AllMaps ("*") go to every connection whatever its map and
 /// stay through map changes; clients cannot use that map. <see cref="WorldStateProvider"/> is read before every save
 /// (world.dat version 3). The world clock skips the night hours [NightSkipStart, NightSkipEnd) (default 0-6, 9장-6).
+/// World entities (12.10.5): the game makes and removes saved, server-owned entities itself (<see cref="SpawnWorldEntity"/>,
+/// ids = a connection number the server keeps for itself at start + serial, so they never repeat across restarts) and
+/// judges clients through <see cref="SpawnFilter"/>, <see cref="ClaimFilter"/> and <see cref="StateFilter"/>. An entity a
+/// connection claimed (made by another) is not that connection's to despawn: it goes back with Release.
 /// </summary>
 public sealed class GameServer
 {
@@ -73,7 +77,7 @@ public sealed class GameServer
     readonly MemoryStream outStream = new MemoryStream();
     readonly BinaryWriter w;
     readonly byte[] passwordHash; // null = no password
-    uint nextNumber = 1, serverSerial;
+    uint nextNumber = 1, serverSerial, worldNumber, worldSerial;
     long nextTimeoutCheck, clockOffset, lastClockAt, nextSaveAt = SaveIntervalMs, lastClearMinute = -1;
 
     public int MaxPlayers { get; }
@@ -100,6 +104,17 @@ public sealed class GameServer
     /// Null from it keeps the content already there; no filter keeps the content as it comes.
     /// </summary>
     public Func<string, byte[], byte[]> CharacterSaveFilter;
+    /// <summary>(connection, prefab) → true when that client's Spawn is refused (12.10.5). A refused Spawn is answered with Despawn.</summary>
+    public Func<uint, string, bool> SpawnFilter;
+    /// <summary>(connection, entity id) → true when its Claim may go on (12.10.5). Refused: answered with Owner (unchanged).</summary>
+    public Func<uint, ulong, bool> ClaimFilter;
+    /// <summary>(connection, entity id, component, blob) → the blob to keep and send, or null to drop that State (12.10.5).</summary>
+    public Func<uint, ulong, byte, byte[], byte[]> StateFilter;
+    /// <summary>
+    /// (connection, account) of a character entering the world, before its Character goes out (12.10.5): the game may
+    /// change its content then (what it is given on entering).
+    /// </summary>
+    public Action<uint, string> CharacterEntering;
 
     /// <summary><paramref name="world"/> null: a world in memory only.</summary>
     public GameServer(IServerTransport transport, int maxPlayers, string name = "", string password = "", WorldStore world = null)
@@ -362,7 +377,8 @@ public sealed class GameServer
         string refused = c.character == null ? "spawn without a character"
             : map == SyncProtocol.AllMaps ? "spawn on the all-maps map"
             : c.owned.Count >= SyncProtocol.MaxEntitiesPerConnection ? "entity limit"
-            : (flags & EntityFlags.PersistOnLeave) != 0 && PersistentCount() >= MaxPersistent ? "world entity limit" : null;
+            : (flags & EntityFlags.PersistOnLeave) != 0 && PersistentCount() >= MaxPersistent ? "world entity limit"
+            : Refuses(c, prefab) ? "spawn of " + prefab + " refused by the game" : null;
         if (refused != null) { Warn(c, refused); Send(c, DespawnMsg(id)); return; }
         var e = new Entity { id = id, owner = c.number, prefab = prefab, map = map, flags = flags, blobs = blobs, created = World.WorldMinutes };
         entities[id] = e;
@@ -377,6 +393,12 @@ public sealed class GameServer
         byte[] blob = SyncProtocol.ReadBlob(r);
         SyncProtocol.End(r);
         if (!entities.TryGetValue(id, out var e) || e.owner != c.number || component >= e.blobs.Length) return;
+        if (StateFilter != null)
+        {
+            try { blob = StateFilter(c.number, id, component, blob); }
+            catch (Exception ex) { Log?.Invoke("state filter failed (the State is dropped): " + ex.Message); blob = null; }
+            if (blob == null || blob.Length > SyncProtocol.MaxBlob) return;
+        }
         e.blobs[component] = blob;
         SendToMap(e.map, StateMsg(id, component, blob), c);
     }
@@ -386,6 +408,8 @@ public sealed class GameServer
         ulong id = r.ReadUInt64();
         SyncProtocol.End(r);
         if (!entities.TryGetValue(id, out var e) || e.owner != c.number) return;
+        // A claimed entity (a car someone drives) is not the claimer's to remove: it goes back with Release (12.10.5).
+        if (SyncProtocol.ConnectionOf(id) != c.number) { Warn(c, "despawn of a claimed entity"); return; }
         Remove(e, c);
     }
 
@@ -439,7 +463,7 @@ public sealed class GameServer
         SyncProtocol.End(r);
         if (!entities.TryGetValue(id, out var e)) return;
         bool ok = c.character != null && e.owner == 0 && (e.flags & EntityFlags.Claimable) != 0 && e.map == c.map
-                  && c.owned.Count < SyncProtocol.MaxEntitiesPerConnection;
+                  && c.owned.Count < SyncProtocol.MaxEntitiesPerConnection && Allows(c, id);
         if (!ok) { Send(c, OwnerMsg(e)); return; }
         e.owner = c.number;
         c.owned.Add(id);
@@ -458,6 +482,20 @@ public sealed class GameServer
         byte[] msg = OwnerMsg(e);
         SendToMap(e.map, msg, null);
         if (c.map != e.map) Send(c, msg);
+    }
+
+    bool Refuses(Conn c, string prefab)
+    {
+        if (SpawnFilter == null) return false;
+        try { return SpawnFilter(c.number, prefab); }
+        catch (Exception ex) { Log?.Invoke("spawn filter failed (the Spawn is refused): " + ex.Message); return true; }
+    }
+
+    bool Allows(Conn c, ulong id)
+    {
+        if (ClaimFilter == null) return true;
+        try { return ClaimFilter(c.number, id); }
+        catch (Exception ex) { Log?.Invoke("claim filter failed (the Claim is refused): " + ex.Message); return false; }
     }
 
     int PersistentCount()
@@ -512,6 +550,47 @@ public sealed class GameServer
     /// <summary>The account id connection <paramref name="connection"/> said Hello with (null when not connected).</summary>
     public string AccountOf(uint connection) => FindByNumber(connection)?.account;
 
+    /// <summary>The map connection <paramref name="connection"/> is on (null when not connected).</summary>
+    public string MapOf(uint connection) => FindByNumber(connection)?.map;
+
+    // ---- world entities (12.10.5) ----
+
+    /// <summary>
+    /// Makes a saved, server-owned entity as a client's Spawn + Release would (owner 0; world.dat keeps it when
+    /// PersistOnLeave), its id under this run's own connection number. Blobs up to SyncProtocol.MaxBlob. Its id, or 0
+    /// when refused (no map, a blob too big, the PersistOnLeave limit).
+    /// </summary>
+    public ulong SpawnWorldEntity(string prefab, string map, EntityFlags flags, byte[][] blobs)
+    {
+        blobs ??= Array.Empty<byte[]>();
+        string refused = string.IsNullOrEmpty(map) || map == SyncProtocol.AllMaps ? "map"
+            : blobs.Length > byte.MaxValue || Array.Exists(blobs, b => b != null && b.Length > SyncProtocol.MaxBlob) ? "blob"
+            : (flags & EntityFlags.PersistOnLeave) != 0 && PersistentCount() >= MaxPersistent ? "world entity limit" : null;
+        if (refused != null) { Log?.Invoke("world entity " + prefab + " refused: " + refused); return 0; }
+        if (worldNumber == 0) worldNumber = nextNumber++; // this run's own connection number (saved as used: never again after a restart)
+        var e = new Entity { id = SyncProtocol.MakeId(worldNumber, ++worldSerial), prefab = prefab ?? "", map = map, flags = flags,
+            blobs = Array.ConvertAll(blobs, b => b ?? Array.Empty<byte>()), created = World.WorldMinutes };
+        entities[e.id] = e;
+        SendToMap(map, SpawnMsg(e), null);
+        return e.id;
+    }
+
+    /// <summary>Removes a server-owned entity (not a SpawnServerEntity one); everyone on its map gets Despawn. False when it is not there or someone owns it.</summary>
+    public bool RemoveWorldEntity(ulong id)
+    {
+        if (!entities.TryGetValue(id, out var e) || e.owner != 0 || e.byServer) return false;
+        Remove(e, null);
+        return true;
+    }
+
+    /// <summary>What the server holds of entity <paramref name="id"/>. The blobs are the server's own array: read only.</summary>
+    public bool TryGetEntity(ulong id, out string prefab, out string map, out uint owner, out EntityFlags flags, out byte[][] blobs)
+    {
+        bool found = entities.TryGetValue(id, out var e);
+        prefab = e?.prefab; map = e?.map; owner = e?.owner ?? 0; flags = e?.flags ?? EntityFlags.None; blobs = e?.blobs;
+        return found;
+    }
+
     // ---- characters (12.5) ----
 
     void OnCharacterCreate(Conn c, BinaryReader r)
@@ -548,6 +627,8 @@ public sealed class GameServer
         c.character = character;
         c.name = character.name;
         character.online = true;
+        try { CharacterEntering?.Invoke(c.number, c.account); }
+        catch (Exception ex) { Log?.Invoke("character entering failed: " + ex.Message); }
     }
 
     byte[] CharacterMsg(WorldStore.Character ch) => Msg(ToClient.Character, () =>
