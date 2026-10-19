@@ -19,5 +19,8 @@ CompanyGame 멀티 (공개 서버 목록 / 서버 코드로 입장)
 
 끝나면 양쪽 로그를 보내 주세요.
 - Windows: %USERPROFILE%\AppData\LocalLow\DefaultCompany\CompanyGame\Player.log
-  서버 여는 쪽은 같은 폴더의 server\server.log 도 함께
+  서버 여는 쪽은 서버 로그도 함께. 프로필 슬롯 1이면 같은 폴더의 server\server.log,
+  슬롯 2~4면 profile2\server\server.log ~ profile4\server\server.log
 - 맥: ~/Library/Logs/DefaultCompany/CompanyGame/Player.log
+  (Finder에서 Cmd+Shift+G 로 경로 붙여 넣기. 게임을 다시 켜면 덮어써지니 켜기 전에 빼 주세요.
+   바로 전 실행은 같은 폴더의 Player-prev.log)
