@@ -296,63 +296,51 @@ details[open] summary{margin-bottom:10px}
 
 <section id="status">
   <h2>작업 현황</h2>
-  <p class="lead">2026-10-19 기준(6단계 완료 반영). 정본은 저장소의 <code>Docs/Multiplayer_Redesign.md</code>(12장 각 단계 결과). 이 탭은 요약이라 고칠 수 없고, 바뀌면 다시 배포해.</p>
+  <p class="lead">2026-10-20 기준(6단계 이후 정리 반영). 정본은 <code>feature/multiplayer-redesign</code> 브랜치의 <code>Docs/Multiplayer_Redesign.md</code>(12장), 팀원용 규칙은 <code>Docs/Multiplayer_Coding_Rules.md</code>. 이 탭은 요약이라 고칠 수 없고, 바뀌면 다시 배포해.</p>
   <div class="card">
     <h3>지금 진행 중</h3>
     <div class="scroll"><table>
       <tr><th>작업</th><th>상태</th><th>내용</th></tr>
-      <tr><td><b>다른 PC 시험</b></td><td><span style="color:var(--mid);white-space:nowrap">● 사용자 대기</span></td><td>EOS P2P 접속(Builds/Game2b2*.zip)과 전용 서버 접속(Builds/DedicatedServer.zip)을 다른 PC에서 확인. 한 PC로는 시험 불가</td></tr>
+      <tr><td><b>다른 PC 시험</b></td><td><span style="color:var(--mid);white-space:nowrap">● 사용자 대기</span></td><td>최신 빌드(Windows.zip, Mac.zip)로 서버 열기·참가·채팅을 다른 PC에서 확인. 10-19 맥북 접속·관리자 명령·kick은 옛 빌드로 확인됨</td></tr>
       <tr><td><b>도시 자동차 모델링</b></td><td><span style="color:var(--mid);white-space:nowrap">● 진행 중</span></td><td>실차 18종 패러디(로고 없음), Blender 스크립트 하나로 생성. C04 소나티네 완성·검수 대기, 4종은 게임에 이미 있음, 나머지 미착수</td></tr>
     </table></div>
   </div>
   <div class="card">
-    <h3>다른 PC 시험 방법 (10-19 최종 묶음)</h3>
-    <p class="muted">한 PC 안에서는 EOS P2P를 시험할 수 없어서(같은 Windows 사용자는 EOS 계정이 같음) 다른 PC가 꼭 필요함. 아래 묶음은 6단계 코드까지 들어간 최종본(프로토콜 8). 세 묶음은 버전이 같아서 서로 섞어 써도 됨. 옛 묶음(Game.zip, GameMac.zip, EosTest*.zip)은 버전이 달라 접속이 안 되니 쓰지 말 것.</p>
+    <h3>다른 PC 시험 방법 (최신 빌드)</h3>
+    <p class="muted">배포 빌드는 두 개뿐(따로 내는 서버 묶음 없음). 프로토콜 9라서 이 두 개끼리만 접속됨. 옛 묶음(Game*.zip, Game2b2*.zip, DedicatedServer.zip, EosTest*.zip)은 지웠고 버전도 달라 접속 안 됨. 한 PC 안에서는 EOS P2P를 시험할 수 없어서(같은 Windows 사용자는 EOS 계정이 같음) 다른 PC가 꼭 필요함.</p>
     <div class="scroll"><table>
-      <tr><th>묶음 (CompanyGame/Builds/)</th><th>용도</th><th>만든 때</th></tr>
-      <tr><td><code>Game2b2.zip</code></td><td>Windows 게임</td><td>10-19 14:58</td></tr>
-      <tr><td><code>Game2b2Mac.zip</code></td><td>macOS 게임(서버 열기는 Windows에서만 시험)</td><td>10-19 14:59</td></tr>
-      <tr><td><code>DedicatedServer.zip</code></td><td>Windows 전용 서버(창 없음, 콘솔)</td><td>10-19 14:34</td></tr>
+      <tr><th>묶음 (CompanyGame/Builds/)</th><th>용도</th></tr>
+      <tr><td><code>Windows.zip</code></td><td>Windows 게임</td></tr>
+      <tr><td><code>Mac.zip</code></td><td>macOS 게임(Universal). 맥에서도 서버 열기 가능</td></tr>
     </table></div>
-    <h3 style="margin-top:16px">시험 1. EOS 접속 (2b-2)</h3>
+    <h3 style="margin-top:16px">시험 1. 서버 열기와 접속</h3>
     <div class="scroll"><table>
       <tr><th>순서</th><th>할 일</th><th>확인할 것</th></tr>
-      <tr><td>준비</td><td>이 PC에 <code>Game2b2.zip</code>, 맥북에 <code>Game2b2Mac.zip</code>(또는 팀원 Windows PC에 <code>Game2b2.zip</code>)을 풂. 맥은 처음 한 번 터미널에서 묶음 폴더로 가서 <code>xattr -dr com.apple.quarantine . &amp;&amp; chmod +x CompanyGame.app/Contents/MacOS/*</code>. "손상됨"이 뜨면 <code>codesign --force --deep -s - CompanyGame.app</code></td><td>두 PC 다 실행됨. 방화벽 창은 "허용"</td></tr>
-      <tr><td>1</td><td>이 PC: <code>CompanyGame.exe</code> → 서버 열기 → "공개" → 서버 시작 → 캐릭터 만들기</td><td>ESC에 서버 코드(6자)가 보임</td></tr>
-      <tr><td>2</td><td>다른 PC: 참가하기 → 공개 서버 목록에서 서버 누르기 → 캐릭터 만들기</td><td>목록에 서버가 보이고 들어가짐</td></tr>
+      <tr><td>준비</td><td>두 PC에 zip을 풂. 맥은 처음 한 번 터미널에서 묶음 폴더로 가서 <code>xattr -dr com.apple.quarantine . &amp;&amp; chmod +x CompanyGame.app/Contents/MacOS/*</code>. "손상됨"이 뜨면 <code>codesign --force --deep -s - CompanyGame.app</code>. 키체인 창이 뜨면 "항상 허용"</td><td>두 PC 다 실행됨. 방화벽 창은 "허용"</td></tr>
+      <tr><td>1</td><td>서버 여는 PC: 서버 열기 → 월드(새 월드면 이름 입력) → "공개" → 서버 시작 → 캐릭터 만들기</td><td>ESC에 서버 코드(6자)가 보임</td></tr>
+      <tr><td>2</td><td>다른 PC: 참가하기 → 공개 서버 목록에서 서버 누르기 → 캐릭터 만들기</td><td>목록에 보이고 들어가짐</td></tr>
       <tr><td>3</td><td>양쪽에서 걸어 다니기</td><td>서로 캐릭터가 보이고 움직임이 상대 화면에도 보임</td></tr>
-      <tr><td>4</td><td>다른 PC: ESC</td><td>"연결:" 줄의 직접/중계와 왕복 ms를 메모</td></tr>
-      <tr><td>5</td><td>다른 PC: ESC → 서버 나가기 → 참가하기 → 서버 코드 칸에 코드 입력 → 접속</td><td>코드로도 들어가짐, 캐릭터가 그대로임</td></tr>
+      <tr><td>4</td><td>양쪽에서 Enter → 일반 채팅</td><td>상대 채팅이 내 화면에 캐릭터 이름으로 뜸</td></tr>
+      <tr><td>5</td><td>다른 PC: ESC</td><td>"연결:" 줄의 직접/중계와 왕복 ms를 메모</td></tr>
+      <tr><td>6</td><td>다른 PC: ESC → 서버 나가기 → 참가하기 → 서버 코드 입력 → 접속</td><td>코드로도 들어가짐, 캐릭터가 그대로임</td></tr>
+      <tr><td>7</td><td>서버 연 PC: 채팅 <code>/say 안녕</code>, <code>/time 21</code>, <code>/kick 이름</code></td><td>공지가 양쪽에 뜨고, 시각이 바뀌고, 상대가 내보내짐. 상대가 같은 명령을 치면 "관리자만 쓸 수 있는 명령입니다."</td></tr>
+      <tr><td>8</td><td>서버 연 PC: 게임 종료 → 다시 켜서 서버 열기로 같은 월드(이름으로 보임) 열기 → 다른 PC 재접속</td><td>게임을 끄면 서버도 꺼짐. 다시 열면 캐릭터·위치가 그대로</td></tr>
     </table></div>
     <h3 style="margin-top:16px">시험 2. 시민·교통·신호등이 두 PC에서 같은지 (5단계)</h3>
     <div class="scroll"><table>
       <tr><th>순서</th><th>할 일</th><th>확인할 것</th></tr>
       <tr><td>1</td><td>시험 1처럼 두 PC가 같은 서버에 들어간 채로, 두 캐릭터를 같은 교차로에 세움</td><td>같은 차가 같은 자리에 보임(조금 늦게 보이는 정도는 괜찮음), 시민도 같은 자리</td></tr>
-      <tr><td>2</td><td>신호가 바뀌는 걸 한 바퀴(약 70초) 지켜봄</td><td>두 화면 신호 색이 같음. 차 초록 → 노랑 → 전체 빨강 → 보행 초록 순서. 보행 초록일 때 회전 차도 서 있음</td></tr>
+      <tr><td>2</td><td>신호가 바뀌는 걸 한 바퀴(약 70초) 지켜봄</td><td>두 화면 신호 색이 같음. 차 초록 → 노랑 → 전체 빨강 → 보행 초록 순서</td></tr>
       <tr><td>3</td><td>한쪽 캐릭터가 차 앞에 서 봄</td><td>그 PC에서 차가 멈췄다가, 비키면 다시 다른 PC 화면과 같은 자리로 따라붙음</td></tr>
-    </table></div>
-    <h3 style="margin-top:16px">시험 3. 전용 서버 (6단계)</h3>
-    <div class="scroll"><table>
-      <tr><th>순서</th><th>할 일</th><th>확인할 것</th></tr>
-      <tr><td>준비</td><td>시험 1에서 연 서버는 끔(서버 열기 화면의 "끄기"). 이 PC에 <code>DedicatedServer.zip</code>을 풀고 <code>server\settings.json</code>에서 이름만 바꿈</td><td></td></tr>
-      <tr><td>1</td><td><code>StartServer.bat</code> 더블클릭</td><td>검은 창에 "listening on ... :7777"과 "session XXXXXX"(서버 코드)가 나옴</td></tr>
-      <tr><td>2</td><td>다른 PC: 참가하기 → 공개 서버 목록에서 이 서버로 접속 → 캐릭터 만들기</td><td>목록에 보이고 들어가짐</td></tr>
-      <tr><td>3</td><td>이 PC의 게임으로도 같이 들어가려면 목록이나 코드 말고 직접 주소 <code>127.0.0.1:7777</code>로 들어감(같은 Windows 사용자라 EOS 계정이 서버와 같음)</td><td>두 사람이 서로 보임</td></tr>
-      <tr><td>4</td><td>콘솔에 <code>players</code> → <code>admin &lt;다른 PC 캐릭터 이름&gt;</code></td><td>목록이 나오고 관리자로 정해짐</td></tr>
-      <tr><td>5</td><td>다른 PC 채팅: <code>/say 안녕</code>, <code>/time 21</code></td><td>공지가 양쪽 채팅에 뜨고 시각이 바뀜</td></tr>
-      <tr><td>6</td><td>콘솔에 <code>unadmin &lt;이름&gt;</code> 후 다른 PC 채팅에서 <code>/say 테스트</code></td><td>"관리자만 쓸 수 있는 명령입니다." 가 뜸</td></tr>
-      <tr><td>7</td><td>콘솔에 <code>kick &lt;이름&gt;</code> → 다른 PC가 다시 접속</td><td>내보내졌다는 문구, 다시 들어가짐</td></tr>
-      <tr><td>8</td><td>콘솔에 <code>ban &lt;이름&gt;</code> → 다른 PC가 다시 접속 → 콘솔 <code>unban &lt;이름&gt;</code> → 다시 접속</td><td>차단 중엔 거절, 풀면 들어가짐</td></tr>
-      <tr><td>9</td><td><code>settings.json</code>의 <code>"trafficCars"</code>를 4로 바꿔 저장</td><td>서버를 켠 채로 1초 안에 차 수가 바뀜</td></tr>
-      <tr><td>10</td><td>콘솔에 <code>stop</code> → 다시 <code>StartServer.bat</code> → 다른 PC 재접속</td><td>저장 후 꺼지고, 다시 켜면 캐릭터·위치가 그대로</td></tr>
     </table></div>
     <h3 style="margin-top:16px">끝나면 보낼 것</h3>
     <div class="scroll"><table>
       <tr><th>어디</th><th>파일</th></tr>
-      <tr><td>Windows 게임</td><td><code>%USERPROFILE%\AppData\LocalLow\DefaultCompany\CompanyGame\Player.log</code> (서버 연 PC는 같은 폴더의 <code>server\server.log</code>도)</td></tr>
-      <tr><td>맥 게임</td><td><code>~/Library/Logs/DefaultCompany/CompanyGame/Player.log</code></td></tr>
-      <tr><td>전용 서버</td><td>묶음 폴더의 <code>server\server.log</code></td></tr>
-      <tr><td>메모</td><td>시험 1-4의 연결 방식·왕복 ms, 안 된 순서 번호와 그때 화면 문구</td></tr>
+      <tr><td>Windows 게임</td><td><code>%USERPROFILE%\AppData\LocalLow\DefaultCompany\CompanyGame\Player.log</code></td></tr>
+      <tr><td>Windows 서버 로그</td><td>같은 폴더의 <code>server\server.log</code>(프로필 슬롯 2~4는 <code>profile2\server\server.log</code> ~)</td></tr>
+      <tr><td>맥 게임</td><td><code>~/Library/Logs/DefaultCompany/CompanyGame/Player.log</code> (Finder에서 Cmd+Shift+G. 게임을 다시 켜기 전에 뺄 것, 바로 전 실행은 <code>Player-prev.log</code>)</td></tr>
+      <tr><td>맥 서버 로그</td><td><code>~/Library/Application Support/DefaultCompany/CompanyGame/server/server.log</code></td></tr>
+      <tr><td>메모</td><td>시험 1-5의 연결 방식·왕복 ms, 안 된 순서 번호와 그때 화면 문구</td></tr>
     </table></div>
   </div>
   <div class="card">
@@ -378,9 +366,10 @@ details[open] summary{margin-bottom:10px}
       <tr><td>4d-4</td><td>세상과 오가는 아이템(드롭·줍기, 탈것 설치·회수, 탑승 잠금, 시작·지급 아이템)</td><td style="color:var(--ok)">완료 10-18</td></tr>
       <tr><td>4d-5</td><td>도서관(작품·대여·연체료·벌금·인세를 서버 월드에서, 믿는 요청 삭제)</td><td style="color:var(--ok)">완료 10-19</td></tr>
       <tr><td>4e</td><td>옛 경로 삭제(옛 방·방장 넘기기·개발용 메뉴·Steam 방)</td><td style="color:var(--ok)">완료 10-19</td></tr>
-      <tr><td>2b-2</td><td>EOS 정식 연결(공개 서버 목록, ID 토큰 검증)</td><td style="color:var(--ok)">완료 10-19 (다른 PC 확인 대기)</td></tr>
+      <tr><td>2b-2</td><td>EOS 정식 연결(공개 서버 목록, ID 토큰 검증)</td><td style="color:var(--ok)">완료 10-19 (맥북 접속 확인)</td></tr>
       <tr><td>5</td><td>시민·교통 시간 기반 재작성</td><td style="color:var(--ok)">완료 10-19</td></tr>
-      <tr><td>6</td><td>전용 서버 빌드(Windows 먼저), 설정 파일, 서버 목록, 관리자 명령, 부하 테스트</td><td style="color:var(--ok)">완료 10-19</td></tr>
+      <tr><td>6</td><td>서버 설정 파일, 관리자 명령(콘솔·채팅), 부하 테스트(50명). 따로 내는 서버 묶음은 뺌</td><td style="color:var(--ok)">완료 10-19</td></tr>
+      <tr><td>6+</td><td>배포 빌드 Windows·Mac 두 개로 정리, 화질 설정 5단계, 서버 모드 정리(혼자 하기·서버 열기, 전용 서버 버튼 숨김), 일반 채팅 서버 공유, 월드 이름</td><td style="color:var(--ok)">완료 10-19</td></tr>
       <tr><td>7</td><td>모바일 터치 조작, 성능, 재접속</td><td class="muted">대기</td></tr>
     </table></div>
   </div>
@@ -401,19 +390,26 @@ details[open] summary{margin-bottom:10px}
       <tr><td>개인 경제 반응</td><td>클라이언트가 먼저 적용하고 서버 장부로 덮어씀(지연 없음). 기존 캐릭터는 마지막 저장값을 장부 시작값으로 인정</td><td>10-16</td></tr>
       <tr><td>Steam 모드</td><td>4e에서 지움. Steam판을 낼 때 새 서버용 Steam 통로로 다시 붙임</td><td>10-19</td></tr>
       <tr><td>EOS 계정 전환</td><td>옛 계정 캐릭터는 옮기지 않음(테스트 데이터). EOS로 처음 들어오면 새 캐릭터</td><td>10-19</td></tr>
-      <tr><td>전용 서버·관리자</td><td>서버 빌드는 Windows 먼저(리눅스는 나중). 관리자 명령은 서버 콘솔 + 게임 채팅, 서버 연 사람은 자동 관리자</td><td>10-19</td></tr>
       <tr><td>신호등</td><td>차 신호와 보행 신호는 안 겹침. 방향마다 초록 12초→노랑 3초→전체 빨강 2초→보행 초록 16초→전체 빨강 2초(한 바퀴 70초). 꼬리물기 금지</td><td>10-19</td></tr>
       <tr><td>계정 로그인</td><td>아이디·비밀번호 로그인은 게임에서만 지움. Server/ 코드는 저장소에 남김</td><td>10-19</td></tr>
+      <tr><td>배포 빌드</td><td>Windows·Mac 게임 빌드 두 개뿐. 따로 내는 서버 묶음·StartServer.bat 없음</td><td>10-19</td></tr>
+      <tr><td>서버 모드</td><td>혼자 하기 / 서버 열기(게임을 끄면 저장하고 서버도 꺼짐) / 참가하기. 전용 서버(게임을 꺼도 PC가 켜진 동안 계속, Windows·macOS·Linux)는 만들어 뒀지만 메뉴에서 숨김</td><td>10-19</td></tr>
+      <tr><td>관리자</td><td>서버 연 사람은 자동 관리자, 게임 채팅의 <code>/명령</code>(kick·ban·say·time·save·stop 등)</td><td>10-19</td></tr>
+      <tr><td>채팅</td><td>일반 채팅은 서버를 거쳐 그 서버의 모두에게. 이름은 서버가 아는 캐릭터 이름, 한 줄 200자</td><td>10-19</td></tr>
+      <tr><td>월드 이름</td><td>새 월드를 만들 때 이름(20자까지)을 정하고 목록에 그 이름으로 보임. 예전 월드는 만든 날짜로</td><td>10-19</td></tr>
+      <tr><td>화질</td><td>설정·ESC에서 최저사양~최고사양 5단계, 바로 적용. 처음엔 그래픽 메모리로 자동 선택</td><td>10-19</td></tr>
     </table></div>
   </div>
   <div class="card">
     <h3>보류·확인 필요</h3>
     <div class="scroll"><table>
       <tr><th>항목</th><th>내용</th></tr>
-      <tr><td>원격 푸시</td><td>6단계까지 끝남. 새 브랜치 feature/multiplayer-redesign을 만들어 둠, origin 푸시는 사용자 확인 대기(main·Dev는 푸시 안 함)</td></tr>
+      <tr><td>브랜치</td><td>멀티 작업 전부는 <code>feature/multiplayer-redesign</code>(origin에 있음). Dev(a3530be)·main에는 안 들어감. Dev에 합치는 건 사용자가 정할 때</td></tr>
+      <tr><td>전용 서버 + 서버 열기 동시에</td><td>한 PC에서 둘을 같이 열려면 설정 파일·포트·EOS 통로를 서버마다 나눠야 함(같은 EOS 계정이라 접속이 어느 서버로 갈지 정해지지 않음). 필요하면 작업</td></tr>
+      <tr><td>맥 전용 서버</td><td>코드는 있으나 맥에서 직접 확인 못 함(버튼도 숨김 상태)</td></tr>
+      <tr><td>월드 이름 바꾸기</td><td>이름 바꾸는 화면은 아직 없음</td></tr>
       <tr><td>Worker 배포</td><td>4e에서 Worker 코드의 방 기능을 지움(배포 안 함, Lobby 삭제 migration 포함). 배포는 요청할 때</td></tr>
-      <tr><td>맥 서명</td><td>정식 서명·공증은 Apple Developer Program(연 99달러) 필요. 지금은 우클릭→열기</td></tr>
-      <tr><td>빌드</td><td>Game.zip·GameMac.zip은 4b+창모드 코드. 4c 이후 빌드는 아직 없음</td></tr>
+      <tr><td>맥 서명</td><td>정식 서명·공증은 Apple Developer Program(연 99달러) 필요. 지금은 임시 서명이라 새 빌드마다 키체인 허용을 다시 물을 수 있음</td></tr>
     </table></div>
   </div>
 </section>
