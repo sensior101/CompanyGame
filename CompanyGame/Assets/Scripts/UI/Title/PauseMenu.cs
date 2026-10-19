@@ -104,10 +104,20 @@ public sealed class PauseMenu : MonoBehaviour
         note = TitleUi.Label(panel, "", 24, TitleUi.Muted);
         var resume = TitleUi.Button(panel, "계속하기", Close, 64, true, 30);
         bool onServer = SyncClient.Instance && SyncClient.Instance.Connected;
+        TitleUi.Button(panel, "화질 설정", ShowGraphics, 56, false, 26);
         TitleUi.Button(panel, onServer ? "서버 나가기 (타이틀로)" : "타이틀로", Leave, 64, true, 30);
         TitleUi.Button(panel, "게임 종료", Quit, 56, false, 26);
         RefreshNote();
         if (EventSystem.current) EventSystem.current.SetSelectedGameObject(resume.gameObject); // Enter continues, not copies
+    }
+
+    void ShowGraphics()
+    {
+        Begin(640);
+        note = null;
+        TitleUi.Label(panel, "화질 설정", 46, TitleUi.Cream, TextAlignmentOptions.Center, FontStyles.Bold);
+        TitleUi.QualityRow(panel);
+        TitleUi.Button(panel, "뒤로", ShowMain, 56, false, 26);
     }
 
     void RefreshNote()

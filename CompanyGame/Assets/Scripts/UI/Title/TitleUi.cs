@@ -105,6 +105,23 @@ public static class TitleUi
         element.preferredWidth = preferred; element.flexibleWidth = flexible;
     }
 
+    /// <summary>"화질 ◀ 일반 ▶": changes <see cref="GraphicsQuality"/> at once (title 설정 and the ESC menu).</summary>
+    public static void QualityRow(Transform parent)
+    {
+        Label(parent, "화질 (느리거나 끊기면 낮추세요. 바로 적용)", 24, Muted, TextAlignmentOptions.MidlineLeft);
+        var row = Row(parent, 56, 12, false);
+        TMP_Text label = null;
+        void Step(int d)
+        {
+            GraphicsQuality.Set(GraphicsQuality.Level + d);
+            label.text = GraphicsQuality.Names[GraphicsQuality.Level];
+        }
+        var prev = Button(row, "◀", () => Step(-1), 56, false, 26);
+        label = Label(row, GraphicsQuality.Names[GraphicsQuality.Level], 28, Cream);
+        var next = Button(row, "▶", () => Step(1), 56, false, 26);
+        Width(prev, 90); Width(next, 90); Width(label, 0, 1);
+    }
+
     public static void Spacer(Transform parent, float height)
     {
         var go = new GameObject("Spacer", typeof(RectTransform), typeof(LayoutElement));

@@ -502,6 +502,8 @@ public sealed class TitleScreen : MonoBehaviour
 
         TitleUi.Label(panel, "캐릭터는 월드마다 따로 만듭니다. 서버에 처음 들어갈 때 이름과 성별을 정합니다.", 24, TitleUi.Muted, TextAlignmentOptions.MidlineLeft);
 
+        TitleUi.QualityRow(panel);
+
         TitleUi.Label(panel, "프로필 슬롯 (한 PC에서 게임 2개를 켜는 테스트용)", 24, TitleUi.Muted, TextAlignmentOptions.MidlineLeft);
         var slotRow = TitleUi.Row(panel, 56, 12, false);
         var prev = TitleUi.Button(slotRow, "◀", () => SwitchSlot(ProfileSlot.Slot - 1, onBack), 56, false, 26);
