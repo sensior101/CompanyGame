@@ -10,11 +10,10 @@ public sealed class Crosswalk : MonoBehaviour
     [Tooltip("Sidewalk ends of the crossing, one on each side of the road.")]
     public Transform endA;
     public Transform endB;
-    [Tooltip("The signal for the cars that cross this walk. Pedestrians go while it is red. Empty means always open.")]
+    [Tooltip("A signal of this walk's junction: pedestrians go in its walk phase (TrafficSignal.WalkAt). Empty means always open.")]
     public TrafficSignal signal;
 
-    // Needs this long in red before people step out, and enough red left to walk across at a slow pace.
-    const float ClearAfterRedSeconds = .5f;
+    // People start while the junction's walk phase has enough of it left to cross at a slow pace.
     const float SlowWalkMps = 1.2f;
 
     static readonly List<Crosswalk> all = new List<Crosswalk>();
@@ -25,18 +24,16 @@ public sealed class Crosswalk : MonoBehaviour
     public bool CanCrossAt(double clock)
     {
         if (!signal) return true;
-        return signal.PhaseAt(clock, out float inPhase, out float left) == TrafficSignal.Phase.Red
-            && inPhase >= ClearAfterRedSeconds && left >= CrossSeconds;
+        return signal.WalkAt(clock, out _, out float left) && left >= CrossSeconds;
     }
 
-    /// <summary>Red time a walker needs to be across (capped so a short red still leaves a window to start).</summary>
+    /// <summary>Walk time a walker needs to be across (capped so the walk phase still leaves 4 s to start).</summary>
     public float CrossSeconds
     {
         get
         {
             float length = endA && endB ? Vector3.Distance(endA.position, endB.position) : 0f;
-            float redCap = signal ? Mathf.Max(3f, signal.red - 2f) : 3f;
-            return Mathf.Clamp(length / SlowWalkMps, 3f, redCap);
+            return Mathf.Clamp(length / SlowWalkMps, 3f, TrafficSignal.Walk - 4f);
         }
     }
 

@@ -19,8 +19,6 @@ public static class TrafficMapBuilder
     const string AutoName = "Auto", ManualName = "Manual";
     const string MaterialFolder = "Assets/Art/Traffic/Materials";
     static readonly string[] CameraRoads = { "Street_0", "Street_2" };
-    // 38 s cycle: the crossing group runs half a cycle later, leaving 2 s with both red. Red is long enough to cross on foot.
-    public const float Green = 14f, Yellow = 3f, Red = 21f;
     const float CrosswalkInset = 3f;              // crosswalk centre is this much closer to the junction than the stop line
 
     [MenuItem("CompanyGame/Traffic/Build BusinessDistrict")]
@@ -180,13 +178,36 @@ public static class TrafficMapBuilder
         go.transform.SetParent(parent, false);
         go.transform.position = node.position;
         TrafficSignal signal = go.AddComponent<TrafficSignal>();
-        signal.green = Green;
-        signal.yellow = Yellow;
-        signal.red = Red;
-        float cycle = Green + Yellow + Red;
-        // The crossing group is half a cycle later: red for the first half while this one is green, with a short all-red gap.
-        signal.offset = (node.id * 7 % (int)cycle) + (group == 1 ? cycle * .5f : 0f);
+        signal.offset = OffsetOf(node.id, group);
         return signal;
+    }
+
+    // The timings are TrafficSignal's (one cycle for all, 12.14); junctions are spread over the cycle, and the crossing
+    // group of a junction runs half a cycle later (the pedestrians' turn comes between the two).
+    static float OffsetOf(int node, int group) =>
+        node * 7 % (int)TrafficSignal.CycleSeconds + (group == 1 ? TrafficSignal.CycleSeconds * .5f : 0f);
+
+    /// <summary>
+    /// Puts the current signal plan (TrafficSignal's cycle) on the signals of the built map without building it again: the
+    /// offset of every Signal_n{node}_g{group}. Run with -executeMethod TrafficMapBuilder.ApplySignalPlan.
+    /// </summary>
+    [MenuItem("CompanyGame/Traffic/Apply signal plan to BusinessDistrict")]
+    public static void ApplySignalPlan()
+    {
+        Scene scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+        int count = 0;
+        foreach (TrafficSignal signal in Object.FindObjectsByType<TrafficSignal>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            string[] parts = signal.name.Split('_'); // Signal, n<node>, g<group>
+            if (parts.Length != 3 || !int.TryParse(parts[1].Substring(1), out int node) || !int.TryParse(parts[2].Substring(1), out int group))
+                throw new InvalidOperationException("unexpected signal name " + signal.name);
+            signal.offset = OffsetOf(node, group);
+            EditorUtility.SetDirty(signal);
+            count++;
+        }
+        EditorSceneManager.MarkSceneDirty(scene);
+        EditorSceneManager.SaveScene(scene);
+        Debug.Log("[TrafficMapBuilder] signal plan applied to " + count + " signals (cycle " + TrafficSignal.CycleSeconds + " s)");
     }
 
     // One mast per approach: a pole at the kerb, an arm reaching over the approach lane at 5.5 m and a horizontal

@@ -1,9 +1,9 @@
 using UnityEngine;
 
 /// <summary>
-/// Walk / don't-walk box at the end of a signalled crosswalk. Green figure while the cars that cross this walk
-/// are red (steady while pedestrians may start, blinking when the remaining red is too short to start), red standing figure otherwise. Pure function of the car signal,
-/// so it needs no extra network sync.
+/// Walk / don't-walk box at the end of a signalled crosswalk. Green figure in the junction's walk phase (steady while
+/// pedestrians may start, blinking when the rest is too short to start), red standing figure otherwise; cars never have
+/// green then (TrafficSignal, 12.14). Pure function of the signal, so it needs no extra network sync.
 /// </summary>
 public sealed class PedestrianSignal : MonoBehaviour
 {
@@ -21,7 +21,7 @@ public sealed class PedestrianSignal : MonoBehaviour
         var signal = walk ? walk.signal : null;
         if (!signal) return 1;
         if (walk.CanCross) return 1;
-        if (signal.Current != TrafficSignal.Phase.Red || signal.TimeInPhase < .5f) return 0;
+        if (!signal.WalkAt(TrafficSignal.Clock, out _, out _)) return 0;
         return ((int)(TrafficSignal.Clock * 2.0) & 1) == 0 ? 2 : 3;
     }
 

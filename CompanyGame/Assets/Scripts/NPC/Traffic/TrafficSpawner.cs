@@ -197,7 +197,7 @@ public sealed class TrafficSpawner : MonoBehaviour
     {
         TrafficLane l = plan.Lane(lane);
         if (!l.signal || l.signal.Current == TrafficSignal.Phase.Green) return float.MaxValue;
-        float stop = l.Length - s - (car.Body.center.z + car.Body.extents.z) - StopMargin;
+        float stop = plan.StopLine(lane) - s - (car.Body.center.z + car.Body.extents.z) - StopMargin;
         return stop >= 0f ? stop + MinGap : float.MaxValue;
     }
 }

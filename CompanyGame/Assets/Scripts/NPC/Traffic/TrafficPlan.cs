@@ -5,7 +5,7 @@ using UnityEngine;
 /// The traffic of one map as a table (Docs/Multiplayer_Redesign.md 12.14): every car's lane, distance and speed at
 /// <see cref="Step"/> intervals over one loop of <see cref="TrafficSignal.LoopSeconds"/>. It is built from the lanes, the
 /// car sizes and the seed only, with fixed steps, integer time and no trigonometry, so every PC builds the same table.
-/// The signals and the route choices (a hash of seed, car, lane and signal cycle mod 16) repeat every loop, so the
+/// The signals and the route choices (a hash of seed, car, lane and signal cycle of the loop) repeat every loop, so the
 /// traffic does too. Rules of the old per-frame TrafficCar: lane and car top speed, slowing into a turn, stopping
 /// before a red or yellow light unless too fast to stop, keeping 2.2 m behind the car ahead (same lane, or the next
 /// lane; a car crossing a junction counts as on its next lane), ignoring cars for 5 s after 15 s stuck. A car coming
@@ -15,9 +15,9 @@ using UnityEngine;
 public sealed class TrafficPlan
 {
     public const float Step = .1f;
-    public const int MaxLoops = 12;
+    public const int MaxLoops = 40;
     const double StepSeconds = .1;
-    const int StepsPerCycle = 380, StepsPerLoop = 16 * StepsPerCycle; // 38 s signal cycle, TrafficSignal.LoopSeconds
+    const int StepsPerCycle = (int)(TrafficSignal.CycleSeconds * 10), StepsPerLoop = TrafficSignal.CyclesPerLoop * StepsPerCycle; // 0.1 s steps
     const float MinGap = 2.2f, StopMargin = .5f, TurnSpeedMps = 6f, UnstickSeconds = 60f, IgnoreSeconds = 5f;
     const float MinSpacing = 8f, EndMargin = 8f, RestSpeed = .3f, RestSnap = .15f;
 
@@ -32,7 +32,7 @@ public sealed class TrafficPlan
     }
 
     readonly TrafficLane[] lanes;
-    readonly float[] length;
+    readonly float[] length, stopAt; // stopAt: where a signalled lane's cars stop (its end, or before a crossing over it)
     readonly Vector3[] startPoint, endPoint;
     readonly int[][] nexts;
     readonly int[] fromLane; // a corner's lane in (-1 for other lanes)
@@ -51,6 +51,8 @@ public sealed class TrafficPlan
     /// <summary>The largest jump of a car (metres) where the table wraps: 0 when it repeats.</summary>
     public float WrapJump { get; private set; }
     public TrafficLane Lane(int index) => lanes[index];
+    /// <summary>Distance along the lane where its cars stop for its light.</summary>
+    public float StopLine(int lane) => stopAt[lane];
 
     TrafficPlan(TrafficLane[] lanes, Car[] cars, uint seed)
     {
@@ -75,10 +77,49 @@ public sealed class TrafficPlan
                 }
             nexts[i] = list.ToArray();
         }
+        stopAt = StopLines(lanes, length);
         fromLane = new int[lanes.Length];
         for (int i = 0; i < lanes.Length; i++) fromLane[i] = -1;
         for (int i = 0; i < lanes.Length; i++)
             foreach (int n in nexts[i]) if (lanes[n].connector && fromLane[n] < 0) fromLane[n] = i;
+    }
+
+    // A crossing of a skewed junction can lie over an approach lane a few metres before its stop line: its cars stop
+    // 2.5 m before that crossing's line instead, so none waits on a crossing while its pedestrians have green.
+    static float[] StopLines(TrafficLane[] lanes, float[] length)
+    {
+        var stops = (float[])length.Clone();
+        Crosswalk[] walks = lanes.Length > 0 && lanes[0] ? lanes[0].transform.root.GetComponentsInChildren<Crosswalk>(true) : new Crosswalk[0];
+        for (int i = 0; i < lanes.Length; i++)
+        {
+            if (!lanes[i].signal || lanes[i].Count < 2) continue;
+            float along = 0f;
+            for (int k = 1; k < lanes[i].Count; k++)
+            {
+                Vector3 a = lanes[i].Point(k - 1), b = lanes[i].Point(k);
+                float span = Vector3.Distance(a, b);
+                foreach (Crosswalk walk in walks)
+                {
+                    if (!walk.endA || !walk.endB || !Intersect(a, b, walk.endA.position, walk.endB.position, out float f)) continue;
+                    float at = along + f * span;
+                    if (at < length[i] - .5f && at > length[i] - 25f) stops[i] = Mathf.Min(stops[i], at - 2.5f);
+                }
+                along += span;
+            }
+        }
+        return stops;
+    }
+
+    // Where segment ab crosses segment cd (fraction along ab), on the ground plane.
+    static bool Intersect(Vector3 a, Vector3 b, Vector3 c, Vector3 d, out float f)
+    {
+        float rx = b.x - a.x, rz = b.z - a.z, sx = d.x - c.x, sz = d.z - c.z, den = rx * sz - rz * sx;
+        f = 0f;
+        if (Mathf.Abs(den) < 1e-6f) return false;
+        float qx = c.x - a.x, qz = c.z - a.z;
+        f = (qx * sz - qz * sx) / den;
+        float g = (qx * rz - qz * rx) / den;
+        return f >= 0f && f <= 1f && g >= 0f && g <= 1f;
     }
 
     /// <summary>
@@ -225,9 +266,10 @@ public sealed class TrafficPlan
 
         // Signal: the old SignalCap, but decided once per light (the old check, made again every frame, switched to going
         // through when the braking lagged behind its curve right before the line).
+        float toLine = stopAt[st.lane] - st.s;
         if (lane.signal && !st.runLight && st.s <= length[st.lane] && lane.signal.PhaseAt(clock, out _, out _) != TrafficSignal.Phase.Green)
         {
-            float stop = remaining - car.front - StopMargin;
+            float stop = toLine - car.front - StopMargin;
             if (stop >= -1.5f)
             {
                 bool cannotStop = st.v * st.v / (2f * Mathf.Max(.1f, stop)) > car.brake * 1.3f;
@@ -246,12 +288,26 @@ public sealed class TrafficPlan
         TrafficSignal nextSignal = st.next >= 0 && !beyond ? lanes[st.next].signal : null;
         if (nextSignal && nextSignal.PhaseAt(clock, out _, out _) != TrafficSignal.Phase.Green)
         {
-            float stop = Route(st.lane, st.next) - st.s + length[st.next] - car.front - StopMargin;
+            float stop = Route(st.lane, st.next) - st.s + stopAt[st.next] - car.front - StopMargin;
             if (stop >= 0f && (st.stopNext || st.v * st.v / (2f * Mathf.Max(.1f, stop)) <= car.brake * 1.3f))
             {
                 st.stopNext = true;
                 float nextCap = Mathf.Sqrt(2f * car.brake * .8f * stop);
                 if (nextCap < cap) { cap = nextCap; restAt[c] = Mathf.Min(restAt[c], st.s + stop); }
+            }
+        }
+
+        // Do not block the junction: before a stop line, wait there while the lane after the junction (after the corner of a
+        // turn) has no room for this car behind a car that is (nearly) stopped, so nobody is left on a crossing or in the
+        // junction when the pedestrians get green.
+        if (lane.signal && !beyond && st.next >= 0)
+        {
+            float stop = toLine - car.front - StopMargin;
+            int after = lanes[st.next].connector && nexts[st.next].Length == 1 ? nexts[st.next][0] : st.next;
+            if (stop > .5f && Full(state, c, after, car.front + car.back + MinGap + 6f))
+            {
+                float boxCap = Mathf.Sqrt(2f * car.brake * .8f * stop);
+                if (boxCap < cap) { cap = boxCap; restAt[c] = Mathf.Min(restAt[c], st.s + stop); }
             }
         }
 
@@ -280,6 +336,14 @@ public sealed class TrafficPlan
         st.blocked = blocked && st.v < .2f ? st.blocked + Step : 0f;
         if (st.blocked > UnstickSeconds) { st.ignore = IgnoreSeconds; st.blocked = 0f; }
         return cap;
+    }
+
+    // A car whose back is less than room metres into the lane and slow (under 4 m/s), another car than c.
+    bool Full(State[] state, int c, int lane, float room)
+    {
+        for (int o = firstInLane[lane]; o >= 0; o = nextInLane[o])
+            if (o != c && state[o].v < 4f && effS[o] - cars[o].back < room) return true;
+        return false;
     }
 
     // offset < 0: cars on my counted lane ahead of me; else cars on my next lane, offset metres further on.

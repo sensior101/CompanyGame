@@ -10,8 +10,8 @@ using UnityEngine.SceneManagement;
 /// <summary>
 /// Checks the traffic code without Play Mode: road sampling on synthetic meshes, the junction/lane graph, signal
 /// cycles, crossings, the speed camera fine logic, and (if the map was built) the lanes in BusinessDistrict and the
-/// traffic plan built on them (12.14: same seed same table, the loop closes, no overlaps, no red lights run; cars that
-/// pass a crossing while people may be on it, under their own green, are counted: the signal plan allows that).
+/// traffic plan built on them (12.14: same seed same table, the loop closes, no overlaps, no red lights run, never a car
+/// green while a crossing of the junction has the walk, no car on a crossing during its walk).
 /// Run with: -executeMethod TrafficQA.Run. Throws when something fails.
 /// </summary>
 public static class TrafficQA
@@ -158,21 +158,34 @@ public static class TrafficQA
         var go = new GameObject("TrafficQA_Signal") { hideFlags = HideFlags.HideAndDontSave };
         try
         {
-            float g = TrafficMapBuilder.Green, y = TrafficMapBuilder.Yellow, r = TrafficMapBuilder.Red, cycle = g + y + r;
+            const float g = TrafficSignal.Green, y = TrafficSignal.Yellow, a = TrafficSignal.AllRed, w = TrafficSignal.Walk, cycle = TrafficSignal.CycleSeconds;
+            Check(report, cycle == 70f && TrafficSignal.LoopSeconds == 560, $"one cycle is 70 s (green {g}, yellow {y}, all red {a}, walk {w}, all red {a}, twice), a loop 8 cycles");
             TrafficSignal signal = go.AddComponent<TrafficSignal>();
-            signal.green = g; signal.yellow = y; signal.red = r; signal.offset = 0f;
+            signal.offset = 0f;
             Check(report, signal.PhaseAt(0, out _, out _) == TrafficSignal.Phase.Green, "t=0 is green");
             Check(report, signal.PhaseAt(g - .1f, out _, out _) == TrafficSignal.Phase.Green, "just before the green ends it is green");
             Check(report, signal.PhaseAt(g, out _, out _) == TrafficSignal.Phase.Yellow, "after green comes yellow");
             Check(report, signal.PhaseAt(g + y, out _, out _) == TrafficSignal.Phase.Red, "after yellow comes red");
             Check(report, signal.PhaseAt(cycle, out _, out _) == TrafficSignal.Phase.Green, "the cycle wraps to green");
             Check(report, signal.PhaseAt(-1, out _, out float left) == TrafficSignal.Phase.Red && Mathf.Abs(left - 1f) < .01f, "t=-1 is red with 1 s left");
+            Check(report, !signal.WalkAt(g + y + a - .1f, out _, out _) && signal.WalkAt(g + y + a + .1f, out _, out _), "pedestrians get green after the yellow and 2 s of all red");
+            Check(report, signal.WalkAt(g + y + a + w - .1f, out _, out _) && !signal.WalkAt(g + y + a + w + .1f, out _, out _), $"the walk lasts {w} s, then all red");
             var other = go.AddComponent<TrafficSignal>();
-            other.green = g; other.yellow = y; other.red = r; other.offset = cycle * .5f;
-            bool clash = false;
-            for (double t = 0; t < cycle * 2; t += .25)
-                clash |= signal.PhaseAt(t, out _, out _) != TrafficSignal.Phase.Red && other.PhaseAt(t, out _, out _) != TrafficSignal.Phase.Red;
+            other.offset = cycle * .5f;
+            bool clash = false, walkClash = false, same = true;
+            int walks = 0;
+            for (double t = 0; t < cycle * 2; t += .1)
+            {
+                bool open = signal.PhaseAt(t, out _, out _) != TrafficSignal.Phase.Red, otherOpen = other.PhaseAt(t, out _, out _) != TrafficSignal.Phase.Red;
+                bool walking = signal.WalkAt(t, out _, out _);
+                clash |= open && otherOpen;
+                walkClash |= walking && (open || otherOpen);
+                same &= walking == other.WalkAt(t, out _, out _);
+                if (walking && !signal.WalkAt(t - .1, out _, out _)) walks++;
+            }
             Check(report, !clash, "crossing groups are never open at the same time");
+            Check(report, !walkClash, "no car green or yellow while the pedestrians have green");
+            Check(report, same && walks == 4, $"both groups give the junction's walk at the same time, twice a cycle ({walks} in two cycles)");
             CrosswalkTests(report, go, signal);
         }
         finally { UnityEngine.Object.DestroyImmediate(go); }
@@ -194,16 +207,20 @@ public static class TrafficQA
             walk.endB.SetParent(walkGo.transform);
             walk.endA.position = new Vector3(-8f, 0f, 0f);
             walk.endB.position = new Vector3(8f, 0f, 0f);
-            float redStart = signal.green + signal.yellow;
+            const float walkStart = TrafficSignal.Green + TrafficSignal.Yellow + TrafficSignal.AllRed;
             Align(signal, 5f);
             Check(report, !walk.CanCross, "pedestrians wait while cars have green");
-            Align(signal, redStart + 2f);
-            Check(report, walk.CanCross, "pedestrians go early in red");
-            Align(signal, redStart + .2f);
-            Check(report, !walk.CanCross, "pedestrians wait the first moment of red");
-            Align(signal, signal.Cycle - 1f);
-            Check(report, !walk.CanCross, "pedestrians do not start with 1 s of red left");
-            Check(report, walk.CrossSeconds > 12f && walk.CrossSeconds < signal.red, "a 16 m crossing needs about 13 s and fits in the red");
+            Align(signal, TrafficSignal.Green + 1f);
+            Check(report, !walk.CanCross, "pedestrians wait through the yellow");
+            Align(signal, walkStart - .5f);
+            Check(report, !walk.CanCross, "pedestrians wait through the all red");
+            Align(signal, walkStart + 1f);
+            Check(report, walk.CanCross, "pedestrians go at the start of the walk");
+            Align(signal, walkStart + TrafficSignal.Walk - 1f);
+            Check(report, !walk.CanCross, "pedestrians do not start with 1 s of walk left");
+            Align(signal, walkStart + TrafficSignal.CycleSeconds * .5f + 1f);
+            Check(report, walk.CanCross, "pedestrians go again in the other group's turn");
+            Check(report, walk.CrossSeconds >= 3f && walk.CrossSeconds <= TrafficSignal.Walk - 4f, $"a 16 m crossing needs {walk.CrossSeconds:0.0} s and leaves 4 s to start");
             walk.signal = null;
             Check(report, walk.CanCross, "a crossing without a signal is always open");
             // FindNear needs OnEnable (Play Mode) to register crossings, so it is not covered here (needs Play Mode).
@@ -325,18 +342,32 @@ public static class TrafficQA
         for (int c = 0; c < plan.Count; c++)
             wrap = Mathf.Max(wrap, (plan.Sample(c, plan.Seconds - .05, out _, out _, out _) - plan.Sample(c, plan.Seconds + .05, out _, out _, out _)).magnitude);
         Check(report, wrap < 2f, $"no jump where the table wraps ({wrap:0.00} m in 0.1 s)");
+        int closed = 0;
+        long slowest = 0;
+        var loops = new System.Text.StringBuilder();
+        for (uint seed = 1; seed <= 12; seed++)
+        {
+            TrafficPlan p = BuildPlan(spawner, seed * 2654435761u, spawner.count, out long seedMs);
+            if (p.Repeat > 0) closed++;
+            slowest = Math.Max(slowest, seedMs);
+            loops.Append(' ').Append(p.Repeat > 0 ? p.LoopsRun.ToString() : "x");
+        }
+        Check(report, closed == 12, $"the plan closes for 12 more seeds ({closed}; loops run:{loops}; slowest {slowest} ms)");
+        report.notes.Add($"12 more seeds: {closed} plans close, loops run:{loops}, slowest {slowest} ms");
         TrafficPlan big = BuildPlan(spawner, PlanSeed, TrafficSpawner.MaxCars, out long bigMs);
         report.notes.Add($"plan with {TrafficSpawner.MaxCars} cars: {big.Count} placed, repeat {big.Repeat}, loops {big.LoopsRun}, wrap {big.WrapJump:0.0} m, {bigMs} ms");
+        WalkOverlap(report, walks);
         PlanRules(report, plan, walks, plan.Count + " cars");
-        PlanRules(report, big, walks, big.Count + " cars");
+        PlanRules(report, big, walks, big.Count + " cars", false);
     }
 
     // Steps of the whole table: overlapping bodies, stop lines crossed in red, crossings passed while people may be on them.
-    static void PlanRules(Report report, TrafficPlan plan, Crosswalk[] walks, string tag)
+    // strict false (the 40-car plan, which does not repeat either): cars on a crossing in its walk are only counted.
+    static void PlanRules(Report report, TrafficPlan plan, Crosswalk[] walks, string tag, bool strict = true)
     {
         const double Dt = TrafficPlan.Step;
         TrafficSpawner.PickModels(TrafficSpawner.LoadModels(), plan.Count, PlanSeed, out TrafficPlan.Car[] specs);
-        int rows = (int)Math.Round(plan.Seconds / Dt), overlaps = 0, redRuns = 0, throughOnWalk = 0, turnOnWalk = 0;
+        int rows = (int)Math.Round(plan.Seconds / Dt), overlaps = 0, redRuns = 0, lateRuns = 0, throughOnWalk = 0, turnOnWalk = 0;
         int loopRows = (int)Math.Round(TrafficSignal.LoopSeconds / Dt);
         var heads = new Vector3[plan.Count];
         var pos = new Vector3[plan.Count];
@@ -359,17 +390,17 @@ public static class TrafficQA
                 {
                     TrafficLane before = plan.Lane(lanes[c]);
                     if (before.signal && (lane != lanes[c] || s > before.Length) && dists[c] <= before.Length
-                        && before.signal.PhaseAt(t, out float inPhase, out _) == TrafficSignal.Phase.Red && inPhase > 1f)
+                        && before.signal.PhaseAt(t, out float inPhase, out _) == TrafficSignal.Phase.Red)
                     {
-                        redRuns++;
-                        example ??= $"car {c} ran the red of {before.name} at {t:0.0} s";
+                        lateRuns++; // through a yellow it could not stop for, but the line only after the red came
+                        if (inPhase > 1f) { redRuns++; example ??= $"car {c} ran the red of {before.name} at {t:0.0} s"; }
                     }
                     foreach (Crosswalk walk in walks)
                     {
                         if (!walk.signal || !walk.endA || !walk.endB || !Crosses(pos[c], p, walk.endA.position, walk.endB.position)) continue;
-                        if (walk.signal.PhaseAt(t, out float inRed, out _) != TrafficSignal.Phase.Red || inRed < .5f) continue;
-                        if (r - turnedAt[c] < 40) turnOnWalk++;
-                        else if (throughOnWalk++ < 3) report.notes.Add($"{tag}: car {c} went on over {walk.name} at {t:0.0} s ({inRed:0.0} s into its red, lane {plan.Lane(lane).name})");
+                        if (!walk.signal.WalkAt(t, out _, out _)) continue;
+                        if (r - turnedAt[c] < 40) turnOnWalk++; else throughOnWalk++;
+                        if (turnOnWalk + throughOnWalk <= 3) report.notes.Add($"{tag}: car {c} over {walk.name} in the walk at {t:0.0} s (lane {plan.Lane(lane).name})");
                     }
                 }
                 pos[c] = p; lanes[c] = lane; dists[c] = s;
@@ -382,7 +413,27 @@ public static class TrafficQA
         }
         Check(report, overlaps == 0, $"{tag}: no two cars overlap in the whole table ({overlaps} steps with an overlap)");
         Check(report, redRuns == 0, $"{tag}: no car crosses a stop line more than 1 s into the red ({redRuns}{(example != null ? ", " + example : "")})");
-        report.notes.Add($"{tag}: cars passing a crossing while people may be on it, under their own green (the signal plan, not fixed in 12.14, see the doc): right turns {turnOnWalk}, other {throughOnWalk}");
+        Check(report, lateRuns == 0, $"{tag}: no car runs a red after a yellow: every stop line is crossed in green or yellow ({lateRuns})");
+        string onWalk = $"{tag}: no car is on a crossing while its pedestrians have green (right turns {turnOnWalk}, other {throughOnWalk})";
+        if (strict) Check(report, turnOnWalk + throughOnWalk == 0, onWalk);
+        else report.notes.Add("NOTE " + onWalk);
+    }
+
+    // Every signalled crossing of the map: no signal of its junction shows green or yellow while its walk is on.
+    static void WalkOverlap(Report report, Crosswalk[] walks)
+    {
+        var all = UnityEngine.Object.FindObjectsByType<TrafficSignal>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        int overlaps = 0, checkedWalks = 0;
+        foreach (Crosswalk walk in walks)
+        {
+            if (!walk.signal) continue;
+            checkedWalks++;
+            var junction = Array.FindAll(all, x => (x.transform.position - walk.signal.transform.position).sqrMagnitude < 1f);
+            for (double t = 0; t < TrafficSignal.CycleSeconds; t += .05)
+                if (walk.signal.WalkAt(t, out _, out _) && Array.Exists(junction, x => x.PhaseAt(t, out _, out _) != TrafficSignal.Phase.Red))
+                    overlaps++;
+        }
+        Check(report, checkedWalks > 0 && overlaps == 0, $"no car green or yellow at a junction while one of its {checkedWalks} crossings has the walk ({overlaps} overlaps in 0.05 s steps of a cycle)");
     }
 
     static float Cross2(Vector3 o, Vector3 p, Vector3 q) => (p.x - o.x) * (q.z - o.z) - (p.z - o.z) * (q.x - o.x);

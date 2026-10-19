@@ -110,7 +110,7 @@ public sealed class CitizenWalker : MonoBehaviour
         rng = new System.Random(seed ^ (int)worldSeed);
         speed = 1.1f + R() * .4f;
         lookPhase = R() * 6.28f;
-        phase = TrafficSignal.LoopSeconds / 16 * rng.Next(16); // not everyone home at the end of the loop at once
+        phase = TrafficSignal.CycleSeconds * (double)rng.Next(TrafficSignal.CyclesPerLoop); // not everyone home at the end of the loop at once
         legs.Clear();
         Delay = 0;
         lastClock = double.NaN;

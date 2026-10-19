@@ -20,6 +20,8 @@ using Debug = UnityEngine.Debug;
 /// what each client draws at the same world time (cars within 1.0 m, citizens within 0.3 m; ones held back by someone
 /// in front are left out). Then a car must stop for the editor's player standing in its way and catch up afterwards.
 /// Screenshots (QA_SHOTS) of the remote client's cars and citizens.
+/// RunSignalShots (offline, BusinessDistrict played directly): at a junction where a car waits, S2_walk_cars_waiting.png
+/// in the pedestrians' green, then S2_yellow.png and S2_allred.png of the same approach; the lights are checked too.
 /// </summary>
 [InitializeOnLoad]
 public static class NpcSyncQA
@@ -62,11 +64,95 @@ public static class NpcSyncQA
         EditorApplication.EnterPlaymode();
     }
 
+    public static void RunSignalShots()
+    {
+        SessionState.SetString(ModeKey, "signals");
+        EditorSceneManager.OpenScene(TrafficMapBuilder.ScenePath, OpenSceneMode.Single);
+        EditorApplication.EnterPlaymode();
+    }
+
     static void OnPlayState(PlayModeStateChange change)
     {
         if (change != PlayModeStateChange.EnteredPlayMode || SessionState.GetString(ModeKey, "") == "") return;
+        string mode = SessionState.GetString(ModeKey, "");
         SessionState.SetString(ModeKey, "");
-        Drive(SessionState.GetString(ExeKey, ""));
+        if (mode == "signals") SignalShots(); else Drive(SessionState.GetString(ExeKey, ""));
+    }
+
+    // ---- signal phases on screen (offline) ----
+
+    static async void SignalShots()
+    {
+        int code = 0;
+        try
+        {
+            TrafficSpawner spawner = null;
+            await NpcQaProbe.Until(() => (spawner = UnityEngine.Object.FindAnyObjectByType<TrafficSpawner>()) && spawner.Plan != null, 60, "the traffic");
+            TrafficCar waiting = null;
+            TrafficSignal signal = null;
+            float end = Time.realtimeSinceStartup + 300f;
+            while (!waiting && Time.realtimeSinceStartup < end)
+            {
+                int i = 0;
+                foreach (TrafficCar car in spawner.Cars)
+                {
+                    spawner.Plan.Sample(i++, NpcClock.Now, out float speed, out int lane, out float at);
+                    TrafficSignal light = spawner.Plan.Lane(lane).signal;
+                    if (light && speed == 0f && spawner.Plan.StopLine(lane) - at < 6f && light.WalkAt(NpcClock.Now, out float inWalk, out _) && inWalk > .5f && inWalk < 2f)
+                    { waiting = car; signal = light; break; }
+                }
+                await Awaitable.NextFrameAsync();
+            }
+            Check(waiting, "a car waits at a stop line while the pedestrians have green");
+            if (!waiting) return;
+            var camera = new GameObject("QA signal camera").AddComponent<Camera>();
+            camera.fieldOfView = 55f;
+            // From the far end of the nearest crossing of that junction: its walk box faces this way, the waiting car beside it.
+            PedestrianSignal box = null;
+            float nearest = float.MaxValue;
+            foreach (var p in UnityEngine.Object.FindObjectsByType<PedestrianSignal>(FindObjectsSortMode.None))
+            {
+                if (!p.walk || !p.walk.signal || (p.walk.signal.transform.position - signal.transform.position).sqrMagnitude > 1f) continue;
+                float d = (p.transform.position - waiting.Position).sqrMagnitude;
+                if (d < nearest) { nearest = d; box = p; }
+            }
+            Check(box, "a walk box of that junction");
+            Vector3 face = box.transform.forward;
+            float across = Vector3.Distance(box.walk.endA.position, box.walk.endB.position);
+            camera.transform.position = box.transform.position + face * (across + 5f) + Vector3.up * 6f;
+            camera.transform.LookAt(Vector3.Lerp(box.transform.position + Vector3.up * 2.5f, waiting.Position, .4f));
+            await Snap(camera, "S2_walk_cars_waiting.png", signal, "walk",
+                () => signal.WalkAt(NpcClock.Now, out _, out _) && signal.Current == TrafficSignal.Phase.Red && PedestrianSignal.StateOf(box.walk) == 1);
+            Check(PedestrianSignal.StateOf(box.walk) == 1, "walk: the walk box shows the steady green figure");
+            // The yellow and the all red from an approach of that signal: in front of its lamps, where the drivers are.
+            Transform lamps = signal.heads[0].yellow.transform;
+            Vector3 drivers = lamps.parent.forward;
+            camera.transform.position = lamps.position + drivers * 16f - Vector3.up * 2.5f + Vector3.Cross(Vector3.up, drivers) * 2f;
+            camera.transform.LookAt(lamps.position - Vector3.up * 3f - drivers * 4f);
+            await NpcQaProbe.Until(() => signal.Current == TrafficSignal.Phase.Yellow && signal.TimeInPhase > 1f, 90, "the yellow");
+            await Snap(camera, "S2_yellow.png", signal, "yellow", () => signal.Current == TrafficSignal.Phase.Yellow);
+            await NpcQaProbe.Until(() => signal.Current == TrafficSignal.Phase.Red && !signal.WalkAt(NpcClock.Now, out _, out _), 10, "the all red");
+            await Snap(camera, "S2_allred.png", signal, "all red",
+                () => signal.Current == TrafficSignal.Phase.Red && !signal.WalkAt(NpcClock.Now, out _, out _));
+            Log("RESULT signals passed, checks=" + checks + (failures > 0 ? " FAILED " + failures : ""), failures > 0);
+            if (failures > 0) code = 1;
+        }
+        catch (Exception e) { Log("RESULT signals FAILED: " + e.Message, true); code = 1; }
+        EditorApplication.Exit(code);
+    }
+
+    // The lamps really show the phase (the emission of the head facing this approach), then the picture.
+    static async Task Snap(Camera camera, string file, TrafficSignal signal, string phase, Func<bool> still)
+    {
+        await Awaitable.WaitForSecondsAsync(.2f);
+        var head = signal.heads[0];
+        var block = new MaterialPropertyBlock();
+        float Lit(Renderer r) { r.GetPropertyBlock(block); return block.GetColor("_EmissionColor").maxColorComponent; }
+        bool redOn = Lit(head.red) > 1f, yellowOn = Lit(head.yellow) > 1f, greenOn = Lit(head.green) > 1f;
+        bool lamps = phase == "yellow" ? yellowOn && !redOn && !greenOn : redOn && !yellowOn && !greenOn;
+        Check(still() && lamps, $"{phase}: the car lamps show it (red {redOn}, yellow {yellowOn}, green {greenOn})");
+        string dir = Environment.GetEnvironmentVariable("QA_SHOTS");
+        if (!string.IsNullOrEmpty(dir)) { Directory.CreateDirectory(dir); await TitleShots.Snap(camera, Path.Combine(dir, file)); }
     }
 
     static async void Drive(string exe)

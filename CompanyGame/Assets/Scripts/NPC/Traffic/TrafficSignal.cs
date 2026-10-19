@@ -2,8 +2,10 @@ using System;
 using UnityEngine;
 
 /// <summary>
-/// Fixed-cycle traffic light (green, yellow, red). The phase is a pure function of <see cref="Clock"/>, the shared
-/// NpcClock (12.14), so every PC of one server shows the same lights.
+/// Fixed-cycle traffic light. The phase is a pure function of <see cref="Clock"/>, the shared NpcClock (12.14), so every
+/// PC of one server shows the same lights. Every signal runs the same 70 s cycle (12.14, 2026-10-20), the two groups of a
+/// junction half a cycle apart: this group green 12 s, yellow 3 s, all red 2 s, pedestrians 16 s on every crossing of the
+/// junction, all red 2 s, then the other group the same way. Cars and pedestrians are never let go at the same time.
 /// </summary>
 public sealed class TrafficSignal : MonoBehaviour
 {
@@ -16,10 +18,14 @@ public sealed class TrafficSignal : MonoBehaviour
         public Renderer red, yellow, green;
     }
 
-    [Min(.5f)] public float green = 12f;
-    [Min(.5f)] public float yellow = 3f;
-    [Min(.5f)] public float red = 15f;
-    [Tooltip("Shifts this signal inside the shared cycle. A crossing road uses green + yellow so it is red while this one is green.")]
+    /// <summary>Seconds of each part of a half cycle (one group's turn): green, yellow, all red, pedestrians, all red.</summary>
+    public const float Green = 12f, Yellow = 3f, AllRed = 2f, Walk = 16f;
+    public const float CycleSeconds = 2f * (Green + Yellow + AllRed + Walk + AllRed);
+    /// <summary>Citizens and traffic repeat after this many seconds: 8 signal cycles.</summary>
+    public const int CyclesPerLoop = 8;
+    public const double LoopSeconds = CyclesPerLoop * (double)CycleSeconds;
+
+    [Tooltip("Shifts this signal inside the shared cycle. The crossing group of a junction is half a cycle later (TrafficMapBuilder).")]
     public float offset;
     public Head[] heads = Array.Empty<Head>();
 
@@ -33,27 +39,38 @@ public sealed class TrafficSignal : MonoBehaviour
 
     Phase shown = (Phase)(-1);
 
-    /// <summary>Citizens and traffic repeat after this many seconds: 16 cycles of the map's 38 s signals (TrafficMapBuilder).</summary>
-    public const double LoopSeconds = 16 * 38;
-
     public static double Clock => NpcClock.Now;
-    public float Cycle => green + yellow + red;
+    public float Cycle => CycleSeconds;
     public Phase Current => PhaseAt(Clock, out _, out _);
     public float TimeInPhase { get { PhaseAt(Clock, out float inPhase, out _); return inPhase; } }
     public float TimeLeft { get { PhaseAt(Clock, out _, out float left); return left; } }
 
-    /// <summary>Phase at a given shared clock value, with the seconds spent in it and the seconds remaining.</summary>
+    float CycleTime(double clock) => (float)(((clock + offset) % CycleSeconds + CycleSeconds) % CycleSeconds);
+
+    /// <summary>Car phase at a given shared clock value, with the seconds spent in it and the seconds remaining.</summary>
     public Phase PhaseAt(double clock, out float timeInPhase, out float timeLeft)
     {
-        float cycle = Mathf.Max(.1f, Cycle);
-        float t = (float)(((clock + offset) % cycle + cycle) % cycle);
-        if (t < green) { timeInPhase = t; timeLeft = green - t; return Phase.Green; }
-        t -= green;
-        if (t < yellow) { timeInPhase = t; timeLeft = yellow - t; return Phase.Yellow; }
-        t -= yellow;
+        float t = CycleTime(clock);
+        if (t < Green) { timeInPhase = t; timeLeft = Green - t; return Phase.Green; }
+        t -= Green;
+        if (t < Yellow) { timeInPhase = t; timeLeft = Yellow - t; return Phase.Yellow; }
+        t -= Yellow;
         timeInPhase = t;
-        timeLeft = red - t;
+        timeLeft = CycleSeconds - Green - Yellow - t;
         return Phase.Red;
+    }
+
+    /// <summary>
+    /// Whether the junction's pedestrians have green at that clock value (twice a cycle, after each group's yellow and
+    /// all red), with the seconds of it gone and left. Every signal of one junction gives the same answer.
+    /// </summary>
+    public bool WalkAt(double clock, out float inWalk, out float left)
+    {
+        const float half = CycleSeconds / 2f;
+        float t = ((CycleTime(clock) - (Green + Yellow + AllRed)) % half + half) % half;
+        inWalk = t;
+        left = Walk - t;
+        return t < Walk;
     }
 
     void Update()
