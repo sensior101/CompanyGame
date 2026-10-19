@@ -43,7 +43,7 @@ public enum CharacterResult : byte { Ok = 0, NameTaken = 1, Invalid = 2, Already
 /// </summary>
 public static class SyncProtocol
 {
-    public const ushort Version = 8;
+    public const ushort Version = 9; // 9: player chat (Op "chat", world event 6)
     // The frame limit is 64KB for the 48KB character content; entity blobs stay at 4KB.
     public const int MaxFrame = 64 * 1024, MaxBlob = 4 * 1024, MaxCharacter = 48 * 1024, MaxFramesPerSecond = 300, MaxEntitiesPerConnection = 256;
     /// <summary>A blob the server made (a world section, 12.9). Still one u16 length, and one State of it stays under <see cref="MaxFrame"/>.</summary>

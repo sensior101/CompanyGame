@@ -250,6 +250,7 @@ public sealed class WorldStateSync : MonoBehaviour
         catch (Exception e) { Debug.LogException(e); }
         if (ServerBooks.Kinds.Contains(kind)) { BookAnswered(kind, json, error); ApplyLedger(); return; } // no chat line for books
         if (kind == "p.inv.layout") { ApplyLedger(); return; } // nor layouts: a refused one is put back by its Ledger
+        if (kind == ServerWorld.ChatKind) { if (!string.IsNullOrEmpty(error)) Say(error); ApplyLedger(); return; } // the line itself comes as Chat
         string text;
         if (string.IsNullOrEmpty(error))
         {
@@ -273,6 +274,19 @@ public sealed class WorldStateSync : MonoBehaviour
 
     /// <summary>Sends a chat command (the line after "/") to the server; it answers with Notice lines or a refusal.</summary>
     public static bool SendAdmin(string line) => SendOp(ServerAdmin.Kind, JsonUtility.ToJson(new SharedOpArgs { a = line }));
+
+    /// <summary>Sends a chat line to everyone on the server; it comes back to every chat (mine too) through <see cref="Chatted"/>.</summary>
+    public static bool SendChat(string text) => SendOp(ServerWorld.ChatKind, JsonUtility.ToJson(new SharedOpArgs { a = text }));
+
+    /// <summary>A player's chat line from the server: character name, text (rich text already made literal).</summary>
+    public static event Action<string, string> Chatted;
+
+    internal static void OnChat(BinaryReader r)
+    {
+        string name = SyncProtocol.ReadStr(r), text = SyncProtocol.ReadStr(r);
+        try { Chatted?.Invoke(name, text); }
+        catch (Exception e) { Debug.LogException(e); }
+    }
 
     internal static void OnNotice(BinaryReader r)
     {

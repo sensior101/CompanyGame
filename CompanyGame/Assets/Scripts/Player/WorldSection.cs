@@ -6,12 +6,12 @@ using System.IO;
 /// economy (stocks, companies, properties, plots, reports, sns), 8 the library (12.10.6). The server owns it and sends each section as a whole
 /// blob; a copy hands what it gets to WorldStateSync. Events: 1 Op (client → server), 2 OpResult (server → requester),
 /// 3 Ledger (server → that character's connection only: its own bank money and stocks, 12.10.1), 4 BookText (server →
-/// the requester of book.get only: a book's body in parts, 12.10.3), 5 Notice (server → one connection or everyone: a chat
+/// the requester of book.get only: a book's body in parts, 12.10.3), 6 Chat (server → everyone: a player's chat line, the character name and the text), 5 Notice (server → one connection or everyone: a chat
 /// line, an admin's answer or announcement, 12.15).
 /// </summary>
 public sealed class WorldSection : NetBehaviour
 {
-    public const byte OpEvent = 1, OpResultEvent = 2, LedgerEvent = 3, BookTextEvent = 4, NoticeEvent = 5;
+    public const byte OpEvent = 1, OpResultEvent = 2, LedgerEvent = 3, BookTextEvent = 4, NoticeEvent = 5, ChatEvent = 6;
 
     /// <summary>Section number (the order on the template, the same everywhere).</summary>
     public int index;
@@ -35,5 +35,6 @@ public sealed class WorldSection : NetBehaviour
         else if (id == LedgerEvent) WorldStateSync.OnLedger(r);
         else if (id == BookTextEvent) WorldStateSync.OnBookText(r);
         else if (id == NoticeEvent) WorldStateSync.OnNotice(r);
+        else if (id == ChatEvent) WorldStateSync.OnChat(r);
     }
 }

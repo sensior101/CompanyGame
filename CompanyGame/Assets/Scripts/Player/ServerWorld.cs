@@ -235,6 +235,11 @@ public sealed class ServerWorld : MonoBehaviour
         string from = server.AccountOf(sender);
         if (string.IsNullOrEmpty(from) || server.World.Find(from) == null) return; // no character, no say in the world
         string error;
+        if (kind == ChatKind)
+        {
+            Answer(sender, kind, Chat(from, json));
+            return;
+        }
         if (kind == ServerAdmin.Kind)
         {
             error = Admin.Chat(sender, from, json); // its answers went out as Notice already
@@ -273,6 +278,23 @@ public sealed class ServerWorld : MonoBehaviour
         SyncProtocol.WriteStr(w, kind.Length > 64 ? kind.Substring(0, 64) : kind);
         SyncProtocol.WriteStr(w, error ?? "");
     }));
+
+    public const string ChatKind = "chat";
+    public const int ChatMax = 200;
+
+    // A player's chat line to everyone, under the character name of this world (never what the client wrote). Rich text is
+    // shown as typed. Flooding is the connection's message rate limit (GameServer).
+    string Chat(string from, string json)
+    {
+        string text = (JsonUtility.FromJson<SharedOpArgs>(json)?.a ?? "").Replace('\n', ' ').Replace('\r', ' ').Trim();
+        if (text.Length == 0) return "";
+        if (text.Length > ChatMax) return "채팅은 " + ChatMax + "자까지 보낼 수 있습니다.";
+        string name = server.World.Find(from)?.name ?? "?";
+        Debug.Log("[Chat] " + name + ": " + text);
+        string shown = "<noparse>" + text.Replace("</noparse>", "") + "</noparse>";
+        server.SendServerEvent(EntityId, 0, WorldSection.ChatEvent, 0, Bytes(w => { SyncProtocol.WriteStr(w, name); SyncProtocol.WriteStr(w, shown); }));
+        return "";
+    }
 
     /// <summary>A line in the chat of connection <paramref name="to"/>, or of everyone with 0 (12.15).</summary>
     public void Notice(uint to, string text)

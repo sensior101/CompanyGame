@@ -71,6 +71,14 @@ public static class DedicatedServerQA
             Console(s, "say 안녕하세요", "공지를 보냈습니다");
             foreach (var f in new[] { a, b, c }) Notice(f, "[공지] 안녕하세요").Wait();
             Check(true, "say: every player got the announcement");
+
+            Section("player chat");
+            Op(b, "안녕 <b>모두</b>", ServerWorld.ChatKind);
+            foreach (var f in new[] { a, b, c })
+                Check(ChatLine(f).Result == "QA_b|<noparse>안녕 <b>모두</b></noparse>", "chat reaches everyone (connection " + f.number + ") under the character name, rich text literal");
+            Check(OpResult(b).Result == "", "chat: no error for the sender");
+            Op(b, new string('가', ServerWorld.ChatMax + 1), ServerWorld.ChatKind);
+            Check(OpResult(b).Result.Contains(ServerWorld.ChatMax + "자") && !a.peer.Has(m => IsEvent(a, m, WorldSection.ChatEvent)), "a line over " + ServerWorld.ChatMax + " characters is refused and sent to no one");
             Console(s, "kick QA_c", "QA_c을(를) 내보냈습니다");
             Check(Rejected(c, RejectReason.Kicked).Result, "kick: QA_c is closed with Reject(Kicked)");
             Console(s, "ban qa_b", "QA_b을(를) 차단했습니다(내보냄)");
@@ -570,13 +578,13 @@ public static class DedicatedServerQA
     }
 
     // Earlier answers are dropped first: OpResult then reads this command's.
-    static void Op(Fake f, string line)
+    static void Op(Fake f, string line, string kind = ServerAdmin.Kind)
     {
         f.peer.Pump();
         f.peer.inbox.RemoveAll(m => IsEvent(f, m, WorldSection.OpResultEvent));
         f.peer.Send(SyncProtocol.Event(f.world, 0, WorldSection.OpEvent, EventTarget.Server, Blob(w =>
     {
-        SyncProtocol.WriteStr(w, ServerAdmin.Kind);
+        SyncProtocol.WriteStr(w, kind);
         SyncProtocol.WriteStr(w, JsonUtility.ToJson(new SharedOpArgs { a = line }));
     })));
     }
@@ -593,6 +601,14 @@ public static class DedicatedServerQA
     {
         await Wait(() => f.peer.Has(m => IsEvent(f, m, WorldSection.NoticeEvent) && NoticeText(m).Contains(part)), 10, "the notice '" + part + "'");
         f.peer.Take(m => IsEvent(f, m, WorldSection.NoticeEvent) && NoticeText(m).Contains(part));
+    }
+
+    // "name|text" of the next player chat line (world event 6).
+    static async Task<string> ChatLine(Fake f)
+    {
+        await Wait(() => f.peer.Has(m => IsEvent(f, m, WorldSection.ChatEvent)), 10, "a chat line");
+        using var r = SyncProtocol.Reader(f.peer.Take(m => IsEvent(f, m, WorldSection.ChatEvent)).blob);
+        return SyncProtocol.ReadStr(r) + "|" + SyncProtocol.ReadStr(r);
     }
 
     static bool IsEvent(Fake f, QaMsg m, byte id) => m.kind == ToClient.Event && m.id == f.world && m.eventId == id && m.sender == 0;

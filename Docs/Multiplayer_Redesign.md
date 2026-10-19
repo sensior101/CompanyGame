@@ -2149,3 +2149,9 @@ SyncClient.Instance.Spawn(prefabKey: "Net/Door", instance, flags);
 - 전용 서버 실행 파일: Windows·Linux는 지금 프로세스의 실행 파일, macOS는 `CompanyGame.app/Contents/MacOS/` 안의 실행 파일. macOS는 다른 프로세스의 경로를 믿을 수 없어 이름만으로 "우리 서버"인지 봅니다(`LocalServerProcess.IsOurs`, ponytail). 모바일·에디터는 전용 서버 없음(`dedicated_unavailable`).
 - 따로 내는 서버 묶음·`StartServer.bat`은 없습니다. 서버 컴퓨터에서도 게임을 켜서 전용 서버 메뉴로 시작하고 게임을 끄면 됩니다. 명령줄 실행(`-gameserver -serversettings … -console`)은 그대로 됩니다.
 - 시험: `ServerOpenQA.Run`(서버 열기, 앱 안), `ServerOpenQA.RunProcess`(전용 서버 메뉴로 실행 중 화면·접속·끄기), `TitleFlowQA.Run`. **맥 전용 서버는 맥에서 직접 해 봐야 합니다**(이 PC에서 확인 못 함). Linux 빌드는 만들지 않았습니다(모듈 없음).
+
+### 12.17 플레이어 채팅 공유 (2026-10-19)
+
+- 예전에는 일반 채팅이 내 화면에만 찍혔습니다(12.15 "하지 않는 것"). 이제 서버를 거쳐 그 서버의 모든 플레이어에게 갑니다.
+- 클라이언트: `WorldStateSync.SendChat` → Op `chat`. 서버: `ServerWorld.Chat`이 글자 수(최대 200)를 보고, **서버가 아는 캐릭터 이름**으로 월드 이벤트 6(`ChatEvent`: 이름, 글)을 모두에게 보냄. 보낸 사람도 서버에서 돌아온 줄로 봅니다(`WorldStateSync.Chatted` → `ChatUIManager`). 서식 태그는 `<noparse>`로 감싸 글자 그대로 보입니다. 도배는 연결별 메시지 속도 제한(GameServer)이 막습니다. 서버 로그에 `[Chat] 이름: 글`.
+- 프로토콜 버전 9(새 빌드끼리만 접속). 시험: `DedicatedServerQA.RunConsole`의 "player chat"(가짜 3명 모두 받음, 201자 거절).
