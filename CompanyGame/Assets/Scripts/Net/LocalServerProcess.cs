@@ -7,7 +7,7 @@ using Debug = UnityEngine.Debug;
 /// <summary>
 /// "My PC server" (Docs/Multiplayer_Redesign.md 12.3): this game's own exe started as a windowless server process
 /// (<c>-batchmode -nographics -gameserver &lt;port&gt; -serversettings &lt;path&gt;</c>) that keeps running after the game closes.
-/// The server writes <see cref="RunningPath"/> (pid, port) when it listens; that file is how the title finds it again.
+/// The server writes <see cref="RunningPath"/> (pid, port; the server code once its EOS session exists) when it listens; that file is how the title finds it again.
 /// Stopping (12.5) writes <see cref="StopRequestPath"/>: the server saves its world and quits; after 5 seconds it is killed,
 /// and only a process whose name and path are this exe's, never whatever now has that pid.
 /// The editor has no exe to start (<see cref="CanStart"/> false): it uses the in-app server instead, and QA sets <see cref="ExePath"/>.
@@ -22,6 +22,8 @@ public static class LocalServerProcess
         public string startedAt;
         /// <summary>The world it serves (혼자 하기 must not open the same one).</summary>
         public string world;
+        /// <summary>Its server code once its EOS session exists, "" before that or without EOS (12.13).</summary>
+        public string code = "";
     }
 
     /// <summary>The server exe. Null in the editor unless QA points it at a build.</summary>

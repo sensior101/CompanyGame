@@ -1789,3 +1789,42 @@ SyncClient.Instance.Spawn(prefabKey: "Net/Door", instance, flags);
 6. 스크린샷: 참가하기(목록 있음·비어 있음·EOS 없음), 서버 코드 입력, 일시정지 메뉴(서버 코드·연결 종류), 서버 열기(공개/비공개 문구)
 
 **총괄 검수 방법.** diff 전체 읽기. 특히 조각 합치기의 길이 검사(512KB 상한, 음수·초과 길이), ID 토큰 확인 전에 Hello가 처리되지 않는지, 127.0.0.1 예외가 서버 자신의 PUID로만 열리는지, EOS 호출이 메인 스레드에서만 일어나는지, 세션 갱신 횟수가 한도 안인지. QA를 다시 돌리고 스크린샷을 봅니다.
+
+#### 12.13 결과 (구현 완료, 총괄 검수 전)
+
+**테스트 수치**(2026-10-19, `_temp/qa2b2/regress.sh`, 로그 `_temp/qa2b2/r_*.log`). 모두 통과.
+- 새 QA `EosConnectQA`: `Run` 43(조각 나누기·합치기, MultiTransport, 신원 확인 대기, Ping/Pong), `RunPlay` 31(계정, ID 토큰, 세션, 화면), `RunNoEos` 6, `RunProcess` 9(별도 프로세스), `RunBundle` 5(시험 묶음)
+- 회귀(EOS 끄고, `COMPANYGAME_NOEOS=1`): `SyncLayerQA` 59·13·6·load, `AvatarSyncQA` 11·27, `CharacterQA` 36·33·14, `DropSyncQA` 38·58, `EconomySyncQA` 42·61·54, `LedgerQA` 10·66·18, `BookSyncQA` 51·73·14, `InventoryLedgerQA` 50·94·25, `WorldItemQA` 67·93·19, `LibrarySyncQA` 58·79·31, `ServerOpenQA` 60·45, `WorldSaveQA` 41, `TrafficQA` 2909, `TitleFlowQA.Run` 34, `RunOffline` 11
+- `EosTestQA.RunPlay`(EOS 켬) 2회 PUID 같음. `npm test` Node 11개(10 통과, 1 워커 전용 건너뜀), Worker 11개(손대지 않음)
+
+**완료 기준 확인**
+1. 컴파일 오류 0. `LocalAccount`·`PlayerData`·`ServerBudget`·`ServerConfig`·`SignIn` grep(`.cs`·`.asmdef`) 결과 없음.
+2. 위 회귀 수치(`ServerBudgetQA`는 지움).
+3. `EosConnectQA`: 1바이트·1166/1167·1170·2336/2337·512KB 프레임이 그대로 오가고, 음수·512KB 초과 길이·프레임을 넘는 조각·4바이트 미만 첫 조각은 거절(이후 계속 거절). MultiTransport(TCP 2 + 루프백 1, 안쪽 번호 1·2/1/1·2가 겹침)에서 번호 5개가 다르고 끊김이 맞게 옴. ID 토큰: 내 SyncClient가 실제 토큰으로 TCP 접속 → `VerifyIdToken` 통과 → Welcome, 다른 account + 내 토큰 → Reject(Identity), 127.0.0.1 예외를 끄면 토큰 없는 내 PUID도 Reject(Identity), 예외를 켜면 통과(그다음 AlreadyConnected), EOS 없는 서버(IdentityCheck 없음)는 그대로 통과. Sessions: 세션 생성(코드 = 월드 id에서), 목록·코드 검색에 나옴, 인원 1이 반영됨, 비공개로 바꾸면 목록에서 빠지고 코드로는 나옴, 인원 0 반영, 시각을 6분 당기면 숨겨짐, 1.6분에 갱신 3회, 서버를 끄면 세션 삭제(Success). 계정: PUID가 `LocalPlayerId`(슬롯 3도), EOS를 끄면 PC GUID로 혼자 하기가 됨.
+4. `RunProcess`: 빌드한 exe를 서버 열기로 띄움 → `running.json`에 코드 → 같은 PUID의 세션 검색됨 → 에디터가 127.0.0.1로 접속, 서버 로그에 `confirmed (ID token)` → 끄기 때 세션을 지우고 종료(`removed: Success`).
+5. **사용자 확인 대기.** 시험 묶음 `CompanyGame/Builds/Game2b2.zip`(Windows, 145MB), `Game2b2Mac.zip`(macOS Universal, 147MB), 안내 `README_2b2.txt`(묶음 안). 같은 PUID끼리 P2P가 안 되므로(12.4) EOS P2P 통로(`EosServerTransport`/`EosClientTransport`)는 이 PC에서 실제로 오가 보지 못했습니다. 조각 계층만 시험됨.
+6. 스크린샷(`_temp/qa2b2/shots/`): `E_join_list.png`, `E_join_empty.png`, `E_join_noeos.png`, `E_join_code.png`, `E_pause.png`(서버 코드, 직접(TCP), 왕복 ms), `E_open_public.png`, `E_open_private.png`.
+
+**설계와 달라진 점**
+- 프로토콜 버전은 3이 아니라 **6**(지금이 5였음). Hello 끝에 토큰, 그리고 왕복 시간을 재려고 `Ping`(11)/`Pong`(111)을 추가(EOS P2P에는 RTT를 알려 주는 API가 없음). 클라이언트가 접속 중 2초마다 보냄.
+- 서버 코드는 월드 파일에 따로 저장하지 않고 **월드 id의 해시에서 만듦**(`ServerSettings.CodeOf`, 30비트). 다시 켜도 같고 파일 형식이 바뀌지 않음. 두 서버가 같은 코드일 확률은 쌍마다 약 10억분의 1(그러면 두 번째 서버는 세션 없이 돔).
+- 조각 나누기·합치기는 가짜 P2P 계층 대신 `PacketFraming`(NetCore, EOS와 무관)을 직접 시험. EOS 호출만 하는 얇은 부분은 시험하지 않음(완료 기준 5에서 확인).
+- 계정: EOS 설정이 없거나 `-noeos`/환경 변수 `COMPANYGAME_NOEOS=1`이면 PC GUID. **로그인 실패(인터넷 없음 등)면 이 슬롯에 기억된 마지막 PUID를 유지**(설계는 GUID. 혼자 하기 월드의 캐릭터가 오프라인에서 사라지지 않게). 프로필 슬롯을 바꿔도 같은 PUID가 됨.
+- 계정이 접속 중에 바뀌지 않도록 혼자 하기·서버 열기·참가하기는 **EOS 로그인이 끝날 때까지(최대 40초) 기다린 뒤** 접속함. 타이틀 화면 자체는 막지 않음.
+- `-noeos` 스위치를 추가. 옛 QA는 가짜 계정을 쓰므로 EOS를 끄고 돌림(`regress.sh`가 기본으로 켬). 한 PC 두 창 시험도 서버와 두 창 모두 `-noeos`(같은 OS 사용자는 PUID가 같아 AlreadyConnected).
+- 서버의 EOS 로그인이 실패하면 EOS 없는 서버처럼 Hello를 믿음(한 줄 경고). 로그인 중이면 확인이 로그인 끝을 기다림(최대 9초).
+- 코드 검색도 `hb`가 오래된 세션을 숨김(강제 종료된 서버는 어차피 못 들어감).
+- 목록의 자물쇠는 글꼴에 아이콘이 없어 "· 비밀번호" 글자로 표시. 직접 주소 입력은 "직접 주소 입력 (데디케이티드·같은 네트워크)" 아래로 접음.
+- 목록이나 코드로 고른 서버가 내 PUID면 P2P 대신 내 PC 서버 프로세스(127.0.0.1)로 접속, 앱 안 서버면 `own_server` 안내.
+- `running.json`의 코드는 세션이 만들어진 뒤에 씀(그전엔 ""). "내 서버 실행 중" 화면이 코드를 보여 줌.
+- 설정 화면에 EOS 상태 한 줄(연결됨/연결하는 중/안 됨)을 둠.
+- `GameSession.AccountChanged`에 구독자가 없었음. `WorldSave`에 붙여 오프라인 월드의 소유자를 PUID로 옮김(서버 월드 안에서는 하지 않음).
+- **고친 버그(이번 구현 중):** 서버 프로세스가 `EosAccount`보다 먼저 시작돼 EOS 없이 열리던 문제. 실행 순서와 무관한 `EosAccount.OffReason()`으로 판단(완료 기준 4가 잡음).
+
+**남은 문제**
+- EOS P2P 통로 실전 확인(완료 기준 5, 사용자). 중계(relay) 경로도 그때 함께 보면 좋음.
+- 강제 종료 직후 같은 월드로 서버를 다시 켜면 남은 세션과 세션 id가 겹쳐 만들기가 실패할 수 있음. 1분마다 다시 시도함(시험 안 함).
+- 맥은 서버 프로세스를 띄우지 않음(앱 안 서버). 시험 묶음 안내도 서버는 Windows에서 열게 함.
+- Android에서 `StreamingAssets/EOS` 확인이 `File.Exists`라 안 됨(ponytail 표시).
+- `EosProbe`와 `EosAccount`의 Device ID 로그인 코드가 겹침(시험 코드는 그대로 둠).
+- `Server/`(계정 서버)와 배포된 Worker는 그대로. 게임은 더 쓰지 않음.

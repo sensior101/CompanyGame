@@ -779,6 +779,7 @@ public static class SyncLayerQA
                     m.minutes = r.ReadUInt32(); m.worldMinutes = r.ReadUInt32(); m.blob = SyncProtocol.ReadBlob32(r);
                     break;
                 case ToClient.CharacterResult: m.result = (CharacterResult)r.ReadByte(); break;
+                case ToClient.Pong: m.number = r.ReadUInt32(); break;
                 default: throw new Exception("[SyncLayerQA] FAIL: unknown message kind " + (byte)m.kind);
             }
             SyncProtocol.End(r);

@@ -6,7 +6,6 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using PlayEveryWare.EpicOnlineServices;
 using UnityEditor;
 using UnityEditor.Build.Reporting;
 using UnityEditor.SceneManagement;
@@ -15,7 +14,6 @@ using Debug = UnityEngine.Debug;
 
 /// <summary>
 /// EOS test (Docs/Multiplayer_Redesign.md 12.4) on this PC, and the bundle for a teammate's PC.
-///   -executeMethod EosTestQA.WriteConfig  StreamingAssets/EOS (git-ignored, holds the client secret) from CompanyGame/eos.local.json (with -quit)
 ///   -executeMethod EosTestQA.RunPlay      play mode twice in a row, each time an EosProbe client: Device ID login gives a PUID (tests 1, 2 editor)
 ///                                         (WITHOUT -quit; the QA exits the editor)
 ///   -executeMethod EosTestQA.RunProcess   builds Builds/EosTest, runs a windowless -eostest server and a windowed -eostest client of the
@@ -24,6 +22,7 @@ using Debug = UnityEngine.Debug;
 ///   -executeMethod EosTestQA.RunMac       builds Builds/EosTestMac (needs Mac Build Support), checks the EOS library and config in the .app,
 ///                                         adds the .command scripts and README, zips Builds/EosTestMac.zip (with -quit)
 /// Scripts and READMEs for the bundles are in EosTestBundle~ next to this file (Unity skips folders ending in ~).
+/// The plugin config they need is written by EosConfig.Write (12.13).
 /// </summary>
 [InitializeOnLoad]
 public static class EosTestQA
@@ -36,58 +35,11 @@ public static class EosTestQA
 
     static EosTestQA() => EditorApplication.playModeStateChanged += OnPlayState;
 
-    [Serializable]
-    sealed class LocalValues
-    {
-        public string ProductId, SandboxId, DeploymentId, ClientId, ClientSecret;
-    }
-
-    // ================= config =================
-
-    /// <summary>Writes the plugin's product and Windows config with the plugin's own Config classes. Never logs the values.</summary>
-    [MenuItem("CompanyGame/Net/Write EOS Config")]
-    public static void WriteConfig()
-    {
-        string path = Path.GetFullPath(Path.Combine(Application.dataPath, "../eos.local.json"));
-        if (!File.Exists(path)) throw new FileNotFoundException("no EOS values: copy eos.local.example.json to eos.local.json and fill it in", path);
-        var local = UnityEngine.JsonUtility.FromJson<LocalValues>(File.ReadAllText(path));
-
-        var product = PlayEveryWare.EpicOnlineServices.Config.Get<ProductConfig>();
-        string key = product.Clients.FirstOrDefault()?.Value?.EncryptionKey; // keep the key between writes (only Player/Title Data Storage use it)
-        var credentials = new EOSClientCredentials(local.ClientId, local.ClientSecret, EOSClientCredentials.IsEncryptionKeyValid(key) ? key : EOSClientCredentials.GenerateEncryptionKey());
-        var deployment = new Deployment { SandboxId = SandboxId.FromString(local.SandboxId), DeploymentId = Guid.Parse(local.DeploymentId) };
-        product.ProductName = "CompanyGame";
-        product.ProductVersion = "1";
-        product.ProductId = Guid.Parse(local.ProductId);
-        product.Clients.Clear();
-        product.Clients.Add(credentials);
-        product.Environments.Deployments.Clear();
-        product.Environments.Sandboxes.Clear();
-        product.Environments.AddDeployment(deployment);
-        product.Write();
-
-        var windows = PlayEveryWare.EpicOnlineServices.Config.Get<WindowsConfig>();
-        windows.deployment = deployment;
-        windows.clientCredentials = credentials;
-        windows.isServer = false; // the server process logs in with a Device ID like a player; that is what is being tested
-        windows.platformOptionsFlags = WrappedPlatformFlags.DisableOverlay | WrappedPlatformFlags.DisableSocialOverlay; // no overlay in a windowless server
-        windows.Write();
-
-        var mac = PlayEveryWare.EpicOnlineServices.Config.Get<MacOSConfig>(); // the same settings for the macOS bundle
-        mac.deployment = deployment;
-        mac.clientCredentials = credentials;
-        mac.isServer = false;
-        mac.platformOptionsFlags = windows.platformOptionsFlags;
-        mac.Write();
-        AssetDatabase.Refresh();
-        Debug.Log("[EosTestQA] wrote EOS config to " + Path.GetDirectoryName(product.FilePath) + " (values not logged)");
-    }
-
     // ================= play mode (tests 1, 2) =================
 
     public static void RunPlay()
     {
-        WriteConfig();
+        EosConfig.Write();
         EditorSceneManager.OpenScene(TitleSceneBuilder.ScenePath, OpenSceneMode.Single);
         SessionState.SetString(PuidKey, "");
         SessionState.SetString(FailKey, "");
@@ -141,7 +93,7 @@ public static class EosTestQA
     public static void RunProcess()
     {
         checks = 0;
-        WriteConfig();
+        EosConfig.Write();
         string dir = Path.GetFullPath(Path.Combine(Application.dataPath, "../Builds/EosTest"));
         string qa = Path.GetFullPath(Path.Combine(Application.dataPath, "../Builds/EosTestQA"));
         string exe = Path.Combine(dir, Exe);
@@ -210,10 +162,10 @@ public static class EosTestQA
         return Zip(dir, "EosTest", _ => false);
     }
 
-    static string Templates => Path.Combine(Application.dataPath, "Scripts/Editor/Net/EosTestBundle~");
+    internal static string Templates => Path.Combine(Application.dataPath, "Scripts/Editor/Net/EosTestBundle~");
 
     /// <summary>Copies scripts with the line ends their OS needs (git may have changed them); .ps1 gets a BOM so Windows PowerShell 5.1 reads Korean.</summary>
-    static void CopyTemplates(string dir, params string[] names)
+    internal static void CopyTemplates(string dir, params string[] names)
     {
         foreach (string name in names)
         {
@@ -225,7 +177,7 @@ public static class EosTestQA
 
     /// <summary>Everything shippable in <paramref name="dir"/> into Builds/&lt;name&gt;.zip under the folder &lt;name&gt;/.
     /// Files for which <paramref name="executable"/> holds get Unix mode 0755 (others 0644) and the zip is marked as made on Unix, so macOS keeps the bits.</summary>
-    static string Zip(string dir, string name, Func<string, bool> executable)
+    internal static string Zip(string dir, string name, Func<string, bool> executable)
     {
         string zip = Path.Combine(Path.GetDirectoryName(dir), name + ".zip");
         File.Delete(zip);
@@ -260,32 +212,14 @@ public static class EosTestQA
     public static void RunMac()
     {
         checks = 0;
-        WriteConfig();
+        EosConfig.Write();
         string dir = Path.GetFullPath(Path.Combine(Application.dataPath, "../Builds/EosTestMac"));
         if (Directory.Exists(dir)) Directory.Delete(dir, true); // the plugin notes that building over an old .app misbehaves
         Directory.CreateDirectory(dir);
         string app = Path.Combine(dir, "CompanyGame.app");
         string scene = Array.Find(EditorBuildSettings.scenes, s => s.enabled).path;
-        var activeTarget = EditorUserBuildSettings.activeBuildTarget;
-        // by reflection: the type exists only with Mac Build Support, and this file must compile without it
-        var archProperty = Type.GetType("UnityEditor.OSXStandalone.UserBuildSettings, UnityEditor.OSXStandalone.Extensions")?.GetProperty("architecture");
-        if (archProperty == null) throw new Exception("[EosTestQA] FAIL: Mac Build Support is not installed");
-        object arch = archProperty.GetValue(null);
-        try
-        {
-            archProperty.SetValue(null, UnityEditor.Build.OSArchitecture.x64ARM64); // every EOS dylib in the plugin is universal
-            var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
-            {
-                scenes = new[] { scene }, locationPathName = app, target = BuildTarget.StandaloneOSX, options = BuildOptions.None,
-            });
-            Check(report.summary.result == BuildResult.Succeeded, "macOS player built to " + app + " (" + report.summary.result + ", arch was " + arch + ")");
-        }
-        finally
-        {
-            archProperty.SetValue(null, arch);
-            if (EditorUserBuildSettings.activeBuildTarget != activeTarget)
-                EditorUserBuildSettings.SwitchActiveBuildTarget(BuildPipeline.GetBuildTargetGroup(activeTarget), activeTarget);
-        }
+        var result = BuildMacApp(app, new[] { scene });
+        Check(result == BuildResult.Succeeded, "macOS player built to " + app + " (" + result + ")");
 
         string[] files = Directory.GetFiles(app, "*", SearchOption.AllDirectories);
         string Find(string file) => files.FirstOrDefault(f => Path.GetFileName(f) == file);
@@ -302,8 +236,32 @@ public static class EosTestQA
         Debug.Log("[EosTestQA] RESULT mac passed, checks=" + checks + " (bundle: " + zip + " " + new FileInfo(zip).Length / (1024 * 1024) + "MB)");
     }
 
+    /// <summary>Builds a universal (Intel + Apple Silicon) macOS app and switches the build target back. Throws without Mac Build Support.</summary>
+    internal static BuildResult BuildMacApp(string app, string[] scenes)
+    {
+        var activeTarget = EditorUserBuildSettings.activeBuildTarget;
+        // by reflection: the type exists only with Mac Build Support, and this file must compile without it
+        var archProperty = Type.GetType("UnityEditor.OSXStandalone.UserBuildSettings, UnityEditor.OSXStandalone.Extensions")?.GetProperty("architecture");
+        if (archProperty == null) throw new Exception("[EosTestQA] FAIL: Mac Build Support is not installed");
+        object arch = archProperty.GetValue(null);
+        try
+        {
+            archProperty.SetValue(null, UnityEditor.Build.OSArchitecture.x64ARM64); // every EOS dylib in the plugin is universal
+            return BuildPipeline.BuildPlayer(new BuildPlayerOptions
+            {
+                scenes = scenes, locationPathName = app, target = BuildTarget.StandaloneOSX, options = BuildOptions.None,
+            }).summary.result;
+        }
+        finally
+        {
+            archProperty.SetValue(null, arch);
+            if (EditorUserBuildSettings.activeBuildTarget != activeTarget)
+                EditorUserBuildSettings.SwitchActiveBuildTarget(BuildPipeline.GetBuildTargetGroup(activeTarget), activeTarget);
+        }
+    }
+
     /// <summary>A Mach-O fat binary holding both x86_64 and arm64.</summary>
-    static bool Universal(string path)
+    internal static bool Universal(string path)
     {
         byte[] head = new byte[64];
         using (var stream = File.OpenRead(path)) stream.Read(head, 0, head.Length);

@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading.Tasks;
 
 /// <summary>
 /// The sync server (Docs/Multiplayer_Redesign.md 12.1): connections, the entity registry, ownership checks,
@@ -30,10 +31,13 @@ using System.Text;
 /// ids = a connection number the server keeps for itself at start + serial, so they never repeat across restarts) and
 /// judges clients through <see cref="SpawnFilter"/>, <see cref="ClaimFilter"/> and <see cref="StateFilter"/>. An entity a
 /// connection claimed (made by another) is not that connection's to despawn: it goes back with Release.
+/// Identity (12.13): with <see cref="IdentityCheck"/> set, a Hello waits for its answer before anything else of it is done;
+/// frames that arrive meanwhile are held and read after the Welcome. A refused check answers Reject(Identity).
 /// </summary>
 public sealed class GameServer
 {
     const long HelloTimeoutMs = 10000, SaveIntervalMs = 60000;
+    const int MaxHeldFrames = 64; // frames a connection may send while its identity is checked (Map, nothing else is expected)
     /// <summary>PersistOnLeave entities one world may hold (12.8); more Spawns are refused.</summary>
     public const int MaxPersistent = 4096;
     /// <summary>World-clock minutes: a day, the 06:00 clearing time, and how long the lost-and-found keeps an item (7 game days).</summary>
@@ -53,6 +57,9 @@ public sealed class GameServer
         public int windowCount, warnings;
         public readonly HashSet<ulong> owned = new HashSet<ulong>();
         public WorldStore.Character character;
+        public Task<bool> identity; // the IdentityCheck running for its Hello
+        public string helloMap;
+        public List<byte[]> held;
         public bool Welcomed => number != 0;
     }
 
@@ -115,6 +122,11 @@ public sealed class GameServer
     /// change its content then (what it is given on entering).
     /// </summary>
     public Action<uint, string> CharacterEntering;
+    /// <summary>
+    /// (transport connection, account, EOS ID token) → whether that Hello's account is really this player (12.13). Called
+    /// on the Tick thread after the version and password passed; the Hello finishes when the task does. Null: every account passes.
+    /// </summary>
+    public Func<int, string, string, Task<bool>> IdentityCheck;
 
     /// <summary><paramref name="world"/> null: a world in memory only.</summary>
     public GameServer(IServerTransport transport, int maxPlayers, string name = "", string password = "", WorldStore world = null)
@@ -218,6 +230,7 @@ public sealed class GameServer
                 else Drop(c);
             }
         }
+        FinishIdentityChecks();
         DropSilentConnections();
         RunClocks();
         ClearExpired();
@@ -308,6 +321,12 @@ public sealed class GameServer
         {
             using var r = SyncProtocol.Reader(frame);
             var kind = (ToServer)r.ReadByte();
+            if (c.identity != null)
+            {
+                if (c.held.Count >= MaxHeldFrames) { Kick(c, RejectReason.Malformed, "too many frames before welcome"); return; }
+                c.held.Add(frame);
+                return;
+            }
             if (!c.Welcomed)
             {
                 if (kind != ToServer.Hello) throw new InvalidDataException("expected hello");
@@ -325,6 +344,11 @@ public sealed class GameServer
                 case ToServer.Release: OnRelease(c, r); break;
                 case ToServer.CharacterCreate: OnCharacterCreate(c, r); break;
                 case ToServer.CharacterSave: OnCharacterSave(c, r); break;
+                case ToServer.Ping:
+                    uint stamp = r.ReadUInt32();
+                    SyncProtocol.End(r);
+                    Send(c, Msg(ToClient.Pong, () => w.Write(stamp)));
+                    break;
                 default: throw new InvalidDataException("kind " + (byte)kind);
             }
         }
@@ -340,9 +364,34 @@ public sealed class GameServer
         if (version != SyncProtocol.Version) { Kick(c, RejectReason.Version, "version " + version); return; }
         string account = SyncProtocol.ReadStr(r);
         SyncProtocol.ReadStr(r); // the client's own name: shown to nobody, Peer carries the character name
-        string map = SyncProtocol.ReadStr(r), password = SyncProtocol.ReadStr(r);
+        string map = SyncProtocol.ReadStr(r), password = SyncProtocol.ReadStr(r), token = SyncProtocol.ReadStr(r);
         SyncProtocol.End(r);
         if (!PasswordMatches(password)) { Kick(c, RejectReason.Password, "password"); return; }
+        if (IdentityCheck == null) { Welcome(c, account, map); return; }
+        c.account = account; c.helloMap = map; c.held = new List<byte[]>();
+        try { c.identity = IdentityCheck(c.handle, account, token) ?? Task.FromResult(false); }
+        catch (Exception ex) { Log?.Invoke("identity check failed: " + ex.Message); c.identity = Task.FromResult(false); }
+        FinishIdentityChecks(); // a check that answered at once (no EOS on this server) welcomes now
+    }
+
+    // Hellos whose identity check has answered: Welcome (then the frames held meanwhile), or Reject(Identity).
+    void FinishIdentityChecks()
+    {
+        scratch.Clear();
+        foreach (var c in conns.Values) if (c.identity != null && c.identity.IsCompleted) scratch.Add(c);
+        foreach (var c in scratch)
+        {
+            bool ok = c.identity.Status == TaskStatus.RanToCompletion && c.identity.Result;
+            var held = c.held;
+            c.identity = null; c.held = null;
+            if (!ok) { Kick(c, RejectReason.Identity, "identity of " + c.account + " not confirmed"); continue; }
+            Welcome(c, c.account, c.helloMap);
+            foreach (byte[] frame in held) { if (!conns.ContainsKey(c.handle)) break; Receive(c, frame); }
+        }
+    }
+
+    void Welcome(Conn c, string account, string map)
+    {
         // One connection per account: two copies of one character could each change and save it (duplicated items and money).
         if (HasAccount(account)) { Kick(c, RejectReason.AlreadyConnected, "account already connected"); return; }
         if (PlayerCount >= MaxPlayers) { Kick(c, RejectReason.Full, "full"); return; }

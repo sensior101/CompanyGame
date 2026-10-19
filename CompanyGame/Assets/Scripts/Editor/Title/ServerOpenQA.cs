@@ -145,16 +145,13 @@ public static class ServerOpenQA
         foreach (string label in new[] { "혼자 하기", "서버 열기", "참가하기", "설정", "종료" })
             Check(HasButton(label), "main menu has '" + label + "'");
         Check(!HasButton("옛 방식"), "main menu has no 옛 방식(개발용) (12.11)");
-        const string oldServer = "http://localhost:3999";
-        LocalAccount.ServerUrl = oldServer; // an account server override: no menu shows it
         Screen.Open("main");
-        Check(!TextOf(Screen.transform).Contains(oldServer) && TextOf(Screen.transform).Contains("프로필 슬롯 3"), "main footer: the profile slot only, no server address");
+        Check(TextOf(Screen.transform).Contains("프로필 슬롯 3") && !TextOf(Screen.transform).Contains("http"), "main footer: the profile slot only, no server address");
         await Shot("O_main.png");
         Screen.Open("serverjoin");
-        Check(!TextOf(Screen.transform).Contains(oldServer), "참가하기 footer: no old server address");
+        Check(!TextOf(Screen.transform).Contains("http"), "참가하기: no account server address");
         Screen.Open("main");
         await Click("서버 열기");
-        Check(!TextOf(Screen.transform).Contains(oldServer), "서버 열기 footer: no old server address");
         Check(Screen.Screen == "serveropen" && Inputs().Length == 2, "서버 열기 screen with name and password fields (editor: no running server)");
         await Click("고급");
         Check(Inputs().Length == 3, "고급 shows the port field");
@@ -191,7 +188,6 @@ public static class ServerOpenQA
         Check(!SyncHost.Instance && !client.Connected, "leaving as the phone owner stopped the in-app server and disconnected");
         Check(PortFree(port), "port " + port + " is free again");
         right.Close();
-        LocalAccount.ServerUrl = "";
     }
 
     // ---- separate server process (criterion 5) ----
@@ -216,18 +212,20 @@ public static class ServerOpenQA
         await Click("뒤로");
 
         await Click("참가하기");
-        Check(Screen.Screen == "serverjoin", "참가하기 opens the address screen");
-        var inputs = Inputs();
-        inputs[0].text = "127.0.0.1:" + port; inputs[1].text = "틀린비번";
+        Check(Screen.Screen == "serverjoin", "참가하기 opens the join screen");
+        await Click("직접 주소 입력"); // 12.13: the address is folded under the list and the code
+        var inputs = Inputs(); // code, address, password
+        Check(inputs.Length == 3, "직접 주소 입력 shows the address and password fields under the code field");
+        inputs[1].text = "127.0.0.1:" + port; inputs[2].text = "틀린비번";
         await Shot("O_join.png");
-        await Click("접속");
+        await Click("주소로 접속");
         await WaitFor(() => Screen && Screen.Screen == "error", 15, "error screen for a wrong password");
         Check(TextOf(Screen.Content).Contains("비밀번호가 틀렸") && !HasButton("다시 시도"), "wrong password: friendly message, no pointless retry");
         await Shot("O_password_error.png");
         await Click("뒤로");
-        Check(Screen.Screen == "serverjoin" && Screen.FirstInput().text == "127.0.0.1:" + port, "back on the join screen with the address kept");
-        Inputs()[1].text = "pc비번";
-        await Click("접속");
+        Check(Screen.Screen == "serverjoin" && Inputs().Length == 3 && Inputs()[1].text == "127.0.0.1:" + port, "back on the join screen with the address kept");
+        Inputs()[2].text = "pc비번";
+        await Click("주소로 접속");
         await EnterGame("QA프로세스");
         var client = SyncClient.Instance;
         Check(client.Connected && client.ServerName == "QA 프로세스 서버" && !SyncHost.Instance, "joined the server process (no in-app server), named '" + client.ServerName + "'");

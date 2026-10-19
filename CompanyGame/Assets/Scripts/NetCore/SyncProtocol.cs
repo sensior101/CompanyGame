@@ -3,10 +3,10 @@ using System.IO;
 using System.Text;
 
 /// <summary>Client → server message kinds (first byte of a frame).</summary>
-public enum ToServer : byte { Hello = 1, Spawn = 2, State = 3, Despawn = 4, Event = 5, Map = 6, Claim = 7, CharacterCreate = 8, CharacterSave = 9, Release = 10 }
+public enum ToServer : byte { Hello = 1, Spawn = 2, State = 3, Despawn = 4, Event = 5, Map = 6, Claim = 7, CharacterCreate = 8, CharacterSave = 9, Release = 10, Ping = 11 }
 
 /// <summary>Server → client message kinds (first byte of a frame).</summary>
-public enum ToClient : byte { Welcome = 101, Reject = 102, Spawn = 103, State = 104, Despawn = 105, Event = 106, Owner = 107, Peer = 108, Character = 109, CharacterResult = 110 }
+public enum ToClient : byte { Welcome = 101, Reject = 102, Spawn = 103, State = 104, Despawn = 105, Event = 106, Owner = 107, Peer = 108, Character = 109, CharacterResult = 110, Pong = 111 }
 
 [Flags]
 public enum EntityFlags : byte
@@ -25,7 +25,7 @@ public enum EntityFlags : byte
 /// <summary>Who receives an entity event: its owner, everyone on its map (sender included), or the server's ServerEvent.</summary>
 public enum EventTarget : byte { Owner = 0, Map = 1, Server = 2 }
 
-public enum RejectReason : byte { Version = 1, Full = 2, Malformed = 3, Rate = 4, Password = 5, AlreadyConnected = 6 }
+public enum RejectReason : byte { Version = 1, Full = 2, Malformed = 3, Rate = 4, Password = 5, AlreadyConnected = 6, Identity = 7 }
 
 /// <summary>Answer to CharacterCreate (12.5).</summary>
 public enum CharacterResult : byte { Ok = 0, NameTaken = 1, Invalid = 2, AlreadyExists = 3 }
@@ -33,7 +33,8 @@ public enum CharacterResult : byte { Ok = 0, NameTaken = 1, Invalid = 2, Already
 /// <summary>
 /// Binary sync protocol (Docs/Multiplayer_Redesign.md 12.1; version 2 adds the Hello password and the Welcome server name, 12.3;
 /// version 3 the character messages, 12.5; version 4 Release and the Expiring flag, 12.8; version 5 server-made entities on map
-/// <see cref="AllMaps"/> with blobs up to <see cref="MaxServerBlob"/>, 12.9). Little-endian; str = u16 byte length + UTF-8,
+/// <see cref="AllMaps"/> with blobs up to <see cref="MaxServerBlob"/>, 12.9; version 6 the EOS ID token at the end of Hello and
+/// Ping/Pong, 12.13). Little-endian; str = u16 byte length + UTF-8,
 /// blob = u16 length + bytes, blob32 = u32 length + bytes (only the character content, up to <see cref="MaxCharacter"/>).
 /// A client's blobs stay at <see cref="MaxBlob"/>; what the server sends may be up to <see cref="MaxServerBlob"/> (ReadServerBlob).
 /// Entity id = (connection number u32 &lt;&lt; 32) | serial u32, so a client makes ids without a round trip.
@@ -41,7 +42,7 @@ public enum CharacterResult : byte { Ok = 0, NameTaken = 1, Invalid = 2, Already
 /// </summary>
 public static class SyncProtocol
 {
-    public const ushort Version = 5;
+    public const ushort Version = 6;
     // The frame limit is 64KB for the 48KB character content; entity blobs stay at 4KB.
     public const int MaxFrame = 64 * 1024, MaxBlob = 4 * 1024, MaxCharacter = 48 * 1024, MaxFramesPerSecond = 300, MaxEntitiesPerConnection = 256;
     /// <summary>A blob the server made (a world section, 12.9). Still one u16 length, and one State of it stays under <see cref="MaxFrame"/>.</summary>
@@ -134,8 +135,12 @@ public static class SyncProtocol
         return stream.ToArray();
     }
 
-    public static byte[] Hello(string account, string name, string map, string password = "", ushort version = Version) =>
-        Build((byte)ToServer.Hello, w => { w.Write(version); WriteStr(w, account); WriteStr(w, name); WriteStr(w, map); WriteStr(w, password); });
+    /// <summary><paramref name="token"/>: this player's EOS ID token ("" without EOS); the server checks it against the account (12.13).</summary>
+    public static byte[] Hello(string account, string name, string map, string password = "", ushort version = Version, string token = "") =>
+        Build((byte)ToServer.Hello, w => { w.Write(version); WriteStr(w, account); WriteStr(w, name); WriteStr(w, map); WriteStr(w, password); WriteStr(w, token); });
+
+    /// <summary>Round-trip probe (12.13): the server answers Pong with the same stamp.</summary>
+    public static byte[] Ping(uint stamp) => Build((byte)ToServer.Ping, w => w.Write(stamp));
 
     public static byte[] Spawn(ulong id, string prefabKey, string map, EntityFlags flags, byte[][] blobs) =>
         Build((byte)ToServer.Spawn, w =>

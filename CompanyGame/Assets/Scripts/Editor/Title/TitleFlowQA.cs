@@ -152,7 +152,6 @@ public static class TitleFlowQA
         Screen.UseCamera(Camera.main);
         await Shot("T_main.png");
 
-        CheckConfig();
         await CheckSettings();
         foreach (string message in new[] { "server_unreachable", "bad_address", "Password", "Full", "Version", "character_name_taken", "world_in_use", "load_failed" })
             Check(!TitleFlow.Message(message).StartsWith("알 수 없는"), "friendly message for " + message);
@@ -178,28 +177,13 @@ public static class TitleFlowQA
         Check(!PlayerSpawner.Player || !PlayerSpawner.Player.gameObject.activeSelf, "player hidden on the title");
     }
 
-    static void CheckConfig()
-    {
-        Check(ServerConfig.FromArgs(new[] { "game.exe", "-server", "http://a:1" }) == "http://a:1" && ServerConfig.FromArgs(new[] { "game.exe", "-server" }) == null, "-server <url> argument is read");
-        Check(ServerConfig.CommandLineUrl == null, "QA runs without a -server argument");
-        string key = "net.server_url.p3";
-        PlayerPrefs.DeleteKey(key);
-        Check(LocalAccount.ServerUrl == ServerConfig.PublicUrl && !LocalAccount.IsCustomUrl, "without an override the built-in account server address is used");
-        LocalAccount.ServerUrl = "http://localhost:3999";
-        Check(LocalAccount.ServerUrl == "http://localhost:3999" && LocalAccount.IsCustomUrl, "an address typed under 고급 overrides the built-in one");
-        LocalAccount.ServerUrl = "";
-        Check(!PlayerPrefs.HasKey(key) && LocalAccount.ServerUrl == ServerConfig.PublicUrl, "an empty address clears the override");
-    }
-
     static async Task CheckSettings()
     {
         Screen.Open("settings");
         await Awaitable.NextFrameAsync();
         Check(Screen.Screen == "settings" && !TextOf(Screen.Content).Contains("연결 방식") && !TextOf(Screen.Content).Contains("Steam"), "settings: no connection mode, no Steam");
-        Check(HasButton("계정 초기화") && HasButton("고급") && !TextOf(Screen.Content).Contains("서버 주소"), "settings: the account server address is hidden under a collapsed 고급 section");
-        Check(Screen.Click("고급"), "clicked 고급");
-        await Awaitable.NextFrameAsync();
-        Check(TextOf(Screen.Content).Contains("서버 주소") && HasButton("로컬 테스트 서버") && HasButton("기본 서버로"), "고급 opens the server address with the local-server shortcut");
+        Check(!HasButton("계정 초기화") && !HasButton("고급") && !TextOf(Screen.Content).Contains("서버 주소"), "settings: no account reset and no account server address (12.13: the account is EOS)");
+        Check(TextOf(Screen.Content).Contains("EOS:"), "settings: shows the EOS state");
         Check(Screen.Click("뒤로") && Screen.Screen == "main", "back to the main menu");
     }
 

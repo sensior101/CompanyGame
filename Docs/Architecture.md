@@ -1,13 +1,13 @@
 # 프로젝트 구조
 
-기준: 2026-10-04 `main`, 어셈블리 표와 멀티플레이 구조는 2026-10-19(4e). 기획 정본은 노션 [기획안 (수정본)](https://mushroom00.notion.site/3e9f770a0fc780d5a8d8ff291b3fc30a).
+기준: 2026-10-04 `main`, 어셈블리 표와 멀티플레이 구조는 2026-10-19(2b-2). 기획 정본은 노션 [기획안 (수정본)](https://mushroom00.notion.site/3e9f770a0fc780d5a8d8ff291b3fc30a).
 
 ## 저장소
 
 | 폴더 | 내용 |
 | --- | --- |
 | `CompanyGame/` | Unity 6000.4.5f1 프로젝트 |
-| `Server/` | 계정 서버(Node 24 + Fastify + SQLite, Cloudflare Worker 사본). 실시간 플레이는 Unity 안의 게임 서버가 맡음. [Server.md](Server.md) |
+| `Server/` | 계정 서버(Node 24 + Fastify + SQLite, Cloudflare Worker 사본). 2b-2부터 게임은 쓰지 않음(계정은 EOS). 실시간 플레이는 Unity 안의 게임 서버가 맡음. [Server.md](Server.md) |
 | `Docs/` | 이 문서들 |
 | `ArtSource/` | Blender·이미지 원본과 생성 스크립트 (Unity가 직접 읽지 않음) |
 
@@ -18,14 +18,16 @@
 ```
 Core → Economy → Gameplay → World → Player → UI
 NetCore → Net → Player → UI      (NetCore는 아무것도 참조하지 않음: 프로토콜·전송·서버 본체·월드 파일)
+NetCore → Net.Eos → Net, UI     (Net.Eos: EOS 플러그인을 쓰는 곳은 여기뿐)
 Gameplay → NPC → UI
 ```
 
 | 폴더 | 어셈블리 | 담당 | 주요 파일 |
 | --- | --- | --- | --- |
 | Core | `CompanyGame.Core` | 시간, 키 입력, 세션, 공통 도우미 | `GameTime`, `SimpleGameClock`, `GameInput`, `GameSession`, `GameSystem<T>`, `InputFocus`, `UIEventSystem` |
-| NetCore | `CompanyGame.NetCore` | 게임 서버 본체와 프로토콜(Unity 게임 코드와 무관) | `GameServer`, `SyncProtocol`, `SyncTransport`, `TcpTransport`, `WorldStore`(`world.dat`) |
-| Net | `CompanyGame.Net` | 접속·호스팅, 계정 서버 클라이언트 | `SyncClient`, `SyncHost`, `NetEntity`, `NetBehaviour`, `NetTransform`, `ServerSettings`, `PlayerData`·`LocalAccount`(계정 서버), `Eos/`(EOS 시험) |
+| NetCore | `CompanyGame.NetCore` | 게임 서버 본체와 프로토콜(Unity 게임 코드와 무관) | `GameServer`, `SyncProtocol`, `SyncTransport`(+`MultiTransport`, `PacketFraming`), `TcpTransport`, `WorldStore`(`world.dat`) |
+| Net | `CompanyGame.Net` | 접속·호스팅 | `SyncClient`, `SyncHost`, `NetEntity`, `NetBehaviour`, `NetTransform`, `ServerSettings`, `LocalServerProcess` |
+| Net/Eos | `CompanyGame.Net.Eos` | EOS 계정·P2P·세션 | `EosAccount`(Device ID 로그인, ID 토큰), `EosTransport`(P2P 서버·클라이언트), `EosSession`(공개 목록·서버 코드), `EosProbe`(12.4 시험) |
 | Economy | `CompanyGame.Economy` | 은행, 회사, 주식, 토지, 소유권, 세금 | `BankManager`, `CompanyManager`, `StockMarketManager`, `LandPlotManager`, `PropertyRegistry` |
 | Gameplay | `CompanyGame.Gameplay` | 아이템·인벤토리 상태, 현금, 핸드폰 앱, 신고, SNS | `InventoryManager`, `InventoryState`, `ItemData`, `CashService`, `PhoneManager`, `GameSystems` |
 | World | `CompanyGame.World` | 맵 이동, 포털, 정류장, 건물 출입문, 소유 구역, 계단 | `SceneLoadManager`, `MapSpawnPoint`, `MapPortal`, `TransitStop`, `StoreInteractionPoint`, `PropertyZone`, `FloorStairs` |
@@ -142,7 +144,7 @@ Gameplay → NPC → UI
 - `DefaultVolumeProfile.asset`에서 설치된 URP 템플릿의 누락된 샘플 참조도 확인했습니다. 미해결 GUID 4개와 빈 스크립트 참조 5개, 총 9개를 Unity의 `AssetDatabase.RemoveScriptableObjectsWithMissingScript`로 정리했습니다. 유효한 볼륨 컴포넌트 19개의 직렬화 값과 프로필 GUID는 전후 동일합니다(`QA/ProfileCleanup.json`).
 - 기존 `InventoryModelQA` 32개, `CashModelQA` 76개, 도서관 모델 64개, 입력 파이프라인을 통한 키보드·마우스 68개, 독립된 두 씬의 공통 거래 13개, 총 253개 검증이 통과했습니다. 입력 검증은 임시 Input System 장치를 사용하며 종료 시 원래 입력 장치와 플레이어 데이터를 복원합니다. 157개 파일의 모든 게임 동작을 실행 검증했다는 의미는 아닙니다. (멀티플레이는 이 점검 당시 미구현. 지금 구조는 아래 "멀티플레이 구조")
 
-## 멀티플레이 구조 (4e 기준, 2026-10-19)
+## 멀티플레이 구조 (2b-2 기준, 2026-10-19)
 
 정본은 [Multiplayer_Redesign.md](Multiplayer_Redesign.md)입니다. 요약:
 
@@ -152,3 +154,4 @@ Gameplay → NPC → UI
 - **오프라인 경로**: 에디터에서 맵 씬을 바로 플레이하면 세션 없이 이 PC가 계산하고 PC 파일(`world/world.json`, `player/<id>.json`)에 저장합니다(개발용).
 - **시민·교통**은 세션과 상관없이 각 PC가 따로 계산합니다(5단계에서 시간 기반으로 다시 만듦).
 - 옛 방(Cloudflare·Steam 방, 방장 넘기기, `NetSession` 계열)은 4e에서 지웠습니다.
+- **계정과 접속(2b-2)**: 계정은 EOS PUID입니다(`EosAccount`, 시작할 때 Device ID 로그인. 설정 파일이 없거나 `-noeos`면 PC GUID). 혼자 하기가 아닌 서버는 TCP와 EOS P2P를 함께 받고(`MultiTransport`), EOS 세션으로 공개 목록과 서버 코드를 냅니다. 서버는 Hello의 계정을 EOS(P2P 상대 PUID 또는 ID 토큰)로 확인합니다.

@@ -7,8 +7,9 @@ using UnityEngine.UI;
 
 /// <summary>
 /// The title menu (Scenes/Title.unity): 혼자 하기 / 서버 열기 / 참가하기 / 설정 (the sync layer, Docs/Multiplayer_Redesign.md
-/// 12.3, 12.5: worlds and characters live on the server, 혼자 하기 is my PC server for one), plus the small screens
-/// they lead to (character, errors, confirmations). Built in code with uGUI; keyboard (arrows/Tab/Enter/Esc) and mouse both work.
+/// 12.3, 12.5: worlds and characters live on the server, 혼자 하기 is my PC server for one; 12.13: the public server list
+/// and server codes on EOS), plus the small screens they lead to (character, errors). Built in code with uGUI; keyboard
+/// (arrows/Tab/Enter/Esc) and mouse both work.
 /// All real work is in <see cref="TitleFlow"/>.
 /// </summary>
 public sealed class TitleScreen : MonoBehaviour
@@ -247,11 +248,17 @@ public sealed class TitleScreen : MonoBehaviour
         var publicRow = TitleUi.Row(panel, 56);
         var priv = TitleUi.Button(publicRow, "", null, 56, false, 26);
         var pub = TitleUi.Button(publicRow, "", null, 56, false, 26);
-        Action showPublic = () => { SetLabel(priv, (draft.isPublic ? "○" : "●") + " 비공개"); SetLabel(pub, (draft.isPublic ? "●" : "○") + " 공개"); };
+        var publicNote = TitleUi.Label(panel, "", 22, TitleUi.Muted, TextAlignmentOptions.MidlineLeft);
+        Action showPublic = () =>
+        {
+            SetLabel(priv, (draft.isPublic ? "○" : "●") + " 비공개"); SetLabel(pub, (draft.isPublic ? "●" : "○") + " 공개");
+            publicNote.text = (draft.isPublic ? "공개: 참가하기의 공개 서버 목록에 나오고, 서버 코드로도 들어올 수 있습니다."
+                                              : "비공개: 목록에 나오지 않습니다. 서버 코드를 아는 사람만 들어올 수 있습니다.")
+                + (EosAccount.Enabled ? "" : "\n지금은 EOS에 연결되지 않아 목록과 코드 없이 주소로만 들어올 수 있습니다.");
+        };
         priv.onClick.AddListener(() => { draft.isPublic = false; showPublic(); });
         pub.onClick.AddListener(() => { draft.isPublic = true; showPublic(); });
         showPublic();
-        TitleUi.Label(panel, "공개 서버 목록은 아직 준비 중입니다. 지금은 공개여도 주소로만 들어올 수 있습니다.", 22, TitleUi.Muted, TextAlignmentOptions.MidlineLeft);
 
         TitleUi.Label(panel, "비밀번호 (비워 두면 누구나 들어옴)", 24, TitleUi.Muted, TextAlignmentOptions.MidlineLeft);
         passwordInput = TitleUi.Input(panel, "비밀번호 (선택, 32자까지)", ServerSettings.PasswordMax);
@@ -277,8 +284,10 @@ public sealed class TitleScreen : MonoBehaviour
         Begin("serverrunning", true, 760, ShowMain);
         var settings = ServerSettings.Load();
         var panel = Panel("내 서버 실행 중 (포트 " + running.port + ")", settings.name + " · 최대 " + settings.maxPlayers + "명" + (settings.password.Length > 0 ? " · 비밀번호 있음" : ""));
-        TitleUi.Label(panel, "게임을 꺼도 서버는 계속 돕니다.\n다른 사람은 이 PC 주소의 " + running.port + "번 포트로 들어옵니다.", 23, TitleUi.Muted);
-        TitleUi.Button(panel, "접속", () => RunJoinServer("127.0.0.1:" + running.port, settings.password, ShowServerOpen, false), 72, true, 34);
+        TitleUi.Label(panel, string.IsNullOrEmpty(running.code) ? "서버 코드: 준비 중 (EOS 연결을 기다리는 중이거나 EOS 없이 도는 서버)"
+            : "서버 코드: <color=#FFC857>" + running.code + "</color>  (참가하기 > 서버 코드)", 28, TitleUi.Cream);
+        TitleUi.Label(panel, "게임을 꺼도 서버는 계속 돕니다.\n같은 네트워크나 포트를 연 경우 이 PC 주소의 " + running.port + "번 포트로도 들어옵니다.", 23, TitleUi.Muted);
+        TitleUi.Button(panel, "접속", () => RunJoin(() => TitleFlow.JoinMine(running), ShowServerOpen), 72, true, 34);
         TitleUi.Button(panel, "끄기", () => { LocalServerProcess.Stop(); ShowServerOpen(); }, 60, true, 28);
         TitleUi.Button(panel, "뒤로", ShowMain, 56, false, 26);
         Focus();
@@ -293,46 +302,132 @@ public sealed class TitleScreen : MonoBehaviour
         else AfterConnect(() => ShowServerOpen());
     }
 
-    // ---- 참가하기 (server address) ----
+    // ---- 참가하기 (public list, server code, address: 12.13) ----
 
-    public void ShowServerJoin() => ShowServerJoin(null);
+    const int MaxListRows = 6;
+    const float RefreshSeconds = 10;
+    static List<EosSession.Entry> listed; // the last list (null: not searched yet), kept while the game runs
+    static string listError;
+    static float listedAt = -RefreshSeconds;
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    static void ResetStatics() { listed = null; listError = null; listedAt = -RefreshSeconds; }
+    bool listing, joinAdvanced;
+    string typedCode = "", typedAddress = "";
 
-    void ShowServerJoin(string address)
+    public void ShowServerJoin()
     {
-        Begin("serverjoin", true, 760, ShowMain);
-        var panel = Panel("참가하기", "서버 주소를 입력하세요. 포트를 빼면 " + ServerSettings.DefaultPort + "번으로 접속합니다.");
-        var addressInput = TitleUi.Input(panel, "주소 (예: 192.168.0.5:7777)", 120);
-        addressInput.text = address ?? "";
-        var passwordInput = TitleUi.Input(panel, "비밀번호 (없으면 비워 두기)", ServerSettings.PasswordMax);
-        passwordInput.contentType = TMP_InputField.ContentType.Password;
-        var hint = TitleUi.Label(panel, " ", 24, TitleUi.Warn);
-        Action submit = () =>
+        Begin("serverjoin", false, 860, ShowMain);
+        var panel = Panel("참가하기");
+        bool eos = EosAccount.Enabled;
+
+        var head = TitleUi.Row(panel, 52, 12, false);
+        TitleUi.Width(TitleUi.Label(head, "공개 서버", 30, TitleUi.Cream, TextAlignmentOptions.MidlineLeft, FontStyles.Bold), 0, 1);
+        var refresh = TitleUi.Button(head, "새로고침", () => RefreshList(), 52, false, 24);
+        TitleUi.Width(refresh, 180);
+        refresh.interactable = eos && !listing;
+        if (!eos) TitleUi.Label(panel, TitleFlow.Message("eos_offline"), 23, TitleUi.Warn, TextAlignmentOptions.MidlineLeft);
+        else if (listing || listed == null && listError == null) TitleUi.Label(panel, "목록을 불러오는 중…", 23, TitleUi.Muted, TextAlignmentOptions.MidlineLeft);
+        else if (listError != null) TitleUi.Label(panel, TitleFlow.Message(listError), 23, TitleUi.Warn, TextAlignmentOptions.MidlineLeft);
+        else if (listed.Count == 0) TitleUi.Label(panel, "지금 열린 공개 서버가 없습니다. 서버 코드를 받았다면 아래에 입력하세요.", 23, TitleUi.Muted, TextAlignmentOptions.MidlineLeft);
+        else
         {
-            string typed = addressInput.text.Trim();
-            if (!TitleFlow.TryParseAddress(typed, out _, out _)) { hint.text = TitleFlow.Message("bad_address"); return; }
-            RunJoinServer(typed, passwordInput.text, () => ShowServerJoin(typed), true);
-        };
-        addressInput.onSubmit.AddListener(_ => submit());
-        passwordInput.onSubmit.AddListener(_ => submit());
-        TitleUi.Button(panel, "접속", () => submit(), 72, true, 34);
-        var recent = ServerSettings.Recent;
-        if (recent.Count > 0)
+            for (int i = 0; i < listed.Count && i < MaxListRows; i++)
+            {
+                var e = listed[i];
+                TitleUi.Button(panel, e.name + "    <size=24>" + e.players + "/" + e.maxPlayers + "명" + (e.hasPassword ? " · 비밀번호" : "") + "</size>", () => PickListed(e), 60, false, 28);
+            }
+            if (listed.Count > MaxListRows) TitleUi.Label(panel, "외 " + (listed.Count - MaxListRows) + "개 (표시 한도)", 22, TitleUi.Muted);
+        }
+
+        TitleUi.Label(panel, "서버 코드", 24, TitleUi.Muted, TextAlignmentOptions.MidlineLeft);
+        var codeRow = TitleUi.Row(panel, 60, 12, false);
+        var codeInput = TitleUi.Input(codeRow, "6자 (예: K7PQ2M)", 8, null, 60);
+        codeInput.text = typedCode;
+        codeInput.onValueChanged.AddListener(t => typedCode = t);
+        codeInput.onSubmit.AddListener(t => RunJoinCode(t));
+        TitleUi.Width(codeInput, 0, 1);
+        var codeJoin = TitleUi.Button(codeRow, "접속", () => RunJoinCode(codeInput.text), 60, true, 28);
+        TitleUi.Width(codeJoin, 160);
+        codeInput.interactable = codeJoin.interactable = eos;
+
+        TitleUi.Button(panel, joinAdvanced ? "직접 주소 입력 접기" : "직접 주소 입력 (데디케이티드·같은 네트워크) ▶", () => { joinAdvanced = !joinAdvanced; ShowServerJoin(); }, 48, false, 24);
+        TMP_InputField addressInput = null;
+        if (joinAdvanced)
         {
-            TitleUi.Label(panel, "최근 접속한 주소", 22, TitleUi.Muted, TextAlignmentOptions.MidlineLeft);
-            foreach (string r in recent) TitleUi.Button(panel, r, () => addressInput.text = r, 46, false, 24);
+            addressInput = TitleUi.Input(panel, "주소 (예: 192.168.0.5:7777, 포트를 빼면 " + ServerSettings.DefaultPort + ")", 120);
+            addressInput.text = typedAddress;
+            addressInput.onValueChanged.AddListener(t => typedAddress = t);
+            var passwordInput = TitleUi.Input(panel, "비밀번호 (없으면 비워 두기)", ServerSettings.PasswordMax);
+            passwordInput.contentType = TMP_InputField.ContentType.Password;
+            var hint = TitleUi.Label(panel, " ", 24, TitleUi.Warn);
+            Action submit = () =>
+            {
+                string typed = addressInput.text.Trim();
+                if (!TitleFlow.TryParseAddress(typed, out _, out _)) { hint.text = TitleFlow.Message("bad_address"); return; }
+                string password = passwordInput.text;
+                RunJoin(() => TitleFlow.JoinServer(typed, password), ShowServerJoin);
+            };
+            addressInput.onSubmit.AddListener(_ => submit());
+            passwordInput.onSubmit.AddListener(_ => submit());
+            TitleUi.Button(panel, "주소로 접속", () => submit(), 60, true, 30);
+            var recent = ServerSettings.Recent;
+            if (recent.Count > 0)
+            {
+                TitleUi.Label(panel, "최근 접속한 주소", 22, TitleUi.Muted, TextAlignmentOptions.MidlineLeft);
+                foreach (string r in recent) TitleUi.Button(panel, r, () => addressInput.text = r, 46, false, 24);
+            }
         }
         TitleUi.Button(panel, "뒤로", ShowMain, 56, false, 26);
-        if (EventSystem.current) EventSystem.current.SetSelectedGameObject(addressInput.gameObject);
-        addressInput.ActivateInputField();
+        var first = addressInput ? addressInput : eos ? codeInput : null;
+        if (first && EventSystem.current) { EventSystem.current.SetSelectedGameObject(first.gameObject); first.ActivateInputField(); }
+        else Focus();
+        if (eos && listed == null && listError == null && !listing) RefreshList();
+    }
+
+    async void RefreshList()
+    {
+        if (listing || Time.unscaledTime - listedAt < RefreshSeconds) return; // once in 10 seconds: EOS allows only so many searches
+        listing = true;
+        if (screen == "serverjoin") ShowServerJoin();
+        var (found, error) = await TitleFlow.ListServers();
+        listing = false;
+        listed = found; listError = error; listedAt = Time.unscaledTime;
+        if (this && screen == "serverjoin") ShowServerJoin();
+    }
+
+    async void RunJoinCode(string typed)
+    {
+        if (ServerSettings.NormalizeCode(typed) == null) { ShowError("bad_code", null, ShowServerJoin); return; }
+        ShowBusy("서버를 찾는 중…");
+        var (entry, error) = await TitleFlow.FindCode(typed);
+        if (!this) return;
+        if (error != null) ShowError(error, error == "bad_code" ? null : (Action)(() => RunJoinCode(typed)), ShowServerJoin);
+        else PickListed(entry);
+    }
+
+    // A listed (or found) server: its password first when it has one, then EOS P2P.
+    void PickListed(EosSession.Entry entry)
+    {
+        if (!entry.hasPassword) { RunJoin(() => TitleFlow.JoinListed(entry, ""), ShowServerJoin); return; }
+        Begin("joinpassword", true, 700, ShowServerJoin);
+        var panel = Panel("비밀번호", entry.name + " · " + entry.players + "/" + entry.maxPlayers + "명");
+        var input = TitleUi.Input(panel, "비밀번호", ServerSettings.PasswordMax);
+        input.contentType = TMP_InputField.ContentType.Password;
+        Action submit = () => { string password = input.text; RunJoin(() => TitleFlow.JoinListed(entry, password), () => PickListed(entry)); };
+        input.onSubmit.AddListener(_ => submit());
+        TitleUi.Button(panel, "접속", () => submit(), 64, true, 30);
+        TitleUi.Button(panel, "뒤로", ShowServerJoin, 56, false, 26);
+        if (EventSystem.current) EventSystem.current.SetSelectedGameObject(input.gameObject);
+        input.ActivateInputField();
     }
 
     // A wrong password gets no retry button: 뒤로 goes back to the form to type it again.
-    async void RunJoinServer(string address, string password, Action from, bool remember)
+    async void RunJoin(Func<Awaitable<string>> join, Action from)
     {
         ShowBusy("서버에 접속하는 중…");
-        string error = await TitleFlow.JoinServer(address, password, remember);
+        string error = await join();
         if (!this) return;
-        if (error != null) ShowError(error, error == "Password" ? null : (Action)(() => RunJoinServer(address, password, from, remember)), from);
+        if (error != null) ShowError(error, error == "Password" ? null : (Action)(() => RunJoin(join, from)), from);
         else AfterConnect(from);
     }
 
@@ -376,7 +471,7 @@ public sealed class TitleScreen : MonoBehaviour
 
     static void SetLabel(Button button, string text) { button.GetComponentInChildren<TMP_Text>().text = text; }
 
-    // ---- busy / error / confirm ----
+    // ---- busy / error ----
 
     void ShowBusy(string message)
     {
@@ -397,22 +492,9 @@ public sealed class TitleScreen : MonoBehaviour
         Focus();
     }
 
-    void ShowConfirm(string message, string yesText, Action yes, Action no)
-    {
-        Begin("confirm", true, 780, no);
-        var panel = Panel("확인");
-        TitleUi.Label(panel, message, 27, TitleUi.Cream);
-        TitleUi.Spacer(panel, 6);
-        var row = TitleUi.Row(panel, 64);
-        TitleUi.Button(row, "취소", () => no?.Invoke(), 64, false, 28);
-        TitleUi.Button(row, yesText, () => yes?.Invoke(), 64, true, 28);
-        Focus();
-        if (EventSystem.current) EventSystem.current.SetSelectedGameObject(row.GetChild(0).gameObject); // the safe choice is focused
-    }
-
     // ---- 설정 ----
 
-    public void ShowSettings(Action onBack = null, bool advanced = false)
+    public void ShowSettings(Action onBack = null)
     {
         Action leave = onBack ?? ShowMain;
         Begin("settings", false, 860, leave);
@@ -422,61 +504,27 @@ public sealed class TitleScreen : MonoBehaviour
 
         TitleUi.Label(panel, "프로필 슬롯 (한 PC에서 게임 2개를 켜는 테스트용)", 24, TitleUi.Muted, TextAlignmentOptions.MidlineLeft);
         var slotRow = TitleUi.Row(panel, 56, 12, false);
-        var prev = TitleUi.Button(slotRow, "◀", () => SwitchSlot(ProfileSlot.Slot - 1, onBack, advanced), 56, false, 26);
+        var prev = TitleUi.Button(slotRow, "◀", () => SwitchSlot(ProfileSlot.Slot - 1, onBack), 56, false, 26);
         var slotLabel = TitleUi.Label(slotRow, "슬롯 " + ProfileSlot.Slot + " / " + ProfileSlot.Max, 28, TitleUi.Cream);
-        var next = TitleUi.Button(slotRow, "▶", () => SwitchSlot(ProfileSlot.Slot + 1, onBack, advanced), 56, false, 26);
+        var next = TitleUi.Button(slotRow, "▶", () => SwitchSlot(ProfileSlot.Slot + 1, onBack), 56, false, 26);
         TitleUi.Width(prev, 90); TitleUi.Width(next, 90); TitleUi.Width(slotLabel, 0, 1);
         prev.interactable = next.interactable = !ProfileSlot.FromCommandLine;
         TitleUi.Label(panel, ProfileSlot.FromCommandLine
             ? "실행 인자 -profile " + ProfileSlot.Slot + " 로 고정되어 있습니다."
-            : "슬롯마다 계정·토큰·월드 저장 폴더가 따로입니다. 두 번째 창은 다른 슬롯(또는 -profile 2)으로 실행하세요.", 22, TitleUi.Muted, TextAlignmentOptions.MidlineLeft);
+            : "슬롯마다 월드 저장 폴더가 따로입니다. 두 번째 창은 다른 슬롯(또는 -profile 2)으로 실행하세요. 계정(EOS)은 한 PC에 하나입니다.", 22, TitleUi.Muted, TextAlignmentOptions.MidlineLeft);
 
-        TitleUi.Button(panel, "계정 초기화", ConfirmReset, 56, false, 26);
-        TitleUi.Button(panel, advanced ? "고급 접기" : "고급 ▶", () => ShowSettings(onBack, !advanced), 56, false, 26);
-        if (advanced) BuildAdvanced(panel, onBack);
+        string eos = EosAccount.State == EosAccount.Status.Ready ? "연결됨 (계정 " + EosAccount.LocalPuid.Substring(0, 4) + "…)"
+            : EosAccount.State == EosAccount.Status.LoggingIn ? "연결하는 중…" : "연결 안 됨 (" + EosAccount.Problem + ")";
+        TitleUi.Label(panel, "EOS: " + eos, 22, TitleUi.Muted, TextAlignmentOptions.MidlineLeft);
         TitleUi.Button(panel, "뒤로", () => leave(), 56, false, 26);
         Focus();
     }
 
-    // Settings > 고급: the account server's address (accounts only, until 2b-2). Players never need this; it is for the local test server.
-    void BuildAdvanced(RectTransform panel, Action onBack)
-    {
-        bool fixedByArg = ServerConfig.CommandLineUrl != null;
-        string origin = fixedByArg ? "실행 인자 -server 로 고정" : LocalAccount.IsCustomUrl ? "직접 지정한 주소" : "기본 서버";
-        TitleUi.Label(panel, "서버 주소 (" + origin + ")", 24, TitleUi.Muted, TextAlignmentOptions.MidlineLeft);
-        var url = TitleUi.Input(panel, "비워 두면 기본 서버", 120, null, 56);
-        url.text = LocalAccount.IsCustomUrl ? LocalAccount.ServerUrl : "";
-        var result = TitleUi.Label(panel, " ", 24, TitleUi.Muted, TextAlignmentOptions.MidlineLeft);
-        var row = TitleUi.Row(panel, 56);
-        var apply = TitleUi.Button(row, "적용", () => { LocalAccount.ServerUrl = url.text; ShowSettings(onBack, true); }, 56, true, 26);
-        TitleUi.Button(row, "연결 테스트", () => TestServer(url.text, result), 56, true, 26);
-        var local = TitleUi.Button(panel, "로컬 테스트 서버 (" + ServerConfig.LocalUrl + ")", () => url.text = ServerConfig.LocalUrl, 52, false, 24);
-        var reset = TitleUi.Button(panel, "기본 서버로 되돌리기", () => { LocalAccount.ServerUrl = ""; ShowSettings(onBack, true); }, 52, false, 24);
-        apply.interactable = local.interactable = reset.interactable = !fixedByArg;
-        if (fixedByArg) TitleUi.Label(panel, "주소: " + LocalAccount.ServerUrl, 22, TitleUi.Muted, TextAlignmentOptions.MidlineLeft);
-    }
-
-    async void TestServer(string url, TMP_Text result)
-    {
-        result.color = TitleUi.Muted; result.text = "확인하는 중…";
-        string normalized = LocalAccount.Normalize(url);
-        bool ok = await TitleFlow.TestServer(normalized);
-        if (!this || !result) return;
-        result.color = ok ? TitleUi.Good : TitleUi.Warn;
-        result.text = ok ? "연결됨: " + normalized : "연결할 수 없습니다: " + normalized;
-    }
-
-    void SwitchSlot(int slot, Action onBack, bool advanced)
+    void SwitchSlot(int slot, Action onBack)
     {
         if (slot < 1 || slot > ProfileSlot.Max) return;
         TitleFlow.ChangeSlot(slot);
-        ShowSettings(onBack, advanced);
-    }
-
-    void ConfirmReset()
-    {
-        ShowConfirm("이 슬롯에 저장된 계정 정보를 이 PC에서 지웁니다.\n서버의 계정과 월드 파일은 남지만, 이 PC는 더 이상 그 계정으로 자동 접속하지 않습니다. 계속할까요?",
-            "계정 초기화", () => { TitleFlow.ResetAccount(); ShowSettings(); }, () => ShowSettings());
+        ShowSettings(onBack);
     }
 
     // ---- test support ----
@@ -497,10 +545,8 @@ public sealed class TitleScreen : MonoBehaviour
             case "serveropen": ShowServerOpen(); break;
             case "serverjoin": ShowServerJoin(); break;
             case "settings": ShowSettings(); break;
-            case "settings-advanced": ShowSettings(null, true); break;
             case "name": ShowName(ServerCharacterHint, (n, g) => { }, ShowMain); break;
             case "error": ShowError("server_unreachable", () => { }, ShowMain); break;
-            case "confirm": ConfirmReset(); break;
             case "busy": ShowBusy("서버에 접속하는 중…"); break;
         }
     }

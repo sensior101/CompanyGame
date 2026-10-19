@@ -35,4 +35,4 @@
 
 ## 이 서버가 하지 않는 것 (4e, 2026-10-19)
 
-실시간 플레이(아바타·월드·경제·인벤토리)는 이 서버가 아니라 **동기화 계층 서버**(서버 열기/혼자 하기, 또는 서버 프로세스)가 맡습니다([Multiplayer_Redesign.md](Multiplayer_Redesign.md) 12장). 옛 방 기능인 WebSocket `/ws`(`create`·`join`·`pos`·`state`·`op`·`veh.*` 등), `GET /rooms`, 방 코드, 월드별 캐릭터 저장 `GET/PUT /me/state`는 지웠습니다. 남은 것은 계정(가입·로그인·프로필)뿐이고, 2b-2에서 EOS 계정으로 바뀔 때까지 씁니다.
+실시간 플레이(아바타·월드·경제·인벤토리)는 이 서버가 아니라 **동기화 계층 서버**(서버 열기/혼자 하기, 또는 서버 프로세스)가 맡습니다([Multiplayer_Redesign.md](Multiplayer_Redesign.md) 12장). 옛 방 기능인 WebSocket `/ws`(`create`·`join`·`pos`·`state`·`op`·`veh.*` 등), `GET /rooms`, 방 코드, 월드별 캐릭터 저장 `GET/PUT /me/state`는 지웠습니다. 남은 것은 계정(가입·로그인·프로필)뿐입니다. **2b-2(2026-10-19)부터 게임은 이 서버를 부르지 않습니다**(계정은 EOS PUID, 게임 쪽 클라이언트 코드는 지움). 코드와 배포된 Worker는 저장소에 그대로 둡니다.

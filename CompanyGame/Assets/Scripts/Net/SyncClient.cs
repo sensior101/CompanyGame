@@ -12,10 +12,12 @@ using UnityEngine;
 /// makes it with <see cref="CreateCharacter"/>. CharacterSync sends the content with <see cref="SaveCharacter"/>.
 /// Blobs from the server may be up to SyncProtocol.MaxServerBlob (the world sections, 12.9); entities on map
 /// SyncProtocol.AllMaps are kept through map changes.
+/// EOS (12.13): <see cref="ConnectEos"/> joins a server by its PUID over EOS P2P; every Hello carries my EOS ID token
+/// ("" without EOS). While connected a Ping goes out every 2 seconds: <see cref="RoundTripMs"/>.
 /// </summary>
 public sealed class SyncClient : MonoBehaviour
 {
-    const float SendInterval = .1f;
+    const float SendInterval = .1f, PingInterval = 2f;
 
     public static SyncClient Instance { get; private set; }
 
@@ -30,8 +32,12 @@ public sealed class SyncClient : MonoBehaviour
     public string Map { get; private set; } = "";
     /// <summary>The server's name from its Welcome (no &lt;&gt;, at most 30 characters: it comes from any server).</summary>
     public string ServerName { get; private set; } = "";
-    /// <summary>"connect_failed", "disconnected", or the Reject reason (Version, Full, Malformed, Rate, Password, AlreadyConnected).</summary>
+    /// <summary>"connect_failed", "disconnected", or the Reject reason (Version, Full, Malformed, Rate, Password, AlreadyConnected, Identity).</summary>
     public string LastError { get; private set; } = "";
+    /// <summary>The last Ping's round trip in milliseconds, -1 before the first Pong.</summary>
+    public int RoundTripMs { get; private set; } = -1;
+    /// <summary>"tcp", "p2p" (EOS direct) or "relay" (EOS relay), "" when not connected.</summary>
+    public string Link => transport == null ? "" : transport is EosClientTransport eos ? (eos.Relayed ? "relay" : "p2p") : "tcp";
 
     /// <summary>True once the server's Character message arrived (right after Welcome).</summary>
     public bool CharacterKnown { get; private set; }
@@ -65,7 +71,7 @@ public sealed class SyncClient : MonoBehaviour
     uint serial;
     string pendingName, pendingGender;
     int attempt; // a Disconnect during the TCP connect abandons that attempt
-    float nextSendAt;
+    float nextSendAt, nextPingAt;
 
     static GameObject DefaultFactory(string key) => Resources.Load<GameObject>(key);
 
@@ -91,7 +97,7 @@ public sealed class SyncClient : MonoBehaviour
     void OnDestroy() { if (Instance == this) Instance = null; transport?.Close(); }
     void OnApplicationQuit() { transport?.Close(); }
 
-    /// <summary>Connects over TCP and says Hello with GameSession's account id and name and the server password.</summary>
+    /// <summary>Connects over TCP and says Hello with GameSession's account id and name, the server password and my EOS ID token.</summary>
     public async void Connect(string host, int port, string password = "")
     {
         if (Connecting || transport != null) return;
@@ -103,8 +109,7 @@ public sealed class SyncClient : MonoBehaviour
         {
             await next.Connect(host, port);
             if (mine != attempt) { next.Close(); return; }
-            transport = next;
-            transport.Send(SyncProtocol.Hello(GameSession.LocalPlayerId, GameSession.LocalPlayerName, Map, password));
+            Open(next, password);
         }
         catch (Exception)
         {
@@ -113,6 +118,24 @@ public sealed class SyncClient : MonoBehaviour
             LastError = "connect_failed";
         }
         Connecting = false;
+    }
+
+    /// <summary>Connects to the server of PUID <paramref name="serverPuid"/> over EOS P2P (12.13). The Hello opens the connection.</summary>
+    public void ConnectEos(string serverPuid, string password = "")
+    {
+        if (Connecting || transport != null) return;
+        LastError = ""; ServerName = "";
+        ForgetCharacter();
+        attempt++;
+        try { Open(new EosClientTransport(serverPuid), password); }
+        catch (Exception e) { Debug.LogWarning("[Sync] EOS connect failed: " + e.Message); LastError = "connect_failed"; }
+    }
+
+    void Open(IClientTransport next, string password)
+    {
+        transport = next;
+        RoundTripMs = -1;
+        transport.Send(SyncProtocol.Hello(GameSession.LocalPlayerId, GameSession.LocalPlayerName, Map, password, token: EosAccount.IdToken()));
     }
 
     public void Disconnect()
@@ -227,6 +250,11 @@ public sealed class SyncClient : MonoBehaviour
         while (transport != null && transport.TryReceive(out byte[] frame)) Handle(frame);
         if (transport != null && !transport.IsOpen) { Closed("disconnected"); return; }
         if (Connected && Time.unscaledTime >= nextSendAt) { nextSendAt = Time.unscaledTime + SendInterval; SendDirty(); }
+        if (Connected && Time.unscaledTime >= nextPingAt)
+        {
+            nextPingAt = Time.unscaledTime + PingInterval;
+            transport.Send(SyncProtocol.Ping((uint)(Time.realtimeSinceStartupAsDouble * 1000)));
+        }
     }
 
     void SendDirty()
@@ -272,6 +300,7 @@ public sealed class SyncClient : MonoBehaviour
                     ConnectionChanged?.Invoke(true);
                     break;
                 case ToClient.Reject: LastError = ((RejectReason)r.ReadByte()).ToString(); break; // the server closes right after
+                case ToClient.Pong: RoundTripMs = (int)((uint)(Time.realtimeSinceStartupAsDouble * 1000) - r.ReadUInt32()); break;
                 case ToClient.Character: OnCharacter(r); break;
                 case ToClient.CharacterResult:
                     var result = (CharacterResult)r.ReadByte();

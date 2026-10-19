@@ -37,7 +37,7 @@ public static class TitleShots
         int code = 0, original = PlayerPrefs.GetInt("Profile.Slot", 1);
         try { await Shoot(); Debug.Log("[TitleShots] done"); }
         catch (Exception e) { Debug.LogError("[TitleShots] FAILED " + e.Message + "\n" + e.StackTrace); code = 1; }
-        foreach (string key in new[] { "Session.AccountId", "Session.AccountName", "Session.LocalPlayerId", "auth_token", "net.server_url", "net.accounts" })
+        foreach (string key in new[] { "Session.AccountId", "Session.AccountName", "Session.LocalPlayerId" })
             PlayerPrefs.DeleteKey(key + ".p3");
         PlayerPrefs.SetInt("Profile.Slot", original);
         PlayerPrefs.Save();
@@ -53,7 +53,7 @@ public static class TitleShots
         var screen = TitleScreen.Current;
         var camera = Camera.main;
         screen.UseCamera(camera);
-        foreach (string name in new[] { "main", "worlds", "serveropen", "serverjoin", "confirm", "name", "settings", "settings-advanced", "error", "busy" })
+        foreach (string name in new[] { "main", "worlds", "serveropen", "serverjoin", "name", "settings", "error", "busy" })
         {
             screen.Open(name);
             await Snap(camera, Path.Combine(dir, "T_" + name.Replace('-', '_') + ".png"));

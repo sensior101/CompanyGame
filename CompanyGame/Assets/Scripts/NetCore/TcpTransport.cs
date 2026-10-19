@@ -63,6 +63,9 @@ public sealed class TcpServerTransport : IServerTransport
         if (links.TryGetValue(connection, out var link)) link.CloseAfterSend();
     }
 
+    /// <summary>Where connection <paramref name="connection"/> comes from (null when it is gone). The identity check reads it (12.13).</summary>
+    public IPAddress RemoteAddress(int connection) => links.TryGetValue(connection, out var link) ? link.Remote : null;
+
     public void Stop()
     {
         stopped = true;
@@ -132,9 +135,12 @@ sealed class TcpLink
     readonly CancellationTokenSource cts = new CancellationTokenSource();
     int queued, closed;
 
+    public IPAddress Remote { get; }
+
     public TcpLink(TcpClient client, int maxFrame, Action<byte[]> onFrame, Action onClosed)
     {
         client.NoDelay = true;
+        Remote = (client.Client.RemoteEndPoint as IPEndPoint)?.Address;
         this.client = client;
         stream = client.GetStream();
         this.maxFrame = maxFrame;

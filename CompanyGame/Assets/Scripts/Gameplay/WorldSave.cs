@@ -91,6 +91,11 @@ public static class WorldSave
     /// Offline records were owned by the old per-PC identity (GUID and the default name "Player"). Once this PC
     /// has a server account the own world's records move to the account id. Idempotent; only the own world calls it.
     /// </summary>
+    // The EOS login ends after the offline world may have loaded (12.13): move its records to the PUID then too. Not inside a
+    // server's world (a character is set there), whose records are the server's.
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+    static void FollowAccount() => GameSession.AccountChanged += (old, id) => { if (!GameSession.HasCharacter) MigrateOwners(); };
+
     public static void MigrateOwners()
     {
         if (!GameSession.HasAccount) return;

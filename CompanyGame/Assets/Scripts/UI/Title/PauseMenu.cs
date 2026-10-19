@@ -5,8 +5,8 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 /// <summary>
-/// In-game ESC menu: continue, server info, leave the server (back to the title; TitleFlow.ReturnToTitle also stops an
-/// in-app server, never a PC server process) and quit.
+/// In-game ESC menu: continue, server info (name, server code, connection kind and round trip, 12.13), leave the server
+/// (back to the title; TitleFlow.ReturnToTitle also stops an in-app server, never a PC server process) and quit.
 /// The game keeps running underneath (it is a multiplayer game, so there is no real pause).
 /// Opens only when ESC is pressed while the player could move at the start of the frame, so ESC that closes the
 /// inventory, a shop, the phone, chat or a dialogue never also opens this menu. Created automatically.
@@ -115,7 +115,15 @@ public sealed class PauseMenu : MonoBehaviour
         if (!note) return;
         var sync = SyncClient.Instance;
         string text = "오프라인 (혼자 플레이)";
-        if (sync && sync.Connected) text = "서버: " + sync.ServerName + (SyncHost.Instance && SyncHost.Instance.InApp ? " (내가 연 서버)" : "");
+        if (sync && sync.Connected)
+        {
+            bool mine = SyncHost.Instance && SyncHost.Instance.InApp;
+            string code = mine ? SyncHost.Instance.Code : TitleFlow.JoinedCode;
+            string link = sync.Link == "relay" ? "중계(EOS)" : sync.Link == "p2p" ? "직접(EOS P2P)" : "직접(TCP)";
+            text = "서버: " + sync.ServerName + (mine ? " (내가 연 서버)" : "")
+                + (string.IsNullOrEmpty(code) ? "" : "\n서버 코드: <color=#FFC857>" + code + "</color>")
+                + "\n연결: " + link + (sync.RoundTripMs >= 0 ? " · 왕복 " + sync.RoundTripMs + "ms" : "");
+        }
         if (note.text != text) note.text = text;
     }
 

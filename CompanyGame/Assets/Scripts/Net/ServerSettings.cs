@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Security.Cryptography;
+using System.Text;
 using UnityEngine;
 
 /// <summary>
@@ -8,6 +10,7 @@ using UnityEngine;
 /// slot at <see cref="FilePath"/>; the PC server process gets that path as <c>-serversettings</c>. Values are always kept
 /// in range by <see cref="Clamp"/>: players 2..50 on PC, 2..10 on mobile. <see cref="world"/> picks the world under
 /// <see cref="WorldsFolder"/> (12.5; empty = a new one). 혼자 하기 uses <see cref="Solo"/> instead: 1 player, never clamped.
+/// The server code (12.13) comes from the world id (<see cref="CodeOf"/>), so a world keeps its code across restarts.
 /// </summary>
 [Serializable]
 public sealed class ServerSettings
@@ -36,6 +39,34 @@ public sealed class ServerSettings
 
     /// <summary>혼자 하기 (9장-4): my PC server, private, 1 player, any free port (bound to 127.0.0.1 by the caller).</summary>
     public static ServerSettings Solo(string world) => new ServerSettings { name = "혼자 하기", maxPlayers = 1, port = 0, world = world ?? "" };
+
+    // ---- server code (12.13) ----
+
+    /// <summary>Letters of a server code: capitals and digits without the easily confused 0, O, 1 and I.</summary>
+    public const string CodeLetters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    public const int CodeLength = 6;
+
+    /// <summary>
+    /// The 6-letter code of world <paramref name="world"/>: the same every time the world is opened.
+    /// ponytail: 30 bits from a hash of the id; two open servers sharing a code is about 1 in 10^9 per pair (the second one gets no session).
+    /// </summary>
+    public static string CodeOf(string world)
+    {
+        using var sha = SHA256.Create();
+        byte[] hash = sha.ComputeHash(Encoding.UTF8.GetBytes(world ?? ""));
+        var code = new StringBuilder(CodeLength);
+        for (int i = 0; i < CodeLength; i++) code.Append(CodeLetters[hash[i] & 31]);
+        return code.ToString();
+    }
+
+    /// <summary>What a player typed as a code, in capitals without spaces; null when it cannot be one.</summary>
+    public static string NormalizeCode(string typed)
+    {
+        string code = (typed ?? "").Replace(" ", "").Replace("-", "").Trim().ToUpperInvariant();
+        if (code.Length != CodeLength) return null;
+        foreach (char c in code) if (CodeLetters.IndexOf(c) < 0) return null;
+        return code;
+    }
 
     public ServerSettings Clamp()
     {

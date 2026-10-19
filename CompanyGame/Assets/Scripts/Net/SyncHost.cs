@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Threading;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using Debug = UnityEngine.Debug;
@@ -11,13 +12,17 @@ using Debug = UnityEngine.Debug;
 /// Runs <see cref="GameServer"/> in Unity, ticked in Update. Two ways, same code:
 /// in-app (<see cref="StartInApp"/>: this game is the server and its own SyncClient joins through 127.0.0.1), and a
 /// separate process: <c>-gameserver &lt;port&gt; [-maxplayers N] [-bind address] [-serversettings path]</c>. In batch mode that
-/// process drops the title scene and runs only the server. (<c>-server</c> is already the Cloudflare address argument.)
+/// process drops the title scene and runs only the server.
 /// With <c>-serversettings</c> the process takes name, players and password from that file (<c>-gameserver</c>/<c>-maxplayers</c>
 /// win) and keeps <c>running.json</c> next to it while it listens (<see cref="LocalServerProcess"/>).
 /// Worlds (12.5): the server opens <c>ServerSettings.world</c> under <c>worlds/</c> next to the settings file (a new one when empty)
 /// and saves it on <see cref="Stop"/>. The process checks for <c>stop.request</c> there every second: it saves and quits.
 /// <c>-nightskip start-end</c> sets the hours the world clock skips (saved in the world, 12.9). <see cref="Started"/> and
 /// <see cref="Stopped"/> let the game run its side of the server (ServerWorld) without Net knowing it.
+/// EOS (12.13): a server that is not 혼자 하기 also takes EOS P2P connections (<see cref="MultiTransport"/>: TCP + EOS) and keeps
+/// an EOS session (the public list and the server code) once this game's EOS login is done. Then every Hello's account is
+/// checked (<see cref="CheckIdentity"/>): an EOS connection must be the PUID EOS gives, a TCP one must carry a valid EOS ID
+/// token of it; only 127.0.0.1 saying the server's own PUID may come without one. A server without EOS trusts the Hello.
 /// </summary>
 public sealed class SyncHost : MonoBehaviour
 {
@@ -26,7 +31,13 @@ public sealed class SyncHost : MonoBehaviour
     public static SyncHost Instance { get; private set; }
 
     public GameServer Server { get; private set; }
-    public int Port => transport != null ? transport.Port : 0;
+    public int Port => tcp != null ? tcp.Port : 0;
+    /// <summary>The server code once its EOS session exists (the code then works), else "".</summary>
+    public string Code => session != null && session.Created ? session.Code : "";
+    /// <summary>The EOS session (null without EOS), for QA.</summary>
+    public EosSession Session => session;
+    /// <summary>QA only: false refuses a token-less 127.0.0.1 Hello even with the server's own PUID.</summary>
+    public static bool LoopbackException = true;
     /// <summary>True when this game is the server and a player (<see cref="StartInApp"/>); the owner leaving stops it.</summary>
     public bool InApp { get; private set; }
 
@@ -37,12 +48,19 @@ public sealed class SyncHost : MonoBehaviour
     /// <summary>The server of this process stopped and saved; Server is still readable during the call.</summary>
     public static event Action<SyncHost> Stopped;
 
-    TcpServerTransport transport;
-    string runningPath, stopPath;
+    MultiTransport transport;
+    TcpServerTransport tcp;
+    EosServerTransport eos;
+    EosSession session;
+    ServerSettings settings;
+    bool wantEos, warnedTrust;
+    string runningPath, stopPath, runningCode = "";
     float nextStopCheck;
+    LocalServerProcess.RunningInfo running;
+    static Task lastDestroy;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-    static void ResetStatics() { Instance = null; }
+    static void ResetStatics() { Instance = null; LoopbackException = true; lastDestroy = null; }
 
     /// <summary>
     /// Listens on every interface, or only on 127.0.0.1 with <paramref name="localOnly"/> (혼자 하기); settings.port 0 = any
@@ -52,7 +70,7 @@ public sealed class SyncHost : MonoBehaviour
     public static SyncHost StartInApp(ServerSettings settings, bool localOnly = false)
     {
         var world = OpenWorld(ServerSettings.WorldsFolder, settings);
-        var host = Create(localOnly ? IPAddress.Loopback : IPAddress.Any, settings.port, settings.maxPlayers, settings.name, settings.password, world, true);
+        var host = Create(localOnly ? IPAddress.Loopback : IPAddress.Any, settings, world, true, !localOnly);
         SyncClient.Instance.Connect("127.0.0.1", host.Port, settings.password);
         return host;
     }
@@ -66,31 +84,74 @@ public sealed class SyncHost : MonoBehaviour
         return world;
     }
 
-    static SyncHost Create(IPAddress address, int port, int maxPlayers, string name, string password, WorldStore world, bool inApp)
+    // eos: take EOS connections and keep a session once the login is done (not for 혼자 하기).
+    static SyncHost Create(IPAddress address, ServerSettings settings, WorldStore world, bool inApp, bool eos)
     {
         if (Instance) Instance.Stop();
-        var transport = new TcpServerTransport(address, port); // throws before anything is made when the port is taken
+        var tcp = new TcpServerTransport(address, settings.port); // throws before anything is made when the port is taken
         var go = new GameObject("SyncHost");
         DontDestroyOnLoad(go);
         var host = go.AddComponent<SyncHost>();
-        host.transport = transport;
-        host.Server = new GameServer(transport, maxPlayers, name, password, world);
+        host.tcp = tcp;
+        host.transport = new MultiTransport(tcp);
+        host.settings = settings;
+        host.Server = new GameServer(host.transport, settings.maxPlayers, settings.name, settings.password, world);
         host.Server.Log += message => Debug.LogWarning("[SyncServer] " + message);
         host.InApp = inApp;
+        host.wantEos = eos && EosAccount.OffReason() == null;
+        if (host.wantEos) host.Server.IdentityCheck = host.CheckIdentity;
+        else if (eos) Debug.LogWarning("[SyncServer] no EOS (" + EosAccount.OffReason() + "): TCP only, and every Hello's account is trusted");
         Instance = host;
-        Debug.Log("[SyncServer] '" + name + "' listening on " + address + ":" + host.Port + ", max " + maxPlayers + (string.IsNullOrEmpty(password) ? "" : ", password set")
-                  + ", world " + world.Id + " (" + world.CharacterCount + " characters)");
+        Debug.Log("[SyncServer] '" + settings.name + "' listening on " + address + ":" + host.Port + ", max " + settings.maxPlayers + (string.IsNullOrEmpty(settings.password) ? "" : ", password set")
+                  + ", world " + world.Id + " (" + world.CharacterCount + " characters)" + (host.wantEos ? ", EOS once logged in (code " + ServerSettings.CodeOf(world.Id) + ")" : ""));
         try { Started?.Invoke(host); } catch (Exception e) { Debug.LogException(e); }
         return host;
     }
 
-    // Saves the world (the game's state provider is read during it), then tells the game side it is over.
+    // EOS is logged in now: EOS connections join the TCP ones, and the session is made (the next Updates send it).
+    void AttachEos()
+    {
+        eos = new EosServerTransport();
+        transport.Add(eos);
+        session = new EosSession(ServerSettings.CodeOf(Server.World.Id), settings.name, settings.maxPlayers, settings.password.Length > 0, settings.isPublic);
+        Debug.Log("[SyncServer] EOS P2P on, session " + session.Code + (settings.isPublic ? " (public)" : " (private)"));
+    }
+
+    /// <summary>
+    /// GameServer.IdentityCheck (12.13). Waits for this server's EOS login if it is still going; a server whose login
+    /// failed trusts the Hello like a server without EOS.
+    /// </summary>
+    async Task<bool> CheckIdentity(int connection, string account, string token)
+    {
+        if (!EosAccount.Settled.IsCompleted) await EosAccount.WhenSettled(9); // still logging in (or not booted yet): inside the 10 s Hello limit
+        if (EosAccount.State != EosAccount.Status.Ready)
+        {
+            if (!warnedTrust) Debug.LogWarning("[SyncServer] EOS login failed (" + EosAccount.Problem + "): Hello accounts are trusted");
+            warnedTrust = true;
+            return true;
+        }
+        if (transport == null || !transport.Resolve(connection, out var part, out int inner)) return false;
+        string how;
+        if (part is EosServerTransport p2p) how = p2p.PeerOf(inner) == account ? "EOS P2P" : null;
+        else if (!string.IsNullOrEmpty(token)) how = await EosAccount.Verify(account, token) ? "ID token" : null;
+        else how = LoopbackException && account == EosAccount.LocalPuid && IPAddress.IsLoopback(((TcpServerTransport)part).RemoteAddress(inner) ?? IPAddress.None)
+            ? "own PUID on 127.0.0.1" : null;
+        Debug.Log("[SyncServer] identity of " + Short(account) + (how != null ? " confirmed (" + how + ")"
+            : " NOT confirmed (" + (part is EosServerTransport ? "EOS P2P peer differs" : string.IsNullOrEmpty(token) ? "no ID token" : "bad ID token") + ")"));
+        return how != null;
+    }
+
+    static string Short(string account) => string.IsNullOrEmpty(account) ? "(none)" : account.Substring(0, Math.Min(4, account.Length)) + "…";
+
+    // Saves the world (the game's state provider is read during it), then tells the game side it is over. The EOS session
+    // is removed (the process waits for that before quitting, at most 3 seconds).
     void Shutdown()
     {
         if (Server == null) return;
         Server.Stop();
+        if (session != null) lastDestroy = session.Destroy();
         try { Stopped?.Invoke(this); } catch (Exception e) { Debug.LogException(e); }
-        Server = null; transport = null;
+        Server = null; transport = null; tcp = null; eos = null; session = null;
     }
 
     /// <summary>Saves the world and stops. In-app: my own last character save is read first (at most 1 second).</summary>
@@ -112,14 +173,32 @@ public sealed class SyncHost : MonoBehaviour
 
     void Update()
     {
-        Server?.Tick();
+        if (Server == null) return;
+        if (wantEos && eos == null && EosAccount.State == EosAccount.Status.Ready) AttachEos();
+        eos?.Pump();
+        Server.Tick();
+        session?.Tick(Server.PlayerCount);
+        if (runningPath != null && Code != runningCode) WriteRunning(); // the code works now: the title shows it
         if (stopPath == null || Time.unscaledTime < nextStopCheck) return;
         nextStopCheck = Time.unscaledTime + 1f;
         if (!File.Exists(stopPath)) return;
         Debug.Log("[SyncServer] stop requested: saving the world and quitting");
         try { File.Delete(stopPath); } catch (Exception) { /* LocalServerProcess removes it too */ }
         Stop();
+        QuitAfter(lastDestroy);
+    }
+
+    static async void QuitAfter(Task wait)
+    {
+        if (wait != null) await wait; // the session removal (EosSession.Destroy gives up after 3 seconds)
         Application.Quit(0);
+    }
+
+    void WriteRunning()
+    {
+        running.code = runningCode = Code;
+        try { File.WriteAllText(runningPath, JsonUtility.ToJson(running)); }
+        catch (Exception e) { Debug.LogError("[SyncServer] cannot write " + runningPath + ": " + e.Message); }
     }
 
     void OnDestroy() { Shutdown(); if (Instance == this) Instance = null; DeleteRunning(); }
@@ -161,7 +240,8 @@ public sealed class SyncHost : MonoBehaviour
         {
             var world = OpenWorld(Path.Combine(folder, "worlds"), settings);
             ApplyNightSkip(world, Arg("-nightskip"));
-            host = Create(address, p, settings.maxPlayers, settings.name, settings.password, world, false);
+            settings.port = p;
+            host = Create(address, settings, world, false, true);
         }
         catch (Exception e)
         {
@@ -172,10 +252,9 @@ public sealed class SyncHost : MonoBehaviour
         if (settingsPath == null) return;
         host.stopPath = Path.Combine(folder, LocalServerProcess.StopRequestName);
         try { File.Delete(host.stopPath); } catch (Exception) { /* checked again every second */ }
-        string running = Path.Combine(folder, "running.json");
-        var info = new LocalServerProcess.RunningInfo { pid = Process.GetCurrentProcess().Id, port = host.Port, startedAt = DateTime.UtcNow.ToString("o"), world = settings.world };
-        try { File.WriteAllText(running, JsonUtility.ToJson(info)); host.runningPath = running; }
-        catch (Exception e) { Debug.LogError("[SyncServer] cannot write " + running + ": " + e.Message); }
+        host.running = new LocalServerProcess.RunningInfo { pid = Process.GetCurrentProcess().Id, port = host.Port, startedAt = DateTime.UtcNow.ToString("o"), world = settings.world };
+        host.runningPath = Path.Combine(folder, "running.json");
+        host.WriteRunning();
     }
 
     // -nightskip "start-end": set on the world before the server opens it, so the clock is never put on a skipped hour first.

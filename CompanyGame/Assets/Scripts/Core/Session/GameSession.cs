@@ -10,13 +10,13 @@ public static class GameSession
     public static SessionMode Mode { get; private set; } = SessionMode.Host;
 
     // Offline identity: a per-PC GUID and the default name. An account id set with SetAccount replaces both and is
-    // remembered on this PC (accounts move to EOS in 2b-2).
+    // remembered on this PC slot: the EOS PUID since 2b-2 (EosAccount, 12.13).
     static string AccountIdKey => ProfileSlot.Key("Session.AccountId");
     static string AccountNameKey => ProfileSlot.Key("Session.AccountName");
     static string offlineName = "Player", guid, accountId, accountName, characterName, characterGender;
     static bool accountLoaded;
 
-    /// <summary>The name ownership and system messages use. Account nickname once logged in on this PC.</summary>
+    /// <summary>The name ownership and system messages use: the server character's, else the default name.</summary>
     public static string LocalPlayerName
     {
         get
@@ -47,7 +47,7 @@ public static class GameSession
     public static string OfflinePlayerName => offlineName;
     public static bool HasAccount { get { LoadAccount(); return !string.IsNullOrEmpty(accountId); } }
 
-    /// <summary>Account id (server players.id) when known, else the legacy GUID.</summary>
+    /// <summary>The EOS PUID when known (EosAccount), else the per-PC GUID.</summary>
     public static string LocalPlayerId { get { LoadAccount(); return HasAccount ? accountId : OfflinePlayerId; } }
 
     /// <summary>Raised after the account changed: (oldId, newId). Owners of records can migrate then.</summary>

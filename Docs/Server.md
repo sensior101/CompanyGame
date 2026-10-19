@@ -5,9 +5,9 @@
 | 서버 | 하는 일 | 위치 |
 | --- | --- | --- |
 | **게임 서버**(동기화 계층) | 실시간 플레이 전부: 아바타, 월드(시계·주가·회사·소유권·SNS·신고), 개인 경제·인벤토리 장부, 드롭·탈것, 도서관. 월드와 캐릭터를 `world.dat`에 저장 | Unity 안. 서버 열기/혼자 하기(앱 안 서버) 또는 서버 프로세스(빌드를 `-gameserver`로 실행). [Multiplayer_Redesign.md](Multiplayer_Redesign.md) 12장 |
-| **계정 서버**(이 문서) | 회원가입, 로그인(JWT), 내 정보, 닉네임·성별 | `Server/`(Node, 로컬 테스트용), `Server/worker/`(Cloudflare Workers, 배포용) |
+| **계정 서버**(이 문서) | 회원가입, 로그인(JWT), 내 정보, 닉네임·성별. **2b-2부터 게임이 쓰지 않음** | `Server/`(Node, 로컬 테스트용), `Server/worker/`(Cloudflare Workers, 배포용) |
 
-옛 방 서버(WebSocket `/ws`, `/rooms`, 방 코드, `/me/state` 월드별 저장, Cloudflare `Lobby` Durable Object)는 4e(2026-10-19)에서 지웠습니다. 계정 서버도 2b-2에서 EOS 계정으로 바뀌면 필요 없어집니다.
+옛 방 서버(WebSocket `/ws`, `/rooms`, 방 코드, `/me/state` 월드별 저장, Cloudflare `Lobby` Durable Object)는 4e(2026-10-19)에서 지웠습니다. 2b-2(2026-10-19)에서 계정이 EOS PUID로 바뀌어 게임은 계정 서버를 쓰지 않습니다. `Server/` 코드와 배포된 Worker는 그대로 둡니다(결정 2026-10-19).
 
 ## 계정 서버 (`Server/`)
 
@@ -33,20 +33,19 @@ npm test
 
 ## Unity와의 연결
 
-- 클라이언트: `Net/PlayerData.cs`(가입·로그인·프로필·핑, 토큰은 `PlayerPrefs`), `Net/LocalAccount.cs`(슬롯별 서버 주소와 계정), `Net/ServerConfig.cs`(기본 주소 `PublicUrl`), `Net/ServerBudget.cs`(503 `daily_budget`을 받으면 다음 UTC 날까지 계정 요청을 멈춤).
-- 주소 우선순위: 실행 인자 `-server <주소>` > 설정 > 고급에 넣은 주소(프로필 슬롯별) > `PublicUrl`. 고급의 "로컬 테스트 서버" 버튼이 `http://localhost:3000`을 넣습니다.
-- 지금 게임 흐름(혼자 하기·서버 열기·참가하기)은 계정 서버를 부르지 않습니다. 게임 서버는 `GameSession`의 계정 id(이 PC에 기억된 계정 id, 없으면 PC별 GUID)로 캐릭터를 찾습니다. 설정의 "계정 초기화"와 고급의 서버 주소는 이 계정 서버용으로 남아 있습니다(2b-2에서 EOS로 정리).
+- 없음. 계정 서버 클라이언트(`PlayerData`, `LocalAccount`, `ServerConfig`, `ServerBudget`)와 설정의 "계정 초기화"·서버 주소는 2b-2에서 지웠습니다.
+- 계정은 EOS PUID입니다(`Net/Eos/EosAccount.cs`). 게임 서버는 Hello의 계정을 EOS로 확인합니다(EOS P2P 상대 PUID, 또는 TCP의 EOS ID 토큰. 127.0.0.1에서 온 서버 자신의 PUID만 토큰 없이). EOS 없이 도는 서버(설정 파일 없음, `-noeos`)는 Hello의 계정을 믿습니다.
 
 ## 게임 서버 테스트 (한 PC에서 게임 2개)
 
-같은 계정으로 두 번 접속하면 두 번째가 거절되므로(`AlreadyConnected`), 창마다 **다른 프로필 슬롯**을 씁니다.
+같은 계정으로 두 번 접속하면 두 번째가 거절되므로(`AlreadyConnected`), 창마다 **다른 프로필 슬롯**을 씁니다. 2b-2부터 한 PC(OS 사용자)의 게임은 모두 같은 EOS 계정이라, 한 PC 두 창 시험은 **서버와 두 창 모두 `-noeos`**(또는 환경 변수 `COMPANYGAME_NOEOS=1`)로 실행합니다. 다른 PC와는 참가하기의 공개 목록이나 서버 코드(EOS P2P)로 들어갑니다.
 
 1. 창 1: 빌드를 `-profile 1`로(또는 에디터 Play) 실행 → **서버 열기** → 이름·비밀번호 → 서버 시작 → 캐릭터를 만들면 게임에 들어갑니다.
 2. 창 2: 빌드를 `-profile 2`로 실행 → **참가하기** → `127.0.0.1`(포트를 바꿨으면 `127.0.0.1:포트`)와 비밀번호 → 캐릭터를 만듭니다.
-3. 다른 PC와 할 때는 서버를 연 PC의 IP와 포트(기본 7777)를 입력합니다. 방화벽·공유기 포트 열기가 필요합니다.
-4. 서버 프로세스로 돌릴 때는 빌드를 `-gameserver <포트> -serversettings <settings.json>`으로 실행합니다(창 없음, `-nightskip` 등은 [Multiplayer_Redesign.md](Multiplayer_Redesign.md) 12.3·12.9). `-server <주소>`는 계정 서버 주소이니 헷갈리지 않게 주의합니다.
+3. 다른 PC와 할 때는 참가하기의 공개 서버 목록이나 서버 코드(EOS P2P, 포트 열기 불필요)로 들어갑니다. 직접 주소(IP·포트, 기본 7777)는 "직접 주소 입력" 아래에 있고 방화벽·공유기 포트 열기가 필요합니다.
+4. 서버 프로세스로 돌릴 때는 빌드를 `-gameserver <포트> -serversettings <settings.json>`으로 실행합니다(창 없음, `-nightskip` 등은 [Multiplayer_Redesign.md](Multiplayer_Redesign.md) 12.3·12.9).
 
-슬롯별로 나뉘는 것: `PlayerPrefs`(계정·서버 주소·서버 설정), 오프라인 `world/world.json`, `player/<계정 id>.json`(슬롯 2~4는 `profile2/`~`profile4/` 폴더). 서버의 월드는 `worlds/<월드 id>/world.dat`입니다.
+슬롯별로 나뉘는 것: `PlayerPrefs`(계정 id·서버 설정), 오프라인 `world/world.json`, `player/<계정 id>.json`(슬롯 2~4는 `profile2/`~`profile4/` 폴더). 서버의 월드는 `worlds/<월드 id>/world.dat`입니다.
 
 ## Cloudflare 배포 (계정 서버)
 
@@ -105,7 +104,7 @@ curl https://companygame-server.<계정-서브도메인>.workers.dev/      # {"o
 | `DO_DAILY_BUDGET` | 60000 | DO 무료 10만의 60%. 전부 Accounts 몫 |
 
 - 세는 곳은 요청이 어차피 도착하는 `Accounts` DO입니다(추가 호출 없음). 카운터는 메모리에 두고 몇 건마다 SQLite 한 행에 저장합니다(재시작 시 그만큼 덜 셈. 보호용이지 청구용이 아님).
-- **넘으면** `503 {"error":"daily_budget"}` + `Retry-After`(UTC 0시까지 남은 초). 게임은 그때부터 다음 UTC 날(한국 시간 오전 9시)까지 계정 요청을 보내지 않고 안내 문구를 보여 줍니다(`ServerBudget`). 혼자 하기·서버 열기·참가하기는 계정 서버와 무관하므로 그대로 됩니다.
+- **넘으면** `503 {"error":"daily_budget"}` + `Retry-After`(UTC 0시까지 남은 초). (게임 쪽 `ServerBudget`은 2b-2에서 계정 서버 클라이언트와 함께 지웠습니다.)
 - Worker 단계에서 거절하는 요청(JSON 오류 400, 잘못된 토큰 401, 404)은 DO에 닿지 않아 세지 않습니다. 대량 공격은 Cloudflare 대시보드의 WAF 속도 제한으로 막습니다.
 - `GET /health`(와 `GET /`)는 DO를 건드리지 않고 항상 200입니다(Worker 요청으로는 셈).
 

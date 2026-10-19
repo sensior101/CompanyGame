@@ -1,108 +1,30 @@
 using System;
+using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using UnityEngine;
 
 /// <summary>
 /// The title screen's actions without any UI: 혼자 하기 / 서버 열기 / 참가하기 on the sync layer, the character of the
-/// server's world, entering the map, and the account of the profile slot (kept until 2b-2 moves accounts to EOS).
-/// Every step returns null on success or an error code, and
+/// server's world, and entering the map. The account is the EOS PUID (EosAccount, 12.13): every step that joins a server
+/// first waits for the EOS login to end, so the account never changes under a connection. Joining by the public list or a
+/// server code goes over EOS P2P. Every step returns null on success or an error code, and
 /// <see cref="Message"/> turns a code into Korean text. The UI and the headless TitleFlowQA both drive this class.
 /// </summary>
 public static class TitleFlow
 {
     public const string TitleScene = "Assets/Scenes/Title.unity";
     public const string GameScene = "Assets/Scenes/daldongnaemap.unity";
-    public const float StepTimeout = 8f;
+    public const float StepTimeout = 8f, EosStepTimeout = 25f; // EOS P2P may first try NAT punching, then the relay
 
     static readonly Regex NamePattern = new Regex("^[가-힣A-Za-z0-9_]{2,12}$");
 
     public static bool IsValidName(string name) => name != null && NamePattern.IsMatch(name);
 
-    public static string ServerUrl => LocalAccount.ServerUrl;
+    /// <summary>The code of the server joined last by list or code, or of my own server process ("" when unknown). The pause menu shows it.</summary>
+    public static string JoinedCode { get; private set; } = "";
 
-    /// <summary>The saved account for the current server and slot (null if none yet).</summary>
-    public static LocalAccount.Entry Account => LocalAccount.Find(LocalAccount.ServerUrl);
-
-    /// <summary>True when this slot already has a named account for the current server.</summary>
-    public static bool HasAccount { get { var a = Account; return a != null && a.HasName; } }
-
-    static PlayerData Data => PlayerData.Instance ? PlayerData.Instance : new GameObject("PlayerData").AddComponent<PlayerData>();
-
-    // ---- account ----
-
-    /// <summary>
-    /// Makes sure this PC is logged in to the current server. With a saved account it just logs in; otherwise it
-    /// registers a generated username/password silently. The account nickname is <paramref name="name"/> when given,
-    /// else a generated one: players never see it, they make a character per server's world (<see cref="CreateServerCharacter"/>).
-    /// If the server forgot the saved account (database reset) it is registered again.
-    /// </summary>
-    public static async Awaitable<string> SignIn(string name, string gender)
-    {
-        string url = LocalAccount.ServerUrl;
-        var data = Data;
-        data.BaseUrl = url;
-        var entry = LocalAccount.Find(url);
-        if (entry != null)
-        {
-            var login = await data.Login(entry.username, entry.password);
-            if (login.Error == "invalid_credentials")
-            {
-                name = string.IsNullOrEmpty(name) ? entry.nickname : name;
-                gender = string.IsNullOrEmpty(gender) ? entry.gender : gender;
-                LocalAccount.Remove(url);
-                entry = null;
-            }
-            else if (!login.Ok) return login.Error;
-        }
-        if (entry == null)
-        {
-            if (!string.IsNullOrEmpty(name) && !IsValidName(name)) return "invalid_name";
-            string error;
-            (entry, error) = await Register(data, url);
-            if (error != null) return error;
-        }
-        if (data.Profile == null || !data.Profile.IsComplete)
-        {
-            string nick = string.IsNullOrEmpty(name) ? entry.nickname : name;
-            string sex = gender == "female" || gender == "male" ? gender : (string.IsNullOrEmpty(entry.gender) ? "male" : entry.gender);
-            bool generated = !IsValidName(nick);
-            var saved = default(ApiResult);
-            for (int i = 0; i < 3; i++) // a generated nickname can collide: roll another
-            {
-                saved = await data.SaveProfile(generated ? AutoNickname() : nick, sex);
-                if (saved.Ok || !generated || saved.Error != "nickname_taken") break;
-            }
-            if (!saved.Ok) return saved.Error; // the account stays saved (nickname empty), so the next try sets it again
-        }
-        entry.nickname = data.Profile.nickname; entry.gender = data.Profile.gender;
-        LocalAccount.Save(entry);
-        return null;
-    }
-
-    static async Awaitable<(LocalAccount.Entry, string)> Register(PlayerData data, string url)
-    {
-        for (int i = 0; i < 3; i++) // a random username collision is practically impossible, but retry anyway
-        {
-            var entry = new LocalAccount.Entry { url = url, username = LocalAccount.NewUsername(), password = LocalAccount.NewPassword() };
-            var result = await data.Register(entry.username, entry.password);
-            if (result.Ok) { LocalAccount.Save(entry); return (entry, null); }
-            if (result.Error != "username_taken") return (null, result.Error);
-        }
-        return (null, "username_taken");
-    }
-
-    // Server nickname rule: 2..12 of [가-힣A-Za-z0-9_]. "p" + 10 hex = 11.
-    static string AutoNickname() => "p" + Guid.NewGuid().ToString("N").Substring(0, 10);
-
-    /// <summary>Forgets the account of this slot on this PC. The server keeps it; world files stay on disk.</summary>
-    public static void ResetAccount()
-    {
-        if (PlayerData.Instance) PlayerData.Instance.Logout();
-        LocalAccount.Clear();
-        GameSession.ClearAccount();
-    }
-
-    public static async Awaitable<bool> TestServer(string url) => await Data.Ping(LocalAccount.Normalize(url));
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    static void ResetStatics() { JoinedCode = ""; }
 
     /// <summary>Switches the profile slot: saves the current slot, then loads the other slot's personal and world files.</summary>
     public static bool ChangeSlot(int slot)
@@ -130,6 +52,8 @@ public static class TitleFlow
     /// </summary>
     public static async Awaitable<string> OpenSolo(string world)
     {
+        await EosAccount.WhenSettled();
+        JoinedCode = "";
         var running = LocalServerProcess.CanStart ? LocalServerProcess.Running() : null;
         if (running != null && !string.IsNullOrEmpty(world) && running.world == world) return "world_in_use"; // two writers of one world file
         SyncClient.Instance.Disconnect();
@@ -151,6 +75,8 @@ public static class TitleFlow
     /// </summary>
     public static async Awaitable<string> OpenServer(ServerSettings settings)
     {
+        await EosAccount.WhenSettled();
+        JoinedCode = "";
         settings.Clamp();
         if (string.IsNullOrEmpty(settings.world)) settings.world = WorldStore.NewId();
         if (ServerSettings.IsMobile || !LocalServerProcess.CanStart)
@@ -169,13 +95,23 @@ public static class TitleFlow
             // The process writes running.json once it listens (a player boot takes a few seconds).
             if (!await Until(() => (running = LocalServerProcess.Running()) != null || process.HasExited, 60f) || running == null) return "server_start_failed";
         }
-        return await JoinServer("127.0.0.1:" + running.port, ServerSettings.Load().password, false);
+        return await JoinMine(running);
+    }
+
+    /// <summary>My PC server process (127.0.0.1, my PUID needs no token there): "내 서버 실행 중 > 접속" and 서버 열기.</summary>
+    public static async Awaitable<string> JoinMine(LocalServerProcess.RunningInfo running)
+    {
+        string error = await JoinServer("127.0.0.1:" + running.port, ServerSettings.Load().password, false);
+        if (error == null) JoinedCode = LocalServerProcess.Running()?.code ?? running.code ?? "";
+        return error;
     }
 
     /// <summary>Joins a server by "host" or "host:port" (default port 7777). Null or an error code.</summary>
     public static async Awaitable<string> JoinServer(string address, string password, bool remember = true)
     {
         if (!TryParseAddress(address, out string host, out int port)) return "bad_address";
+        await EosAccount.WhenSettled();
+        JoinedCode = "";
         var client = SyncClient.Instance;
         client.Disconnect();
         client.Connect(host, port, password ?? "");
@@ -183,6 +119,49 @@ public static class TitleFlow
         if (error != null) return error;
         if (remember) ServerSettings.Remember(address.Trim());
         return null;
+    }
+
+    // ---- public list and server codes (EOS Sessions, 12.13) ----
+
+    /// <summary>The public servers (stale ones left out), or an error code (eos_offline, search_failed).</summary>
+    public static async Awaitable<(List<EosSession.Entry>, string)> ListServers()
+    {
+        if (!await EosAccount.WhenSettled()) return (null, "eos_offline");
+        var (failed, found) = await EosSession.Search(null);
+        if (failed != null) Debug.LogWarning("[TitleFlow] server list search failed: " + failed);
+        return failed == null ? (found, null) : (null, "search_failed");
+    }
+
+    /// <summary>The server with code <paramref name="typed"/>, or an error code (bad_code, eos_offline, code_not_found, search_failed).</summary>
+    public static async Awaitable<(EosSession.Entry, string)> FindCode(string typed)
+    {
+        string code = ServerSettings.NormalizeCode(typed);
+        if (code == null) return (null, "bad_code");
+        if (!await EosAccount.WhenSettled()) return (null, "eos_offline");
+        var (failed, found) = await EosSession.Search(code);
+        if (failed != null) { Debug.LogWarning("[TitleFlow] code search failed: " + failed); return (null, "search_failed"); }
+        return found.Count > 0 ? (found[0], null) : (null, "code_not_found");
+    }
+
+    /// <summary>
+    /// Joins a server from the list or a code over EOS P2P. My own server (same PUID: P2P to myself does not work, 4.2-1) is
+    /// joined at 127.0.0.1 when it is my PC server process. Null or an error code.
+    /// </summary>
+    public static async Awaitable<string> JoinListed(EosSession.Entry entry, string password)
+    {
+        if (!await EosAccount.WhenSettled()) return "eos_offline";
+        if (entry.puid == EosAccount.LocalPuid)
+        {
+            var running = LocalServerProcess.CanStart ? LocalServerProcess.Running() : null;
+            return running != null && running.code == entry.code ? await JoinMine(running) : "own_server";
+        }
+        JoinedCode = "";
+        var client = SyncClient.Instance;
+        client.Disconnect();
+        client.ConnectEos(entry.puid, password ?? "");
+        string error = await WaitSync(EosStepTimeout);
+        if (error == null) JoinedCode = entry.code;
+        return error;
     }
 
     public static bool TryParseAddress(string address, out string host, out int port)
@@ -197,10 +176,10 @@ public static class TitleFlow
         return host.Length > 0 && host.Length <= 253 && host.IndexOf(' ') < 0;
     }
 
-    static async Awaitable<string> WaitSync()
+    static async Awaitable<string> WaitSync(float timeout = StepTimeout)
     {
         var client = SyncClient.Instance;
-        if (!await Until(() => client.Connected && client.CharacterKnown || !string.IsNullOrEmpty(client.LastError), StepTimeout)) { client.Disconnect(); return "server_unreachable"; }
+        if (!await Until(() => client.Connected && client.CharacterKnown || !string.IsNullOrEmpty(client.LastError), timeout)) { client.Disconnect(); return "server_unreachable"; }
         if (client.Connected) return null;
         return client.LastError == "connect_failed" || client.LastError == "disconnected" ? "server_unreachable" : client.LastError;
     }
@@ -272,24 +251,19 @@ public static class TitleFlow
     {
         switch (code)
         {
-            case "network": case "connect_failed": case "timeout":
-                return ServerConfig.IsPlaceholder && !LocalAccount.IsCustomUrl
-                    ? "게임에 서버 주소가 아직 들어 있지 않습니다(개발 빌드). 설정 > 고급에서 서버 주소를 입력해 주세요."
-                    : "서버에 연결할 수 없습니다. 인터넷 연결을 확인하고 잠시 후 다시 시도해 주세요. 서버가 점검 중일 수 있습니다.";
-            case "daily_budget": return ServerBudget.Message;
-            case "bad_url": return "서버 주소 형식이 올바르지 않습니다. 설정 > 고급에서 주소를 고쳐 주세요.";
-            case "rate_limited": return "요청이 너무 많습니다. 잠시 기다렸다가 다시 시도해 주세요.";
-            case "invalid_name": case "invalid_input": return "이름은 한글, 영문, 숫자, _ 로 2~12자여야 합니다.";
-            case "nickname_taken": return "이미 사용 중인 이름입니다. 다른 이름을 입력해 주세요.";
-            case "username_taken": return "계정을 만들지 못했습니다. 잠시 후 다시 시도해 주세요.";
-            case "invalid_credentials": return "저장된 계정으로 로그인하지 못했습니다. 설정에서 계정 초기화 후 다시 시도해 주세요.";
-            case "unauthorized": return "로그인이 만료되었거나 연결이 거부되었습니다. 다시 시도해 주세요.";
+            case "invalid_name": return "이름은 한글, 영문, 숫자, _ 로 2~12자여야 합니다.";
             case "disconnected": return "서버와의 연결이 끊겼습니다.";
+            case "eos_offline": return "EOS에 연결되지 않았습니다. 공개 서버 목록과 서버 코드는 EOS가 필요합니다. 인터넷 연결을 확인하고 게임을 다시 시작하거나, 아래의 주소로 접속해 주세요.";
+            case "search_failed": return "서버 목록을 받지 못했습니다. 잠시 후 다시 시도해 주세요.";
+            case "bad_code": return "서버 코드는 영문 대문자와 숫자 6자입니다. (0, O, 1, I는 쓰지 않습니다)";
+            case "code_not_found": return "이 코드의 서버를 찾지 못했습니다. 코드가 맞는지, 서버가 켜져 있는지 확인해 주세요.";
+            case "own_server": return "이 PC의 내 서버입니다. 서버 열기에서 접속해 주세요.";
+            case "Identity": return "서버가 이 계정을 확인하지 못해 들어갈 수 없습니다. 게임을 다시 시작해 EOS에 다시 연결한 뒤 시도해 주세요.";
             case "load_failed": return "맵을 불러오지 못했습니다.";
             case "Version": return "서버와 게임 버전이 달라 들어갈 수 없습니다. 같은 빌드를 받아 실행해 주세요.";
             case "Full": return "서버가 가득 찼습니다. 자리가 나면 다시 시도해 주세요.";
             case "Password": return "비밀번호가 틀렸습니다. 서버를 연 사람에게 비밀번호를 다시 확인해 주세요.";
-            case "AlreadyConnected": return "이 캐릭터가 이미 서버에 접속해 있습니다. 다른 창이나 기기를 닫고 다시 시도해 주세요. (한 PC에서 게임을 두 개 켜려면 설정에서 서로 다른 프로필 슬롯을 쓰세요.)";
+            case "AlreadyConnected": return "이 계정이 이미 서버에 접속해 있습니다. 다른 창이나 기기를 닫고 다시 시도해 주세요. (한 PC의 게임은 모두 같은 EOS 계정입니다. 두 창 시험은 서버와 두 창 모두 -noeos 와 서로 다른 프로필 슬롯으로 실행하세요.)";
             case "Malformed": return "서버가 연결을 거부했습니다(잘못된 메시지). 게임을 다시 시작한 뒤 시도해 주세요.";
             case "Rate": return "메시지를 너무 많이 보내 서버가 연결을 끊었습니다. 잠시 후 다시 시도해 주세요.";
             case "server_start_failed": return "서버를 시작하지 못했습니다. 다른 프로그램이 같은 포트를 쓰고 있을 수 있습니다. 서버 열기 > 고급에서 포트를 바꿔 보세요.";
