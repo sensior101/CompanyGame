@@ -43,23 +43,20 @@ npm test
 1. 창 1: 빌드를 `-profile 1`로(또는 에디터 Play) 실행 → **서버 열기** → 이름·비밀번호 → 서버 시작 → 캐릭터를 만들면 게임에 들어갑니다.
 2. 창 2: 빌드를 `-profile 2`로 실행 → **참가하기** → `127.0.0.1`(포트를 바꿨으면 `127.0.0.1:포트`)와 비밀번호 → 캐릭터를 만듭니다.
 3. 다른 PC와 할 때는 참가하기의 공개 서버 목록이나 서버 코드(EOS P2P, 포트 열기 불필요)로 들어갑니다. 직접 주소(IP·포트, 기본 7777)는 "직접 주소 입력" 아래에 있고 방화벽·공유기 포트 열기가 필요합니다.
-4. 서버 프로세스로 돌릴 때는 빌드를 `-gameserver [포트] -serversettings <settings.json>`으로 실행합니다(창 없음, 포트를 빼면 설정 파일의 포트, `-nightskip` 등은 [Multiplayer_Redesign.md](Multiplayer_Redesign.md) 12.3·12.9). 서버 컴퓨터에 둘 때는 아래 "전용 서버" 묶음을 씁니다.
+4. 서버 프로세스로 돌릴 때는 빌드를 `-gameserver [포트] -serversettings <settings.json>`으로 실행합니다(창 없음, 포트를 빼면 설정 파일의 포트, `-nightskip` 등은 [Multiplayer_Redesign.md](Multiplayer_Redesign.md) 12.3·12.9).
 
 슬롯별로 나뉘는 것: `PlayerPrefs`(계정 id·서버 설정), 오프라인 `world/world.json`, `player/<계정 id>.json`(슬롯 2~4는 `profile2/`~`profile4/` 폴더). 서버의 월드는 `worlds/<월드 id>/world.dat`입니다.
 
-## 전용 서버 (6단계, [Multiplayer_Redesign.md](Multiplayer_Redesign.md) 12.15)
+## 배포 빌드와 서버 운영 (6단계, [Multiplayer_Redesign.md](Multiplayer_Redesign.md) 12.15)
 
-서버 컴퓨터에서 창 없이 도는 게임 서버입니다. Windows만 있습니다(리눅스는 모듈 설치 뒤).
+배포하는 것은 **게임 빌드 두 개뿐**입니다: `CompanyGame/Builds/Windows/`, `CompanyGame/Builds/Mac/`(각 zip). 만들기: `-executeMethod EosConnectQA.RunBundle`(`-quit`). 따로 내는 전용 서버 묶음은 없습니다(2026-10-19 결정). 서버는 게임 안 "서버 열기"로 열고, 다른 사람은 참가하기의 공개 서버 목록이나 서버 코드로 들어옵니다.
 
 | 항목 | 내용 |
 | --- | --- |
-| 만들기 | 에디터에서 `-executeMethod DedicatedServerQA.RunBundle`(`-quit`) → `CompanyGame/Builds/DedicatedServer/`와 `DedicatedServer.zip`. 일반 Windows 플레이어(타이틀 씬 하나)를 `-batchmode -nographics`로 돌립니다. Dedicated Server 빌드 대상은 쓰지 않습니다(모듈 없음) |
-| 묶음 | `CompanyGameServer.exe`, `StartServer.bat`, `server/settings.json`, `README.txt`(한국어 사용 안내). 묶음 원본은 `Assets/Scripts/Editor/Net/DedicatedServerBundle~/` |
-| 켜기·끄기 | `StartServer.bat` 더블클릭. 그 창이 서버 콘솔입니다(명령 입력, 주요 로그). 끌 때는 `stop`(또는 Ctrl+C): 저장하고 종료. 전체 로그는 `server/server.log` |
-| 설정 파일 | `server/settings.json`(`ServerSettings` JSON): `name`, `maxPlayers`, `isPublic`, `password`, `port`, `world`(재시작해야 적용), `admins`, `bans`, `nightSkip`, `trafficCars`(최대 10, 저장하면 1초 안에 적용) |
-| 관리자 | 설정의 `admins` 계정 + 서버 연 사람(PC "서버 열기"는 `-owner`로 넘김) + 콘솔. 명령: `help`, `players`, `kick`, `ban`, `unban`, `admin`/`unadmin`(콘솔·서버 연 사람만), `say`, `save`, `time`, `stop`. 게임 채팅에서는 `/kick 이름`처럼 앞에 `/` (`Player/ServerAdmin.cs`) |
-| 목록 | EOS가 되면 스스로 공개 목록에 등록하고 서버 코드를 냅니다(2b-2 코드 그대로). 직접 주소는 TCP `port`(공유기 포트 포워딩 필요) |
-| QA | `DedicatedServerQA`(`RunBundle`, `RunConsole`, `RunPlay`, `RunEos`, `RunLoad`), 러너 `_temp/qa6/regress.sh` |
+| 설정 파일 | 서버 열기의 슬롯별 `server/settings.json`(`ServerSettings` JSON): `name`, `maxPlayers`, `isPublic`, `password`, `port`, `world`(재시작해야 적용), `admins`, `bans`, `nightSkip`, `trafficCars`(최대 10, 저장하면 1초 안에 적용) |
+| 관리자 | 설정의 `admins` 계정 + 서버 연 사람(`-owner`로 넘김). 게임 채팅에서 `/help`, `/players`, `/kick 이름`, `/ban`, `/unban`, `/admin`·`/unadmin`(서버 연 사람만), `/say`, `/save`, `/time`, `/stop` (`Player/ServerAdmin.cs`) |
+| 창 없이 돌리기 | 같은 게임 exe를 `-batchmode -nographics -console -gameserver -serversettings <settings.json>`으로 실행하면 콘솔에서 위 명령(앞 `/` 없이)을 받습니다. QA용이며 따로 배포하지 않습니다 |
+| QA | `DedicatedServerQA`(`RunConsole`, `RunPlay`, `RunEos`, `RunLoad`, `Builds/Windows/CompanyGame.exe`를 씀), 러너 `_temp/qa6/regress.sh` |
 
 ## Cloudflare 배포 (계정 서버)
 

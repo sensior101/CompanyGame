@@ -1,14 +1,14 @@
-CompanyGame 다른 PC 접속 시험 (2b-2, EOS 공개 서버 목록과 서버 코드)
+CompanyGame 멀티 (공개 서버 목록 / 서버 코드로 입장)
 
 서버 여는 쪽 (Windows PC)
-1. Game2b2.zip 을 풀고 CompanyGame.exe 를 실행합니다. (방화벽 창이 뜨면 "허용")
+1. Windows.zip 을 풀고 CompanyGame.exe 를 실행합니다. (방화벽 창이 뜨면 "허용")
 2. 서버 열기 > "공개" 선택 > 서버 시작 > 캐릭터를 만들어 들어갑니다.
 3. ESC 를 누르면 "서버 코드"(6자)가 보입니다. 접속하는 쪽에 알려 줍니다.
    (서버는 게임을 꺼도 계속 돕니다. 끄려면 게임의 서버 열기 화면에서 "끄기")
 
 접속하는 쪽 (맥북이나 다른 Windows PC, 서버와 다른 PC여야 합니다)
 맥만 처음 한 번: 압축을 푼 뒤 터미널에서
-     cd ~/Downloads/Game2b2Mac
+     cd ~/Downloads/Mac
      xattr -dr com.apple.quarantine . && chmod +x CompanyGame.app/Contents/MacOS/*
    ("손상되었다"고 나오면 같은 폴더에서: codesign --force --deep -s - CompanyGame.app)
 1. 게임을 실행합니다. (맥: CompanyGame.app, Windows: CompanyGame.exe)

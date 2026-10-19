@@ -25,8 +25,8 @@ using QaPeer = SyncLayerQA.QaPeer;
 ///   -executeMethod EosConnectQA.RunNoEos    COMPANYGAME_NOEOS=1: PC GUID account, 혼자 하기 works, the join screen says EOS is off
 ///   -executeMethod EosConnectQA.RunProcess  builds Builds/EosConnectQA, 서버 열기 starts it as my PC server: its session and the
 ///                                           code in running.json, the editor joins at 127.0.0.1 through the ID token check, 끄기 removes the session
-///   -executeMethod EosConnectQA.RunBundle   (with -quit) the test bundle for another PC: Builds/Game2b2.zip (Windows) and
-///                                           Builds/Game2b2Mac.zip (macOS) with README_2b2.txt
+///   -executeMethod EosConnectQA.RunBundle   (with -quit) the final game: Builds/Windows (+zip) and
+///                                           Builds/Mac (+zip, universal) with README.txt
 /// </summary>
 [InitializeOnLoad]
 public static class EosConnectQA
@@ -419,23 +419,23 @@ public static class EosConnectQA
         checks = 0;
         EosConfig.Write();
         string[] scenes = EditorBuildSettings.scenes.Where(s => s.enabled).Select(s => s.path).ToArray();
-        string win = Path.GetFullPath(Path.Combine(Application.dataPath, "../Builds/Game2b2"));
+        string win = Path.GetFullPath(Path.Combine(Application.dataPath, "../Builds/Windows"));
         if (Directory.Exists(win)) Directory.Delete(win, true);
         var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions { scenes = scenes, locationPathName = Path.Combine(win, "CompanyGame.exe"), target = BuildTarget.StandaloneWindows64, options = BuildOptions.None });
         Check(report.summary.result == BuildResult.Succeeded, "Windows game built (" + scenes.Length + " scenes)");
         Check(File.Exists(Path.Combine(win, "CompanyGame_Data/StreamingAssets/EOS/eos_windows_config.json")), "the EOS config is in the Windows build");
-        EosTestQA.CopyTemplates(win, "README_2b2.txt");
-        string winZip = EosTestQA.Zip(win, "Game2b2", _ => false);
+        EosTestQA.CopyTemplates(win, "README.txt");
+        string winZip = EosTestQA.Zip(win, "Windows", _ => false);
 
-        string mac = Path.GetFullPath(Path.Combine(Application.dataPath, "../Builds/Game2b2Mac"));
+        string mac = Path.GetFullPath(Path.Combine(Application.dataPath, "../Builds/Mac"));
         if (Directory.Exists(mac)) Directory.Delete(mac, true); // the plugin notes that building over an old .app misbehaves
         Directory.CreateDirectory(mac);
         string app = Path.Combine(mac, "CompanyGame.app");
         Check(EosTestQA.BuildMacApp(app, scenes) == BuildResult.Succeeded, "macOS game built (universal)");
         Check(EosTestQA.Universal(Path.Combine(app, "Contents/MacOS/CompanyGame")), "the mac executable is universal");
         Check(Directory.GetFiles(app, "eos_macos_config.json", SearchOption.AllDirectories).Length == 1, "the EOS config is in the app");
-        EosTestQA.CopyTemplates(mac, "README_2b2.txt");
-        string macZip = EosTestQA.Zip(mac, "Game2b2Mac", rel => rel.StartsWith("CompanyGame.app/Contents/MacOS/"));
+        EosTestQA.CopyTemplates(mac, "README.txt");
+        string macZip = EosTestQA.Zip(mac, "Mac", rel => rel.StartsWith("CompanyGame.app/Contents/MacOS/"));
         Debug.Log("[EosConnectQA] RESULT bundle passed, checks=" + checks + " (" + winZip + " " + new FileInfo(winZip).Length / (1024 * 1024) + "MB, "
                   + macZip + " " + new FileInfo(macZip).Length / (1024 * 1024) + "MB)");
     }

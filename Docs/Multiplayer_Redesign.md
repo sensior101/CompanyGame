@@ -1985,6 +1985,8 @@ SyncClient.Instance.Spawn(prefabKey: "Net/Door", instance, flags);
 
 ### 12.15 6단계: 전용 서버·설정 파일·관리자·부하 테스트 (설계 2026-10-19)
 
+> **변경(2026-10-19):** 따로 내는 전용 서버 묶음(`Builds/DedicatedServer`, `StartServer.bat`, README, zip)은 뺐습니다. 배포는 Windows·Mac 게임 빌드 두 개(`Builds/Windows`, `Builds/Mac`, `EosConnectQA.RunBundle`)뿐이고, 서버는 게임 안 "서버 열기"로 열어 공개 목록·서버 코드로 들어옵니다. 설정 파일·관리자 명령·부하 시험은 그대로이고, `DedicatedServerQA`는 `Builds/Windows/CompanyGame.exe`를 창 없이 돌려 시험합니다(`RunBundle` 삭제). 아래 묶음 관련 내용은 기록으로만 남깁니다.
+
 **범위.** 서버 컴퓨터에서 창 없이 도는 전용 서버 묶음(Windows), 그 서버의 설정 파일, 관리자 명령(서버 콘솔 + 게임 채팅), 50명 부하 테스트, 5단계에서 남은 "차 40대면 계획표가 안 닫힘" 문제의 최소 조치. 리눅스 빌드는 하지 않습니다(12.12).
 
 **지금 코드 조사**

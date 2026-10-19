@@ -11,7 +11,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using TMPro;
 using UnityEditor;
-using UnityEditor.Build.Reporting;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -22,10 +21,7 @@ using QaMsg = SyncLayerQA.QaMsg;
 
 /// <summary>
 /// QA of the dedicated server (Docs/Multiplayer_Redesign.md 12.15). Server folders and logs go to _temp/qa6/&lt;run&gt;/;
-/// screenshots to env QA_SHOTS (D_*.png). RunBundle must have run first: the others start its exe.
-///   -executeMethod DedicatedServerQA.RunBundle   (with -quit) builds Builds/DedicatedServer (title scene, EOS config,
-///                                                StartServer.bat, server/settings.json, README.txt) and its zip; a copy runs
-///                                                through StartServer.bat: the settings' port, the new world id in the file, stop saves
+/// screenshots to env QA_SHOTS (D_*.png). The server is the final Windows game run headless (EosConnectQA.RunBundle first).
 ///   -executeMethod DedicatedServerQA.RunConsole  (with -quit) fake TCP clients: the settings reach them, file edits apply at
 ///                                                once, every console command, a non-admin's chat command refused, stop + restart
 ///   -executeMethod DedicatedServerQA.RunPlay     the editor game joins the dedicated server and plays: every chat command,
@@ -44,70 +40,10 @@ public static class DedicatedServerQA
     static readonly List<Server> servers = new List<Server>();
     static readonly List<string> logs = new List<string>(); // play mode: the editor's log lines (the chat logs "[시스템] …")
 
-    static string Bundle => Path.GetFullPath(Path.Combine(Application.dataPath, "../Builds/DedicatedServer"));
-    static string Exe => Path.Combine(Bundle, "CompanyGameServer.exe");
-    static string Templates => Path.Combine(Application.dataPath, "Scripts/Editor/Net/DedicatedServerBundle~");
+    static string Exe => Path.GetFullPath(Path.Combine(Application.dataPath, "../Builds/Windows/CompanyGame.exe"));
     static string RunRoot => Path.GetFullPath(Path.Combine(Application.dataPath, "../../_temp/qa6"));
 
     static DedicatedServerQA() => EditorApplication.playModeStateChanged += OnState;
-
-    // ================= the bundle =================
-
-    public static void RunBundle()
-    {
-        RunSync("bundle", () =>
-        {
-            EosConfig.Write();
-            if (Directory.Exists(Bundle)) Directory.Delete(Bundle, true);
-            string scene = Array.Find(EditorBuildSettings.scenes, s => s.enabled).path; // a server needs no maps
-            var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions { scenes = new[] { scene }, locationPathName = Exe, target = BuildTarget.StandaloneWindows64, options = BuildOptions.None });
-            Check(report.summary.result == BuildResult.Succeeded, "the dedicated server built (" + report.summary.result + ", " + (report.summary.totalSize / (1024 * 1024)) + "MB)");
-            Check(File.Exists(Path.Combine(Bundle, "CompanyGameServer_Data/StreamingAssets/EOS/eos_windows_config.json")), "the EOS config is in it");
-            Template("StartServer.bat", Bundle, false);
-            Template("README.txt", Bundle, true);
-            Directory.CreateDirectory(Path.Combine(Bundle, "server"));
-            Template("settings.json", Path.Combine(Bundle, "server"), false);
-            Check(ServerSettings.Load(Path.Combine(Bundle, "server/settings.json")).name == "달동네 전용 서버", "server/settings.json reads as ServerSettings");
-            string zip = EosTestQA.Zip(Bundle, "DedicatedServer", _ => false);
-            Check(new FileInfo(zip).Length > 10 << 20, "zip " + zip + " (" + new FileInfo(zip).Length / (1024 * 1024) + "MB)");
-
-            // A copy runs through StartServer.bat (stdin and stdout are pipes here, a console window for a person).
-            string run = Path.Combine(RunRoot, "bundle_run");
-            if (Directory.Exists(run)) Directory.Delete(run, true);
-            CopyDir(Bundle, run);
-            string settingsPath = Path.Combine(run, "server/settings.json");
-            var settings = ServerSettings.Load(settingsPath);
-            settings.port = FreePort();
-            settings.isPublic = false;
-            settings.Save(settingsPath);
-            var server = Server.Launch("bundle_run", new ProcessStartInfo("cmd.exe", "/c \"" + Path.Combine(run, "StartServer.bat") + "\"") { WorkingDirectory = run }, settingsPath, Path.Combine(run, "server/server.log"), false);
-            WaitReady(server).Wait();
-            var fake = Join(server.port, "qa-bundle", "QA_bundle").Result;
-            Check(fake.serverName == "달동네 전용 서버", "StartServer.bat: the server listens on the settings' port " + server.port + " under the settings' name");
-            string world = ServerSettings.Load(settingsPath).world;
-            Check(WorldStore.IsValidId(world), "the new world's id " + world + " is written into settings.json");
-            server.Command("stop");
-            server.process.StandardInput.Close(); // StartServer.bat's pause ends too
-            Until(() => server.process.HasExited, 30, "StartServer.bat to end");
-            Check(File.Exists(Path.Combine(run, "server/worlds", world, WorldStore.FileName)) && server.Printed("stopping"), "console stop: saved and quit");
-            Check(server.Echoed("서버가 꺼졌습니다"), "StartServer.bat says the server is off");
-            fake.peer.client.Close();
-        });
-    }
-
-    static void Template(string name, string dir, bool bom)
-    {
-        string text = File.ReadAllText(Path.Combine(Templates, name)).Replace("\r\n", "\n").Replace("\n", "\r\n");
-        File.WriteAllText(Path.Combine(dir, name), text, new UTF8Encoding(bom));
-    }
-
-    static void CopyDir(string from, string to)
-    {
-        foreach (string dir in Directory.GetDirectories(from, "*", SearchOption.AllDirectories)) if (!dir.Contains("DoNotShip")) Directory.CreateDirectory(dir.Replace(from, to));
-        Directory.CreateDirectory(to);
-        foreach (string file in Directory.GetFiles(from, "*", SearchOption.AllDirectories))
-            if (!file.Contains("DoNotShip")) File.Copy(file, file.Replace(from, to), true);
-    }
 
     // ================= settings and the console (fake clients) =================
 
@@ -234,7 +170,7 @@ public static class DedicatedServerQA
         Application.logMessageReceived += Capture;
         try
         {
-            if (!File.Exists(Exe)) throw new Exception("no " + Exe + ": run DedicatedServerQA.RunBundle first");
+            if (!File.Exists(Exe)) throw new Exception("no " + Exe + ": run EosConnectQA.RunBundle first");
             await WaitFor(() => SceneManager.GetActiveScene().name == "Title" && TitleScreen.Current != null && !TitleScreen.Current.Busy, 30, "title");
             ProfileSlot.Set(3);
             if (mode == "play") await Play();
@@ -544,7 +480,6 @@ public static class DedicatedServerQA
         }
 
         /// <summary>What the process wrote to stdout (StartServer.bat's echo lines).</summary>
-        public bool Echoed(string part) { lock (output) return output.Exists(l => l.Contains(part)); }
 
         public ServerSettings File() => ServerSettings.Load(settingsPath);
         public string Log() => ReadShared(log);
