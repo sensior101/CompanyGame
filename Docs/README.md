@@ -7,6 +7,7 @@
 | [Server.md](Server.md) | 서버: 구성·실행, Unity 연결, 멀티에서의 역할 |
 | [Server_API.md](Server_API.md) | 서버 API 계약 |
 | [Multiplayer_Redesign.md](Multiplayer_Redesign.md) | 멀티플레이 재설계: 서버 열기 통합, EOS, 공통 동기화 계층, 시계 두 개, 작업 순서 |
+| [Multiplayer_Coding_Rules.md](Multiplayer_Coding_Rules.md) | **멀티 코딩 규칙**: 기능 만들 때 판정 위치, NetBehaviour, 요청(Op)·장부, 버전, 시험 체크리스트 |
 | [Database/](Database/README.md) | DB 설계 초안 |
 | [Remaining_Work.md](Remaining_Work.md) | 남은 작업 |
 | [AI_Player_Plan.md](AI_Player_Plan.md) | AI 플레이어: 정한 방향, 단계별 작업, 모델 조건 |
