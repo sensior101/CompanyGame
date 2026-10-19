@@ -303,7 +303,7 @@ details[open] summary{margin-bottom:10px}
       <tr><th>작업</th><th>상태</th><th>내용</th></tr>
       <tr><td><b>2b-2 EOS 정식 연결</b></td><td><span style="color:var(--mid);white-space:nowrap">● 확인 대기</span></td><td>구현·QA 완료(66c8d81). 계정 = EOS ID, 공개 서버 목록·서버 코드, ID 토큰 검증. 한 PC로는 P2P를 못 시험해서 다른 PC 접속 시험만 남음(시험 묶음 Builds/Game2b2*.zip)</td></tr>
       <tr><td><b>6 전용 서버</b></td><td><span style="color:var(--mid);white-space:nowrap">● 진행 중</span></td><td>전용 서버 빌드(Windows), 설정 파일, 관리자 명령, 부하 테스트</td></tr>
-      <tr><td><b>회전 차와 보행자</b></td><td><span style="color:var(--mid);white-space:nowrap">● 수정 중</span></td><td>차 신호와 보행 신호를 안 겹치게 바꾸는 중(초록→주황→전체 빨강 몇 초→보행 초록). 10-19 결정</td></tr>
+      
       <tr><td><b>도시 자동차 모델링</b></td><td><span style="color:var(--mid);white-space:nowrap">● 진행 중</span></td><td>실차 18종 패러디(로고 없음), Blender 스크립트 하나로 생성. C04 소나티네 완성·검수 대기, 4종은 게임에 이미 있음, 나머지 미착수</td></tr>
     </table></div>
   </div>
@@ -354,6 +354,7 @@ details[open] summary{margin-bottom:10px}
       <tr><td>Steam 모드</td><td>4e에서 지움. Steam판을 낼 때 새 서버용 Steam 통로로 다시 붙임</td><td>10-19</td></tr>
       <tr><td>EOS 계정 전환</td><td>옛 계정 캐릭터는 옮기지 않음(테스트 데이터). EOS로 처음 들어오면 새 캐릭터</td><td>10-19</td></tr>
       <tr><td>전용 서버·관리자</td><td>서버 빌드는 Windows 먼저(리눅스는 나중). 관리자 명령은 서버 콘솔 + 게임 채팅, 서버 연 사람은 자동 관리자</td><td>10-19</td></tr>
+      <tr><td>신호등</td><td>차 신호와 보행 신호는 안 겹침. 방향마다 초록 12초→노랑 3초→전체 빨강 2초→보행 초록 16초→전체 빨강 2초(한 바퀴 70초). 꼬리물기 금지</td><td>10-19</td></tr>
       <tr><td>계정 로그인</td><td>아이디·비밀번호 로그인은 게임에서만 지움. Server/ 코드는 저장소에 남김</td><td>10-19</td></tr>
     </table></div>
   </div>
@@ -361,7 +362,7 @@ details[open] summary{margin-bottom:10px}
     <h3>보류·확인 필요</h3>
     <div class="scroll"><table>
       <tr><th>항목</th><th>내용</th></tr>
-      <tr><td>원격 푸시</td><td>로컬 Dev가 origin/Dev보다 27커밋 앞섬. 6단계 테스트 뒤 새 브랜치로 푸시(main 금지)</td></tr>
+      <tr><td>원격 푸시</td><td>로컬 Dev가 origin/Dev보다 29커밋 앞섬. 6단계 테스트 뒤 새 브랜치로 푸시(main 금지)</td></tr>
       <tr><td>Worker 배포</td><td>4e에서 Worker 코드의 방 기능을 지움(배포 안 함, Lobby 삭제 migration 포함). 배포는 요청할 때</td></tr>
       <tr><td>맥 서명</td><td>정식 서명·공증은 Apple Developer Program(연 99달러) 필요. 지금은 우클릭→열기</td></tr>
       <tr><td>빌드</td><td>Game.zip·GameMac.zip은 4b+창모드 코드. 4c 이후 빌드는 아직 없음</td></tr>
