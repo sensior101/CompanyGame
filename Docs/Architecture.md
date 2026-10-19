@@ -148,11 +148,11 @@ Gameplay → NPC → UI
 
 정본은 [Multiplayer_Redesign.md](Multiplayer_Redesign.md)입니다. 요약:
 
-- **게임 서버(동기화 계층)가 정본입니다.** 혼자 하기(1인 앱 안 서버), 서버 열기(앱 안 서버), 서버 프로세스(`-gameserver`) 셋 다 같은 `GameServer`를 씁니다. 월드와 캐릭터는 서버의 `worlds/<id>/world.dat`에 저장됩니다.
+- **게임 서버(동기화 계층)가 정본입니다.** 혼자 하기(1인 앱 안 서버), 서버 열기(앱 안 서버, 게임이 켜져 있는 동안), 전용 서버(같은 exe의 `-gameserver` 프로세스, 게임을 꺼도 계속) 셋 다 같은 `GameServer`를 씁니다. 월드와 캐릭터는 서버의 `worlds/<id>/world.dat`에 저장됩니다.
 - 서버에서 정하는 것: 시계·주가·회사·소유권·땅·SNS·신고(`ServerWorld`, 4c), 은행·주식·인벤토리·드롭·탈것·도서관(`ServerLedger` 등, 4d). 클라이언트는 요청(`SharedWriteGate` → `WorldStateSync`)을 보내고 결과로 화면을 맞춥니다.
 - `GameSession.Mode`는 `Host`(기본, 오프라인과 앱 안 서버의 주인)와 `Client`(다른 프로세스의 서버에 접속한 동안)뿐입니다. `GameSession.IsAuthority`는 이 PC가 시계·경제를 계산할 때(오프라인, 서버 프로세스, 앱 안 서버의 주인) 참입니다.
 - **오프라인 경로**: 에디터에서 맵 씬을 바로 플레이하면 세션 없이 이 PC가 계산하고 PC 파일(`world/world.json`, `player/<id>.json`)에 저장합니다(개발용).
 - **시민·교통(5단계, 12.14)**은 각 PC가 "시드 + 월드 시계"로 똑같이 계산합니다. `NpcClock`(월드 초, 서버에서는 월드 시계 그대로, 클라이언트는 시계 섹션으로 맞춤)과 시드(월드 id 해시)로, 교통은 신호 8바퀴(560초) 단위 주기 계획표(`TrafficPlan`), 시민은 560초짜리 일정표(`CitizenWalker.Plan`)를 맵을 열 때 만들어 그립니다. 신호등도 같은 시계라 PC마다 같고, 70초 한 바퀴에 차 초록·노랑·전체 빨강·보행 초록이 겹치지 않게 돕니다. 플레이어 앞에서 멈추는 반응은 각 PC의 그리기에서만 합니다. 전용 메시지는 없습니다.
 - 옛 방(Cloudflare·Steam 방, 방장 넘기기, `NetSession` 계열)은 4e에서 지웠습니다.
-- **전용 서버와 관리자(6단계, 12.15)**: 배포는 Windows·Mac 게임 빌드 두 개뿐이고 서버는 게임의 "서버 열기"로 엽니다(따로 내는 전용 서버 묶음 없음, 2026-10-19). 서버 프로세스는 같은 exe를 `-batchmode -nographics -gameserver -serversettings <settings.json>`(콘솔 명령은 `-console`)으로 돌린 것입니다. 설정 파일(`ServerSettings`)에 관리자·차단 목록·밤 건너뛰기·NPC 차 수(최대 10, 시계 섹션으로 클라이언트에 감)가 있고, `ServerAdmin`(서버 쪽, `ServerWorld`가 만듦)이 서버 콘솔과 게임 채팅의 `/명령`을 받아 권한을 서버의 계정으로 판정합니다. 결과·공지는 월드 이벤트 `Notice`로 채팅에 찍힙니다. 프로토콜 버전 8(`Kicked`·`Banned` 거절, 시계 섹션의 차 수).
+- **전용 서버와 관리자(6단계, 12.15)**: 배포는 Windows·Mac 게임 빌드 두 개뿐이고 서버는 게임 타이틀의 "서버 열기"(게임 안)나 "전용 서버"(별도 프로세스)로 엽니다(따로 내는 서버 묶음 없음, 2026-10-19, 12.16). 서버 프로세스는 같은 exe를 `-batchmode -nographics -gameserver -serversettings <settings.json>`(콘솔 명령은 `-console`)으로 돌린 것입니다. 설정 파일(`ServerSettings`)에 관리자·차단 목록·밤 건너뛰기·NPC 차 수(최대 10, 시계 섹션으로 클라이언트에 감)가 있고, `ServerAdmin`(서버 쪽, `ServerWorld`가 만듦)이 서버 콘솔과 게임 채팅의 `/명령`을 받아 권한을 서버의 계정으로 판정합니다. 결과·공지는 월드 이벤트 `Notice`로 채팅에 찍힙니다. 프로토콜 버전 8(`Kicked`·`Banned` 거절, 시계 섹션의 차 수).
 - **계정과 접속(2b-2)**: 계정은 EOS PUID입니다(`EosAccount`, 시작할 때 Device ID 로그인. 설정 파일이 없거나 `-noeos`면 PC GUID). 혼자 하기가 아닌 서버는 TCP와 EOS P2P를 함께 받고(`MultiTransport`), EOS 세션으로 공개 목록과 서버 코드를 냅니다. 서버는 Hello의 계정을 EOS(P2P 상대 PUID 또는 ID 토큰)로 확인합니다.

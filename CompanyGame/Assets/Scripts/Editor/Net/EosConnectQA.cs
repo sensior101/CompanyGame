@@ -395,7 +395,7 @@ public static class EosConnectQA
         Check(await EosAccount.WhenSettled(60), "EOS login in the editor");
         LocalServerProcess.ExePath = exe;
         int port = FreePort();
-        Check(await TitleFlow.OpenServer(new ServerSettings { name = "QA EOS 프로세스", maxPlayers = 6, isPublic = true, port = port }) == null, "서버 열기 started the server process and joined it at 127.0.0.1");
+        Check(await TitleFlow.OpenDedicated(new ServerSettings { name = "QA EOS 프로세스", maxPlayers = 6, isPublic = true, port = port }) == null, "전용 서버 started the server process and joined it at 127.0.0.1");
         var running = LocalServerProcess.Running();
         var process = started = System.Diagnostics.Process.GetProcessById(running.pid);
         Check(SyncClient.Instance.Connected && !SyncHost.Instance, "the editor is in the process's server (no in-app server)");

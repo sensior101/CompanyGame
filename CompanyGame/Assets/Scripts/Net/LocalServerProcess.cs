@@ -1,11 +1,12 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using UnityEngine;
 using Debug = UnityEngine.Debug;
 
 /// <summary>
-/// "My PC server" (Docs/Multiplayer_Redesign.md 12.3): this game's own exe started as a windowless server process
+/// "전용 서버" (Docs/Multiplayer_Redesign.md 12.3, 12.16; Windows, macOS, Linux): this game's own exe started as a windowless server process
 /// (<c>-batchmode -nographics -gameserver &lt;port&gt; -serversettings &lt;path&gt; -owner &lt;my account&gt;</c>) that keeps running after the game
 /// closes; the owner is an admin of it (12.15).
 /// The server writes <see cref="RunningPath"/> (pid, port; the server code once its EOS session exists) when it listens; that file is how the title finds it again.
@@ -41,7 +42,12 @@ public static class LocalServerProcess
 #if UNITY_EDITOR
         return null;
 #else
-        if (Application.platform != RuntimePlatform.WindowsPlayer) return null;
+        if (Application.platform == RuntimePlatform.OSXPlayer) // dataPath is CompanyGame.app/Contents; the binary is in MacOS/
+        {
+            try { return Directory.GetFiles(Path.Combine(Application.dataPath, "MacOS")).FirstOrDefault(f => !Path.GetFileName(f).StartsWith(".")); }
+            catch (Exception) { return null; }
+        }
+        if (Application.platform != RuntimePlatform.WindowsPlayer && Application.platform != RuntimePlatform.LinuxPlayer) return null; // phones: in-app only
         try { return Process.GetCurrentProcess().MainModule.FileName; }
         catch (Exception) { return null; }
 #endif
@@ -128,8 +134,11 @@ public static class LocalServerProcess
         try
         {
             string want = Path.GetFullPath(ExePath);
-            return string.Equals(process.ProcessName, Path.GetFileNameWithoutExtension(want), StringComparison.OrdinalIgnoreCase)
-                   && string.Equals(Path.GetFullPath(process.MainModule.FileName), want, StringComparison.OrdinalIgnoreCase);
+            if (!string.Equals(process.ProcessName, Path.GetFileNameWithoutExtension(want), StringComparison.OrdinalIgnoreCase)) return false;
+            // ponytail: macOS Mono does not reliably read another process's path; the name must do there (fails only if the pid
+            // was reused by another CompanyGame). Compare paths too if that ever matters.
+            if (Application.platform == RuntimePlatform.OSXPlayer) return true;
+            return string.Equals(Path.GetFullPath(process.MainModule.FileName), want, StringComparison.OrdinalIgnoreCase);
         }
         catch (Exception) { return false; }
     }

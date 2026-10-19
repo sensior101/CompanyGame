@@ -6,7 +6,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 /// <summary>
-/// The title menu (Scenes/Title.unity): 혼자 하기 / 서버 열기 / 참가하기 / 설정 (the sync layer, Docs/Multiplayer_Redesign.md
+/// The title menu (Scenes/Title.unity): 혼자 하기 / 서버 열기 / 전용 서버 / 참가하기 / 설정 (the sync layer, Docs/Multiplayer_Redesign.md
 /// 12.3, 12.5: worlds and characters live on the server, 혼자 하기 is my PC server for one; 12.13: the public server list
 /// and server codes on EOS), plus the small screens they lead to (character, errors). Built in code with uGUI; keyboard
 /// (arrows/Tab/Enter/Esc) and mouse both work.
@@ -119,6 +119,7 @@ public sealed class TitleScreen : MonoBehaviour
         Begin("main", true, 560, null);
         TitleUi.Button(content, "혼자 하기", ShowSolo, 76, true, 36);
         TitleUi.Button(content, "서버 열기", () => ShowServerOpen(), 76, true, 36);
+        TitleUi.Button(content, "전용 서버", () => ShowDedicated(), 76, true, 36);
         TitleUi.Button(content, "참가하기", () => ShowServerJoin(), 76, true, 36);
         TitleUi.Button(content, "설정", () => ShowSettings(), 76, true, 36);
         TitleUi.Button(content, "종료", Quit, 60, false, 28);
@@ -131,7 +132,7 @@ public sealed class TitleScreen : MonoBehaviour
     const string ServerCharacterHint = "이 월드에서 살아갈 캐릭터의 이름과 성별을 정하세요.\n월드마다 캐릭터가 따로이고, 다시 들어오면 이 캐릭터로 이어서 합니다.";
 
     /// <summary>혼자 하기: pick a world, then my PC server for one opens on it.</summary>
-    public void ShowSolo() => ShowWorlds("혼자 하기", "이 PC에서 혼자 합니다. 같은 월드를 나중에 서버 열기로 열면 친구도 들어올 수 있습니다.", RunSolo, ShowMain);
+    public void ShowSolo() => ShowWorlds("혼자 하기", "이 PC에서 혼자 합니다. 같은 월드를 나중에 서버 열기나 전용 서버로 열면 친구도 들어올 수 있습니다.", RunSolo, ShowMain);
 
     // The worlds of this slot (shared by 혼자 하기 and 서버 열기): 새 월드, then the saved ones, newest first.
     void ShowWorlds(string heading, string sub, Action<string> pick, Action onBack)
@@ -201,23 +202,26 @@ public sealed class TitleScreen : MonoBehaviour
         if (error != null) ShowError(error, null, back);
     }
 
-    // ---- 서버 열기 ----
+    // ---- 서버 열기 (in-app, while the game runs) / 전용 서버 (a process that outlives the game) ----
 
     ServerSettings draft;
     bool openAdvanced;
 
-    /// <summary>Settings for my server, or (PC) the running server with 접속 / 끄기.</summary>
-    public void ShowServerOpen() => ShowServerOpen(null);
+    /// <summary>서버 열기: settings for the in-app server (on while this game runs).</summary>
+    public void ShowServerOpen() => ShowServerOpen(null, false);
 
-    void ShowServerOpen(ServerSettings settings)
+    /// <summary>전용 서버: the running one with 접속 / 끄기, or settings to start one.</summary>
+    public void ShowDedicated() => ShowServerOpen(null, true);
+
+    void ShowServerOpen(ServerSettings settings, bool dedicated)
     {
-        var running = LocalServerProcess.CanStart ? LocalServerProcess.Running() : null;
+        var running = dedicated && LocalServerProcess.CanStart ? LocalServerProcess.Running() : null;
         if (running != null) { ShowServerRunning(running); return; }
         draft = (settings ?? ServerSettings.Load()).Clamp();
-        Begin("serveropen", false, 820, ShowMain);
-        var panel = Panel("서버 열기", ServerSettings.IsMobile
-            ? "이 폰이 서버가 됩니다. 앱을 나가면 서버도 꺼집니다."
-            : LocalServerProcess.CanStart ? "이 PC에서 서버가 따로 돌아갑니다. 게임을 꺼도 서버는 계속 켜져 있습니다." : "에디터에서는 게임 안에서 서버를 엽니다.");
+        Begin(dedicated ? "dedicated" : "serveropen", false, 820, ShowMain);
+        var panel = Panel(dedicated ? "전용 서버" : "서버 열기", dedicated
+            ? LocalServerProcess.CanStart ? "이 PC에서 서버가 따로 돌아갑니다. 게임을 꺼도 PC가 켜져 있는 동안 계속 켜져 있습니다." : TitleFlow.Message("dedicated_unavailable")
+            : ServerSettings.IsMobile ? "이 폰이 서버가 됩니다. 앱을 나가면 서버도 꺼집니다." : "게임이 켜져 있는 동안 친구가 들어올 수 있습니다. 게임을 끄면 저장하고 서버도 꺼집니다.");
 
         TitleUi.Label(panel, "서버 이름", 24, TitleUi.Muted, TextAlignmentOptions.MidlineLeft);
         var nameInput = TitleUi.Input(panel, "서버 이름 (1~30자)", ServerSettings.NameMax);
@@ -232,7 +236,7 @@ public sealed class TitleScreen : MonoBehaviour
         TitleUi.Button(panel, "월드: " + WorldLabel(draft.world) + " (바꾸기)", () =>
         {
             capture();
-            ShowWorlds("월드 선택", "서버에서 쓸 월드를 고르세요. 캐릭터는 월드마다 따로입니다.", id => { draft.world = id; ShowServerOpen(draft); }, () => ShowServerOpen(draft));
+            ShowWorlds("월드 선택", "서버에서 쓸 월드를 고르세요. 캐릭터는 월드마다 따로입니다.", id => { draft.world = id; ShowServerOpen(draft, dedicated); }, () => ShowServerOpen(draft, dedicated));
         }, 52, false, 24);
 
         var countRow = TitleUi.Row(panel, 56, 12, false);
@@ -264,7 +268,7 @@ public sealed class TitleScreen : MonoBehaviour
         passwordInput = TitleUi.Input(panel, "비밀번호 (선택, 32자까지)", ServerSettings.PasswordMax);
         passwordInput.text = draft.password;
 
-        TitleUi.Button(panel, openAdvanced ? "고급 접기" : "고급 ▶", () => { capture(); openAdvanced = !openAdvanced; ShowServerOpen(draft); }, 48, false, 24);
+        TitleUi.Button(panel, openAdvanced ? "고급 접기" : "고급 ▶", () => { capture(); openAdvanced = !openAdvanced; ShowServerOpen(draft, dedicated); }, 48, false, 24);
         if (openAdvanced)
         {
             var portRow = TitleUi.Row(panel, 56, 12, false);
@@ -274,7 +278,8 @@ public sealed class TitleScreen : MonoBehaviour
             portInput.text = draft.port.ToString();
             TitleUi.Width(portInput, 0, 1);
         }
-        TitleUi.Button(panel, "서버 시작", () => { capture(); RunOpenServer(draft.Clamp()); }, 72, true, 34);
+        var start = TitleUi.Button(panel, dedicated ? "전용 서버 시작" : "서버 시작", () => { capture(); RunOpenServer(draft.Clamp(), dedicated); }, 72, true, 34);
+        start.interactable = !dedicated || LocalServerProcess.CanStart;
         TitleUi.Button(panel, "뒤로", ShowMain, 56, false, 26);
         Focus();
     }
@@ -283,23 +288,23 @@ public sealed class TitleScreen : MonoBehaviour
     {
         Begin("serverrunning", true, 760, ShowMain);
         var settings = ServerSettings.Load();
-        var panel = Panel("내 서버 실행 중 (포트 " + running.port + ")", settings.name + " · 최대 " + settings.maxPlayers + "명" + (settings.password.Length > 0 ? " · 비밀번호 있음" : ""));
+        var panel = Panel("전용 서버 실행 중 (포트 " + running.port + ")", settings.name + " · 최대 " + settings.maxPlayers + "명" + (settings.password.Length > 0 ? " · 비밀번호 있음" : ""));
         TitleUi.Label(panel, string.IsNullOrEmpty(running.code) ? "서버 코드: 준비 중 (EOS 연결을 기다리는 중이거나 EOS 없이 도는 서버)"
             : "서버 코드: <color=#FFC857>" + running.code + "</color>  (참가하기 > 서버 코드)", 28, TitleUi.Cream);
-        TitleUi.Label(panel, "게임을 꺼도 서버는 계속 돕니다.\n같은 네트워크나 포트를 연 경우 이 PC 주소의 " + running.port + "번 포트로도 들어옵니다.", 23, TitleUi.Muted);
-        TitleUi.Button(panel, "접속", () => RunJoin(() => TitleFlow.JoinMine(running), ShowServerOpen), 72, true, 34);
-        TitleUi.Button(panel, "끄기", () => { LocalServerProcess.Stop(); ShowServerOpen(); }, 60, true, 28);
+        TitleUi.Label(panel, "게임을 꺼도 PC가 켜져 있는 동안 서버는 계속 돕니다.\n같은 네트워크나 포트를 연 경우 이 PC 주소의 " + running.port + "번 포트로도 들어옵니다.", 23, TitleUi.Muted);
+        TitleUi.Button(panel, "접속", () => RunJoin(() => TitleFlow.JoinMine(running), ShowDedicated), 72, true, 34);
+        TitleUi.Button(panel, "끄기 (저장하고 종료)", () => { LocalServerProcess.Stop(); ShowDedicated(); }, 60, true, 28);
         TitleUi.Button(panel, "뒤로", ShowMain, 56, false, 26);
         Focus();
     }
 
-    async void RunOpenServer(ServerSettings settings)
+    async void RunOpenServer(ServerSettings settings, bool dedicated)
     {
-        ShowBusy("서버를 여는 중…");
-        string error = await TitleFlow.OpenServer(settings);
+        ShowBusy(dedicated ? "전용 서버를 여는 중…" : "서버를 여는 중…");
+        string error = dedicated ? await TitleFlow.OpenDedicated(settings) : await TitleFlow.OpenServer(settings);
         if (!this) return;
-        if (error != null) ShowError(error, () => RunOpenServer(settings), () => ShowServerOpen(settings));
-        else AfterConnect(() => ShowServerOpen());
+        if (error != null) ShowError(error, () => RunOpenServer(settings, dedicated), () => ShowServerOpen(settings, dedicated));
+        else AfterConnect(dedicated ? (Action)ShowDedicated : ShowMain);
     }
 
     // ---- 참가하기 (public list, server code, address: 12.13) ----
@@ -545,6 +550,7 @@ public sealed class TitleScreen : MonoBehaviour
             case "main": ShowMain(); break;
             case "worlds": ShowSolo(); break;
             case "serveropen": ShowServerOpen(); break;
+            case "dedicated": ShowDedicated(); break;
             case "serverjoin": ShowServerJoin(); break;
             case "settings": ShowSettings(); break;
             case "name": ShowName(ServerCharacterHint, (n, g) => { }, ShowMain); break;

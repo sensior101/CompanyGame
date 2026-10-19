@@ -524,7 +524,7 @@ public static class CharacterQA
         await WaitFor(() => OnTitle && !Screen.Busy, 60, "title");
         Check(WorldStore.List(ServerSettings.WorldsFolder).Count == 2, "two worlds in the list now");
 
-        // 서버 열기 picks from the same worlds (the editor has no server exe, so it shows the settings).
+        // 서버 열기 picks from the same worlds.
         await Click("서버 열기");
         Check(HasButton("월드: 새 월드"), "서버 열기 starts with 월드: 새 월드");
         await Click("월드:");

@@ -21,7 +21,7 @@ using Debug = UnityEngine.Debug;
 ///                                           pause menu, leaving stops the in-app server (phone path forced)
 ///   -executeMethod ServerOpenQA.RunProcess  builds a Windows player to Builds/ServerOpenQA, then LocalServerProcess starts it,
 ///                                           참가하기 with 127.0.0.1:port and the password, the process outlives the game, 끄기 ends it;
-///                                           then the same from the buttons: 서버 열기 → 서버 시작, leave, 접속 again, 끄기
+///                                           then the same from the buttons: 전용 서버 → 전용 서버 시작, leave, 접속 again, 끄기
 /// Since 12.5 a first visit to a server's world asks for a character (캐릭터 만들기): <see cref="EnterGame"/> makes one.
 /// </summary>
 [InitializeOnLoad]
@@ -142,7 +142,7 @@ public static class ServerOpenQA
     {
         await WaitFor(() => OnTitle && !Screen.Busy, 15, "title");
         Screen.UseCamera(Camera.main);
-        foreach (string label in new[] { "혼자 하기", "서버 열기", "참가하기", "설정", "종료" })
+        foreach (string label in new[] { "혼자 하기", "서버 열기", "전용 서버", "참가하기", "설정", "종료" })
             Check(HasButton(label), "main menu has '" + label + "'");
         Check(!HasButton("옛 방식"), "main menu has no 옛 방식(개발용) (12.11)");
         Screen.Open("main");
@@ -206,8 +206,8 @@ public static class ServerOpenQA
         Check(running != null && running.pid == started.Id && running.port == port && File.Exists(LocalServerProcess.RunningPath),
             "running.json names the process " + started.Id + " and port " + port);
 
-        await Click("서버 열기");
-        Check(Screen.Screen == "serverrunning" && TextOf(Screen.Content).Contains("포트 " + port) && HasButton("접속") && HasButton("끄기"), "서버 열기 shows my running server with 접속 / 끄기");
+        await Click("전용 서버");
+        Check(Screen.Screen == "serverrunning" && TextOf(Screen.Content).Contains("포트 " + port) && HasButton("접속") && HasButton("끄기"), "전용 서버 shows my running server with 접속 / 끄기");
         await Shot("O_server_running.png");
         await Click("뒤로");
 
@@ -239,11 +239,11 @@ public static class ServerOpenQA
         Check(msg.kind == ToClient.Welcome, "the process still serves a client after the game left");
         fake.Close();
 
-        await Click("서버 열기");
-        Check(Screen.Screen == "serverrunning", "서버 열기 shows it running again");
+        await Click("전용 서버");
+        Check(Screen.Screen == "serverrunning", "전용 서버 shows it running again");
         await Click("끄기");
         Check(started.WaitForExit(10000), "끄기 ended the server process");
-        Check(!File.Exists(LocalServerProcess.RunningPath) && LocalServerProcess.Running() == null && Screen.Screen == "serveropen", "running.json is gone and 서버 열기 shows the settings again");
+        Check(!File.Exists(LocalServerProcess.RunningPath) && LocalServerProcess.Running() == null && Screen.Screen == "dedicated", "running.json is gone and 전용 서버 shows the settings again");
 
         await OpenFromUi();
     }
@@ -251,12 +251,12 @@ public static class ServerOpenQA
     // TitleFlow.OpenServer's PC path from the real buttons: 서버 시작 starts the process, joins it at 127.0.0.1, it outlives the game.
     static async Task OpenFromUi()
     {
-        Check(Screen.Screen == "serveropen" && !TextOf(Screen.transform).Contains("서버 http"), "서버 열기 settings (footer without the old server address)");
+        Check(Screen.Screen == "dedicated" && !TextOf(Screen.transform).Contains("서버 http"), "전용 서버 settings (footer without the old server address)");
         if (Inputs().Length < 3) await Click("고급");
         int port = FreePort();
         var inputs = Inputs();
         inputs[0].text = "QA UI 서버"; inputs[1].text = "ui비번"; inputs[2].text = port.ToString();
-        await Click("서버 시작");
+        await Click("전용 서버 시작");
         await EnterGame("QA유아이", 120);
         var running = LocalServerProcess.Running();
         Check(running != null && running.port == port && File.Exists(LocalServerProcess.RunningPath), "a) 서버 시작 started the server process " + running?.pid + " and running.json (port " + port + ")");
@@ -271,8 +271,8 @@ public static class ServerOpenQA
         await WaitFor(() => OnTitle, 60, "title after leaving");
         await Awaitable.WaitForSecondsAsync(1f);
         Check(!client.Connected && !started.HasExited && LocalServerProcess.Running()?.pid == started.Id, "d) back on the title the server process keeps running");
-        await Click("서버 열기");
-        Check(Screen.Screen == "serverrunning" && TextOf(Screen.Content).Contains("포트 " + port), "d) 서버 열기 shows 내 서버 실행 중");
+        await Click("전용 서버");
+        Check(Screen.Screen == "serverrunning" && TextOf(Screen.Content).Contains("포트 " + port), "d) 전용 서버 shows 전용 서버 실행 중");
 
         await Click("접속");
         await WaitFor(() => InGame || Screen && Screen.Screen == "name", 90, "entering again with 접속");
@@ -282,7 +282,7 @@ public static class ServerOpenQA
         await WaitFor(() => OnTitle, 60, "title");
         Check(!started.HasExited, "the process is still there after the second visit");
 
-        await Click("서버 열기");
+        await Click("전용 서버");
         await Click("끄기");
         Check(started.WaitForExit(10000) && !File.Exists(LocalServerProcess.RunningPath), "f) 끄기 ended the process and removed running.json");
     }

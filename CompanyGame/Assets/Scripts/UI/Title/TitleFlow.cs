@@ -4,7 +4,7 @@ using System.Text.RegularExpressions;
 using UnityEngine;
 
 /// <summary>
-/// The title screen's actions without any UI: 혼자 하기 / 서버 열기 / 참가하기 on the sync layer, the character of the
+/// The title screen's actions without any UI: 혼자 하기 / 서버 열기 / 전용 서버 / 참가하기 on the sync layer, the character of the
 /// server's world, and entering the map. The account is the EOS PUID (EosAccount, 12.13): every step that joins a server
 /// first waits for the EOS login to end, so the account never changes under a connection. Joining by the public list or a
 /// server code goes over EOS P2P. Every step returns null on success or an error code, and
@@ -70,23 +70,34 @@ public static class TitleFlow
     }
 
     /// <summary>
-    /// Opens my server and joins it. PC: the separate server process (kept if already running) at 127.0.0.1.
-    /// Phone and editor: the in-app server. A new world gets its id here so the next start opens the same one. Null or an error code.
+    /// 서버 열기 (multi): the in-app server, open to others while this game runs; leaving or quitting saves and stops it.
+    /// Refused while my 전용 서버 runs (one settings file and port per slot). A new world gets its id here. Null or an error code.
     /// </summary>
     public static async Awaitable<string> OpenServer(ServerSettings settings)
     {
         await EosAccount.WhenSettled();
         JoinedCode = "";
+        if (LocalServerProcess.CanStart && LocalServerProcess.Running() != null) return "dedicated_running";
         settings.Clamp();
         if (string.IsNullOrEmpty(settings.world)) settings.world = WorldStore.NewId();
-        if (ServerSettings.IsMobile || !LocalServerProcess.CanStart)
-        {
-            settings.Save();
-            SyncClient.Instance.Disconnect();
-            string error = StartInApp(settings, false) ?? await WaitSync();
-            if (error != null) StopInAppServer();
-            return error;
-        }
+        settings.Save();
+        SyncClient.Instance.Disconnect();
+        string error = StartInApp(settings, false) ?? await WaitSync();
+        if (error != null) StopInAppServer();
+        return error;
+    }
+
+    /// <summary>
+    /// 전용 서버 (PC: Windows, macOS, Linux): this game's exe as a windowless server process that keeps running after the game
+    /// closes (kept if already running), then joins it at 127.0.0.1. Null or an error code.
+    /// </summary>
+    public static async Awaitable<string> OpenDedicated(ServerSettings settings)
+    {
+        await EosAccount.WhenSettled();
+        JoinedCode = "";
+        if (!LocalServerProcess.CanStart) return "dedicated_unavailable";
+        settings.Clamp();
+        if (string.IsNullOrEmpty(settings.world)) settings.world = WorldStore.NewId();
         var running = LocalServerProcess.Running();
         if (running == null)
         {
@@ -98,7 +109,7 @@ public static class TitleFlow
         return await JoinMine(running);
     }
 
-    /// <summary>My PC server process (127.0.0.1, my PUID needs no token there): "내 서버 실행 중 > 접속" and 서버 열기.</summary>
+    /// <summary>My 전용 서버 process (127.0.0.1, my PUID needs no token there): "전용 서버 실행 중 > 접속" and 전용 서버 시작.</summary>
     public static async Awaitable<string> JoinMine(LocalServerProcess.RunningInfo running)
     {
         string error = await JoinServer("127.0.0.1:" + running.port, ServerSettings.Load().password, false);
@@ -225,7 +236,7 @@ public static class TitleFlow
         GameSession.ClearCharacter();
     }
 
-    /// <summary>The in-app server dies with its owner leaving (phone: 서버 종료). A PC server process is never stopped here.</summary>
+    /// <summary>The in-app server (혼자 하기, 서버 열기) dies with its owner leaving. A 전용 서버 process is never stopped here.</summary>
     static void StopInAppServer()
     {
         if (SyncHost.Instance && SyncHost.Instance.InApp) SyncHost.Instance.Stop();
@@ -257,7 +268,9 @@ public static class TitleFlow
             case "search_failed": return "서버 목록을 받지 못했습니다. 잠시 후 다시 시도해 주세요.";
             case "bad_code": return "서버 코드는 영문 대문자와 숫자 6자입니다. (0, O, 1, I는 쓰지 않습니다)";
             case "code_not_found": return "이 코드의 서버를 찾지 못했습니다. 코드가 맞는지, 서버가 켜져 있는지 확인해 주세요.";
-            case "own_server": return "이 PC의 내 서버입니다. 서버 열기에서 접속해 주세요.";
+            case "own_server": return "이 PC의 내 서버입니다. 전용 서버 메뉴에서 접속해 주세요.";
+            case "dedicated_running": return "이 PC에서 전용 서버가 돌고 있습니다. 전용 서버 메뉴에서 접속하거나, 끈 뒤에 서버 열기를 해 주세요.";
+            case "dedicated_unavailable": return "전용 서버는 PC(Windows, macOS, Linux) 빌드에서만 열 수 있습니다. 서버 열기를 써 주세요.";
             case "Identity": return "서버가 이 계정을 확인하지 못해 들어갈 수 없습니다. 게임을 다시 시작해 EOS에 다시 연결한 뒤 시도해 주세요.";
             case "load_failed": return "맵을 불러오지 못했습니다.";
             case "Version": return "서버와 게임 버전이 달라 들어갈 수 없습니다. 같은 빌드를 받아 실행해 주세요.";
@@ -271,7 +284,7 @@ public static class TitleFlow
             case "server_start_failed": return "서버를 시작하지 못했습니다. 다른 프로그램이 같은 포트를 쓰고 있을 수 있습니다. 서버 열기 > 고급에서 포트를 바꿔 보세요.";
             case "bad_address": return "주소 형식이 올바르지 않습니다. 예: 192.168.0.5 또는 192.168.0.5:7777";
             case "server_unreachable": return "서버에 연결할 수 없습니다. 주소와 포트가 맞는지, 서버가 켜져 있는지 확인해 주세요. 다른 PC의 서버라면 그쪽 방화벽과 포트 열기도 확인해 주세요.";
-            case "world_in_use": return "이 월드는 지금 내 서버(서버 열기)에서 돌고 있습니다. 서버를 끈 뒤 혼자 하기로 열거나, 서버에 접속해 주세요.";
+            case "world_in_use": return "이 월드는 지금 내 전용 서버에서 돌고 있습니다. 서버를 끈 뒤 혼자 하기로 열거나, 서버에 접속해 주세요.";
             case "world_unreadable": return "월드 파일을 읽지 못했습니다(world.dat와 world.prev.dat 모두). 파일은 그대로 두었습니다. 다른 월드를 고르거나 새 월드를 만들어 주세요.";
             case "character_name_taken": return "이 월드에 같은 이름의 캐릭터가 이미 있습니다(대소문자만 달라도 같은 이름). 다른 이름을 입력해 주세요.";
             case "character_exists": return "이 서버에는 이미 내 캐릭터가 있습니다. 다시 접속해 주세요.";
