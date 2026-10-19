@@ -142,8 +142,9 @@ public static class ServerOpenQA
     {
         await WaitFor(() => OnTitle && !Screen.Busy, 15, "title");
         Screen.UseCamera(Camera.main);
-        foreach (string label in new[] { "혼자 하기", "서버 열기", "전용 서버", "참가하기", "설정", "종료" })
+        foreach (string label in new[] { "혼자 하기", "서버 열기", "참가하기", "설정", "종료" })
             Check(HasButton(label), "main menu has '" + label + "'");
+        Check(!HasButton("전용 서버"), "전용 서버 is hidden on the main menu (2026-10-19)");
         Check(!HasButton("옛 방식"), "main menu has no 옛 방식(개발용) (12.11)");
         Screen.Open("main");
         Check(TextOf(Screen.transform).Contains("프로필 슬롯 3") && !TextOf(Screen.transform).Contains("http"), "main footer: the profile slot only, no server address");
@@ -206,7 +207,7 @@ public static class ServerOpenQA
         Check(running != null && running.pid == started.Id && running.port == port && File.Exists(LocalServerProcess.RunningPath),
             "running.json names the process " + started.Id + " and port " + port);
 
-        await Click("전용 서버");
+        await OpenDedicated();
         Check(Screen.Screen == "serverrunning" && TextOf(Screen.Content).Contains("포트 " + port) && HasButton("접속") && HasButton("끄기"), "전용 서버 shows my running server with 접속 / 끄기");
         await Shot("O_server_running.png");
         await Click("뒤로");
@@ -239,7 +240,7 @@ public static class ServerOpenQA
         Check(msg.kind == ToClient.Welcome, "the process still serves a client after the game left");
         fake.Close();
 
-        await Click("전용 서버");
+        await OpenDedicated();
         Check(Screen.Screen == "serverrunning", "전용 서버 shows it running again");
         await Click("끄기");
         Check(started.WaitForExit(10000), "끄기 ended the server process");
@@ -271,7 +272,7 @@ public static class ServerOpenQA
         await WaitFor(() => OnTitle, 60, "title after leaving");
         await Awaitable.WaitForSecondsAsync(1f);
         Check(!client.Connected && !started.HasExited && LocalServerProcess.Running()?.pid == started.Id, "d) back on the title the server process keeps running");
-        await Click("전용 서버");
+        await OpenDedicated();
         Check(Screen.Screen == "serverrunning" && TextOf(Screen.Content).Contains("포트 " + port), "d) 전용 서버 shows 전용 서버 실행 중");
 
         await Click("접속");
@@ -282,7 +283,7 @@ public static class ServerOpenQA
         await WaitFor(() => OnTitle, 60, "title");
         Check(!started.HasExited, "the process is still there after the second visit");
 
-        await Click("전용 서버");
+        await OpenDedicated();
         await Click("끄기");
         Check(started.WaitForExit(10000) && !File.Exists(LocalServerProcess.RunningPath), "f) 끄기 ended the process and removed running.json");
     }
@@ -290,6 +291,13 @@ public static class ServerOpenQA
     // ---- helpers ----
 
     static TitleScreen Screen => TitleScreen.Current;
+
+    // 전용 서버 has no main-menu button for now: its screen is opened directly.
+    static async Task OpenDedicated()
+    {
+        Screen.ShowDedicated();
+        await Awaitable.NextFrameAsync();
+    }
     static bool OnTitle => SceneManager.GetActiveScene().name == "Title" && TitleScreen.Current != null;
     static bool InGame => SceneManager.GetActiveScene().path == TitleFlow.GameScene && PlayerSpawner.Player && PlayerSpawner.Player.isActiveAndEnabled && !SceneLoadManager.IsLoading;
 

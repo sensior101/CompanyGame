@@ -160,7 +160,11 @@ public static class TitleFlowQA
         await Click("혼자 하기");
         Check(Screen.Screen == "worlds" && HasButton("새 월드 만들기"), "혼자 하기 lists the worlds");
         await Click("새 월드 만들기");
+        Check(Screen.Screen == "newworld" && Screen.FirstInput().text.StartsWith("내 월드"), "새 월드 만들기 asks for the world's name (a default filled in)");
+        Screen.FirstInput().text = "QA <b>월드</b>";
+        await Click("만들기");
         await WaitFor(() => Screen && Screen.Screen == "name", 30, "the character screen");
+        Check(WorldStore.NameOf(ServerSettings.WorldsFolder, SyncHost.Instance.Server.World.Id) == "QA b월드/b", "the new world is named as typed (rich-text brackets dropped)");
         Screen.FirstInput().text = "QA혼자";
         await Click("확인");
         await WaitFor(() => InMap(TitleFlow.GameScene) && CharacterSync.Active, 90, "entering the game map");

@@ -119,7 +119,7 @@ public sealed class TitleScreen : MonoBehaviour
         Begin("main", true, 560, null);
         TitleUi.Button(content, "혼자 하기", ShowSolo, 76, true, 36);
         TitleUi.Button(content, "서버 열기", () => ShowServerOpen(), 76, true, 36);
-        TitleUi.Button(content, "전용 서버", () => ShowDedicated(), 76, true, 36);
+        // 전용 서버 (ShowDedicated) is hidden for now (2026-10-19); the screen and TitleFlow.OpenDedicated still work.
         TitleUi.Button(content, "참가하기", () => ShowServerJoin(), 76, true, 36);
         TitleUi.Button(content, "설정", () => ShowSettings(), 76, true, 36);
         TitleUi.Button(content, "종료", Quit, 60, false, 28);
@@ -139,7 +139,7 @@ public sealed class TitleScreen : MonoBehaviour
     {
         Begin("worlds", false, 820, onBack);
         var panel = Panel(heading, sub);
-        TitleUi.Button(panel, "새 월드 만들기", () => pick(""), 72, true, 32);
+        TitleUi.Button(panel, "새 월드 만들기", () => ShowNewWorld(pick, () => ShowWorlds(heading, sub, pick, onBack)), 72, true, 32);
         var worlds = WorldStore.List(ServerSettings.WorldsFolder);
         var running = LocalServerProcess.CanStart ? LocalServerProcess.Running() : null;
         TitleUi.Label(panel, worlds.Count == 0 ? "저장된 월드가 없습니다." : "저장된 월드", 22, TitleUi.Muted, TextAlignmentOptions.MidlineLeft);
@@ -157,11 +157,38 @@ public sealed class TitleScreen : MonoBehaviour
     }
 
     // A world has no name of its own: it is called by when it was made.
-    static string WorldName(WorldStore.Summary w) => "월드 " + w.createdAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
+    // Its name from 새 월드 만들기; older worlds have none and are called by when they were made.
+    static string WorldName(WorldStore.Summary w) => w.name.Length > 0 ? w.name : "월드 " + w.createdAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
+
+    /// <summary>새 월드 만들기: the world's name, then a new world id with that name goes to <paramref name="pick"/>.</summary>
+    void ShowNewWorld(Action<string> pick, Action onBack)
+    {
+        Begin("newworld", false, 760, onBack);
+        var panel = Panel("새 월드", "월드 이름을 정하세요. 월드 목록에 이 이름으로 나옵니다. (" + WorldStore.NameMax + "자까지)");
+        TMP_Text error = null;
+        TMP_InputField input = null;
+        Action make = () =>
+        {
+            string name = WorldStore.CleanName(input.text);
+            if (name.Length == 0) { error.text = "월드 이름을 입력해 주세요."; return; }
+            string id = WorldStore.NewId();
+            try { WorldStore.SetName(ServerSettings.WorldsFolder, id, name); }
+            catch (Exception e) { Debug.LogWarning("[Title] world name not saved: " + e.Message); error.text = "월드 폴더를 만들지 못했습니다."; return; }
+            pick(id);
+        };
+        input = TitleUi.Input(panel, "월드 이름", WorldStore.NameMax, _ => make());
+        input.text = "내 월드 " + (WorldStore.List(ServerSettings.WorldsFolder).Count + 1);
+        error = TitleUi.Label(panel, "", 22, TitleUi.Warn);
+        TitleUi.Button(panel, "만들기", () => make(), 72, true, 32);
+        TitleUi.Button(panel, "뒤로", () => onBack(), 56, false, 26);
+        Focus();
+    }
 
     static string WorldLabel(string id)
     {
         if (string.IsNullOrEmpty(id)) return "새 월드";
+        string named = WorldStore.NameOf(ServerSettings.WorldsFolder, id);
+        if (named.Length > 0) return named; // made but maybe never saved yet
         foreach (var w in WorldStore.List(ServerSettings.WorldsFolder)) if (w.id == id) return WorldName(w);
         return "새 월드"; // made but never saved yet
     }

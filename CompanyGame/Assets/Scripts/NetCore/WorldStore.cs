@@ -24,6 +24,9 @@ public sealed class WorldStore
     /// <summary>The world state blob may be this big (it is the whole shared economy, gzipped; sections sent to clients are smaller).</summary>
     public const int MaxWorldState = 32 * 1024 * 1024;
     public const string FileName = "world.dat", PrevName = "world.prev.dat";
+    /// <summary>The world's display name, set when it is made (UTF-8 text next to world.dat; none = shown by its date).</summary>
+    public const string NameFile = "name.txt";
+    public const int NameMax = 20;
 
     // Same rule as TitleFlow.IsValidName (12.5).
     static readonly Regex NamePattern = new Regex("^[가-힣A-Za-z0-9_]{2,12}$");
@@ -63,7 +66,7 @@ public sealed class WorldStore
     /// <summary>What the world list shows without opening the server.</summary>
     public struct Summary
     {
-        public string id;
+        public string id, name; // name: "" when it has none (older worlds)
         public DateTime createdAt, savedAt; // UTC
         public int characters;
     }
@@ -137,12 +140,41 @@ public sealed class WorldStore
                 var store = Open(root, id);
                 string file = Path.Combine(dir, store.LoadedFromPrev ? PrevName : FileName);
                 if (!File.Exists(file)) continue; // an empty folder: never saved
-                list.Add(new Summary { id = id, createdAt = store.CreatedAt, savedAt = File.GetLastWriteTimeUtc(file), characters = store.CharacterCount });
+                list.Add(new Summary { id = id, name = NameOf(root, id), createdAt = store.CreatedAt, savedAt = File.GetLastWriteTimeUtc(file), characters = store.CharacterCount });
             }
             catch (Exception) { /* unreadable: not offered */ }
         }
         list.Sort((a, b) => b.savedAt.CompareTo(a.savedAt));
         return list;
+    }
+
+    /// <summary>A display name as it may be saved: trimmed, no rich-text brackets or control characters, at most NameMax.</summary>
+    public static string CleanName(string name)
+    {
+        var b = new StringBuilder();
+        foreach (char c in (name ?? "").Trim()) if (!char.IsControl(c) && c != '<' && c != '>') b.Append(c);
+        string clean = b.ToString().Trim();
+        return clean.Length > NameMax ? clean.Substring(0, NameMax) : clean;
+    }
+
+    /// <summary>Names world <paramref name="id"/> (made now, or renamed). Its folder is made if needed.</summary>
+    public static void SetName(string root, string id, string name)
+    {
+        if (!IsValidId(id)) throw new ArgumentException("bad world id: " + id);
+        string dir = Path.Combine(root, id);
+        Directory.CreateDirectory(dir);
+        File.WriteAllText(Path.Combine(dir, NameFile), CleanName(name), new UTF8Encoding(false));
+    }
+
+    /// <summary>The display name of world <paramref name="id"/>, "" when it has none.</summary>
+    public static string NameOf(string root, string id)
+    {
+        try
+        {
+            string file = Path.Combine(root, id, NameFile);
+            return IsValidId(id) && File.Exists(file) ? CleanName(File.ReadAllText(file)) : "";
+        }
+        catch (Exception) { return ""; }
     }
 
     public Character Find(string account) => account != null && byAccount.TryGetValue(account, out var c) ? c : null;

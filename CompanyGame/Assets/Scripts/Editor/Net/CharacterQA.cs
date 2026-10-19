@@ -514,6 +514,8 @@ public static class CharacterQA
 
         await Click("혼자 하기");
         await Click("새 월드 만들기");
+        Screen.FirstInput().text = "두번째 월드";
+        await Click("만들기");
         await WaitFor(() => Screen && Screen.Screen == "name", 30, "캐릭터 만들기 in a new world");
         Inputs()[0].text = "QA캐릭"; // the same name is free in another world
         await Click("확인");
@@ -523,6 +525,10 @@ public static class CharacterQA
         TitleFlow.ReturnToTitle();
         await WaitFor(() => OnTitle && !Screen.Busy, 60, "title");
         Check(WorldStore.List(ServerSettings.WorldsFolder).Count == 2, "two worlds in the list now");
+        await Click("혼자 하기");
+        Check(HasButton("두번째 월드") && HasButton(WorldName(w1)), "the list shows the new world by its name, the unnamed older one by its date");
+        await Shot("C_worlds_named.png");
+        await Click("뒤로");
 
         // 서버 열기 picks from the same worlds.
         await Click("서버 열기");
@@ -536,7 +542,11 @@ public static class CharacterQA
         await Click("뒤로");
     }
 
-    static string WorldName(string id) => "월드 " + WorldStore.List(ServerSettings.WorldsFolder).Find(s => s.id == id).createdAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
+    static string WorldName(string id)
+    {
+        var s = WorldStore.List(ServerSettings.WorldsFolder).Find(w => w.id == id);
+        return s.name.Length > 0 ? s.name : "월드 " + s.createdAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
+    }
 
     // The content blob of the character as it is now: gzip size and the JSON inside.
     static void Measure(string when)

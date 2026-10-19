@@ -79,7 +79,12 @@ public static class TitleFlow
         JoinedCode = "";
         if (LocalServerProcess.CanStart && LocalServerProcess.Running() != null) return "dedicated_running";
         settings.Clamp();
-        if (string.IsNullOrEmpty(settings.world)) settings.world = WorldStore.NewId();
+        if (string.IsNullOrEmpty(settings.world))
+        {
+            settings.world = WorldStore.NewId();
+            try { WorldStore.SetName(ServerSettings.WorldsFolder, settings.world, settings.name); } // a new world is called by its server
+            catch (Exception e) { Debug.LogWarning("[TitleFlow] world name not saved: " + e.Message); }
+        }
         settings.Save();
         SyncClient.Instance.Disconnect();
         string error = StartInApp(settings, false) ?? await WaitSync();
@@ -97,7 +102,12 @@ public static class TitleFlow
         JoinedCode = "";
         if (!LocalServerProcess.CanStart) return "dedicated_unavailable";
         settings.Clamp();
-        if (string.IsNullOrEmpty(settings.world)) settings.world = WorldStore.NewId();
+        if (string.IsNullOrEmpty(settings.world))
+        {
+            settings.world = WorldStore.NewId();
+            try { WorldStore.SetName(ServerSettings.WorldsFolder, settings.world, settings.name); } // a new world is called by its server
+            catch (Exception e) { Debug.LogWarning("[TitleFlow] world name not saved: " + e.Message); }
+        }
         var running = LocalServerProcess.Running();
         if (running == null)
         {

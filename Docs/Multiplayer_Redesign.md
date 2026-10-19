@@ -2155,3 +2155,9 @@ SyncClient.Instance.Spawn(prefabKey: "Net/Door", instance, flags);
 - 예전에는 일반 채팅이 내 화면에만 찍혔습니다(12.15 "하지 않는 것"). 이제 서버를 거쳐 그 서버의 모든 플레이어에게 갑니다.
 - 클라이언트: `WorldStateSync.SendChat` → Op `chat`. 서버: `ServerWorld.Chat`이 글자 수(최대 200)를 보고, **서버가 아는 캐릭터 이름**으로 월드 이벤트 6(`ChatEvent`: 이름, 글)을 모두에게 보냄. 보낸 사람도 서버에서 돌아온 줄로 봅니다(`WorldStateSync.Chatted` → `ChatUIManager`). 서식 태그는 `<noparse>`로 감싸 글자 그대로 보입니다. 도배는 연결별 메시지 속도 제한(GameServer)이 막습니다. 서버 로그에 `[Chat] 이름: 글`.
 - 프로토콜 버전 9(새 빌드끼리만 접속). 시험: `DedicatedServerQA.RunConsole`의 "player chat"(가짜 3명 모두 받음, 201자 거절).
+
+### 12.18 전용 서버 버튼 숨김, 월드 이름 (2026-10-19, 사용자 요청)
+
+- 타이틀 메인에서 **전용 서버 버튼을 숨김**. 지금 쓰는 모드는 혼자 하기와 서버 열기(게임을 끄면 서버도 끝)뿐. 전용 서버 화면(`TitleScreen.ShowDedicated`)과 `TitleFlow.OpenDedicated`는 코드에 그대로 있고 QA(`ServerOpenQA.RunProcess`)가 화면을 직접 열어 계속 시험함. 다시 켜려면 `ShowMain`에 버튼 한 줄.
+- **월드 이름**: "새 월드 만들기"가 이름을 묻고(기본값 "내 월드 N", 20자까지, `<` `>`·제어 문자 제거) 새 월드 id와 함께 월드 폴더의 `name.txt`(UTF-8)에 저장. 월드 목록·서버 열기의 "월드:" 줄이 이 이름을 보여 줌. 이름 없는 예전 월드는 지금처럼 만든 날짜("월드 yyyy-MM-dd HH:mm"). 서버 열기에서 월드를 고르지 않고 새 월드로 열면 서버 이름이 월드 이름이 됨. world.dat 형식은 그대로(버전 3).
+- 이름 바꾸기 화면은 아직 없음(`WorldStore.SetName`은 있음).
