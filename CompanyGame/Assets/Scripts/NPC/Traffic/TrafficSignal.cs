@@ -2,7 +2,8 @@ using System;
 using UnityEngine;
 
 /// <summary>
-/// Fixed-cycle traffic light (green, yellow, red). The phase is a pure function of <see cref="Clock"/>.
+/// Fixed-cycle traffic light (green, yellow, red). The phase is a pure function of <see cref="Clock"/>, the shared
+/// NpcClock (12.14), so every PC of one server shows the same lights.
 /// </summary>
 public sealed class TrafficSignal : MonoBehaviour
 {
@@ -32,7 +33,10 @@ public sealed class TrafficSignal : MonoBehaviour
 
     Phase shown = (Phase)(-1);
 
-    public static double Clock => Time.timeAsDouble;
+    /// <summary>Citizens and traffic repeat after this many seconds: 16 cycles of the map's 38 s signals (TrafficMapBuilder).</summary>
+    public const double LoopSeconds = 16 * 38;
+
+    public static double Clock => NpcClock.Now;
     public float Cycle => green + yellow + red;
     public Phase Current => PhaseAt(Clock, out _, out _);
     public float TimeInPhase { get { PhaseAt(Clock, out float inPhase, out _); return inPhase; } }

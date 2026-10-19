@@ -417,7 +417,11 @@ public static partial class EconomySyncQA
         await Awaitable.WaitForSecondsAsync(.5f);
         Check(!fake.Has(m => m.kind == ToClient.Owner && m.id == car), "and no Claim went to the server");
 
-        Section("citizens and traffic on the remote client (12.11)");
+        Section("citizens and traffic on the remote client (12.11, 12.14)");
+        await WaitFor(() => LastClock(fake).Length >= 18, 8, "a clock section with the exact minutes at the fake");
+        double serverSeconds = BitConverter.ToDouble(LastClock(fake), 6) * ServerWorld.SecondsPerMinute; // sent at most one world minute (5 s) ago
+        Check(NpcClock.Synced && NpcClock.Seed == ServerWorld.SeedOf(settings.world) && NpcClock.Now - serverSeconds >= -.5 && NpcClock.Now - serverSeconds < 6,
+            "the NPC clock follows the server's world clock and seed (" + (NpcClock.Now - serverSeconds).ToString("0.00") + " s after the last clock section)");
         int walked = await NpcQa.CitizensMoved(8f);
         Check(walked > 0, "the remote client's citizens walk on " + SceneLoadManager.CurrentMap.path + " (" + walked + " of " + CitizenSpawner.Current.Citizens.Count + " moved in 8 s)");
         await NpcQa.ShotNearest(false, "E_remote_citizens.png");

@@ -86,7 +86,7 @@ namespace CompanyGame.Editor.Citizens
             if (!spawner) { Fail(tag + "no CitizenSpawner"); return; }
             var citizens = spawner.Citizens.Where(c => c).ToList();
             int seated = citizens.Count(c => c.Seated);
-            int onMesh = citizens.Count(c => c.Seated || c.GetComponent<UnityEngine.AI.NavMeshAgent>().isOnNavMesh);
+            int onMesh = citizens.Count(c => c.Seated || UnityEngine.AI.NavMesh.SamplePosition(c.transform.position, out _, .5f, UnityEngine.AI.NavMesh.AllAreas)); // the agent is off since 12.14
             Debug.Log(tag + citizens.Count + " citizens, " + seated + " seated, " + onMesh + " on the NavMesh, books " + citizens.Count(c => c.transform.Find("CitizenBook(Clone)")));
             foreach (var c in citizens)
                 Debug.Log(tag + c.name + " " + c.transform.position.ToString("F1") + (c.Seated ? " seated" : "") + " dialogue='" + (c.GetComponent<DialogueData>() ? c.GetComponent<DialogueData>().line : "-") + "'");

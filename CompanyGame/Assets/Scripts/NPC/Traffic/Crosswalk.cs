@@ -19,15 +19,14 @@ public sealed class Crosswalk : MonoBehaviour
 
     static readonly List<Crosswalk> all = new List<Crosswalk>();
 
-    public bool CanCross
+    public bool CanCross => CanCrossAt(TrafficSignal.Clock);
+
+    /// <summary>Whether people may start crossing at that shared clock value (citizens plan their crossings with it, 12.14).</summary>
+    public bool CanCrossAt(double clock)
     {
-        get
-        {
-            if (!signal) return true;
-            return signal.Current == TrafficSignal.Phase.Red
-                && signal.TimeInPhase >= ClearAfterRedSeconds
-                && signal.TimeLeft >= CrossSeconds;
-        }
+        if (!signal) return true;
+        return signal.PhaseAt(clock, out float inPhase, out float left) == TrafficSignal.Phase.Red
+            && inPhase >= ClearAfterRedSeconds && left >= CrossSeconds;
     }
 
     /// <summary>Red time a walker needs to be across (capped so a short red still leaves a window to start).</summary>

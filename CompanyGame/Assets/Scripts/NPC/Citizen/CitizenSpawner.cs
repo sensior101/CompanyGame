@@ -9,16 +9,21 @@ using UnityEngine.SceneManagement;
 /// Spawns the street citizens when an outdoor map is ready. Needs a NavMesh baked in the editor
 /// (CitizenNavBuilder) and Resources/Citizens/CitizenMale|CitizenFemale (CitizenPrefabBuilder);
 /// without them it logs once and does nothing. Lives in the map scene, so leaving the map removes it.
-/// Index, name, line, look and start point are a pure function of (map, index): host and clients build the same crowd.
+/// Index, name, line, look and start point are a pure function of (map, index), never of where the player is: every PC
+/// builds the same crowd. Each citizen then plans its loop with NpcClock.Seed (again when the seed changes: a server's
+/// seed may come after the map), so every PC of one server also sees them walk the same way (12.14). Benches are
+/// shared out by position order, so no two citizens plan the same bench.
 /// </summary>
 public sealed class CitizenSpawner : MonoBehaviour
 {
     public const int PerMap = 8;
-    const float MinPlayerDistance = 12f, MinCitizenDistance = 3f;
+    const float MinCitizenDistance = 3f;
 
     public static CitizenSpawner Current { get; private set; }
     public string MapPath { get; private set; }
     public readonly List<CitizenWalker> Citizens = new List<CitizenWalker>();
+    bool spawned;
+    uint plannedSeed;
 
     /// <summary>Outdoor maps: everything in Scenes/Maps plus the legacy village scene.</summary>
     public static bool IsOutdoorMap(string scenePath)
@@ -112,11 +117,34 @@ public sealed class CitizenSpawner : MonoBehaviour
             Vector3 point = default;
             if (starts != null ? !TryStart(rng, starts, out point) : !TryPoint(rng, triangulation, anchor, out point)) continue;
             bool isFemale = ((mapHash >> 3) + i) % 2 == 0;
-            Create(isFemale ? female : male, holder.transform, i, mapHash, point, rng.Next(360), seats);
+            Create(isFemale ? female : male, holder.transform, i, mapHash, point, rng.Next(360), Mine(seats, i));
         }
         Destroy(holder);
         IgnoreEachOther();
-        Debug.Log("[Citizens] " + MapPath + ": " + Citizens.Count + " citizens, " + seats.Length + " benches.");
+        PlanAll();
+        Debug.Log("[Citizens] " + MapPath + ": " + Citizens.Count + " citizens, " + seats.Length + " benches, seed " + plannedSeed + ".");
+    }
+
+    void Update()
+    {
+        if (spawned && NpcClock.Seed != plannedSeed) PlanAll();
+    }
+
+    void PlanAll()
+    {
+        spawned = true;
+        plannedSeed = NpcClock.Seed;
+        var pieces = new System.Text.StringBuilder();
+        foreach (var walker in Citizens) if (walker) { walker.Plan(plannedSeed); pieces.Append(' ').Append(walker.PlanLegs).Append('/').Append(walker.WalkSeconds.ToString("0")).Append('s'); }
+        Debug.Log("[Citizens] " + MapPath + ": plans for seed " + plannedSeed + " (pieces/walking):" + pieces);
+    }
+
+    // Bench k belongs to citizen k % PerMap.
+    static Seat[] Mine(Seat[] seats, int index)
+    {
+        var mine = new List<Seat>();
+        for (int k = index; k < seats.Length; k += PerMap) mine.Add(seats[k]);
+        return mine.ToArray();
     }
 
     void Create(GameObject prefab, Transform holder, int index, int mapHash, Vector3 point, int yaw, Seat[] seats, string[] lines = null, CitizenWalker.Role role = CitizenWalker.Role.Street)
@@ -160,6 +188,7 @@ public sealed class CitizenSpawner : MonoBehaviour
         for (int k = 0; k < spec.chatPairs && starts.Count > 0; k++) MakePair(spec, ref index, mapHash, starts, rng, holder.transform, male, female);
         Destroy(holder);
         IgnoreEachOther();
+        PlanAll();
         Debug.Log("[Citizens] " + MapPath + ": " + Citizens.Count + " indoor citizens (" + starts.Count + " free start points left).");
     }
 
@@ -173,8 +202,9 @@ public sealed class CitizenSpawner : MonoBehaviour
     void MakePair(IndoorSpec spec, ref int index, int mapHash, List<Vector3> starts, System.Random rng, Transform holder, GameObject male, GameObject female)
     {
         Vector3 a = TakeStart(starts, rng);
-        float angle = (float)rng.NextDouble() * 6.2832f;
-        Vector3 b = a + new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * 1.1f;
+        float x = (float)rng.NextDouble() * 2f - 1f, z = (float)rng.NextDouble() * 2f - 1f; // a direction without trigonometry
+        if (x * x + z * z < .01f) x = 1f;
+        Vector3 b = a + new Vector3(x, 0f, z) * (1.1f / Mathf.Sqrt(x * x + z * z));
         if (!NavMesh.SamplePosition(b, out var hit, 1f, NavMesh.AllAreas)) return;
         b = hit.position;
         Make(index++, mapHash, a, Mathf.RoundToInt(Quaternion.LookRotation(b - a).eulerAngles.y), holder, male, female, spec.lines, CitizenWalker.Role.Stand);
@@ -215,11 +245,18 @@ public sealed class CitizenSpawner : MonoBehaviour
         return null;
     }
 
+    // In position order: the same list on every PC.
     static Seat[] FindBenches()
     {
         var found = new List<Seat>();
         foreach (var seat in FindObjectsByType<Seat>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
             if (seat.owner) found.Add(seat);
+        found.Sort((a, b) =>
+        {
+            Vector3 p = a.transform.position, q = b.transform.position;
+            int c = p.x.CompareTo(q.x);
+            return c != 0 ? c : p.z != q.z ? p.z.CompareTo(q.z) : string.CompareOrdinal(a.name, b.name);
+        });
         return found.ToArray();
     }
 
@@ -229,14 +266,13 @@ public sealed class CitizenSpawner : MonoBehaviour
         return NavMesh.SamplePosition(spawn.transform.position, out var hit, 10f, NavMesh.AllAreas) ? hit.position : (Vector3?)null;
     }
 
-    // Start point from the baked list (already limited to real walkable ground), away from the player and the others.
+    // Start point from the baked list (already limited to real walkable ground), away from the others. Not from where the
+    // player is: that differs between PCs (12.14).
     bool TryStart(System.Random rng, List<Vector3> starts, out Vector3 point)
     {
-        var player = SceneLoadManager.Traveller;
         for (int attempt = 0; attempt < 40; attempt++)
         {
             point = starts[rng.Next(starts.Count)];
-            if (player && (player.transform.position - point).sqrMagnitude < MinPlayerDistance * MinPlayerDistance) continue;
             Vector3 p = point;
             if (Citizens.Exists(o => (o.transform.position - p).sqrMagnitude < MinCitizenDistance * MinCitizenDistance)) continue;
             return true;
@@ -245,11 +281,10 @@ public sealed class CitizenSpawner : MonoBehaviour
         return false;
     }
 
-    // Random NavMesh point that is far from the player, from the other citizens, and walkable from the spawn point
-    // (rooftop islands and other disconnected patches are rejected).
+    // Random NavMesh point away from the other citizens and walkable from the spawn point (rooftop islands and other
+    // disconnected patches are rejected).
     bool TryPoint(System.Random rng, NavMeshTriangulation mesh, Vector3? anchor, out Vector3 point)
     {
-        var player = SceneLoadManager.Traveller;
         var path = new NavMeshPath();
         for (int attempt = 0; attempt < 40; attempt++)
         {
@@ -260,7 +295,6 @@ public sealed class CitizenSpawner : MonoBehaviour
             if (u + v > 1f) { u = 1f - u; v = 1f - v; }
             if (!NavMesh.SamplePosition(a + (b - a) * u + (c - a) * v, out var hit, 1.5f, NavMesh.AllAreas)) continue;
             Vector3 p = point = hit.position;
-            if (player && (player.transform.position - p).sqrMagnitude < MinPlayerDistance * MinPlayerDistance) continue;
             if (Citizens.Exists(o => (o.transform.position - p).sqrMagnitude < MinCitizenDistance * MinCitizenDistance)) continue;
             if (anchor.HasValue && !(NavMesh.CalculatePath(anchor.Value, point, NavMesh.AllAreas, path) && path.status == NavMeshPathStatus.PathComplete)) continue;
             return true;
@@ -269,7 +303,7 @@ public sealed class CitizenSpawner : MonoBehaviour
         return false;
     }
 
-    // v3: no new layers this round, so citizens pass through each other by pairwise ignore (the agents avoid each other anyway).
+    // No new layers this round, so citizens pass through each other by pairwise ignore (they do not avoid each other, 12.14).
     void IgnoreEachOther()
     {
         for (int a = 0; a < Citizens.Count; a++)

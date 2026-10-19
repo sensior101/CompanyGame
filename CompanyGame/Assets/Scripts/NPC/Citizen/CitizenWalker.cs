@@ -1,47 +1,63 @@
+using System.Collections.Generic;
 using CompanyGame.Daldongne;
 using UnityEngine;
 using UnityEngine.AI;
 
 /// <summary>
-/// One citizen on the baked NavMesh: walk, stand and look around, sometimes sit on a bench.
-/// Waits at crosswalk links until Crosswalk.CanCross. Every PC simulates its own crowd (also on a server,
-/// until stage 5). The walking pose comes from DaldongneAvatarMotion reading position changes, so only the
-/// transform is moved.
+/// One citizen (Docs/Multiplayer_Redesign.md 12.14). <see cref="Plan"/> makes its day of one loop
+/// (TrafficSignal.LoopSeconds) from (map, index, NpcClock.Seed) when the map opens: walks along NavMesh paths to random
+/// places with short rests, sometimes to a bench of its own, a wait before each crossing until Crosswalk.CanCrossAt,
+/// then home and looking around until the loop ends. It is drawn at NpcClock.Now, so every PC of one server shows it at
+/// the same place. Citizens do not avoid each other. Reacting is this PC's drawing only: it stops and faces someone
+/// who talks to it or stands within 1.2 m, stops for a car in front (never on a crossing), then catches up (1.5 times as
+/// fast, skipping the rest of a wait; over 120 s behind it is put back on the plan). The walking pose comes from
+/// DaldongneAvatarMotion reading position changes, so only the transform is moved; the prefab's NavMeshAgent stays off.
 /// </summary>
 [DisallowMultipleComponent]
-[RequireComponent(typeof(NavMeshAgent))]
 public sealed class CitizenWalker : MonoBehaviour
 {
-    enum State { Walk, Pause, Cross, ToSeat, Seated }
     /// <summary>Street = wanders the map; Browse = short walks indoors; Stand = stays and chats; Sit = fixed on a chair.</summary>
     public enum Role { Street, Browse, Stand, Sit }
     public const float Range = 40f, CullDistance = 70f, TalkDistance = 1.2f;
+    const float CatchUp = 1.5f;
+    const double MaxDelay = 120;
+
+    enum Kind : byte { Walk, Cross, Stand, Sit }
+    struct Leg { public float t0, t1, yaw; public Vector3 a, b; public Kind kind; public Seat seat; }
 
     public int Index { get; private set; }
-    public bool Seated => state == State.Seated;
+    public bool Seated => seat;
+    /// <summary>Seconds this PC draws the citizen behind its plan (it stopped for someone); 0 = exactly the plan.</summary>
+    public double Delay { get; private set; }
+    /// <summary>Pieces of the plan (walks, crossings, rests, sitting), for QA.</summary>
+    public int PlanLegs => legs.Count;
+    /// <summary>Seconds of the loop spent walking or crossing, for QA and the log.</summary>
+    public float WalkSeconds { get { float t = 0f; foreach (var l in legs) if (l.kind == Kind.Walk || l.kind == Kind.Cross) t += l.t1 - l.t0; return t; } }
 
-    NavMeshAgent agent;
     DaldongneAvatarMotion motion;
     DialogueData dialogue;
     Renderer[] renderers;
     Seat[] seats = System.Array.Empty<Seat>();
-    Seat seat;
-    NavMeshPath path; // created in Awake: NavMeshPath cannot be built in a field initializer
-    System.Random rng = new System.Random(1);
-    State state = State.Pause, afterCross = State.Walk;
-    bool culled;
-    float timer = 1f, grace, stuck, nextCull, baseYaw, lookPhase;
-    Vector3 crossEnd, standPos;
-    Role role;
-    float minDist = 8f, maxDist = Range, lookAmplitude = 55f;
-    Seat fixedSeat;
+    Seat seat, fixedSeat;
     GameObject book;
+    NavMeshPath path; // created in Awake: NavMeshPath cannot be built in a field initializer
+    System.Random rng;
+    readonly List<Leg> legs = new List<Leg>();
+    readonly List<Vector3> corners = new List<Vector3>();
+    Role role;
+    int seed;
+    float speed = 1.3f, minDist = 8f, maxDist = Range, lookAmplitude = 55f, lookPhase;
+    double phase; // where in the loop this citizen starts: whole signal cycles, so the crossings still fit
+    Vector3 home;
+    bool culled, homeSet;
+    float nextCull;
+    double lastClock = double.NaN;
 
     /// <summary>Called by the spawner before the object is activated.</summary>
     public void Init(int index, int seed, Seat[] benches)
     {
         Index = index;
-        rng = new System.Random(seed);
+        this.seed = seed;
         if (benches != null) seats = benches;
     }
 
@@ -62,17 +78,10 @@ public sealed class CitizenWalker : MonoBehaviour
             book = Instantiate(bookPrefab, transform);
             book.transform.SetLocalPositionAndRotation(new Vector3(0f, .74f, .30f), Quaternion.Euler(-35f, 0f, 0f));
         }
-        ApplyFixedSeat();
-    }
-
-    void ApplyFixedSeat()
-    {
-        if (agent.enabled) agent.enabled = false;
         transform.SetPositionAndRotation(fixedSeat.transform.position - Vector3.up * .44f, fixedSeat.transform.rotation);
         seat = fixedSeat;
         fixedSeat.Reserve(transform);
         if (motion) motion.SetSeated(true);
-        state = State.Seated;
     }
 
     float R() => (float)rng.NextDouble();
@@ -80,15 +89,11 @@ public sealed class CitizenWalker : MonoBehaviour
     void Awake()
     {
         path = new NavMeshPath();
-        agent = GetComponent<NavMeshAgent>();
+        var agent = GetComponent<NavMeshAgent>();
+        if (agent) agent.enabled = false; // the plan moves the transform (12.14)
         motion = GetComponentInChildren<DaldongneAvatarMotion>(true);
         dialogue = GetComponent<DialogueData>();
         renderers = GetComponentsInChildren<Renderer>(true);
-        agent.autoTraverseOffMeshLink = false;
-        agent.speed = 1.1f + R() * .4f;
-        agent.avoidancePriority = 30 + rng.Next(60);
-        timer = .5f + R() * 2f;
-        baseYaw = transform.eulerAngles.y;
     }
 
     void OnDisable()
@@ -96,35 +101,210 @@ public sealed class CitizenWalker : MonoBehaviour
         if (seat) seat.Release(transform);
     }
 
+    // ---- the plan ------------------------------------------------------------------
+
+    /// <summary>Makes the loop's plan for this world seed (again when the seed changes). Same inputs, same plan on every PC.</summary>
+    public void Plan(uint worldSeed)
+    {
+        if (!homeSet) { home = transform.position; homeSet = true; }
+        rng = new System.Random(seed ^ (int)worldSeed);
+        speed = 1.1f + R() * .4f;
+        lookPhase = R() * 6.28f;
+        phase = TrafficSignal.LoopSeconds / 16 * rng.Next(16); // not everyone home at the end of the loop at once
+        legs.Clear();
+        Delay = 0;
+        lastClock = double.NaN;
+        if (role == Role.Sit) return;
+        float loop = (float)TrafficSignal.LoopSeconds, t = 0f;
+        float startYaw = transform.eulerAngles.y;
+        if (role == Role.Stand) { Rest(home, 0f, loop, startYaw); return; }
+        t = Rest(home, t, .5f + R() * 2f, startYaw);
+        Vector3 at = home;
+        float yaw = startYaw;
+        var marks = new List<(int legs, float t, Vector3 at, float yaw)>();
+        for (int guard = 0; guard < 200 && t < loop * .9f; guard++)
+        {
+            marks.Add((legs.Count, t, at, yaw));
+            Seat bench = null;
+            Vector3 target = default;
+            bool found = seats.Length > 0 && R() < .2f ? FindBench(at, out bench, out target) : PickDestination(at, out target);
+            if (!found || !PathTo(at, target)) { marks.RemoveAt(marks.Count - 1); t = Rest(at, t, 1.5f, yaw); continue; }
+            t = Walk(t, ref yaw);
+            at = corners[corners.Count - 1];
+            if (bench) { legs.Add(new Leg { t0 = t, t1 = t + 20f + R() * 40f, a = at, b = at, kind = Kind.Sit, seat = bench }); t = legs[legs.Count - 1].t1; }
+            else t = Rest(at, t, 2f + R() * 4f, yaw);
+        }
+        // Home again within the loop: drop the last outings until the way back fits.
+        marks.Add((legs.Count, t, at, yaw));
+        for (int m = marks.Count - 1; m >= 0; m--)
+        {
+            legs.RemoveRange(marks[m].legs, legs.Count - marks[m].legs);
+            t = marks[m].t; at = marks[m].at; yaw = marks[m].yaw;
+            if ((at - home).sqrMagnitude < .01f) break;
+            if (!PathTo(at, home)) continue;
+            int before = legs.Count;
+            float end = Walk(t, ref yaw);
+            if (end <= loop - .5f) { t = end; break; }
+            legs.RemoveRange(before, legs.Count - before);
+        }
+        Rest(home, t, loop - t, yaw);
+    }
+
+    float Rest(Vector3 at, float t, float seconds, float yaw)
+    {
+        if (seconds <= 0f) return t;
+        legs.Add(new Leg { t0 = t, t1 = t + seconds, a = at, b = at, kind = Kind.Stand, yaw = yaw });
+        return t + seconds;
+    }
+
+    // The path in corners: a walk per corner; a crossing (both ends at a Crosswalk's ends) waits until it may start.
+    float Walk(float t, ref float yaw)
+    {
+        for (int i = 1; i < corners.Count; i++)
+        {
+            Vector3 a = corners[i - 1], b = corners[i];
+            float length = Vector3.Distance(a, b);
+            if (length < .01f) continue;
+            Vector3 d = b - a;
+            yaw = Mathf.Atan2(d.x, d.z) * Mathf.Rad2Deg; // facing only, never part of a position
+            var walk = Crossing(a, b);
+            if (walk)
+            {
+                float wait = 0f;
+                while (wait < 60f && !walk.CanCrossAt(t + wait)) wait += .25f;
+                t = Rest(a, t, wait, yaw);
+                legs.Add(new Leg { t0 = t, t1 = t + length / (speed * 1.15f), a = a, b = b, kind = Kind.Cross, yaw = yaw });
+            }
+            else legs.Add(new Leg { t0 = t, t1 = t + length / speed, a = a, b = b, kind = Kind.Walk, yaw = yaw });
+            t = legs[legs.Count - 1].t1;
+        }
+        return t;
+    }
+
+    static Crosswalk Crossing(Vector3 a, Vector3 b)
+    {
+        var walk = Crosswalk.FindNear((a + b) * .5f, 2f);
+        if (!walk) return null;
+        Vector3 p = walk.endA.position, q = walk.endB.position;
+        bool Near(Vector3 x, Vector3 y) => new Vector2(x.x - y.x, x.z - y.z).sqrMagnitude < 2.25f;
+        return Near(a, p) && Near(b, q) || Near(a, q) && Near(b, p) ? walk : null;
+    }
+
+    bool PickDestination(Vector3 from, out Vector3 target)
+    {
+        for (int k = 0; k < 6; k++)
+        {
+            // A direction without trigonometry (the same on every platform): a point in the unit square, kept when inside the circle.
+            float x = R() * 2f - 1f, z = R() * 2f - 1f, distance = minDist + R() * (maxDist - minDist), sqr = x * x + z * z;
+            if (sqr > 1f || sqr < .01f) continue;
+            Vector3 point = from + new Vector3(x, 0f, z) * (distance / Mathf.Sqrt(sqr));
+            if (NavMesh.SamplePosition(point, out var hit, role == Role.Street ? 6f : 2f, NavMesh.AllAreas)) { target = hit.position; return true; }
+        }
+        target = default;
+        return false;
+    }
+
+    bool FindBench(Vector3 from, out Seat best, out Vector3 target)
+    {
+        best = null;
+        target = default;
+        float bestSqr = Range * Range;
+        foreach (var candidate in seats)
+        {
+            if (!candidate || !candidate.isActiveAndEnabled) continue;
+            float sqr = (candidate.transform.position - from).sqrMagnitude;
+            if (sqr < bestSqr) { best = candidate; bestSqr = sqr; }
+        }
+        if (!best || !NavMesh.SamplePosition(best.transform.position, out var hit, 1.5f, NavMesh.AllAreas)) { best = null; return false; }
+        target = hit.position;
+        return true;
+    }
+
+    // Only fully reachable targets: an unreachable one would end the walk at the nearest edge.
+    bool PathTo(Vector3 from, Vector3 to)
+    {
+        corners.Clear();
+        if (!NavMesh.CalculatePath(from, to, NavMesh.AllAreas, path) || path.status != NavMeshPathStatus.PathComplete) return false;
+        corners.AddRange(path.corners);
+        return corners.Count >= 2;
+    }
+
+    int LegAt(double clock, out float u)
+    {
+        double loop = TrafficSignal.LoopSeconds;
+        u = (float)((((clock + phase) % loop) + loop) % loop);
+        int lo = 0, hi = legs.Count - 1;
+        while (lo < hi)
+        {
+            int mid = (lo + hi + 1) / 2;
+            if (legs[mid].t0 <= u) lo = mid; else hi = mid - 1;
+        }
+        return lo;
+    }
+
+    /// <summary>Where the plan has this citizen at a shared clock value (its seat when sitting), for QA.</summary>
+    public Vector3 PlanPosition(double clock)
+    {
+        if (legs.Count == 0) return transform.position;
+        Leg leg = legs[LegAt(clock, out float u)];
+        if (leg.kind == Kind.Sit) return leg.seat ? leg.seat.transform.position - Vector3.up * .44f : leg.a;
+        return Vector3.Lerp(leg.a, leg.b, leg.t1 > leg.t0 ? Mathf.Clamp01((u - leg.t0) / (leg.t1 - leg.t0)) : 1f);
+    }
+
+    // ---- drawing -------------------------------------------------------------------
+
     void Update()
     {
         Cull();
         if (role == Role.Sit) { if (fixedSeat) FaceVisitors(Time.deltaTime); return; }
-        if (state == State.Seated) { UpdateSeated(Time.deltaTime); return; }
-        if (!agent.enabled || !agent.isOnNavMesh) return;
-        if (Talking(Time.deltaTime)) return;
-        if (state != State.Cross && VehicleAhead(Time.deltaTime)) return;
-        switch (state)
-        {
-            case State.Walk:
-            case State.ToSeat: Travel(Time.deltaTime); break;
-            case State.Pause: LookAround(Time.deltaTime); break;
-            case State.Cross: Cross(Time.deltaTime); break;
-        }
-    }
-
-    // ---- behaviour -------------------------------------------------------------
-
-    bool Talking(float dt)
-    {
-        bool talk = dialogue && DialogueManager.Instance && DialogueManager.Instance.Current == dialogue;
+        if (legs.Count == 0) return;
+        double now = NpcClock.Now, dt = now - lastClock;
+        bool jumped = !(dt >= 0 && dt <= 1);
+        lastClock = now;
+        if (jumped) { Delay = 0; dt = 0; }
+        double at = now - Delay;
+        Leg leg = legs[LegAt(at, out float u)];
         Vector3 toPlayer = NearestPlayerOffset(out bool near);
-        talk |= near;
-        if (state == State.Cross) talk = false; // never freeze in the middle of a road
-        agent.isStopped = talk;
-        if (talk && toPlayer != Vector3.zero) Face(toPlayer, 240f * dt);
-        return talk;
+        bool talk = leg.kind != Kind.Cross && (near || dialogue && DialogueManager.Instance && DialogueManager.Instance.Current == dialogue);
+        bool blocked = talk || leg.kind == Kind.Walk && VehicleAhead(leg.b - leg.a);
+        double rate = blocked ? 0 : Delay > 0 ? CatchUp : 1, next = System.Math.Min(now, at - dt + rate * dt); // from last frame's plan time
+        if (rate > 0 && next < now)
+        {
+            Leg still = legs[LegAt(next, out float v)];
+            if (still.kind == Kind.Stand || still.kind == Kind.Sit) next = System.Math.Min(now, next + (still.t1 - v)); // a wait anyway: skip it
+        }
+        Delay = now - next > MaxDelay ? 0 : now - next;
+        Show(legs[LegAt(now - Delay, out u)], u, (float)dt);
+        if (talk && toPlayer != Vector3.zero) Face(toPlayer, 240f * Time.deltaTime);
     }
+
+    void Show(Leg leg, float u, float dt)
+    {
+        bool sit = leg.kind == Kind.Sit && leg.seat;
+        if (seat && (!sit || seat != leg.seat))
+        {
+            seat.Release(transform);
+            seat = null;
+            if (motion) motion.SetSeated(false);
+        }
+        if (sit && (seat == leg.seat || leg.seat.Reserve(transform))) // taken by someone else (the player): stand beside it
+        {
+            if (seat != leg.seat) { seat = leg.seat; if (motion) motion.SetSeated(true); }
+            transform.SetPositionAndRotation(seat.transform.position - Vector3.up * .44f, seat.transform.rotation);
+            return;
+        }
+        if (leg.kind == Kind.Walk || leg.kind == Kind.Cross)
+        {
+            transform.position = Vector3.Lerp(leg.a, leg.b, leg.t1 > leg.t0 ? Mathf.Clamp01((u - leg.t0) / (leg.t1 - leg.t0)) : 1f);
+            Face(leg.b - leg.a, 360f * dt);
+            return;
+        }
+        transform.position = leg.a; // a rest, a crossing wait, or a bench someone else took: stand and look around
+        var target = Quaternion.Euler(0f, leg.yaw + Mathf.Sin(u * .9f + lookPhase) * lookAmplitude, 0f);
+        transform.rotation = Quaternion.RotateTowards(transform.rotation, target, 90f * dt);
+    }
+
+    // ---- people --------------------------------------------------------------------
 
     // Local player plus the remote avatars on the map (Resources/Net/RemotePlayer clones, root name "RemotePlayer...").
     Vector3 NearestPlayerOffset(out bool near)
@@ -146,11 +326,11 @@ public sealed class CitizenWalker : MonoBehaviour
         best = d; bestSqr = sqr;
     }
 
-    static readonly System.Collections.Generic.List<Transform> remoteAvatars = new System.Collections.Generic.List<Transform>();
+    static readonly List<Transform> remoteAvatars = new List<Transform>();
     static float nextRemoteScan;
 
     // One scan per half second for all citizens. The remote avatars (Player assembly) are not referenced from here, so avatars are found by name.
-    internal static System.Collections.Generic.List<Transform> RemoteAvatars()
+    internal static List<Transform> RemoteAvatars()
     {
         if (Time.time < nextRemoteScan) return remoteAvatars;
         nextRemoteScan = Time.time + .5f;
@@ -160,12 +340,12 @@ public sealed class CitizenWalker : MonoBehaviour
         return remoteAvatars;
     }
 
-    // ---- cars: wait while one is in front (player car and traffic cars both carry a NavMeshObstacle; traffic cars also a BoxCollider) ----
+    // ---- cars: wait while one is in front (player car carries a NavMeshObstacle, traffic cars a BoxCollider) ----
 
     struct Blocker { public Transform t; public Vector3 center, half; }
-    static readonly System.Collections.Generic.List<Blocker> blockers = new System.Collections.Generic.List<Blocker>();
+    static readonly List<Blocker> blockers = new List<Blocker>();
     static float nextBlockerScan;
-    float blockedFor;
+    static readonly float[] AheadSamples = { 0f, .8f, 1.6f };
 
     static void ScanBlockers()
     {
@@ -178,29 +358,23 @@ public sealed class CitizenWalker : MonoBehaviour
             if (!car.GetComponent<NavMeshObstacle>() && car.GetComponent<BoxCollider>() is BoxCollider box) blockers.Add(new Blocker { t = car.transform, center = box.center, half = box.size * .5f });
     }
 
-    // Stops (and after 2 s picks another way) while a car box is within ~1.5 m ahead or under the citizen.
-    bool VehicleAhead(float dt)
+    // A car box within ~1.5 m ahead of (or under) the citizen.
+    bool VehicleAhead(Vector3 forward)
     {
         ScanBlockers();
-        Vector3 forward = agent.velocity.sqrMagnitude > .04f ? agent.velocity.normalized : transform.forward;
-        bool blocked = false;
+        forward.y = 0f;
+        forward = forward.sqrMagnitude > .0001f ? forward.normalized : transform.forward;
         foreach (var b in blockers)
         {
             if (!b.t) continue;
             foreach (float d in AheadSamples)
             {
                 Vector3 local = b.t.InverseTransformPoint(transform.position + forward * d) - b.center;
-                if (Mathf.Abs(local.x) < b.half.x + .45f && Mathf.Abs(local.z) < b.half.z + .45f && Mathf.Abs(local.y) < b.half.y + 1f) { blocked = true; break; }
+                if (Mathf.Abs(local.x) < b.half.x + .45f && Mathf.Abs(local.z) < b.half.z + .45f && Mathf.Abs(local.y) < b.half.y + 1f) return true;
             }
-            if (blocked) break;
         }
-        blockedFor = blocked ? blockedFor + dt : 0f;
-        agent.isStopped = blocked;
-        if (blocked && blockedFor > 2f && (state == State.Walk || state == State.ToSeat)) { blockedFor = 0f; Rest(); }
-        return blocked;
+        return false;
     }
-
-    static readonly float[] AheadSamples = { 0f, .8f, 1.6f };
 
     // A reader turns toward someone who talks to them or stands close, and back to the chair's direction afterwards.
     void FaceVisitors(float dt)
@@ -218,134 +392,7 @@ public sealed class CitizenWalker : MonoBehaviour
         transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(direction), maxDegrees);
     }
 
-    void Travel(float dt)
-    {
-        if (agent.isOnOffMeshLink) { TryCross(dt); return; }
-        grace -= dt;
-        stuck = agent.velocity.sqrMagnitude < .01f ? stuck + dt : 0f;
-        if (agent.pathPending || grace > 0f) return;
-        bool arrived = agent.pathStatus == NavMeshPathStatus.PathInvalid || agent.remainingDistance <= agent.stoppingDistance + .15f;
-        if (!arrived && stuck < 1.5f) return;
-        if (state == State.ToSeat && arrived && TrySit()) return;
-        // Blocked (usually by another citizen head-on): turn and walk somewhere else instead of standing there.
-        if (!arrived && PickDestination()) { state = State.Walk; return; }
-        Rest();
-    }
-
-    void TryCross(float dt)
-    {
-        var link = agent.currentOffMeshLinkData;
-        var crosswalk = Crosswalk.FindNear(link.startPos);
-        if (crosswalk != null && !crosswalk.CanCross) { Face(link.endPos - transform.position, 240f * dt); return; }
-        afterCross = state;
-        crossEnd = link.endPos;
-        state = State.Cross;
-        stuck = 0f;
-    }
-
-    void Cross(float dt)
-    {
-        Vector3 next = Vector3.MoveTowards(transform.position, crossEnd, agent.speed * 1.15f * dt);
-        Face(crossEnd - transform.position, 360f * dt);
-        transform.position = next;
-        if ((next - crossEnd).sqrMagnitude > .01f) return;
-        agent.CompleteOffMeshLink();
-        state = afterCross;
-        grace = .3f;
-    }
-
-    void Rest()
-    {
-        if (agent.isOnNavMesh) agent.ResetPath();
-        seat = null;
-        state = State.Pause;
-        timer = 2f + R() * 4f;
-        baseYaw = transform.eulerAngles.y;
-        lookPhase = R() * 6.28f;
-        stuck = 0f;
-    }
-
-    void LookAround(float dt)
-    {
-        var target = Quaternion.Euler(0f, baseYaw + Mathf.Sin(Time.time * .9f + lookPhase) * lookAmplitude, 0f);
-        transform.rotation = Quaternion.RotateTowards(transform.rotation, target, 90f * dt);
-        timer -= dt;
-        if (timer > 0f) return;
-        if (role == Role.Stand) { timer = 3f + R() * 3f; return; }
-        if (seats.Length > 0 && R() < .2f && TrySeatTarget()) return;
-        if (PickDestination()) { state = State.Walk; return; }
-        timer = 1.5f;
-    }
-
-    bool PickDestination()
-    {
-        for (int k = 0; k < 6; k++)
-        {
-            float angle = R() * 6.2832f, distance = minDist + R() * (maxDist - minDist);
-            Vector3 point = transform.position + new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * distance;
-            if (NavMesh.SamplePosition(point, out var hit, role == Role.Street ? 6f : 2f, NavMesh.AllAreas) && GoTo(hit.position)) return true;
-        }
-        return false;
-    }
-
-    // Only fully reachable targets: an unreachable one would make the agent walk to the nearest edge and stop there.
-    bool GoTo(Vector3 target)
-    {
-        if (!agent.CalculatePath(target, path) || path.status != NavMeshPathStatus.PathComplete || !agent.SetPath(path)) return false;
-        grace = .3f; stuck = 0f;
-        return true;
-    }
-
-    // ---- benches ---------------------------------------------------------------
-
-    bool TrySeatTarget()
-    {
-        Seat best = null;
-        float bestSqr = Range * Range;
-        foreach (var candidate in seats)
-        {
-            if (!candidate || candidate.Occupant || !candidate.isActiveAndEnabled) continue;
-            float sqr = (candidate.transform.position - transform.position).sqrMagnitude;
-            if (sqr < bestSqr) { best = candidate; bestSqr = sqr; }
-        }
-        if (!best || !NavMesh.SamplePosition(best.transform.position, out var hit, 1.5f, NavMesh.AllAreas) || !GoTo(hit.position)) return false;
-        seat = best;
-        state = State.ToSeat;
-        return true;
-    }
-
-    bool TrySit()
-    {
-        if (!seat || !seat.Reserve(transform)) { seat = null; return false; }
-        standPos = transform.position;
-        agent.enabled = false;
-        transform.SetPositionAndRotation(seat.transform.position - Vector3.up * .44f, seat.transform.rotation);
-        if (motion) motion.SetSeated(true);
-        state = State.Seated;
-        timer = 20f + R() * 40f;
-        return true;
-    }
-
-    void UpdateSeated(float dt)
-    {
-        if (dialogue && DialogueManager.Instance && DialogueManager.Instance.Current == dialogue) return;
-        timer -= dt;
-        if (timer <= 0f || !seat) Stand();
-    }
-
-    void Stand()
-    {
-        if (seat) seat.Release(transform);
-        seat = null;
-        if (motion) motion.SetSeated(false);
-        transform.position = standPos;
-        agent.enabled = true;
-        if (!agent.isOnNavMesh && NavMesh.SamplePosition(standPos, out var hit, 3f, NavMesh.AllAreas)) agent.Warp(hit.position);
-        state = State.Pause;
-        timer = 1f;
-    }
-
-    // ---- far away: hide the mesh, keep the simulation -----------------------------
+    // ---- far away: hide the mesh -------------------------------------------------------
 
     void Cull()
     {

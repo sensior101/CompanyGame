@@ -144,7 +144,7 @@ Gameplay → NPC → UI
 - `DefaultVolumeProfile.asset`에서 설치된 URP 템플릿의 누락된 샘플 참조도 확인했습니다. 미해결 GUID 4개와 빈 스크립트 참조 5개, 총 9개를 Unity의 `AssetDatabase.RemoveScriptableObjectsWithMissingScript`로 정리했습니다. 유효한 볼륨 컴포넌트 19개의 직렬화 값과 프로필 GUID는 전후 동일합니다(`QA/ProfileCleanup.json`).
 - 기존 `InventoryModelQA` 32개, `CashModelQA` 76개, 도서관 모델 64개, 입력 파이프라인을 통한 키보드·마우스 68개, 독립된 두 씬의 공통 거래 13개, 총 253개 검증이 통과했습니다. 입력 검증은 임시 Input System 장치를 사용하며 종료 시 원래 입력 장치와 플레이어 데이터를 복원합니다. 157개 파일의 모든 게임 동작을 실행 검증했다는 의미는 아닙니다. (멀티플레이는 이 점검 당시 미구현. 지금 구조는 아래 "멀티플레이 구조")
 
-## 멀티플레이 구조 (2b-2 기준, 2026-10-19)
+## 멀티플레이 구조 (5단계 기준, 2026-10-19)
 
 정본은 [Multiplayer_Redesign.md](Multiplayer_Redesign.md)입니다. 요약:
 
@@ -152,6 +152,6 @@ Gameplay → NPC → UI
 - 서버에서 정하는 것: 시계·주가·회사·소유권·땅·SNS·신고(`ServerWorld`, 4c), 은행·주식·인벤토리·드롭·탈것·도서관(`ServerLedger` 등, 4d). 클라이언트는 요청(`SharedWriteGate` → `WorldStateSync`)을 보내고 결과로 화면을 맞춥니다.
 - `GameSession.Mode`는 `Host`(기본, 오프라인과 앱 안 서버의 주인)와 `Client`(다른 프로세스의 서버에 접속한 동안)뿐입니다. `GameSession.IsAuthority`는 이 PC가 시계·경제를 계산할 때(오프라인, 서버 프로세스, 앱 안 서버의 주인) 참입니다.
 - **오프라인 경로**: 에디터에서 맵 씬을 바로 플레이하면 세션 없이 이 PC가 계산하고 PC 파일(`world/world.json`, `player/<id>.json`)에 저장합니다(개발용).
-- **시민·교통**은 세션과 상관없이 각 PC가 따로 계산합니다(5단계에서 시간 기반으로 다시 만듦).
+- **시민·교통(5단계, 12.14)**은 각 PC가 "시드 + 월드 시계"로 똑같이 계산합니다. `NpcClock`(월드 초, 서버에서는 월드 시계 그대로, 클라이언트는 시계 섹션으로 맞춤)과 시드(월드 id 해시)로, 교통은 608초 주기 계획표(`TrafficPlan`), 시민은 한 주기짜리 일정표(`CitizenWalker.Plan`)를 맵을 열 때 만들어 그립니다. 신호등도 같은 시계라 PC마다 같습니다. 플레이어 앞에서 멈추는 반응은 각 PC의 그리기에서만 합니다. 전용 메시지는 없습니다.
 - 옛 방(Cloudflare·Steam 방, 방장 넘기기, `NetSession` 계열)은 4e에서 지웠습니다.
 - **계정과 접속(2b-2)**: 계정은 EOS PUID입니다(`EosAccount`, 시작할 때 Device ID 로그인. 설정 파일이 없거나 `-noeos`면 PC GUID). 혼자 하기가 아닌 서버는 TCP와 EOS P2P를 함께 받고(`MultiTransport`), EOS 세션으로 공개 목록과 서버 코드를 냅니다. 서버는 Hello의 계정을 EOS(P2P 상대 PUID 또는 ID 토큰)로 확인합니다.

@@ -11,7 +11,7 @@ using UnityEngine;
 /// PC either way (Docs/Multiplayer_Redesign.md 12.11).
 /// Requests: the gate (SharedWriteGate.ServerSender) sends Op events to the server; OpResult shows its words in the chat
 /// (<see cref="Say"/>) and refunds a lost land purchase. A clock that passed a skipped night applies
-/// the night activity once per night. While connected, this PC's world.json is neither read nor written.
+/// the night activity once per night; the clock section also sets NpcClock (citizens and traffic, 12.14). While connected, this PC's world.json is neither read nor written.
 /// Personal requests (12.10.1): a money change this client already made (stock trade, shop, fine, land payment, the
 /// library's) goes out with SharedWriteGate.SendPersonal and is counted. The server answers with its Ledger; once
 /// every counted request is answered (and after the OpResult that comes with it, so a lost land purchase refunds
@@ -130,7 +130,7 @@ public sealed class WorldStateSync : MonoBehaviour
         lastClock = -1;
         sentPersonal = 0; toldNight = false; held = null; hadLedger = false; // the server counts per connection
         ClearBooks();
-        if (!connected) LibraryCatalog.ApplyMirror(null); // off the server: this PC's own library again
+        if (!connected) { LibraryCatalog.ApplyMirror(null); NpcClock.Reset(); } // off the server: this PC's own library and NPC clock again
         if (connected)
         {
             remote = !SyncHost.Instance; // my own in-app server computes on these managers: they stay Host
@@ -192,8 +192,11 @@ public sealed class WorldStateSync : MonoBehaviour
     // The screen clock follows the world clock. A received time past the end of a skipped night counts as that night.
     static void ApplyClock(byte[] blob)
     {
-        ServerWorld.ReadClock(blob, out uint minutes, out int skipStart, out int skipEnd);
+        ServerWorld.ReadClock(blob, out uint minutes, out int skipStart, out int skipEnd, out double exact, out uint seed);
         GameTime.SetNightSkip(skipStart, skipEnd);
+        // Citizens and traffic (12.14): the server's seconds now = the sent time + half a round trip.
+        int rtt = SyncClient.Instance ? SyncClient.Instance.RoundTripMs : -1;
+        NpcClock.Set(exact * ServerWorld.SecondsPerMinute + Math.Max(0, rtt) / 2000.0, seed, false);
         long now = minutes, before = lastClock;
         lastClock = now;
         if (GameClock.Current != null) GameClock.Current.SetNow(GameTime.FromTotalMinutes(now));

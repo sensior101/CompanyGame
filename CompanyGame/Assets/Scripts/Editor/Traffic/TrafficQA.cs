@@ -9,7 +9,9 @@ using UnityEngine.SceneManagement;
 
 /// <summary>
 /// Checks the traffic code without Play Mode: road sampling on synthetic meshes, the junction/lane graph, signal
-/// cycles, crossings, the speed camera fine logic, and (if the map was built) the lanes in BusinessDistrict.
+/// cycles, crossings, the speed camera fine logic, and (if the map was built) the lanes in BusinessDistrict and the
+/// traffic plan built on them (12.14: same seed same table, the loop closes, no overlaps, no red lights run; cars that
+/// pass a crossing while people may be on it, under their own green, are counted: the signal plan allows that).
 /// Run with: -executeMethod TrafficQA.Run. Throws when something fails.
 /// </summary>
 public static class TrafficQA
@@ -284,6 +286,133 @@ public static class TrafficQA
         report.notes.Add($"map: {roads.Count} road pieces, {surface.TriangleCount} road triangles, {lanes.Length} lanes, curved lanes {curved}");
         int cars = Resources.LoadAll<ItemData>("Inventory/Vehicles/Cars").Length;
         if (cars == 0) report.notes.Add("NOTE: no car ItemData under Resources/Inventory/Vehicles/Cars yet, so no NPC cars would spawn.");
+        else if (spawner) PlanTests(report, spawner, root.GetComponentsInChildren<Crosswalk>(true));
+    }
+
+    // ---- the traffic plan (12.14) ----------------------------------------------------------------------------------
+
+    const uint PlanSeed = 0x5EED1234;
+
+    static TrafficPlan BuildPlan(TrafficSpawner spawner, uint seed, int count, out long ms)
+    {
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        TrafficSpawner.PickModels(TrafficSpawner.LoadModels(), count, seed, out TrafficPlan.Car[] specs);
+        TrafficPlan plan = TrafficPlan.Build(spawner.lanes, specs, seed);
+        ms = watch.ElapsedMilliseconds;
+        return plan;
+    }
+
+    static void PlanTests(Report report, TrafficSpawner spawner, Crosswalk[] walks)
+    {
+        TrafficPlan plan = BuildPlan(spawner, PlanSeed, spawner.count, out long ms);
+        Check(report, plan.Count == spawner.count, $"the plan places all {spawner.count} cars ({plan.Count})");
+        Check(report, plan.Repeat > 0, $"the plan's loop closes (loops run {plan.LoopsRun}, repeat {plan.Repeat}, wrap jump {plan.WrapJump:0.00} m)");
+        report.notes.Add($"plan: {plan.Count} cars, {plan.Seconds} s table, {plan.LoopsRun} loops run, repeat {plan.Repeat}, built in {ms} ms");
+        TrafficPlan again = BuildPlan(spawner, PlanSeed, spawner.count, out _), other = BuildPlan(spawner, PlanSeed + 1, spawner.count, out _);
+        bool same = true, differs = false, ends = true;
+        for (double t = 0; t < plan.Seconds; t += 1.37)
+            for (int c = 0; c < plan.Count; c++)
+            {
+                Vector3 p = plan.Sample(c, t, out _, out _, out _);
+                same &= p == again.Sample(c, t, out _, out _, out _);
+                differs |= c < other.Count && (p - other.Sample(c, t, out _, out _, out _)).sqrMagnitude > 1f;
+                ends &= (p - plan.Sample(c, t + plan.Seconds * 3, out _, out _, out _)).sqrMagnitude < 1e-4f;
+            }
+        Check(report, same, "the same seed builds the same table, to the bit");
+        Check(report, differs, "another seed builds another table");
+        Check(report, ends, "the table repeats: a time three loops later is the same place");
+        float wrap = 0f;
+        for (int c = 0; c < plan.Count; c++)
+            wrap = Mathf.Max(wrap, (plan.Sample(c, plan.Seconds - .05, out _, out _, out _) - plan.Sample(c, plan.Seconds + .05, out _, out _, out _)).magnitude);
+        Check(report, wrap < 2f, $"no jump where the table wraps ({wrap:0.00} m in 0.1 s)");
+        TrafficPlan big = BuildPlan(spawner, PlanSeed, TrafficSpawner.MaxCars, out long bigMs);
+        report.notes.Add($"plan with {TrafficSpawner.MaxCars} cars: {big.Count} placed, repeat {big.Repeat}, loops {big.LoopsRun}, wrap {big.WrapJump:0.0} m, {bigMs} ms");
+        PlanRules(report, plan, walks, plan.Count + " cars");
+        PlanRules(report, big, walks, big.Count + " cars");
+    }
+
+    // Steps of the whole table: overlapping bodies, stop lines crossed in red, crossings passed while people may be on them.
+    static void PlanRules(Report report, TrafficPlan plan, Crosswalk[] walks, string tag)
+    {
+        const double Dt = TrafficPlan.Step;
+        TrafficSpawner.PickModels(TrafficSpawner.LoadModels(), plan.Count, PlanSeed, out TrafficPlan.Car[] specs);
+        int rows = (int)Math.Round(plan.Seconds / Dt), overlaps = 0, redRuns = 0, throughOnWalk = 0, turnOnWalk = 0;
+        int loopRows = (int)Math.Round(TrafficSignal.LoopSeconds / Dt);
+        var heads = new Vector3[plan.Count];
+        var pos = new Vector3[plan.Count];
+        var lanes = new int[plan.Count];
+        var dists = new float[plan.Count];
+        var turnedAt = new int[plan.Count];
+        for (int c = 0; c < plan.Count; c++) turnedAt[c] = -1000;
+        string example = null;
+        for (int r = 0; r <= rows; r++)
+        {
+            double t = r * Dt + .001;
+            for (int c = 0; c < plan.Count; c++)
+            {
+                Vector3 p = plan.Sample(c, t, out _, out int lane, out float s);
+                Vector3 head = plan.Sample(c, t + .3, out _, out _, out _) - plan.Sample(c, t - .3, out _, out _, out _);
+                head.y = 0f;
+                if (head.sqrMagnitude > 1e-4f) heads[c] = head.normalized;
+                if (plan.Lane(lane).connector) turnedAt[c] = r;
+                if (r > 0 && (plan.Repeat > 0 || r % loopRows != 0)) // a plan that does not repeat jumps where it wraps
+                {
+                    TrafficLane before = plan.Lane(lanes[c]);
+                    if (before.signal && (lane != lanes[c] || s > before.Length) && dists[c] <= before.Length
+                        && before.signal.PhaseAt(t, out float inPhase, out _) == TrafficSignal.Phase.Red && inPhase > 1f)
+                    {
+                        redRuns++;
+                        example ??= $"car {c} ran the red of {before.name} at {t:0.0} s";
+                    }
+                    foreach (Crosswalk walk in walks)
+                    {
+                        if (!walk.signal || !walk.endA || !walk.endB || !Crosses(pos[c], p, walk.endA.position, walk.endB.position)) continue;
+                        if (walk.signal.PhaseAt(t, out float inRed, out _) != TrafficSignal.Phase.Red || inRed < .5f) continue;
+                        if (r - turnedAt[c] < 40) turnOnWalk++;
+                        else if (throughOnWalk++ < 3) report.notes.Add($"{tag}: car {c} went on over {walk.name} at {t:0.0} s ({inRed:0.0} s into its red, lane {plan.Lane(lane).name})");
+                    }
+                }
+                pos[c] = p; lanes[c] = lane; dists[c] = s;
+            }
+            if (plan.Repeat == 0 && Math.Min(r % loopRows, loopRows - r % loopRows) < 5) continue;
+            for (int a = 0; a < plan.Count; a++)
+                for (int b = a + 1; b < plan.Count; b++)
+                    if (Overlap(pos[a], heads[a], specs[a], pos[b], heads[b], specs[b]) && overlaps++ < 3)
+                        report.notes.Add($"{tag}: cars {a} and {b} overlap at {r * Dt:0.0} s near {pos[a]}");
+        }
+        Check(report, overlaps == 0, $"{tag}: no two cars overlap in the whole table ({overlaps} steps with an overlap)");
+        Check(report, redRuns == 0, $"{tag}: no car crosses a stop line more than 1 s into the red ({redRuns}{(example != null ? ", " + example : "")})");
+        report.notes.Add($"{tag}: cars passing a crossing while people may be on it, under their own green (the signal plan, not fixed in 12.14, see the doc): right turns {turnOnWalk}, other {throughOnWalk}");
+    }
+
+    static float Cross2(Vector3 o, Vector3 p, Vector3 q) => (p.x - o.x) * (q.z - o.z) - (p.z - o.z) * (q.x - o.x);
+
+    static bool Crosses(Vector3 a, Vector3 b, Vector3 c, Vector3 d) =>
+        Cross2(a, b, c) * Cross2(a, b, d) < 0f && Cross2(c, d, a) * Cross2(c, d, b) < 0f;
+
+    static Vector2[] Footprint(Vector3 p, Vector3 h, TrafficPlan.Car car)
+    {
+        var f = new Vector2(h.x, h.z);
+        var r = new Vector2(f.y, -f.x);
+        var o = new Vector2(p.x, p.z);
+        float front = car.front - .3f, back = car.back - .3f;
+        return new[] { o + f * front + r * .75f, o + f * front - r * .75f, o - f * back + r * .75f, o - f * back - r * .75f };
+    }
+
+    // Footprints (bumpers 0.3 m in, 1.5 m wide: a turning tail may graze the next lane's line at a corner point) as
+    // rectangles: separated on one of the four axes, or overlapping.
+    static bool Overlap(Vector3 pa, Vector3 ha, TrafficPlan.Car a, Vector3 pb, Vector3 hb, TrafficPlan.Car b)
+    {
+        if ((pa - pb).sqrMagnitude > 100f || Mathf.Abs(pa.y - pb.y) > 2f || ha == Vector3.zero || hb == Vector3.zero) return false;
+        Vector2[] ca = Footprint(pa, ha, a), cb = Footprint(pb, hb, b);
+        foreach (Vector2 axis in new[] { new Vector2(ha.x, ha.z), new Vector2(ha.z, -ha.x), new Vector2(hb.x, hb.z), new Vector2(hb.z, -hb.x) })
+        {
+            float minA = float.MaxValue, maxA = float.MinValue, minB = float.MaxValue, maxB = float.MinValue;
+            foreach (Vector2 v in ca) { float d = Vector2.Dot(v, axis); minA = Mathf.Min(minA, d); maxA = Mathf.Max(maxA, d); }
+            foreach (Vector2 v in cb) { float d = Vector2.Dot(v, axis); minB = Mathf.Min(minB, d); maxB = Mathf.Max(maxB, d); }
+            if (maxA < minB || maxB < minA) return false;
+        }
+        return true;
     }
 
     static void CheckLanes(Report report, TrafficLane[] lanes, RoadSurface surface)

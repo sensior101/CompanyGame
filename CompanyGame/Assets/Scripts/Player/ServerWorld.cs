@@ -12,7 +12,8 @@ using UnityEngine;
 ///   start  the fresh world is captured (WorldSave.CaptureBaseline), then the world.dat state is restored (a world without
 ///          one starts fresh), and the game clock is paused and set to the world clock
 ///   frame  the game clock follows the server's world clock minute by minute, so HourChanged/DayChanged drive prices
-///          and companies; the clock section goes out on every new world minute
+///          and companies; the clock section goes out on every new world minute. NpcClock follows the world clock every
+///          frame and the clock section also carries the exact minutes and the world's seed (citizens and traffic, 12.14)
 ///   1 s    each section that changed goes out as a State of the world entity Net/World (map "*", every connection)
 ///   Op     a client's request (event 1) is applied with WorldOps.Apply as the account of its connection; the changed
 ///          sections go out first, then OpResult (event 2) to the requester. veh.* and unknown kinds are refused.
@@ -56,6 +57,7 @@ public sealed class ServerWorld : MonoBehaviour
     readonly byte[][] lastBlob = new byte[SectionCount][];
     long lastClockMinute = -1;
     float nextSendAt;
+    uint seed;
 
     /// <summary>The world entity's id.</summary>
     public ulong EntityId { get; private set; }
@@ -121,6 +123,8 @@ public sealed class ServerWorld : MonoBehaviour
         Library = new ServerLibrary(Ledger, Books, saved?.library);
         Ledger.UnpaidFine = Library.Penalty;
         Library.AdvanceTo(Day((long)Math.Floor(world.WorldMinutes)));
+        seed = SeedOf(world.Id);
+        NpcClock.Set(world.WorldMinutes * SecondsPerMinute, seed, true);
         SendSections();
         Debug.Log("[ServerWorld] world " + world.Id + ": " + (saved != null ? "shared economy restored" : "new shared economy") + ", clock " + GameClock.Current?.Now
                   + ", night " + world.NightSkipStart + "-" + world.NightSkipEnd);
@@ -138,6 +142,7 @@ public sealed class ServerWorld : MonoBehaviour
         server = null; host = null;
         if (GameClock.Current is SimpleGameClock clock) clock.Paused = false;
         GameTime.ResetNightSkip();
+        NpcClock.Reset();
         NightActivity.Enabled = true;
         // This PC's own world comes back (memory only; nothing of the server's is written).
         if (restorePcWorld && !WorldSave.LoadFromDisk()) WorldSave.RestoreBaseline();
@@ -152,6 +157,7 @@ public sealed class ServerWorld : MonoBehaviour
         if (GameTime.NightSkipStart != world.NightSkipStart || GameTime.NightSkipEnd != world.NightSkipEnd)
             GameTime.SetNightSkip(world.NightSkipStart, world.NightSkipEnd); // SetNightSkip or -nightskip after the start
         long target = (long)Math.Floor(world.WorldMinutes);
+        NpcClock.Set(world.WorldMinutes * SecondsPerMinute, seed, true);
         if (GameClock.Current is SimpleGameClock clock)
         {
             if (clock.Now.TotalMinutes > target) clock.SetNow(GameTime.FromTotalMinutes(target));
@@ -168,7 +174,7 @@ public sealed class ServerWorld : MonoBehaviour
     {
         lastClockMinute = minute;
         var world = server.World;
-        Set(ClockSection, ClockBlob((uint)Math.Min(minute, uint.MaxValue), world.NightSkipStart, world.NightSkipEnd));
+        Set(ClockSection, ClockBlob((uint)Math.Min(minute, uint.MaxValue), world.NightSkipStart, world.NightSkipEnd, world.WorldMinutes, seed));
     }
 
     /// <summary>Sends every section that changed since it was last sent (also right after a request).</summary>
@@ -268,13 +274,25 @@ public sealed class ServerWorld : MonoBehaviour
         return stream.ToArray();
     }
 
-    internal static byte[] ClockBlob(uint minutes, int skipStart, int skipEnd) =>
-        Bytes(w => { w.Write(minutes); w.Write((byte)skipStart); w.Write((byte)skipEnd); });
+    /// <summary>World seconds per world-clock minute (NpcClock): GameServer.RealSecondsPerGameHour / 60.</summary>
+    public const double SecondsPerMinute = GameServer.RealSecondsPerGameHour / 60;
 
-    internal static void ReadClock(byte[] blob, out uint minutes, out int skipStart, out int skipEnd)
+    // u32 minute, u8 night start, u8 night end, f64 exact minutes and u32 seed (12.14).
+    internal static byte[] ClockBlob(uint minutes, int skipStart, int skipEnd, double exact, uint seed) =>
+        Bytes(w => { w.Write(minutes); w.Write((byte)skipStart); w.Write((byte)skipEnd); w.Write(exact); w.Write(seed); });
+
+    internal static void ReadClock(byte[] blob, out uint minutes, out int skipStart, out int skipEnd, out double exact, out uint seed)
     {
         using var r = SyncProtocol.Reader(blob);
-        minutes = r.ReadUInt32(); skipStart = r.ReadByte(); skipEnd = r.ReadByte();
+        minutes = r.ReadUInt32(); skipStart = r.ReadByte(); skipEnd = r.ReadByte(); exact = r.ReadDouble(); seed = r.ReadUInt32();
+    }
+
+    /// <summary>The seed of a world (FNV-1a of its id): its citizens and traffic (12.14).</summary>
+    public static uint SeedOf(string worldId)
+    {
+        uint h = 2166136261;
+        foreach (char c in worldId ?? "") { h ^= c; h *= 16777619; }
+        return h == 0 ? 1u : h;
     }
 
     // gzip(u16 count, then account and name of each character).
