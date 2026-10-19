@@ -302,7 +302,7 @@ details[open] summary{margin-bottom:10px}
     <div class="scroll"><table>
       <tr><th>작업</th><th>상태</th><th>내용</th></tr>
       <tr><td><b>2b-2 EOS 정식 연결</b></td><td><span style="color:var(--mid);white-space:nowrap">● 확인 대기</span></td><td>구현·QA 완료(66c8d81). 계정 = EOS ID, 공개 서버 목록·서버 코드, ID 토큰 검증. 한 PC로는 P2P를 못 시험해서 다른 PC 접속 시험만 남음(시험 묶음 Builds/Game2b2*.zip)</td></tr>
-      <tr><td><b>6 전용 서버</b></td><td><span style="color:var(--mid);white-space:nowrap">● 진행 중</span></td><td>전용 서버 빌드(Windows), 설정 파일, 관리자 명령, 부하 테스트</td></tr>
+      <tr><td><b>다른 PC 시험</b></td><td><span style="color:var(--mid);white-space:nowrap">● 사용자 대기</span></td><td>EOS P2P 접속(Builds/Game2b2*.zip)과 전용 서버 접속(Builds/DedicatedServer.zip)을 다른 PC에서 확인. 한 PC로는 시험 불가</td></tr>
       
       <tr><td><b>도시 자동차 모델링</b></td><td><span style="color:var(--mid);white-space:nowrap">● 진행 중</span></td><td>실차 18종 패러디(로고 없음), Blender 스크립트 하나로 생성. C04 소나티네 완성·검수 대기, 4종은 게임에 이미 있음, 나머지 미착수</td></tr>
     </table></div>
@@ -310,8 +310,8 @@ details[open] summary{margin-bottom:10px}
   <div class="card">
     <h3>멀티플레이 재설계 단계</h3>
     <div class="tiles" style="margin-bottom:14px">
-      <div class="tile"><span>완료</span><b>12 / 14</b></div>
-      <div class="tile"><span>진행 중</span><b>6 전용 서버</b></div>
+      <div class="tile"><span>완료</span><b>13 / 14</b></div>
+      <div class="tile"><span>진행 중</span><b>다른 PC 시험</b></div>
       <div class="tile"><span>다음</span><b>7 모바일</b></div>
     </div>
     <div class="scroll"><table>
@@ -332,7 +332,7 @@ details[open] summary{margin-bottom:10px}
       <tr><td>4e</td><td>옛 경로 삭제(옛 방·방장 넘기기·개발용 메뉴·Steam 방)</td><td style="color:var(--ok)">완료 10-19</td></tr>
       <tr><td>2b-2</td><td>EOS 정식 연결(공개 서버 목록, ID 토큰 검증)</td><td style="color:var(--ok)">완료 10-19 (다른 PC 확인 대기)</td></tr>
       <tr><td>5</td><td>시민·교통 시간 기반 재작성</td><td style="color:var(--ok)">완료 10-19</td></tr>
-      <tr><td>6</td><td>전용 서버 빌드(Windows 먼저), 설정 파일, 서버 목록, 관리자 명령, 부하 테스트</td><td class="muted">대기</td></tr>
+      <tr><td>6</td><td>전용 서버 빌드(Windows 먼저), 설정 파일, 서버 목록, 관리자 명령, 부하 테스트</td><td style="color:var(--ok)">완료 10-19</td></tr>
       <tr><td>7</td><td>모바일 터치 조작, 성능, 재접속</td><td class="muted">대기</td></tr>
     </table></div>
   </div>
@@ -362,7 +362,7 @@ details[open] summary{margin-bottom:10px}
     <h3>보류·확인 필요</h3>
     <div class="scroll"><table>
       <tr><th>항목</th><th>내용</th></tr>
-      <tr><td>원격 푸시</td><td>로컬 Dev가 origin/Dev보다 29커밋 앞섬. 6단계 테스트 뒤 새 브랜치로 푸시(main 금지)</td></tr>
+      <tr><td>원격 푸시</td><td>6단계까지 끝나 10-19에 새 브랜치 feature/multiplayer-redesign으로 origin에 푸시함(main·Dev는 푸시 안 함)</td></tr>
       <tr><td>Worker 배포</td><td>4e에서 Worker 코드의 방 기능을 지움(배포 안 함, Lobby 삭제 migration 포함). 배포는 요청할 때</td></tr>
       <tr><td>맥 서명</td><td>정식 서명·공증은 Apple Developer Program(연 99달러) 필요. 지금은 우클릭→열기</td></tr>
       <tr><td>빌드</td><td>Game.zip·GameMac.zip은 4b+창모드 코드. 4c 이후 빌드는 아직 없음</td></tr>
