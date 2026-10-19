@@ -323,6 +323,13 @@ public class ChatUIManager : MonoBehaviour
 
         if (string.IsNullOrEmpty(message))
             return;
+        // "/kick name": an admin command for the server (12.15); the server answers in this chat.
+        if (message.StartsWith("/"))
+        {
+            AddChatMessage(playerName, message);
+            WorldStateSync.SendAdmin(message.Substring(1));
+            return;
+        }
 
         // Console Ãâ·Â
         Debug.Log($"[{playerName}] {message}");

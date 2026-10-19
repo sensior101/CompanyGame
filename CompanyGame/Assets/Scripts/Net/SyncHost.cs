@@ -23,6 +23,10 @@ using Debug = UnityEngine.Debug;
 /// an EOS session (the public list and the server code) once this game's EOS login is done. Then every Hello's account is
 /// checked (<see cref="CheckIdentity"/>): an EOS connection must be the PUID EOS gives, a TCP one must carry a valid EOS ID
 /// token of it; only 127.0.0.1 saying the server's own PUID may come without one. A server without EOS trusts the Hello.
+/// Dedicated server (12.15): <c>-gameserver</c> without a number takes the settings file's port; a new world's id is written
+/// into the settings file (the next start opens it again); the settings' night skip and ban list are applied at start
+/// (ServerAdmin applies later changes). <see cref="Owner"/> is the one who opened the server: this game's account in-app,
+/// <c>-owner &lt;account&gt;</c> for a process started by 서버 열기, none for a dedicated server.
 /// </summary>
 public sealed class SyncHost : MonoBehaviour
 {
@@ -40,6 +44,12 @@ public sealed class SyncHost : MonoBehaviour
     public static bool LoopbackException = true;
     /// <summary>True when this game is the server and a player (<see cref="StartInApp"/>); the owner leaving stops it.</summary>
     public bool InApp { get; private set; }
+    /// <summary>The settings this server runs with (ServerAdmin changes the live ones in place).</summary>
+    public ServerSettings Settings => settings;
+    /// <summary>The settings file (null for 혼자 하기: nothing to read again or write).</summary>
+    public string SettingsPath { get; private set; }
+    /// <summary>The account of the one who opened this server (an admin without being listed), "" for a dedicated server.</summary>
+    public string Owner { get; private set; } = "";
 
     /// <summary>An in-app server is about to stop: the last character save goes out now (CharacterSync).</summary>
     public static event Action BeforeStop;
@@ -70,22 +80,26 @@ public sealed class SyncHost : MonoBehaviour
     public static SyncHost StartInApp(ServerSettings settings, bool localOnly = false)
     {
         var world = OpenWorld(ServerSettings.WorldsFolder, settings);
-        var host = Create(localOnly ? IPAddress.Loopback : IPAddress.Any, settings, world, true, !localOnly);
+        var host = Create(localOnly ? IPAddress.Loopback : IPAddress.Any, settings, world, true, !localOnly, GameSession.LocalPlayerId, localOnly ? null : ServerSettings.FilePath);
         SyncClient.Instance.Connect("127.0.0.1", host.Port, settings.password);
         return host;
     }
 
-    /// <summary>settings.world under <paramref name="root"/>; a new world (id written into settings) when it is empty.</summary>
+    /// <summary>
+    /// settings.world under <paramref name="root"/>; a new world (id written into settings) when it is empty. The settings'
+    /// night skip, when set, goes into the world before a server opens it.
+    /// </summary>
     public static WorldStore OpenWorld(string root, ServerSettings settings)
     {
         if (string.IsNullOrEmpty(settings.world)) settings.world = WorldStore.NewId();
         var world = WorldStore.Open(root, settings.world);
         if (world.LoadedFromPrev) Debug.LogWarning("[SyncServer] world.dat of " + world.Id + " was unreadable; loaded world.prev.dat");
+        if (!string.IsNullOrEmpty(settings.nightSkip)) GameServer.ApplyNightSkipArg(world, settings.nightSkip);
         return world;
     }
 
     // eos: take EOS connections and keep a session once the login is done (not for 혼자 하기).
-    static SyncHost Create(IPAddress address, ServerSettings settings, WorldStore world, bool inApp, bool eos)
+    static SyncHost Create(IPAddress address, ServerSettings settings, WorldStore world, bool inApp, bool eos, string owner, string settingsPath)
     {
         if (Instance) Instance.Stop();
         var tcp = new TcpServerTransport(address, settings.port); // throws before anything is made when the port is taken
@@ -95,8 +109,11 @@ public sealed class SyncHost : MonoBehaviour
         host.tcp = tcp;
         host.transport = new MultiTransport(tcp);
         host.settings = settings;
+        host.Owner = owner ?? "";
+        host.SettingsPath = settingsPath;
         host.Server = new GameServer(host.transport, settings.maxPlayers, settings.name, settings.password, world);
         host.Server.Log += message => Debug.LogWarning("[SyncServer] " + message);
+        host.Server.Banned.UnionWith(settings.bans);
         host.InApp = inApp;
         host.wantEos = eos && EosAccount.OffReason() == null;
         if (host.wantEos) host.Server.IdentityCheck = host.CheckIdentity;
@@ -182,8 +199,14 @@ public sealed class SyncHost : MonoBehaviour
         if (stopPath == null || Time.unscaledTime < nextStopCheck) return;
         nextStopCheck = Time.unscaledTime + 1f;
         if (!File.Exists(stopPath)) return;
-        Debug.Log("[SyncServer] stop requested: saving the world and quitting");
         try { File.Delete(stopPath); } catch (Exception) { /* LocalServerProcess removes it too */ }
+        StopAndQuit("stop requested");
+    }
+
+    /// <summary>A server process: saves the world, removes its EOS session and quits (stop.request, an admin's stop, Ctrl+C).</summary>
+    public void StopAndQuit(string why = "stopping")
+    {
+        Debug.Log("[SyncServer] " + why + ": saving the world and quitting");
         Stop();
         QuitAfter(lastDestroy);
     }
@@ -219,11 +242,14 @@ public sealed class SyncHost : MonoBehaviour
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void FromCommandLine()
     {
-        string port = Arg("-gameserver");
-        if (port == null) return;
-        if (!int.TryParse(port, out int p)) { Debug.LogError("[SyncServer] bad -gameserver port: " + port); return; }
-        string settingsPath = Arg("-serversettings");
+        if (Array.IndexOf(Environment.GetCommandLineArgs(), "-gameserver") < 0) return;
+        string port = Arg("-gameserver"), settingsPath = Arg("-serversettings");
+        bool portGiven = int.TryParse(port, out int p); // no number (the dedicated server's StartServer.bat): the settings' port
+        if (!portGiven && port != null && !port.StartsWith("-")) { Debug.LogError("[SyncServer] bad -gameserver port: " + port); return; }
+        bool fileThere = settingsPath != null && File.Exists(settingsPath);
         var settings = settingsPath != null ? ServerSettings.Load(settingsPath) : new ServerSettings { name = "", maxPlayers = DefaultMaxPlayers };
+        if (!portGiven) p = settings.port;
+        bool newWorld = string.IsNullOrEmpty(settings.world);
         if (int.TryParse(Arg("-maxplayers"), out int max) && max >= 1) settings.maxPlayers = max;
         var address = IPAddress.TryParse(Arg("-bind") ?? "", out var bind) ? bind : IPAddress.Any;
         string folder = settingsPath != null ? Path.GetDirectoryName(Path.GetFullPath(settingsPath)) : ServerSettings.Folder;
@@ -241,7 +267,9 @@ public sealed class SyncHost : MonoBehaviour
             var world = OpenWorld(Path.Combine(folder, "worlds"), settings);
             ApplyNightSkip(world, Arg("-nightskip"));
             settings.port = p;
-            host = Create(address, settings, world, false, true);
+            host = Create(address, settings, world, false, true, Arg("-owner"), settingsPath);
+            // A dedicated server writes a new world's id back so the next start opens it again (서버 열기 gives the id itself, -owner)
+            if (settingsPath != null && Arg("-owner") == null && (newWorld || !fileThere)) settings.Save(settingsPath);
         }
         catch (Exception e)
         {

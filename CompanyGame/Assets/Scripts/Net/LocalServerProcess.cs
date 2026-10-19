@@ -6,7 +6,8 @@ using Debug = UnityEngine.Debug;
 
 /// <summary>
 /// "My PC server" (Docs/Multiplayer_Redesign.md 12.3): this game's own exe started as a windowless server process
-/// (<c>-batchmode -nographics -gameserver &lt;port&gt; -serversettings &lt;path&gt;</c>) that keeps running after the game closes.
+/// (<c>-batchmode -nographics -gameserver &lt;port&gt; -serversettings &lt;path&gt; -owner &lt;my account&gt;</c>) that keeps running after the game
+/// closes; the owner is an admin of it (12.15).
 /// The server writes <see cref="RunningPath"/> (pid, port; the server code once its EOS session exists) when it listens; that file is how the title finds it again.
 /// Stopping (12.5) writes <see cref="StopRequestPath"/>: the server saves its world and quits; after 5 seconds it is killed,
 /// and only a process whose name and path are this exe's, never whatever now has that pid.
@@ -60,7 +61,7 @@ public static class LocalServerProcess
             File.Delete(StopRequestPath); // a stale one would stop it at once
             string log = Path.Combine(ServerSettings.Folder, "server.log");
             return Process.Start(new ProcessStartInfo(ExePath,
-                $"-batchmode -nographics -gameserver {settings.port} -serversettings \"{ServerSettings.FilePath}\" -logFile \"{log}\"")
+                $"-batchmode -nographics -gameserver {settings.port} -serversettings \"{ServerSettings.FilePath}\" -owner \"{GameSession.LocalPlayerId}\" -logFile \"{log}\"")
             {
                 UseShellExecute = false, CreateNoWindow = true,
             });

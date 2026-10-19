@@ -25,6 +25,9 @@ using UnityEngine;
 ///          the personal ones
 ///   library  the server's library is its own (never LibraryCatalog's ledger, which the in-app owner's screen mirrors):
 ///          section 8 (works without pages, active loans, accounts); its days pass with the world clock every frame
+///   admin  a client's admin command (Op kind "admin", 12.15) goes to the <see cref="Admin"/>, which also reads the server
+///          console and the settings file; its answers and announcements go out as Notice (event 5). The clock section also
+///          carries the settings' car count (NpcClock.Cars)
 ///   stop   an in-app server puts this PC's own world back (world.json, else the fresh world)
 /// The full state (with the book bodies, WorldSaveData.books) is saved in world.dat through GameServer.WorldStateProvider; clients get only the newest
 /// <see cref="Recent"/> reports and SNS posts. A section over 60KB gzipped is not sent (logged).
@@ -50,12 +53,15 @@ public sealed class ServerWorld : MonoBehaviour
     public ServerDrops Drops { get; private set; }
     /// <summary>The library of this server's world (12.10.6).</summary>
     public ServerLibrary Library { get; private set; }
+    /// <summary>Admin commands, the console and the settings file of this server (12.15).</summary>
+    public ServerAdmin Admin { get; private set; }
 
     SyncHost host;
     GameServer server;
     readonly string[] lastJson = new string[SectionCount];
     readonly byte[][] lastBlob = new byte[SectionCount][];
     long lastClockMinute = -1;
+    int lastCars = -1;
     float nextSendAt;
     uint seed;
 
@@ -125,6 +131,8 @@ public sealed class ServerWorld : MonoBehaviour
         Library.AdvanceTo(Day((long)Math.Floor(world.WorldMinutes)));
         seed = SeedOf(world.Id);
         NpcClock.Set(world.WorldMinutes * SecondsPerMinute, seed, true);
+        NpcClock.Cars = host.Settings.trafficCars;
+        Admin = new ServerAdmin(this, host);
         SendSections();
         Debug.Log("[ServerWorld] world " + world.Id + ": " + (saved != null ? "shared economy restored" : "new shared economy") + ", clock " + GameClock.Current?.Now
                   + ", night " + world.NightSkipStart + "-" + world.NightSkipEnd);
@@ -133,6 +141,7 @@ public sealed class ServerWorld : MonoBehaviour
     void End(bool restorePcWorld)
     {
         if (server != null) { server.ServerEvent -= OnServerEvent; server.WorldStateProvider = null; }
+        Admin = null;
         Drops?.End();
         Drops = null;
         Library = null;
@@ -158,14 +167,16 @@ public sealed class ServerWorld : MonoBehaviour
             GameTime.SetNightSkip(world.NightSkipStart, world.NightSkipEnd); // SetNightSkip or -nightskip after the start
         long target = (long)Math.Floor(world.WorldMinutes);
         NpcClock.Set(world.WorldMinutes * SecondsPerMinute, seed, true);
+        NpcClock.Cars = host.Settings.trafficCars;
         if (GameClock.Current is SimpleGameClock clock)
         {
             if (clock.Now.TotalMinutes > target) clock.SetNow(GameTime.FromTotalMinutes(target));
             for (int i = 0; i < MaxStepsPerFrame && clock.Now.TotalMinutes < target; i++) clock.AdvanceMinutes(1);
         }
         Library?.AdvanceTo(Day(target)); // the library's day follows the world clock (12.10.6)
-        if (target != lastClockMinute) SendClock(target);
+        if (target != lastClockMinute || host.Settings.trafficCars != lastCars) SendClock(target);
         if (Time.unscaledTime >= nextSendAt) { SendSections(); Books?.DropGoneParts(); }
+        Admin?.Tick(); // last: a stop destroys this object
     }
 
     static int Day(long minutes) => GameTime.FromTotalMinutes(minutes).absoluteDay;
@@ -173,8 +184,9 @@ public sealed class ServerWorld : MonoBehaviour
     void SendClock(long minute)
     {
         lastClockMinute = minute;
+        lastCars = host.Settings.trafficCars;
         var world = server.World;
-        Set(ClockSection, ClockBlob((uint)Math.Min(minute, uint.MaxValue), world.NightSkipStart, world.NightSkipEnd, world.WorldMinutes, seed));
+        Set(ClockSection, ClockBlob((uint)Math.Min(minute, uint.MaxValue), world.NightSkipStart, world.NightSkipEnd, world.WorldMinutes, seed, lastCars));
     }
 
     /// <summary>Sends every section that changed since it was last sent (also right after a request).</summary>
@@ -223,6 +235,12 @@ public sealed class ServerWorld : MonoBehaviour
         string from = server.AccountOf(sender);
         if (string.IsNullOrEmpty(from) || server.World.Find(from) == null) return; // no character, no say in the world
         string error;
+        if (kind == ServerAdmin.Kind)
+        {
+            error = Admin.Chat(sender, from, json); // its answers went out as Notice already
+            if (server != null) Answer(sender, kind, error); // null: a stop, this server is gone
+            return;
+        }
         bool personal = ServerLedger.Kinds.Contains(kind), book = ServerBooks.Kinds.Contains(kind), drop = ServerDrops.Kinds.Contains(kind),
             library = ServerLibrary.Kinds.Contains(kind);
         if (!personal && !book && !drop && !library && !Allowed.Contains(kind))
@@ -247,11 +265,21 @@ public sealed class ServerWorld : MonoBehaviour
         }
         if (!book) SendSections(); // the change first, then the answer (one TCP stream keeps the order)
         if (ServerLedger.Counts(kind)) Ledger.Answered(sender, from); // the requester's own book, before its answer
-        server.SendServerEvent(EntityId, 0, WorldSection.OpResultEvent, sender, Bytes(w =>
-        {
-            SyncProtocol.WriteStr(w, kind.Length > 64 ? kind.Substring(0, 64) : kind);
-            SyncProtocol.WriteStr(w, error ?? "");
-        }));
+        Answer(sender, kind, error);
+    }
+
+    void Answer(uint to, string kind, string error) => server.SendServerEvent(EntityId, 0, WorldSection.OpResultEvent, to, Bytes(w =>
+    {
+        SyncProtocol.WriteStr(w, kind.Length > 64 ? kind.Substring(0, 64) : kind);
+        SyncProtocol.WriteStr(w, error ?? "");
+    }));
+
+    /// <summary>A line in the chat of connection <paramref name="to"/>, or of everyone with 0 (12.15).</summary>
+    public void Notice(uint to, string text)
+    {
+        if (server == null) return;
+        if (text.Length > 2000) text = text.Substring(0, 2000);
+        server.SendServerEvent(EntityId, 0, WorldSection.NoticeEvent, to, Bytes(w => SyncProtocol.WriteStr(w, text)));
     }
 
     // A post shows the author's character name of this world, never what the client wrote.
@@ -277,14 +305,14 @@ public sealed class ServerWorld : MonoBehaviour
     /// <summary>World seconds per world-clock minute (NpcClock): GameServer.RealSecondsPerGameHour / 60.</summary>
     public const double SecondsPerMinute = GameServer.RealSecondsPerGameHour / 60;
 
-    // u32 minute, u8 night start, u8 night end, f64 exact minutes and u32 seed (12.14).
-    internal static byte[] ClockBlob(uint minutes, int skipStart, int skipEnd, double exact, uint seed) =>
-        Bytes(w => { w.Write(minutes); w.Write((byte)skipStart); w.Write((byte)skipEnd); w.Write(exact); w.Write(seed); });
+    // u32 minute, u8 night start, u8 night end, f64 exact minutes and u32 seed (12.14), u8 NPC cars (12.15).
+    internal static byte[] ClockBlob(uint minutes, int skipStart, int skipEnd, double exact, uint seed, int cars) =>
+        Bytes(w => { w.Write(minutes); w.Write((byte)skipStart); w.Write((byte)skipEnd); w.Write(exact); w.Write(seed); w.Write((byte)Math.Clamp(cars, 0, 255)); });
 
-    internal static void ReadClock(byte[] blob, out uint minutes, out int skipStart, out int skipEnd, out double exact, out uint seed)
+    internal static void ReadClock(byte[] blob, out uint minutes, out int skipStart, out int skipEnd, out double exact, out uint seed, out int cars)
     {
         using var r = SyncProtocol.Reader(blob);
-        minutes = r.ReadUInt32(); skipStart = r.ReadByte(); skipEnd = r.ReadByte(); exact = r.ReadDouble(); seed = r.ReadUInt32();
+        minutes = r.ReadUInt32(); skipStart = r.ReadByte(); skipEnd = r.ReadByte(); exact = r.ReadDouble(); seed = r.ReadUInt32(); cars = r.ReadByte();
     }
 
     /// <summary>The seed of a world (FNV-1a of its id): its citizens and traffic (12.14).</summary>

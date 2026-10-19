@@ -264,7 +264,7 @@ public static class AvatarSyncQA
         fake.Pump();
         int walked = Count(fake, mine.Id);
         int transforms = fake.inbox.FindAll(m => m.kind == ToClient.State && m.id == mine.Id && m.component == 0).Count;
-        float steady = (walked - settled) / (walkEnd - settleAt);
+        float steady = (walked - settled) / 3f; // walkEnd - settleAt: the float subtraction gave 2.9999998 and 10.0000002 failed (12.15)
         Debug.Log($"[AvatarSyncQA] BANDWIDTH standing_2s={still} walking_4s={walked} (transform {transforms}, avatar state {walked - transforms}) first_1s={settled} steady_per_s={steady:F1} all_per_s={walked / 4f:F1}");
         Check(walked > 0 && steady <= 10f, "walking: " + steady.ToString("F1") + " States/s after the first second (" + walked + " in 4s, " + (walked - transforms) + " of them AvatarState)");
         var last = fake.inbox.FindLast(m => m.kind == ToClient.State && m.id == mine.Id && m.component == 0);

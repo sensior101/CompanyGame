@@ -218,6 +218,7 @@ sealed class TcpLink
             while (true)
             {
                 await outSignal.WaitAsync(cts.Token).ConfigureAwait(false);
+                while (outSignal.Wait(0)) { } // one wake-up takes every frame queued so far: no empty wake-ups per frame (12.15 load)
                 batch.SetLength(0);
                 bool closeAfter = false;
                 while (outbox.TryDequeue(out byte[] frame))

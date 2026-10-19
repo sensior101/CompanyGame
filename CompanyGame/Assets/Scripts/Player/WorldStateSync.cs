@@ -30,6 +30,8 @@ using UnityEngine;
 /// The library (12.10.6): the server's library section is the mirror LibraryCatalog shows (also on the in-app server's
 /// owner, whose LibraryCatalog is not the server's library); the days of the library pass on the server.
 /// Also saves this PC's files (WorldSaveRunner.SaveNow) when a map change starts; on a server that writes nothing.
+/// Admin (12.15): <see cref="SendAdmin"/> sends a chat command (Op kind "admin"); Notice lines from the server go to the chat,
+/// and being kicked or banned says so there. The clock section's car count goes to NpcClock.Cars.
 /// </summary>
 public sealed class WorldStateSync : MonoBehaviour
 {
@@ -59,6 +61,8 @@ public sealed class WorldStateSync : MonoBehaviour
 
     /// <summary>The last request answer shown (Korean, as in the chat), for QA.</summary>
     public static string LastMessage { get; private set; }
+    /// <summary>The last Notice from the server (12.15), for QA.</summary>
+    public static string LastNotice { get; private set; }
     /// <summary>OpResults received, and nights whose activity a received clock applied, for QA.</summary>
     public static int Results { get; private set; }
     public static int NightsApplied { get; private set; }
@@ -87,7 +91,7 @@ public sealed class WorldStateSync : MonoBehaviour
     static void Attach()
     {
         names.Clear(); pending.Clear(); Array.Clear(heldSections, 0, heldSections.Length);
-        world = null; remote = false; lastClock = -1; HoldSections = false; LastMessage = null; Results = NightsApplied = Ledgers = Overwrites = InventoryOverwrites = LayoutsSent = 0;
+        world = null; remote = false; lastClock = -1; HoldSections = false; LastMessage = LastNotice = null; Results = NightsApplied = Ledgers = Overwrites = InventoryOverwrites = LayoutsSent = 0;
         sentPersonal = 0; toldNight = false; held = null; hadLedger = false; LastLedgerBankChange = 0;
         ClearBooks(); BookFetches = BookRequests = 0; LastBookError = null; watched = null;
         var fallback = SyncClient.PrefabFactory; // reset at SubsystemRegistration, before this
@@ -131,6 +135,9 @@ public sealed class WorldStateSync : MonoBehaviour
         sentPersonal = 0; toldNight = false; held = null; hadLedger = false; // the server counts per connection
         ClearBooks();
         if (!connected) { LibraryCatalog.ApplyMirror(null); NpcClock.Reset(); } // off the server: this PC's own library and NPC clock again
+        string why = !connected && SyncClient.Instance ? SyncClient.Instance.LastError : "";
+        if (why == nameof(RejectReason.Kicked)) Say("관리자가 서버에서 내보냈습니다.");
+        else if (why == nameof(RejectReason.Banned)) Say("이 서버에서 차단되었습니다.");
         if (connected)
         {
             remote = !SyncHost.Instance; // my own in-app server computes on these managers: they stay Host
@@ -192,7 +199,8 @@ public sealed class WorldStateSync : MonoBehaviour
     // The screen clock follows the world clock. A received time past the end of a skipped night counts as that night.
     static void ApplyClock(byte[] blob)
     {
-        ServerWorld.ReadClock(blob, out uint minutes, out int skipStart, out int skipEnd, out double exact, out uint seed);
+        ServerWorld.ReadClock(blob, out uint minutes, out int skipStart, out int skipEnd, out double exact, out uint seed, out int cars);
+        NpcClock.Cars = cars;
         GameTime.SetNightSkip(skipStart, skipEnd);
         // Citizens and traffic (12.14): the server's seconds now = the sent time + half a round trip.
         int rtt = SyncClient.Instance ? SyncClient.Instance.RoundTripMs : -1;
@@ -259,6 +267,17 @@ public sealed class WorldStateSync : MonoBehaviour
             Say(text);
         }
         ApplyLedger(); // after a refund, so the ledger finds the same money
+    }
+
+    // ---- admin (12.15) ----
+
+    /// <summary>Sends a chat command (the line after "/") to the server; it answers with Notice lines or a refusal.</summary>
+    public static bool SendAdmin(string line) => SendOp(ServerAdmin.Kind, JsonUtility.ToJson(new SharedOpArgs { a = line }));
+
+    internal static void OnNotice(BinaryReader r)
+    {
+        LastNotice = SyncProtocol.ReadStr(r);
+        Say(LastNotice);
     }
 
     // ---- the server's ledger (12.10.1) ----

@@ -11,10 +11,12 @@ using UnityEngine.AI;
 /// player's car) or a car drawn further behind the plan in its front box slows and stops; its <see cref="TrafficCar.Delay"/>
 /// grows. Afterwards it runs 1.5 times the plan's pace, skips the rest of a wait the plan has it in, and while behind
 /// it holds before a stop line that is red now. Over 120 s behind, or after a clock jump, it is put back on the plan.
+/// The car count is the server's (NpcClock.Cars, 12.15) when there is one, else <see cref="count"/>; at most <see cref="MaxCars"/>,
+/// the most whose plan closed for every seed tried (more cars: the plan may not repeat and the cars jump once a loop).
 /// </summary>
 public sealed class TrafficSpawner : MonoBehaviour
 {
-    public const int MaxCars = 40;
+    public const int MaxCars = 10;
     const float MinGap = 2.2f, StopMargin = .5f, CatchUp = 1.5f;
     const double Smooth = .3, MaxDelay = 120;
 
@@ -26,6 +28,7 @@ public sealed class TrafficSpawner : MonoBehaviour
     List<ItemData> models;
     TrafficPlan plan;
     uint builtSeed;
+    int builtCount;
     bool built;
     double lastClock = double.NaN;
 
@@ -71,7 +74,7 @@ public sealed class TrafficSpawner : MonoBehaviour
 
     void Update()
     {
-        if (!built || NpcClock.Seed != builtSeed) Build();
+        if (!built || NpcClock.Seed != builtSeed || Wanted != builtCount) Build();
         if (plan != null) Drive();
     }
 
@@ -82,9 +85,10 @@ public sealed class TrafficSpawner : MonoBehaviour
         plan = null;
         built = true;
         builtSeed = NpcClock.Seed;
+        builtCount = Wanted;
         if (models.Count == 0 || lanes.Length == 0) return;
         var watch = System.Diagnostics.Stopwatch.StartNew();
-        ItemData[] picks = PickModels(models, Mathf.Min(count, MaxCars), builtSeed, out TrafficPlan.Car[] specs);
+        ItemData[] picks = PickModels(models, builtCount, builtSeed, out TrafficPlan.Car[] specs);
         plan = TrafficPlan.Build(lanes, specs, builtSeed);
         for (int i = 0; i < plan.Count; i++) cars.Add(Create(picks[i], i));
         lastClock = double.NaN;
@@ -92,6 +96,8 @@ public sealed class TrafficSpawner : MonoBehaviour
                   + plan.LoopsRun + " loops run, " + (plan.Repeat > 0 ? "repeats" : "no repeat, wrap jump " + plan.WrapJump.ToString("0.0") + " m")
                   + ") in " + watch.ElapsedMilliseconds + " ms");
     }
+
+    int Wanted => Mathf.Clamp(NpcClock.Cars >= 0 ? NpcClock.Cars : count, 0, MaxCars);
 
     TrafficCar Create(ItemData item, int key)
     {

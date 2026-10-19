@@ -18,6 +18,8 @@ public static class NpcClock
     public static bool Synced { get; private set; }
     /// <summary>The world's seed (0 offline). The spawners build their plans again when it changes.</summary>
     public static uint Seed { get; private set; }
+    /// <summary>NPC cars per map from the server's settings (12.15), -1 = the map's own count. TrafficSpawner builds again when it changes.</summary>
+    public static int Cars { get; set; } = -1;
 
     /// <summary>World seconds now: the same on every PC of one server, give or take the clock estimate.</summary>
     public static double Now
@@ -44,7 +46,7 @@ public static class NpcClock
     }
 
     /// <summary>Back to this PC's own time and seed 0 (left the server).</summary>
-    public static void Reset() { Synced = false; offset = target = 0; Seed = 0; }
+    public static void Reset() { Synced = false; offset = target = 0; Seed = 0; Cars = -1; }
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     static void ResetStatics() => Reset();

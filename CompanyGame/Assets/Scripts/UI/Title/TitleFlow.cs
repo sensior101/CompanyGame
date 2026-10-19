@@ -264,6 +264,8 @@ public static class TitleFlow
             case "Full": return "서버가 가득 찼습니다. 자리가 나면 다시 시도해 주세요.";
             case "Password": return "비밀번호가 틀렸습니다. 서버를 연 사람에게 비밀번호를 다시 확인해 주세요.";
             case "AlreadyConnected": return "이 계정이 이미 서버에 접속해 있습니다. 다른 창이나 기기를 닫고 다시 시도해 주세요. (한 PC의 게임은 모두 같은 EOS 계정입니다. 두 창 시험은 서버와 두 창 모두 -noeos 와 서로 다른 프로필 슬롯으로 실행하세요.)";
+            case "Banned": return "이 서버에서 차단되어 들어갈 수 없습니다. 서버 관리자에게 문의해 주세요.";
+            case "Kicked": return "관리자가 서버에서 내보냈습니다.";
             case "Malformed": return "서버가 연결을 거부했습니다(잘못된 메시지). 게임을 다시 시작한 뒤 시도해 주세요.";
             case "Rate": return "메시지를 너무 많이 보내 서버가 연결을 끊었습니다. 잠시 후 다시 시도해 주세요.";
             case "server_start_failed": return "서버를 시작하지 못했습니다. 다른 프로그램이 같은 포트를 쓰고 있을 수 있습니다. 서버 열기 > 고급에서 포트를 바꿔 보세요.";

@@ -1,6 +1,6 @@
 # 프로젝트 구조
 
-기준: 2026-10-04 `main`, 어셈블리 표와 멀티플레이 구조는 2026-10-19(2b-2). 기획 정본은 노션 [기획안 (수정본)](https://mushroom00.notion.site/3e9f770a0fc780d5a8d8ff291b3fc30a).
+기준: 2026-10-04 `main`, 어셈블리 표와 멀티플레이 구조는 2026-10-19(6단계). 기획 정본은 노션 [기획안 (수정본)](https://mushroom00.notion.site/3e9f770a0fc780d5a8d8ff291b3fc30a).
 
 ## 저장소
 
@@ -31,7 +31,7 @@ Gameplay → NPC → UI
 | Economy | `CompanyGame.Economy` | 은행, 회사, 주식, 토지, 소유권, 세금 | `BankManager`, `CompanyManager`, `StockMarketManager`, `LandPlotManager`, `PropertyRegistry` |
 | Gameplay | `CompanyGame.Gameplay` | 아이템·인벤토리 상태, 현금, 핸드폰 앱, 신고, SNS | `InventoryManager`, `InventoryState`, `ItemData`, `CashService`, `PhoneManager`, `GameSystems` |
 | World | `CompanyGame.World` | 맵 이동, 포털, 정류장, 건물 출입문, 소유 구역, 계단 | `SceneLoadManager`, `MapSpawnPoint`, `MapPortal`, `TransitStop`, `StoreInteractionPoint`, `PropertyZone`, `FloorStairs` |
-| Player | `CompanyGame.Player` | 이동, 카메라, 스탯, 전투, 손 아이템, 생성. 게임 서버의 게임 쪽(서버 월드·장부)과 동기화 | `PlayerMovement`, `PlayerCameraController`, `PlayerStats`, `PlayerCombat`, `PlayerSpawner`, `ServerWorld`, `ServerLedger`, `WorldStateSync`, `CharacterSync`, `AvatarSync` |
+| Player | `CompanyGame.Player` | 이동, 카메라, 스탯, 전투, 손 아이템, 생성. 게임 서버의 게임 쪽(서버 월드·장부)과 동기화 | `PlayerMovement`, `PlayerCameraController`, `PlayerStats`, `PlayerCombat`, `PlayerSpawner`, `ServerWorld`, `ServerLedger`, `ServerAdmin`, `WorldStateSync`, `CharacterSync`, `AvatarSync` |
 | NPC | `CompanyGame.NPC` | NPC, NPC 거래 | `NpcTrader` |
 | UI | `CompanyGame.UI` | 인벤토리·상점·정류장 메뉴, 채팅, 돈 표시, 핸드폰 화면 | `UI/Inventory/*`, `UI/Interaction/*`, `UI/Phone/*` |
 | Editor | 에디터 전용 | 제작 도구 | [Git_Collaboration.md](Git_Collaboration.md#제작-도구-취급) |
@@ -154,4 +154,5 @@ Gameplay → NPC → UI
 - **오프라인 경로**: 에디터에서 맵 씬을 바로 플레이하면 세션 없이 이 PC가 계산하고 PC 파일(`world/world.json`, `player/<id>.json`)에 저장합니다(개발용).
 - **시민·교통(5단계, 12.14)**은 각 PC가 "시드 + 월드 시계"로 똑같이 계산합니다. `NpcClock`(월드 초, 서버에서는 월드 시계 그대로, 클라이언트는 시계 섹션으로 맞춤)과 시드(월드 id 해시)로, 교통은 신호 8바퀴(560초) 단위 주기 계획표(`TrafficPlan`), 시민은 560초짜리 일정표(`CitizenWalker.Plan`)를 맵을 열 때 만들어 그립니다. 신호등도 같은 시계라 PC마다 같고, 70초 한 바퀴에 차 초록·노랑·전체 빨강·보행 초록이 겹치지 않게 돕니다. 플레이어 앞에서 멈추는 반응은 각 PC의 그리기에서만 합니다. 전용 메시지는 없습니다.
 - 옛 방(Cloudflare·Steam 방, 방장 넘기기, `NetSession` 계열)은 4e에서 지웠습니다.
+- **전용 서버와 관리자(6단계, 12.15)**: 전용 서버는 일반 Windows 빌드를 `StartServer.bat`(`-batchmode -nographics -console -gameserver -serversettings server\settings.json`)으로 돌린 서버 프로세스입니다. 설정 파일(`ServerSettings`)에 관리자·차단 목록·밤 건너뛰기·NPC 차 수(최대 10, 시계 섹션으로 클라이언트에 감)가 있고, `ServerAdmin`(서버 쪽, `ServerWorld`가 만듦)이 서버 콘솔과 게임 채팅의 `/명령`을 받아 권한을 서버의 계정으로 판정합니다. 결과·공지는 월드 이벤트 `Notice`로 채팅에 찍힙니다. 프로토콜 버전 8(`Kicked`·`Banned` 거절, 시계 섹션의 차 수).
 - **계정과 접속(2b-2)**: 계정은 EOS PUID입니다(`EosAccount`, 시작할 때 Device ID 로그인. 설정 파일이 없거나 `-noeos`면 PC GUID). 혼자 하기가 아닌 서버는 TCP와 EOS P2P를 함께 받고(`MultiTransport`), EOS 세션으로 공개 목록과 서버 코드를 냅니다. 서버는 Hello의 계정을 EOS(P2P 상대 PUID 또는 ID 토큰)로 확인합니다.

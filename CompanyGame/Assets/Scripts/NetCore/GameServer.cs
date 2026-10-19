@@ -33,6 +33,8 @@ using System.Threading.Tasks;
 /// connection claimed (made by another) is not that connection's to despawn: it goes back with Release.
 /// Identity (12.13): with <see cref="IdentityCheck"/> set, a Hello waits for its answer before anything else of it is done;
 /// frames that arrive meanwhile are held and read after the Welcome. A refused check answers Reject(Identity).
+/// Admin (12.15): an account in <see cref="Banned"/> is refused at Welcome (Reject(Banned)); <see cref="Kick(string, RejectReason)"/>
+/// drops a player, <see cref="Save"/> writes the world now.
 /// </summary>
 public sealed class GameServer
 {
@@ -127,6 +129,8 @@ public sealed class GameServer
     /// on the Tick thread after the version and password passed; the Hello finishes when the task does. Null: every account passes.
     /// </summary>
     public Func<int, string, string, Task<bool>> IdentityCheck;
+    /// <summary>Accounts refused at Welcome with Reject(Banned) (the server settings' ban list, 12.15).</summary>
+    public readonly HashSet<string> Banned = new HashSet<string>();
 
     /// <summary><paramref name="world"/> null: a world in memory only.</summary>
     public GameServer(IServerTransport transport, int maxPlayers, string name = "", string password = "", WorldStore world = null)
@@ -283,6 +287,9 @@ public sealed class GameServer
     /// <summary>The first 06:00 of the world clock after <paramref name="created"/> (made at 06:00 itself: the next day's).</summary>
     public static double ClearTime(double created) => ClearAtMinute + DayMinutes * (Math.Floor((created - ClearAtMinute) / DayMinutes) + 1);
 
+    /// <summary>Writes the world file now (an admin's save, 12.15), as the minute save does.</summary>
+    public void Save() => SaveWorld();
+
     // ponytail: the whole file is written on the server thread every minute (about 50 x 48KB at most); move to a writer thread if it shows in a tick.
     void SaveWorld()
     {
@@ -393,6 +400,7 @@ public sealed class GameServer
     void Welcome(Conn c, string account, string map)
     {
         // One connection per account: two copies of one character could each change and save it (duplicated items and money).
+        if (Banned.Contains(account ?? "")) { Kick(c, RejectReason.Banned, "banned"); return; }
         if (HasAccount(account)) { Kick(c, RejectReason.AlreadyConnected, "account already connected"); return; }
         if (PlayerCount >= MaxPlayers) { Kick(c, RejectReason.Full, "full"); return; }
         c.number = nextNumber++;
@@ -732,6 +740,14 @@ public sealed class GameServer
     {
         c.warnings++;
         Log?.Invoke("ignored from " + c.number + ": " + what + " (warnings " + c.warnings + ")");
+    }
+
+    /// <summary>Closes the welcomed connection of <paramref name="account"/> with <paramref name="reason"/>. False when it is not here.</summary>
+    public bool Kick(string account, RejectReason reason)
+    {
+        foreach (var c in conns.Values)
+            if (c.Welcomed && c.account == account) { Kick(c, reason, "by an admin"); return true; }
+        return false;
     }
 
     /// <summary>A welcomed connection of <paramref name="account"/> is still here.</summary>

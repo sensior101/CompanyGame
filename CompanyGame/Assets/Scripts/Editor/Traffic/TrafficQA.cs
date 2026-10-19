@@ -356,13 +356,24 @@ public static class TrafficQA
         report.notes.Add($"12 more seeds: {closed} plans close, loops run:{loops}, slowest {slowest} ms");
         TrafficPlan big = BuildPlan(spawner, PlanSeed, TrafficSpawner.MaxCars, out long bigMs);
         report.notes.Add($"plan with {TrafficSpawner.MaxCars} cars: {big.Count} placed, repeat {big.Repeat}, loops {big.LoopsRun}, wrap {big.WrapJump:0.0} m, {bigMs} ms");
+        // The most cars a server may set (12.15): their plan must close for every seed tried, or cars jump once a loop.
+        int bigClosed = big.Repeat > 0 ? 1 : 0;
+        var bigLoops = new System.Text.StringBuilder();
+        for (uint seed = 1; seed <= 12; seed++)
+        {
+            TrafficPlan p = BuildPlan(spawner, seed * 2654435761u, TrafficSpawner.MaxCars, out _);
+            if (p.Repeat > 0) bigClosed++;
+            bigLoops.Append(' ').Append(p.Repeat > 0 ? p.LoopsRun.ToString() : "x");
+        }
+        Check(report, bigClosed == 13 && TrafficSpawner.MaxCars == ServerSettings.MaxTrafficCars,
+            $"the plan closes with the most cars a server may set ({TrafficSpawner.MaxCars}) for 13 seeds ({bigClosed}; loops run:{bigLoops})");
         WalkOverlap(report, walks);
         PlanRules(report, plan, walks, plan.Count + " cars");
         PlanRules(report, big, walks, big.Count + " cars", false);
     }
 
     // Steps of the whole table: overlapping bodies, stop lines crossed in red, crossings passed while people may be on them.
-    // strict false (the 40-car plan, which does not repeat either): cars on a crossing in its walk are only counted.
+    // strict false (the plan with the most cars, TrafficSpawner.MaxCars): cars on a crossing in its walk are only counted.
     static void PlanRules(Report report, TrafficPlan plan, Crosswalk[] walks, string tag, bool strict = true)
     {
         const double Dt = TrafficPlan.Step;
