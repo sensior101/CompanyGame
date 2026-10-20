@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CompanyGame 기획 도구</title>
+<title>CompanyGame 어드민</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
 <style>
 :root{--bg:#fff;--fg:#111;--sub:#6b6b6b;--line:#e6e6e6;--tile:#f3f3f3;--accent:#111;--on-accent:#fff;--warn:#c0392b;--warn-bg:#fdeeee;--ok:#1e8449;--mid:#b7791f;--c1:#2563eb;--c2:#f59e0b;--c3:#10b981;--c4:#ef4444;--c5:#8b5cf6}
@@ -15,9 +15,32 @@ main{max-width:960px;margin:0 auto;padding:28px 16px 96px}
 header{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
 header h1{font-size:26px;margin:0;letter-spacing:-.02em}
 header p{margin:4px 0 0;color:var(--sub);font-size:14px}
-nav{position:sticky;top:0;background:var(--bg);display:flex;gap:8px;overflow-x:auto;padding:14px 0;z-index:5;border-bottom:1px solid var(--line)}
-nav button{flex:none;font:inherit;font-size:15px;border:1.5px solid var(--line);background:var(--bg);color:var(--fg);border-radius:999px;padding:7px 16px;cursor:pointer}
-nav button[aria-selected=true]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.navwrap{position:sticky;top:0;background:var(--bg);z-index:5;border-bottom:1px solid var(--line);margin-top:18px}
+nav{display:flex;gap:8px;overflow-x:auto}
+nav button{flex:none;font:inherit;cursor:pointer;color:var(--fg)}
+nav.groups{gap:4px;background:var(--tile);border-radius:16px;padding:4px;margin-top:10px}
+nav.groups button{flex:1;font-size:16px;font-weight:600;border:0;background:none;border-radius:12px;padding:10px 12px;color:var(--sub)}
+nav.groups button[aria-selected=true]{background:var(--bg);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+nav.subs{padding:12px 0}
+nav.subs:empty,nav.subs.one{display:none}
+nav.subs button{font-size:14px;border:1.5px solid var(--line);background:var(--bg);border-radius:999px;padding:6px 14px}
+nav.subs button[hidden]{display:none}
+nav.subs button[aria-selected=true]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.src{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:13px;color:var(--sub);background:var(--tile);border-radius:12px;padding:8px 12px;margin:-8px 0 14px}
+.src::after{content:"정본은 로컬 md. md를 고치면 이 복사본도 다시 복사해 배포";flex-basis:100%}
+.toc{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
+.toc a{font-size:13px;color:var(--sub);text-decoration:none;background:var(--tile);border-radius:999px;padding:4px 11px}
+.toc a:hover{color:var(--fg)}
+.doc h2{font-size:19px;margin:30px 0 8px;scroll-margin-top:130px}
+.doc h2:first-child{margin-top:0}
+.doc h3{font-size:16px;margin:20px 0 6px}
+.doc ul,.doc ol{padding-left:20px}
+.doc li{margin:3px 0}
+.doc pre{background:var(--tile);border-radius:12px;padding:12px 14px;overflow-x:auto;font-size:13px;line-height:1.5}
+.doc table{margin:8px 0 4px}
+.doc a{color:var(--c1)}
+code{font-family:ui-monospace,Consolas,monospace;font-size:.9em;overflow-wrap:anywhere}
+.doc table{display:block;overflow-x:auto}
 section{display:none}section.on{display:block}
 h2{font-size:24px;letter-spacing:-.02em;margin:32px 0 6px}
 h3{font-size:18px;margin:0 0 10px}
@@ -68,22 +91,385 @@ details[open] summary{margin-bottom:10px}
 <main>
 <header>
   <div>
-    <h1>CompanyGame 기획 도구</h1>
-    <p>노션 「기획안 (수정본)」 수치로 돌려보는 시뮬레이터와 검사기. 모든 표는 고치기·추가·삭제가 되고, 팀 전체에 저장돼.</p>
+    <h1>CompanyGame 어드민</h1>
+    <p>협업 규칙, 기획 시뮬레이터·검사기, 작업 진행을 한곳에. 기획 표는 고치면 팀 전체에 저장돼.</p>
   </div>
   <div class="status" id="gStatus">불러오는 중…</div>
 </header>
-<nav role="tablist">
-  <button data-t="types">회사 종류</button>
-  <button data-t="server">서버 인원</button>
-  <button data-t="market">시장·경쟁</button>
-  <button data-t="value">기업가치·등급</button>
-  <button data-t="pnl">회사 손익</button>
-  <button data-t="recipe">조합법 검사</button>
-  <button data-t="activity">경제활동 밸런스</button>
-  <button data-t="land">부지 수급</button>
-  <button data-t="board">기획 구체화 보드</button>
+<div class="navwrap">
+<nav class="groups" role="tablist" aria-label="큰 분류">
+  <button data-g="rules">협업 규칙</button>
+  <button data-g="plan">기획</button>
+  <button data-g="progress">진행</button>
 </nav>
+<nav class="subs" role="tablist" aria-label="세부 탭">
+  <button data-t="git" data-g="rules">깃 협업</button>
+  <button data-t="code" data-g="rules">멀티 코딩 규칙</button>
+  <button data-t="model" data-g="rules">모델링 작업</button>
+  <button data-t="types" data-g="plan">회사 종류</button>
+  <button data-t="server" data-g="plan">서버 인원</button>
+  <button data-t="market" data-g="plan">시장·경쟁</button>
+  <button data-t="value" data-g="plan">기업가치·등급</button>
+  <button data-t="pnl" data-g="plan">회사 손익</button>
+  <button data-t="recipe" data-g="plan">조합법 검사</button>
+  <button data-t="activity" data-g="plan">경제활동 밸런스</button>
+  <button data-t="land" data-g="plan">부지 수급</button>
+  <button data-t="board" data-g="plan">기획 구체화 보드</button>
+  <button data-t="status" data-g="progress">작업 현황</button>
+</nav>
+</div>
+
+<section id="git">
+  <h2>깃 협업</h2>
+  <p class="lead">브랜치·커밋·PR·씬·에셋 작업 규칙.</p>
+  <div class="src"><span>원본 <code>Docs/Git_Collaboration.md</code></span><span>복사한 날 2026-10-20</span><span>원본 마지막 수정 2026-10-09</span></div>
+  <div class="toc"></div>
+  <div class="card doc">
+<h2>저장소 기준</h2>
+<p>Git 저장소는 최상위 <code>companyGame</code> 하나입니다. 그 안의 <code>CompanyGame</code>은 Unity 프로젝트 폴더입니다.
+내부에 다시 <code>git init</code>하거나 별도의 <code>.git</code>을 만들지 않습니다.</p>
+<pre><code class="language-powershell"># 저장소 루트에서 실행하면 이 폴더가 출력되어야 합니다.
+git rev-parse --show-toplevel
+git remote -v
+</code></pre>
+<p>원격 주소는 <code>https://github.com/sensior101/CompanyGame.git</code>입니다.
+비공개 저장소라면 팀원이 GitHub에서 저장소 접근 권한을 받은 계정으로 인증해야 합니다.</p>
+<h2>브랜치 규칙</h2>
+<table>
+<thead>
+<tr>
+<th>브랜치</th>
+<th>역할</th>
+<th>규칙</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>main</code></td>
+<td>플레이 가능한 안정판</td>
+<td>직접 푸시 금지. <code>Dev</code>에서 올린 PR만 받습니다.</td>
+</tr>
+<tr>
+<td><code>Dev</code></td>
+<td>통합 브랜치</td>
+<td>직접 푸시 금지. 기능 브랜치의 PR만 받습니다.</td>
+</tr>
+<tr>
+<td><code>feature/*</code>, <code>fix/*</code>, <code>docs/*</code></td>
+<td>개별 작업</td>
+<td>최신 <code>Dev</code>에서 분기하고 <code>Dev</code>로 PR을 보냅니다.</td>
+</tr>
+</tbody></table>
+<ul>
+<li>영문 소문자와 하이픈을 쓰고 브랜치 하나에는 기능 하나만 담습니다.</li>
+<li>원격 브랜치 이름 <code>Dev</code>는 대소문자를 그대로 유지합니다.</li>
+<li>작성자가 아닌 팀원 한 명 이상이 승인한 뒤 합칩니다.</li>
+<li>기능 브랜치 → <code>Dev</code>: <strong>Squash and merge</strong>.</li>
+<li><code>Dev</code> → <code>main</code>: 관리자가 Unity 확인 후 <strong>Create a merge commit</strong>. Squash하지 않습니다.</li>
+<li>합친 기능 브랜치는 삭제하고, 다음 작업은 최신 <code>Dev</code>에서 새로 시작합니다.</li>
+<li>강제 푸시와 이미 푸시한 브랜치의 rebase는 금지합니다.</li>
+</ul>
+<h2>작업 순서</h2>
+<p>Unity 씬과 프로젝트를 저장하고 기존 변경을 먼저 안전하게 정리합니다.</p>
+<pre><code class="language-powershell">git fetch origin
+git switch Dev
+git pull --ff-only
+git switch -c feature/player-interaction
+</code></pre>
+<p>변경 목록을 확인하고 해당 기능의 파일과 <code>.meta</code>만 명시적으로 추가합니다.</p>
+<pre><code class="language-powershell">git status
+git diff --stat
+# git add -- &lt;검토한 파일과 .meta 경로&gt;
+git diff --cached --stat
+git diff --cached --check
+git commit -m &quot;Implement player interaction&quot;
+git push -u origin HEAD
+</code></pre>
+<p>GitHub에서 <code>Dev</code>를 대상으로 PR을 엽니다. 설명에는 변경 내용, Unity 확인 방법,
+씬·프리팹 변경 여부를 적습니다. 씬·프리팹 변경과 코드는 커밋과 PR을 나눕니다.
+PR 사이에 의존성이 있으면 필요한 PR과 병합 순서를 명시합니다.
+영어 명령형 한 줄 커밋 제목을 쓰고, 필요한 설명은 빈 줄 아래 본문에 적습니다.</p>
+<p>작업 중 <code>Dev</code>가 앞서가면 기능 브랜치에서 다음을 실행합니다.</p>
+<pre><code class="language-powershell">git fetch origin
+git merge origin/Dev
+</code></pre>
+<p><code>Library</code>, <code>Temp</code>, <code>Logs</code>, <code>UserSettings</code>, 재생성 가능한 QA 출력은 커밋하지 않습니다.
+게임에서 사용하는 텍스처와 유지하기로 한 카탈로그 미리보기는 QA 출력과 구분합니다.
+큰 모델은 Git LFS로 관리하며, Unity를 열기 전 필요한 LFS 본체를 받습니다.</p>
+<pre><code class="language-powershell">git lfs pull
+</code></pre>
+<p>새 스크립트는 UTF-8로 저장합니다. 기존 CP949 스크립트의 인코딩 변환은
+기능 수정과 섞지 않고 별도 커밋으로 처리합니다.</p>
+<h2>긴급 수정</h2>
+<p><code>main</code>에서 <code>fix/이름</code>을 만들고 <code>main</code> 대상 PR로 수정합니다.
+병합 후 <code>main</code>의 변경을 <code>Dev</code>에도 반영하는 PR을 엽니다.</p>
+<h2>관리자 확인</h2>
+<ul>
+<li><code>main</code>, <code>Dev</code>: PR 필수, 승인 한 명 이상, 강제 푸시·삭제 금지.</li>
+<li>병합 담당자와 자동 브랜치 삭제 설정을 확인합니다.</li>
+<li><code>Dev</code> → <code>main</code> 전에 Unity 컴파일과 주요 씬을 확인합니다.</li>
+<li>병합 후 두 브랜치의 파일 상태가 같은지 확인합니다.</li>
+</ul>
+<h2>맵과 에셋 공동 작업</h2>
+<ul>
+<li>현재 마을은 큰 프리팹 한 개에 많은 오브젝트가 들어 있습니다. 같은 씬·프리팹의 동시 편집은 작업자끼리 조정하세요. 한 씬은 한 번에 한 명만 수정하는 것을 원칙으로 합니다.</li>
+<li>이후 맵 편집 구조를 개선할 때는 건물별 프리팹, 구역별 씬으로 나누는 것을 권장합니다. 이번 Git 정리에는 이 변경이 포함되지 않습니다.</li>
+<li>반복되는 메시와 재질은 공유합니다. 충돌을 피하려고 원본 에셋을 복제하지 않습니다.</li>
+<li><code>.meta</code>를 삭제하거나 다시 만들지 않습니다. 에셋과 <code>.meta</code>를 한 변경으로 커밋합니다.</li>
+<li>씬·프리팹 충돌은 자동으로 한쪽 파일을 선택하지 말고, 담당자와 함께 Unity에서 결과를 확인합니다.</li>
+<li>고급 병합이 필요하면 <a href="https://docs.unity3d.com/6000.4/Documentation/Manual/SmartMerge.html">UnityYAMLMerge 공식 안내</a>에 따라 각 개발 환경에 도구를 설정합니다. 이번 설정에서는 사용자별 Unity 설치 경로에 의존하는 병합 드라이버를 강제로 등록하지 않았습니다.</li>
+</ul>
+<h2>제작 도구 취급</h2>
+<p>에디터 도구는 <code>CompanyGame/Assets/Scripts/Editor</code>에 있고, 모두 Unity 위 메뉴에서 실행합니다.</p>
+<table>
+<thead>
+<tr>
+<th>메뉴</th>
+<th>용도</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>CompanyGame → Setup → Build Phone UI Prefab</td>
+<td><code>Resources/PhoneUI.prefab</code> 다시 만들기</td>
+</tr>
+<tr>
+<td>CompanyGame → Setup → Move Scene Players To Prefab</td>
+<td>씬에 들어간 플레이어를 지우고 <code>Resources/Player.prefab</code>으로 모으기</td>
+</tr>
+<tr>
+<td>Tools → Company Game → Maps → Validate Maps</td>
+<td>맵 씬 검사 (플레이어 없음, 카메라 1개, <code>default</code> 스폰)</td>
+</tr>
+<tr>
+<td>Tools → Company Game → Maps → Create Small Map</td>
+<td>새 작은 맵 만들기</td>
+</tr>
+<tr>
+<td>Tools → Company Game → Characters → Rebuild / Validate Reference Girl·Boy</td>
+<td>캐릭터 메시 재생성·검사</td>
+</tr>
+</tbody></table>
+<p>예전 <code>CompanyGame/AgentScripts</code>와 메뉴 없는 맵 생성·검사 스크립트는 2026-10-04에 제거했습니다. 필요하면 커밋 <code>ccfd0c6</code>에서 복원합니다.
+Blender 재생성 스크립트는 열린 장면을 비우는 코드가 있으므로 별도 작업 파일에서 실행합니다.</p>
+<h2>이번 폴더 정리의 백업</h2>
+<p>중첩 Git 정보, 내부의 중복 <code>ArtSource</code>·<code>Docs</code>와 <code>.gitignore</code>는 저장소 밖의
+<code>../companyGame-backups/git-setup-&lt;날짜-시간&gt;/</code>에 보관합니다.
+백업의 <code>Moves.json</code>은 원래 위치와 백업 위치를 기록하고, <code>ProjectFilesBefore.json</code>은 기존 프로젝트 파일의 SHA-256을 기록합니다.
+<code>RootGitBefore</code>에는 설정 전 상위 저장소의 Git 정보가 있습니다.</p>
+<p>백업을 복원할 때는 현재 파일을 먼저 별도로 보관하고 필요한 항목만 복원하세요.
+현재 저장소 안에 백업된 <code>.git</code>을 다시 넣으면 중첩 저장소가 재발생합니다.</p>
+  </div>
+</section>
+
+<section id="code">
+  <h2>멀티 코딩 규칙</h2>
+  <p class="lead">기능 만들 때 판정 위치, NetBehaviour, 요청(Op)·장부, 버전, 시험 체크리스트. 설계 배경은 <code>Docs/Multiplayer_Redesign.md</code>.</p>
+  <div class="src"><span>원본 <code>Docs/Multiplayer_Coding_Rules.md</code></span><span>복사한 날 2026-10-20</span><span>원본 마지막 수정 2026-10-19</span></div>
+  <div class="toc"></div>
+  <div class="card doc">
+<p>기능을 새로 만들거나 고칠 때 멀티 구조에 맞게 짜는 방법입니다. 설계 배경과 단계별 기록은 <code>Multiplayer_Redesign.md</code>, 폴더·어셈블리 구조는 <code>Architecture.md</code>를 봅니다. 기준: <code>feature/multiplayer-redesign</code> 브랜치, 2026-10-19.</p>
+<h2>1. 먼저 알아 둘 것</h2>
+<ul>
+<li><strong>혼자 하기도 서버를 거칩니다.</strong> 혼자 하기, 서버 열기, 전용 서버 모두 같은 서버 코드(<code>GameServer</code> + 게임 쪽 <code>ServerWorld</code>)를 씁니다. &quot;혼자일 때만 되는 기능&quot;은 만들지 않습니다. 혼자 하기에서 되면 멀티에서도 되어야 합니다.</li>
+<li><strong>돈·소유권·아이템은 서버가 정합니다.</strong> 클라이언트는 요청만 보내고, 서버가 검사해서 바꾼 결과로 화면을 맞춥니다. 공개 서버라 클라이언트가 보낸 값은 믿지 않습니다.</li>
+<li><strong>메시지 종류는 늘리지 않습니다.</strong> 서버와 오가는 것은 엔티티 상태(생성·변경·삭제)와 엔티티 이벤트 두 가지입니다. 기능마다 전용 패킷을 만들지 않습니다.</li>
+<li>오프라인 경로(에디터에서 맵 씬을 바로 Play)는 개발용입니다. 이 경로에서만 되는 코드는 버그입니다.</li>
+</ul>
+<h2>2. 무엇을 어디서 판정하나</h2>
+<table>
+<thead>
+<tr>
+<th>대상</th>
+<th>판정</th>
+<th>방법 (아래 절)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>내 캐릭터 이동·애니메이션·든 물건</td>
+<td>그 플레이어</td>
+<td>엔티티 상태 (3)</td>
+</tr>
+<tr>
+<td>내가 모는 차, 던진 물건의 물리</td>
+<td>주인 플레이어. 결과만 보냄</td>
+<td>엔티티 상태 (3)</td>
+</tr>
+<tr>
+<td>돈(은행·지갑), 인벤토리, 주식</td>
+<td>서버</td>
+<td>개인 요청 <code>p.*</code> + 장부 (4.2)</td>
+</tr>
+<tr>
+<td>소유권, 땅, 회사, SNS, 신고</td>
+<td>서버</td>
+<td>공유 요청 (4.1)</td>
+</tr>
+<tr>
+<td>드롭 줍기, 탈것 탑승 자리</td>
+<td>서버 (먼저 온 요청만 성공)</td>
+<td>요청 + 서버가 만든 엔티티 (3, 4)</td>
+</tr>
+<tr>
+<td>시계, 주가</td>
+<td>서버</td>
+<td>시계·월드 섹션 (5)</td>
+</tr>
+<tr>
+<td>시민·교통</td>
+<td>각 PC가 똑같이 계산</td>
+<td>시드 + 월드 시계 (6)</td>
+</tr>
+<tr>
+<td>채팅</td>
+<td>서버가 모두에게 전달</td>
+<td><code>WorldStateSync.SendChat</code> (4.3)</td>
+</tr>
+</tbody></table>
+<h2>3. 공유 오브젝트: NetEntity + NetBehaviour</h2>
+<p>다른 사람에게 보여야 하는 오브젝트에는 <code>NetEntity</code>를 붙이고, 공유할 값은 <code>NetBehaviour</code>를 상속한 컴포넌트에 둡니다. 예: <code>NetTransform</code>(위치), <code>AvatarState</code>(외형), <code>DropState</code>(드롭·탈것).</p>
+<pre><code class="language-csharp">public sealed class DoorState : NetBehaviour
+{
+    public bool open;
+    public override void Write(BinaryWriter w) =&gt; w.Write(open);
+    public override void Read(BinaryReader r) { open = r.ReadBoolean(); Apply(); }
+    public void Toggle() { if (!IsOwner) return; open = !open; Apply(); MarkDirty(); }
+    void Apply() { /* 화면에 반영 */ }
+}
+</code></pre>
+<ul>
+<li><code>Write</code>/<code>Read</code>는 <strong>항상 컴포넌트의 전체 상태</strong>를 씁니다. 변화분만 보내지 않습니다. 한 번 빠져도 다음 상태가 덮어씁니다.</li>
+<li>값을 바꾼 쪽이 <strong>주인일 때만</strong> <code>MarkDirty()</code>를 부릅니다. 0.1초 안에 같은 맵 사람에게 갑니다. 주인이 아니면 아무 일도 안 합니다.</li>
+<li>순간 동작(공격, 상호작용)은 <code>SendEvent(id, target, write)</code> → 받는 쪽은 <code>OnEvent(id, sender, r)</code>.</li>
+<li>만들기: <code>SyncClient.Instance.Spawn(prefabKey, instance, flags)</code>. 다른 PC는 같은 키로 프리팹을 만들므로 <code>SyncClient.PrefabFactory</code>에 키를 등록합니다(<code>DropState.Register</code> 참고). 한 GameObject의 NetBehaviour 순서는 모든 PC에서 같아야 합니다(같은 프리팹).</li>
+<li>주인이 나가도 남아야 하는 것(놓아둔 차)은 <code>EntityFlags.PersistOnLeave</code>. 서버가 주인이 되고 월드 파일에 저장됩니다.</li>
+<li>남의 엔티티를 움직이려면 <code>Claim</code> → 서버가 허락하면 주인이 바뀜(<code>NetEntity</code>의 Owner 알림). 끝나면 <code>Release</code>.</li>
+<li>상태 하나(blob)는 <strong>4KB 이하</strong>(<code>SyncProtocol.MaxBlob</code>). 큰 데이터(책 본문 등)는 서버에 두고 요청으로 받습니다(12.10.3).</li>
+<li>자주 바뀌는 값은 JSON 말고 이진(<code>BinaryWriter</code>)으로 씁니다. 안 바뀌면 <code>MarkDirty</code>를 부르지 않습니다.</li>
+</ul>
+<h2>4. 서버에 바꿔 달라고 하기: 요청(Op)</h2>
+<h3>4.1 공유 월드 요청 (소유권·땅·회사·SNS·신고)</h3>
+<p>매니저는 이 모양을 따릅니다(<code>SnsManager.ToggleLike</code>).</p>
+<pre><code class="language-csharp">public bool ToggleLike(string postId)
+{
+    if (SharedWriteGate.InRoom) // 서버에 캐릭터로 접속 중: 요청만 보냄
+        return SharedWriteGate.TrySend(&quot;sns.like&quot;, new SharedOpArgs { a = postId, b = GameSession.LocalPlayerId });
+    return LikeAs(postId, settings.localUserId); // 오프라인(개발용)만 바로 적용
+}
+</code></pre>
+<p>새 요청 종류를 추가할 때 고치는 곳:</p>
+<ol>
+<li><strong>클라이언트</strong>: 매니저에서 <code>SharedWriteGate.TrySend(kind, args)</code>. 서버에 있을 때 <strong>로컬 값을 직접 바꾸지 않습니다.</strong> 결과는 서버가 보내는 섹션으로 옵니다. <code>SendFailed</code>면 아무것도 적용하지 않습니다.</li>
+<li><strong>서버 허용 목록</strong>: <code>ServerWorld.Allowed</code>에 kind를 넣습니다. 없으면 &quot;처리할 수 없는 요청입니다&quot;로 거절됩니다.</li>
+<li><strong>서버 적용</strong>: <code>WorldOps.Apply</code>에 case를 넣습니다. 요청한 계정(<code>from</code>)이 그 행동을 할 수 있는지 먼저 검사합니다(<code>WorldOps</code>의 <code>a.b == from</code> 검사처럼). 실패하면 한국어 이유 문자열을 돌려줍니다. 성공은 <code>null</code>.</li>
+<li><strong>완료 문구</strong>: 필요하면 <code>WorldStateSync.DoneText</code>에 성공 메시지를 넣습니다.</li>
+</ol>
+<p>인자는 <code>SharedOpArgs</code>(<code>a</code>~`d<code>문자열,</code>n<code>long,</code>f<code> bool) 하나로 넘깁니다. 이름처럼 서버가 알 수 있는 값은 클라이언트가 보낸 것을 쓰지 않고 서버가 채웁니다(</code>WithAuthorName` 참고).</p>
+<h3>4.2 개인 요청 (돈·인벤토리·주식): <code>p.*</code>와 장부</h3>
+<ul>
+<li>돈과 인벤토리는 서버의 장부(<code>ServerLedger</code>)가 정본입니다. 클라이언트는 <code>p.*</code> 요청을 보내고, 서버가 장부를 바꾼 뒤 Ledger 이벤트로 내 은행·인벤토리를 덮어씁니다.</li>
+<li>새 개인 요청은 <code>ServerLedger.Kinds</code>에 넣고 <code>ServerLedger.Apply</code>에서 처리합니다. 서버는 <strong>수량·잔액·소유를 반드시 확인</strong>합니다(없는 아이템을 팔거나 음수 금액 등).</li>
+<li>돈은 두 종류입니다: 은행 계좌(<code>BankManager</code>)와 지갑 현금(인벤토리의 지폐). 합치지 않습니다.</li>
+<li>클라이언트에서 <code>BankManager.AddMoney</code>나 <code>InventoryState.TryAdd</code>를 직접 불러 &quot;결과를 만드는&quot; 코드를 새로 쓰지 않습니다. 화면을 먼저 바꿔야 하면, 서버 답이 와서 장부로 덮어써져도 맞게 되는지 확인합니다.</li>
+</ul>
+<h3>4.3 채팅·관리자 명령</h3>
+<ul>
+<li>일반 채팅: <code>WorldStateSync.SendChat(text)</code> → 서버가 캐릭터 이름을 붙여 모두에게 보냄 → <code>WorldStateSync.Chatted</code> 이벤트. 내 줄도 서버에서 돌아와 찍힙니다.</li>
+<li><code>/명령</code>: <code>WorldStateSync.SendAdmin</code> → <code>ServerAdmin</code>이 권한을 서버의 계정으로 판정합니다.</li>
+<li>서버가 한 사람이나 모두에게 알릴 때: <code>ServerWorld.Notice(to, text)</code>(0 = 모두).</li>
+</ul>
+<h2>5. 서버가 보내는 월드 상태</h2>
+<ul>
+<li>시계·주가·회사·소유권 등 공유 상태는 서버가 <code>WorldSection</code>(월드 엔티티의 섹션)으로 보냅니다. 클라이언트는 <code>WorldStateSync.OnSection</code>에서 받아 상태를 통째로 넣습니다(<code>WorldSave.ApplySection</code>, 시계는 <code>ApplyClock</code>). 이 경로는 저장 데이터를 불러오는 함수를 쓰므로 요청(<code>TrySend</code>)을 다시 보내지 않습니다. 새 매니저도 &quot;섹션 데이터로 상태 덮어쓰기&quot; 함수를 따로 두고 거기서는 요청을 보내지 않게 합니다. (서버가 요청을 적용하는 동안에는 <code>SharedWriteGate.Applying</code>이 켜져 매니저가 바로 씁니다.)</li>
+<li>새 공유 상태를 추가하면 섹션 하나를 늘리거나 기존 섹션 데이터에 넣습니다. 섹션 데이터는 서버만 씁니다.</li>
+<li>시간에 따라 바뀌는 것은 <strong>월드 시계</strong>를 씁니다. 캐릭터 나이·배고픔 같은 개인 진행은 <strong>캐릭터 시계</strong>(접속한 동안만 흐름)를 씁니다. <code>Time.time</code>이나 PC 시각으로 게임 진행을 정하지 않습니다.</li>
+</ul>
+<h2>6. 모든 PC가 똑같이 계산하는 것 (시민·교통)</h2>
+<ul>
+<li>시민·교통은 메시지 없이 각 PC가 **시드(월드 id 해시) + <code>NpcClock</code>(월드 초)**로 같은 결과를 그립니다.</li>
+<li>이 코드 안에서는 <code>UnityEngine.Random</code>, <code>Time.deltaTime</code> 누적, 물리 결과, 프레임 순서에 따라 달라지는 값을 쓰지 않습니다. 같은 시드와 시각이면 언제나 같은 위치가 나와야 합니다.</li>
+<li>플레이어 앞에서 멈추기 같은 반응은 각 PC의 그리기에서만 하고, 계획표 자체는 바꾸지 않습니다.</li>
+</ul>
+<h2>7. 저장</h2>
+<ul>
+<li>월드와 그 월드의 캐릭터는 서버의 <code>worlds/&lt;월드 id&gt;/world.dat</code> 하나에 저장됩니다(<code>WorldStore</code>). 월드 이름은 같은 폴더의 <code>name.txt</code>.</li>
+<li>캐릭터 진행(돈, 인벤토리, 위치)은 <strong>서버에만</strong> 저장합니다. 개인 PC 파일(<code>player/&lt;id&gt;.json</code>)은 오프라인 개발 경로용입니다.</li>
+<li><code>world.dat</code> 형식을 바꾸면 <code>WorldStore.FileVersion</code>을 올리고, 예전 버전 파일도 읽히게 합니다(지금 1~3을 모두 읽음).</li>
+</ul>
+<h2>8. 바꾸면 버전을 올리는 것</h2>
+<table>
+<thead>
+<tr>
+<th>바꾼 것</th>
+<th>올릴 것</th>
+<th>결과</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>서버-클라이언트 메시지 형식, 새 이벤트 번호, 섹션 형식</td>
+<td><code>SyncProtocol.Version</code></td>
+<td>다른 버전 빌드는 &quot;버전이 달라&quot; 거절됨. 공개 목록도 버전별로 나뉨</td>
+</tr>
+<tr>
+<td><code>world.dat</code> 형식</td>
+<td><code>WorldStore.FileVersion</code></td>
+<td>예전 파일 읽기 코드를 남김</td>
+</tr>
+</tbody></table>
+<p>버전을 올리면 팀원과 시험하는 PC 모두 새 빌드가 필요합니다. 커밋 메시지에 적어 둡니다.</p>
+<h2>9. 어셈블리 방향</h2>
+<pre><code>Core → Economy → Gameplay → World → Player → UI
+NetCore → Net → Player → UI
+Gameplay → NPC → UI
+</code></pre>
+<ul>
+<li>화살표 반대로는 참조할 수 없습니다(컴파일 오류). 아래 계층이 위를 알아야 하면 Core나 Economy에 훅(<code>Func</code>/<code>Action</code> 정적 필드)을 두고 위에서 채웁니다. 예: <code>SharedWriteGate.ServerSender</code>를 Player의 <code>WorldStateSync</code>가 채움.</li>
+<li><code>NetCore</code>는 Unity 게임 코드를 모릅니다(프로토콜·전송·서버 본체·월드 파일). 게임 규칙은 Player의 <code>ServerWorld</code>·<code>ServerLedger</code>에 둡니다.</li>
+</ul>
+<h2>10. 하지 말 것</h2>
+<ul>
+<li>서버에 접속한 상태에서 클라이언트가 돈·아이템·소유권을 직접 바꾸고 끝내기</li>
+<li>기능 전용 패킷이나 전용 연결 만들기(옛 <code>pos</code>/<code>op</code>/<code>state</code> 경로는 4e에서 지웠습니다)</li>
+<li>클라이언트가 보낸 이름·금액·소유자를 서버가 그대로 쓰기</li>
+<li>시민·교통 계산에 랜덤·프레임 시간 쓰기</li>
+<li>&quot;방장만&quot; 하는 계산. 계산은 서버(<code>GameSession.IsAuthority</code>가 참인 곳)에서만 합니다</li>
+<li>리치 텍스트가 들어갈 수 있는 사용자 입력을 그대로 화면에 찍기(<code>&lt;noparse&gt;</code>로 감싸거나 <code>&lt;</code> <code>&gt;</code>를 뺌)</li>
+</ul>
+<h2>11. 시험</h2>
+<ul>
+<li>기능마다 에디터 QA 스크립트가 있습니다(<code>Assets/Scripts/Editor/**/*QA.cs</code>, 맨 위 주석에 실행법). 멀티 기능은 최소한 이렇게 확인합니다.<ul>
+<li><strong>혼자 하기</strong>에서 동작</li>
+<li><strong>두 클라이언트</strong>에서 서로 보이고 결과가 같음. 한 PC 두 창은 서로 다른 프로필 슬롯과 <code>-noeos</code>로 실행(<code>Server.md</code> &quot;게임 서버 테스트&quot;)</li>
+<li><strong>나갔다 다시 들어와도</strong> 결과가 남음(월드 파일 저장)</li>
+<li>서버가 <strong>잘못된 요청을 거절</strong>함(남의 것, 없는 것, 음수)</li>
+</ul>
+</li>
+<li>서버 쪽만 빠르게 볼 때는 가짜 TCP 클라이언트 QA를 씁니다(<code>DedicatedServerQA.RunConsole</code>, <code>SyncLayerQA</code>).</li>
+<li>여러 QA를 한 번에: <code>_temp/qa6/regress.sh &lt;이름…&gt;</code>(로컬 스크립트).</li>
+</ul>
+<h2>12. 새 기능 체크리스트</h2>
+<ul>
+<li><input disabled="" type="checkbox"> 2절 표에서 이 기능의 판정 위치를 정했다</li>
+<li><input disabled="" type="checkbox"> 보이기만 하면 되는 것은 NetBehaviour, 결과가 남는 것은 요청(Op)으로 했다</li>
+<li><input disabled="" type="checkbox"> 서버 허용 목록과 서버 검사(요청한 계정, 수량, 소유)를 넣었다</li>
+<li><input disabled="" type="checkbox"> 서버에 있을 때 클라이언트가 결과를 직접 만들지 않는다</li>
+<li><input disabled="" type="checkbox"> 메시지·섹션·월드 파일 형식을 바꿨으면 버전을 올렸다</li>
+<li><input disabled="" type="checkbox"> 혼자 하기, 두 클라이언트, 재접속, 잘못된 요청을 시험했다</li>
+</ul>
+  </div>
+</section>
+
+<section id="model">
+  <h2>모델링 작업</h2>
+  <p class="lead">건물·인테리어·가구 모델을 만들 때 쓰는 도구와 원본 보존 규칙. AI 에이전트가 <code>ArtSource</code>에서 작업할 때 자동으로 읽는 파일이라 원문(영어) 그대로 둠.</p>
+  <div class="src"><span>원본 <code>ArtSource/AGENTS.md</code></span><span>복사한 날 2026-10-20</span><span>원본 마지막 수정 2026-10-09</span></div>
+  <div class="card doc">
+<ul>
+<li>Building exteriors: Astra + Blender.</li>
+<li>Building interiors: Astra + Blender, or Astra + Higgsfield.</li>
+<li>Furniture and sculptures: create separate assets with Astra, or use supplied asset files, then integrate them into the environment.</li>
+<li>Preserve supplied source models and export Unity-ready assets separately.</li>
+</ul>
+  </div>
+</section>
 
 <section id="types">
   <h2>회사 종류</h2>
@@ -94,7 +480,7 @@ details[open] summary{margin-bottom:10px}
 
 <section id="server">
   <h2>서버 인원 1~100명 검토</h2>
-  <p class="lead">기획 기준은 10~20명. 인원을 바꾸면 부지·회사·네트워크·콘텐츠가 버티는지 바로 계산해. 부지 수는 부지 수급 탭, 업종 수는 회사 종류 탭 값을 써.</p>
+  <p class="lead">기획 기준은 10~20명, 서버 인원 상한은 PC 50·모바일 10명(10-13 결정). 인원을 바꾸면 부지·회사·네트워크·콘텐츠가 버티는지 바로 계산해. 부지 수는 부지 수급 탭, 업종 수는 회사 종류 탭 값을 써.</p>
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px">
       <div><span class="muted">서버 인원</span><div style="font-size:44px;font-weight:700;line-height:1.1" id="sNTxt">20명</div></div>
@@ -105,7 +491,7 @@ details[open] summary{margin-bottom:10px}
       <label>1인당 기준 NPC (가정)<input type="number" id="sPer" value="500"></label>
       <label>위치 동기화 횟수 (회/초, 가정)<input type="number" id="sHz" value="20"></label>
       <label>1명 상태 크기 (바이트, 가정)<input type="number" id="sBytes" value="40"></label>
-      <label>방장 업로드 속도 (Mbps, 가정)<input type="number" id="sUp" value="20"></label>
+      <label>서버 업로드 속도 (Mbps, 가정)<input type="number" id="sUp" value="20"></label>
       <label>구역(씬) 수<input type="number" id="sScenes" value="9"></label>
     </div>
     <div class="tiles" id="sTiles"></div>
@@ -113,7 +499,7 @@ details[open] summary{margin-bottom:10px}
   <div class="card"><h3>항목별 점검</h3><div class="scroll"><table id="sChecks"></table></div></div>
   <div class="card"><h3>인원 구간별 정리</h3><div class="scroll"><table id="sRanges"></table></div>
     <details><summary>구간 편집</summary><div id="edRanges"></div></details>
-    <p class="note">방장 업로드 = 인원 × (인원−1) × 동기화 횟수 × 상태 크기. 같은 구역만 동기화하면 (인원−1) 대신 (인원−1) ÷ 구역 수.</p></div>
+    <p class="note">서버 업로드 = 인원 × (인원−1) × 동기화 횟수 × 상태 크기. 같은 구역만 동기화하면 (인원−1) 대신 (인원−1) ÷ 구역 수.</p></div>
 </section>
 
 <section id="market">
@@ -292,6 +678,126 @@ details[open] summary{margin-bottom:10px}
     <div class="edbar"><button class="sm" id="bReset" type="button">기본 목록으로</button></div>
   </div>
 </section>
+
+<section id="status">
+  <h2>작업 현황</h2>
+  <p class="lead">2026-10-20 기준(6단계 이후 정리 반영). 정본은 <code>feature/multiplayer-redesign</code> 브랜치의 <code>Docs/Multiplayer_Redesign.md</code>(12장), 팀원용 규칙은 <code>Docs/Multiplayer_Coding_Rules.md</code>(「협업 규칙」 탭에 복사본). 이 탭은 요약이라 고칠 수 없고, 바뀌면 다시 배포해.</p>
+  <div class="card">
+    <h3>지금 진행 중</h3>
+    <div class="scroll"><table>
+      <tr><th>작업</th><th>상태</th><th>내용</th></tr>
+      <tr><td><b>다른 PC 시험</b></td><td><span style="color:var(--mid);white-space:nowrap">● 사용자 대기</span></td><td>최신 빌드(Windows.zip, Mac.zip)로 서버 열기·참가·채팅을 다른 PC에서 확인. 10-19 맥북 접속·관리자 명령·kick은 옛 빌드로 확인됨</td></tr>
+      <tr><td><b>도시 자동차 모델링</b></td><td><span style="color:var(--mid);white-space:nowrap">● 진행 중</span></td><td>실차 18종 패러디(로고 없음), Blender 스크립트 하나로 생성. C04 소나티네 완성·검수 대기, 4종은 게임에 이미 있음, 나머지 미착수</td></tr>
+    </table></div>
+  </div>
+  <div class="card">
+    <h3>다른 PC 시험 방법 (최신 빌드)</h3>
+    <p class="muted">배포 빌드는 두 개뿐(따로 내는 서버 묶음 없음). 프로토콜 9라서 이 두 개끼리만 접속됨. 옛 묶음(Game*.zip, Game2b2*.zip, DedicatedServer.zip, EosTest*.zip)은 지웠고 버전도 달라 접속 안 됨. 한 PC 안에서는 EOS P2P를 시험할 수 없어서(같은 Windows 사용자는 EOS 계정이 같음) 다른 PC가 꼭 필요함.</p>
+    <div class="scroll"><table>
+      <tr><th>묶음 (CompanyGame/Builds/)</th><th>용도</th></tr>
+      <tr><td><code>Windows.zip</code></td><td>Windows 게임</td></tr>
+      <tr><td><code>Mac.zip</code></td><td>macOS 게임(Universal). 맥에서도 서버 열기 가능</td></tr>
+    </table></div>
+    <h3 style="margin-top:16px">시험 1. 서버 열기와 접속</h3>
+    <div class="scroll"><table>
+      <tr><th>순서</th><th>할 일</th><th>확인할 것</th></tr>
+      <tr><td>준비</td><td>두 PC에 zip을 풂. 맥은 처음 한 번 터미널에서 묶음 폴더로 가서 <code>xattr -dr com.apple.quarantine . &amp;&amp; chmod +x CompanyGame.app/Contents/MacOS/*</code>. "손상됨"이 뜨면 <code>codesign --force --deep -s - CompanyGame.app</code>. 키체인 창이 뜨면 "항상 허용"</td><td>두 PC 다 실행됨. 방화벽 창은 "허용"</td></tr>
+      <tr><td>1</td><td>서버 여는 PC: 서버 열기 → 월드(새 월드면 이름 입력) → "공개" → 서버 시작 → 캐릭터 만들기</td><td>ESC에 서버 코드(6자)가 보임</td></tr>
+      <tr><td>2</td><td>다른 PC: 참가하기 → 공개 서버 목록에서 서버 누르기 → 캐릭터 만들기</td><td>목록에 보이고 들어가짐</td></tr>
+      <tr><td>3</td><td>양쪽에서 걸어 다니기</td><td>서로 캐릭터가 보이고 움직임이 상대 화면에도 보임</td></tr>
+      <tr><td>4</td><td>양쪽에서 Enter → 일반 채팅</td><td>상대 채팅이 내 화면에 캐릭터 이름으로 뜸</td></tr>
+      <tr><td>5</td><td>다른 PC: ESC</td><td>"연결:" 줄의 직접/중계와 왕복 ms를 메모</td></tr>
+      <tr><td>6</td><td>다른 PC: ESC → 서버 나가기 → 참가하기 → 서버 코드 입력 → 접속</td><td>코드로도 들어가짐, 캐릭터가 그대로임</td></tr>
+      <tr><td>7</td><td>서버 연 PC: 채팅 <code>/say 안녕</code>, <code>/time 21</code>, <code>/kick 이름</code></td><td>공지가 양쪽에 뜨고, 시각이 바뀌고, 상대가 내보내짐. 상대가 같은 명령을 치면 "관리자만 쓸 수 있는 명령입니다."</td></tr>
+      <tr><td>8</td><td>서버 연 PC: 게임 종료 → 다시 켜서 서버 열기로 같은 월드(이름으로 보임) 열기 → 다른 PC 재접속</td><td>게임을 끄면 서버도 꺼짐. 다시 열면 캐릭터·위치가 그대로</td></tr>
+    </table></div>
+    <h3 style="margin-top:16px">시험 2. 시민·교통·신호등이 두 PC에서 같은지 (5단계)</h3>
+    <div class="scroll"><table>
+      <tr><th>순서</th><th>할 일</th><th>확인할 것</th></tr>
+      <tr><td>1</td><td>시험 1처럼 두 PC가 같은 서버에 들어간 채로, 두 캐릭터를 같은 교차로에 세움</td><td>같은 차가 같은 자리에 보임(조금 늦게 보이는 정도는 괜찮음), 시민도 같은 자리</td></tr>
+      <tr><td>2</td><td>신호가 바뀌는 걸 한 바퀴(약 70초) 지켜봄</td><td>두 화면 신호 색이 같음. 차 초록 → 노랑 → 전체 빨강 → 보행 초록 순서</td></tr>
+      <tr><td>3</td><td>한쪽 캐릭터가 차 앞에 서 봄</td><td>그 PC에서 차가 멈췄다가, 비키면 다시 다른 PC 화면과 같은 자리로 따라붙음</td></tr>
+    </table></div>
+    <h3 style="margin-top:16px">끝나면 보낼 것</h3>
+    <div class="scroll"><table>
+      <tr><th>어디</th><th>파일</th></tr>
+      <tr><td>Windows 게임</td><td><code>%USERPROFILE%\AppData\LocalLow\DefaultCompany\CompanyGame\Player.log</code></td></tr>
+      <tr><td>Windows 서버 로그</td><td>같은 폴더의 <code>server\server.log</code>(프로필 슬롯 2~4는 <code>profile2\server\server.log</code> ~)</td></tr>
+      <tr><td>맥 게임</td><td><code>~/Library/Logs/DefaultCompany/CompanyGame/Player.log</code> (Finder에서 Cmd+Shift+G. 게임을 다시 켜기 전에 뺄 것, 바로 전 실행은 <code>Player-prev.log</code>)</td></tr>
+      <tr><td>맥 서버 로그</td><td><code>~/Library/Application Support/DefaultCompany/CompanyGame/server/server.log</code></td></tr>
+      <tr><td>메모</td><td>시험 1-5의 연결 방식·왕복 ms, 안 된 순서 번호와 그때 화면 문구</td></tr>
+    </table></div>
+  </div>
+  <div class="card">
+    <h3>멀티플레이 재설계 단계</h3>
+    <div class="tiles" style="margin-bottom:14px">
+      <div class="tile"><span>완료</span><b>13 / 14</b></div>
+      <div class="tile"><span>진행 중</span><b>다른 PC 시험</b></div>
+      <div class="tile"><span>다음</span><b>7 모바일</b></div>
+    </div>
+    <div class="scroll"><table>
+      <tr><th>단계</th><th>내용</th><th>상태</th></tr>
+      <tr><td>1</td><td>공통 동기화 계층(엔티티·상태·이벤트, 권한 규칙, 같은 맵만 동기화)</td><td style="color:var(--ok)">완료 10-13</td></tr>
+      <tr><td>2a</td><td>서버 열기 / 참가하기 (EOS 없이)</td><td style="color:var(--ok)">완료 10-13</td></tr>
+      <tr><td>2b-1</td><td>EOS 시험 (중계 경로만 미확인)</td><td style="color:var(--ok)">완료 10-13</td></tr>
+      <tr><td>3</td><td>캐릭터를 서버 월드 파일(world.dat)로, 캐릭터 시계, 혼자 하기 = 내 PC 서버</td><td style="color:var(--ok)">완료 10-13</td></tr>
+      <tr><td>4a</td><td>플레이어 아바타(외형·이름·공격·앉기·탈것·든 물건)</td><td style="color:var(--ok)">완료 10-14</td></tr>
+      <tr><td>4b</td><td>설치한 탈것·드롭 아이템(탑승 한 명, 줍기 먼저 온 사람, 06:00 분실물)</td><td style="color:var(--ok)">완료 10-14</td></tr>
+      <tr><td>-</td><td>창모드 기본값(1280×720, Alt+Enter 전체화면)</td><td style="color:var(--ok)">완료 10-14</td></tr>
+      <tr><td>4c</td><td>공유 경제 서버 판정(시계·주가·회사·소유권·땅·신고·SNS, 밤 건너뛰기 설정, 밤 활동 구조)</td><td style="color:var(--ok)">완료 10-16</td></tr>
+      <tr><td>4d-1</td><td>은행 돈·주식 서버 장부(주식 매매·땅값·쇼핑·벌금·밤 활동 돈을 서버가 판정)</td><td style="color:var(--ok)">완료 10-16</td></tr>
+      <tr><td>4d-2</td><td>책 본문 서버 별도 저장(인벤토리·저장·드롭에는 책 ID만)</td><td style="color:var(--ok)">완료 10-17</td></tr>
+      <tr><td>4d-3</td><td>인벤토리 서버 장부(NPC 가게 상품표 데이터화, 현금 입출금, 먹기, 가방)</td><td style="color:var(--ok)">완료 10-17</td></tr>
+      <tr><td>4d-4</td><td>세상과 오가는 아이템(드롭·줍기, 탈것 설치·회수, 탑승 잠금, 시작·지급 아이템)</td><td style="color:var(--ok)">완료 10-18</td></tr>
+      <tr><td>4d-5</td><td>도서관(작품·대여·연체료·벌금·인세를 서버 월드에서, 믿는 요청 삭제)</td><td style="color:var(--ok)">완료 10-19</td></tr>
+      <tr><td>4e</td><td>옛 경로 삭제(옛 방·방장 넘기기·개발용 메뉴·Steam 방)</td><td style="color:var(--ok)">완료 10-19</td></tr>
+      <tr><td>2b-2</td><td>EOS 정식 연결(공개 서버 목록, ID 토큰 검증)</td><td style="color:var(--ok)">완료 10-19 (맥북 접속 확인)</td></tr>
+      <tr><td>5</td><td>시민·교통 시간 기반 재작성</td><td style="color:var(--ok)">완료 10-19</td></tr>
+      <tr><td>6</td><td>서버 설정 파일, 관리자 명령(콘솔·채팅), 부하 테스트(50명). 따로 내는 서버 묶음은 뺌</td><td style="color:var(--ok)">완료 10-19</td></tr>
+      <tr><td>6+</td><td>배포 빌드 Windows·Mac 두 개로 정리, 화질 설정 5단계, 서버 모드 정리(혼자 하기·서버 열기, 전용 서버 버튼 숨김), 일반 채팅 서버 공유, 월드 이름</td><td style="color:var(--ok)">완료 10-19</td></tr>
+      <tr><td>7</td><td>모바일 터치 조작, 성능, 재접속</td><td class="muted">대기</td></tr>
+    </table></div>
+  </div>
+  <div class="card">
+    <h3>정해진 기획</h3>
+    <div class="scroll"><table>
+      <tr><th>항목</th><th>결정</th><th>날짜</th></tr>
+      <tr><td>서버 구조</td><td>누구나 서버를 열고 참가. 인원 상한 PC 50·모바일 10. 혼자 하기도 내 PC 서버(1명)</td><td>10-13</td></tr>
+      <tr><td>나이·수명</td><td>지금은 만들지 않음(캐릭터 시계만 저장)</td><td>10-13</td></tr>
+      <tr><td>비운 동안 정산</td><td>월세·이자·세금은 게임 7일 상한까지 받음</td><td>10-13</td></tr>
+      <tr><td>오프라인 캐릭터</td><td>접속을 끊으면 사라짐</td><td>10-13</td></tr>
+      <tr><td>캐릭터 이름</td><td>같은 월드 안에서 중복 막음</td><td>10-13</td></tr>
+      <tr><td>버린 아이템</td><td>다음 06:00에 분실물 목록으로, 7일 뒤 삭제, 누구나 찾아감</td><td>10-14</td></tr>
+      <tr><td>밤 건너뛰기</td><td>기본 00~06시 건너뜀, 서버 주인이 바꿀 수 있음(시작=끝이면 24시간)</td><td>10-16</td></tr>
+      <tr><td>밤 활동</td><td>잠자기·야간 알바·놀러 가기·살인 청부(해금 시). 지금은 항상 잠자기, 수치와 화면은 나중에</td><td>10-16</td></tr>
+      <tr><td>SNS·신고</td><td>참가자 화면에는 최근 100개만, 서버는 전부 보관</td><td>10-16</td></tr>
+      <tr><td>예전 서버 월드</td><td>4c 전에 만든 월드는 공유 경제를 새로 시작(PC 월드는 옮기지 않음)</td><td>10-16</td></tr>
+      <tr><td>개인 경제 반응</td><td>클라이언트가 먼저 적용하고 서버 장부로 덮어씀(지연 없음). 기존 캐릭터는 마지막 저장값을 장부 시작값으로 인정</td><td>10-16</td></tr>
+      <tr><td>Steam 모드</td><td>4e에서 지움. Steam판을 낼 때 새 서버용 Steam 통로로 다시 붙임</td><td>10-19</td></tr>
+      <tr><td>EOS 계정 전환</td><td>옛 계정 캐릭터는 옮기지 않음(테스트 데이터). EOS로 처음 들어오면 새 캐릭터</td><td>10-19</td></tr>
+      <tr><td>신호등</td><td>차 신호와 보행 신호는 안 겹침. 방향마다 초록 12초→노랑 3초→전체 빨강 2초→보행 초록 16초→전체 빨강 2초(한 바퀴 70초). 꼬리물기 금지</td><td>10-19</td></tr>
+      <tr><td>계정 로그인</td><td>아이디·비밀번호 로그인은 게임에서만 지움. Server/ 코드는 저장소에 남김</td><td>10-19</td></tr>
+      <tr><td>배포 빌드</td><td>Windows·Mac 게임 빌드 두 개뿐. 따로 내는 서버 묶음·StartServer.bat 없음</td><td>10-19</td></tr>
+      <tr><td>서버 모드</td><td>혼자 하기 / 서버 열기(게임을 끄면 저장하고 서버도 꺼짐) / 참가하기. 전용 서버(게임을 꺼도 PC가 켜진 동안 계속, Windows·macOS·Linux)는 만들어 뒀지만 메뉴에서 숨김</td><td>10-19</td></tr>
+      <tr><td>관리자</td><td>서버 연 사람은 자동 관리자, 게임 채팅의 <code>/명령</code>(kick·ban·say·time·save·stop 등)</td><td>10-19</td></tr>
+      <tr><td>채팅</td><td>일반 채팅은 서버를 거쳐 그 서버의 모두에게. 이름은 서버가 아는 캐릭터 이름, 한 줄 200자</td><td>10-19</td></tr>
+      <tr><td>월드 이름</td><td>새 월드를 만들 때 이름(20자까지)을 정하고 목록에 그 이름으로 보임. 예전 월드는 만든 날짜로</td><td>10-19</td></tr>
+      <tr><td>화질</td><td>설정·ESC에서 최저사양~최고사양 5단계, 바로 적용. 처음엔 그래픽 메모리로 자동 선택</td><td>10-19</td></tr>
+    </table></div>
+  </div>
+  <div class="card">
+    <h3>보류·확인 필요</h3>
+    <div class="scroll"><table>
+      <tr><th>항목</th><th>내용</th></tr>
+      <tr><td>브랜치</td><td>멀티 작업 전부는 <code>feature/multiplayer-redesign</code>(origin에 있음). Dev(a3530be)·main에는 안 들어감. Dev에 합치는 건 사용자가 정할 때</td></tr>
+      <tr><td>전용 서버 + 서버 열기 동시에</td><td>한 PC에서 둘을 같이 열려면 설정 파일·포트·EOS 통로를 서버마다 나눠야 함(같은 EOS 계정이라 접속이 어느 서버로 갈지 정해지지 않음). 필요하면 작업</td></tr>
+      <tr><td>맥 전용 서버</td><td>코드는 있으나 맥에서 직접 확인 못 함(버튼도 숨김 상태)</td></tr>
+      <tr><td>월드 이름 바꾸기</td><td>이름 바꾸는 화면은 아직 없음</td></tr>
+      <tr><td>Worker 배포</td><td>4e에서 Worker 코드의 방 기능을 지움(배포 안 함, Lobby 삭제 migration 포함). 배포는 요청할 때</td></tr>
+      <tr><td>맥 서명</td><td>정식 서명·공증은 Apple Developer Program(연 99달러) 필요. 지금은 임시 서명이라 새 빌드마다 키체인 허용을 다시 물을 수 있음</td></tr>
+    </table></div>
+  </div>
+</section>
 </main>
 
 <script>
@@ -329,11 +835,11 @@ const DEFAULTS = {
     { name: '한대건설', ind: '건설', size: '대기업', price: 0, shares: 0 }, { name: '하이진로', ind: '주류', size: '-', price: 0, shares: 0 },
   ],
   ranges: [
-    { label: '1명', n: 1, note: '솔로 모드. 거래·범죄·경쟁·주식 체결을 NPC로 대체해야 함.' },
+    { label: '1명', n: 1, note: '혼자 하기 = 내 PC 서버(1명). 거래·범죄·경쟁·주식 체결을 NPC로 대체해야 함.' },
     { label: '2~9명', n: 5, note: '업종 대부분이 비어 있음. NPC 호가·NPC 좋아요 필요. 시상식 의미 약함.' },
-    { label: '10~20명 (기획 기준)', n: 15, note: '방장 호스트로 충분. 15명부터 모두 최대치로 사면 기존 빈부지가 모자람.' },
+    { label: '10~20명 (기획 기준)', n: 15, note: 'PC·모바일 서버 모두 가능(모바일은 10명까지). 15명부터 모두 최대치로 사면 기존 빈부지가 모자람.' },
     { label: '21~50명', n: 35, note: '구역별 동기화 필수, 신규 지역 여러 곳, 업종 경쟁 과열.' },
-    { label: '51~100명', n: 80, note: '전용 서버 필요, 부지·업종 수를 기획부터 늘려야 함.' },
+    { label: '51~100명', n: 80, note: '정한 상한(PC 50)을 넘음. 부하 테스트(6단계) 뒤에 정함. 부지·업종 수도 늘려야 함.' },
   ],
   capture: [{ val: 0, rate: 0 }, { val: 50, rate: 10 }, { val: 100, rate: 20 }, { val: 300, rate: 45 }, { val: 500, rate: 65 }, { val: 700, rate: 80 }, { val: 1000, rate: 90 }],
   companies: [{ name: 'A기업', val: 500, price: 5000, cost: 3000 }, { name: 'B기업', val: 300, price: 5000, cost: 3000 }],
@@ -451,6 +957,8 @@ TV: 유리 + 플라스틱 + 금속 + 전자부품
     ['hitman-exposure', '수치 없음', '살인청부 성공 시 노출도 증가량'],
     ['server-size', '규칙 없음', '서버 인원 상한과 1인 플레이 지원 여부 → 서버 인원 탭'],
     ['net-host', '규칙 없음', '방장 호스트 vs 전용 서버, 구역(씬)별 관심 영역 동기화'],
+    ['night-skip', '규칙 없음', '밤 건너뛰기 구간과 바꾸는 사람'],
+    ['night-activity', '수치 없음', '밤 활동(잠자기·야간 알바·놀러 가기·살인 청부)의 효과 수치와 고르는 화면'],
     ['stock-npc', '규칙 없음', '인원이 적을 때 주식 NPC 호가(시장 조성자)'],
     ['insta-npc-like', '규칙 없음', 'NPC도 인스타 좋아요를 누르는지'],
     ['company-products', '수치 없음', '방산·농업용품·낚시용품·자동차·제약 상품 목록과 조합법 → 회사 종류 탭'],
@@ -469,7 +977,7 @@ function save() {
   clearTimeout(saveTimer); $('gStatus').textContent = '저장 중…';
   saveTimer = setTimeout(async () => {
     try {
-      const r = await fetch('/api/state', { method: 'PUT', body: JSON.stringify({ v: 3, data: DATA, params: PARAMS }) });
+      const r = await fetch('/api/state', { method: 'PUT', body: JSON.stringify({ v: 3, mig: MIG, data: DATA, params: PARAMS }) });
       $('gStatus').textContent = r.ok ? '팀 공용으로 저장됨 · ' + new Date().toLocaleTimeString('ko-KR') : '저장 실패 (' + r.status + ')';
     } catch { $('gStatus').textContent = '저장 실패 — 네트워크 확인'; }
   }, 600);
@@ -513,13 +1021,25 @@ function changed(key, structural) {
 }
 
 /* ================= 탭 ================= */
-const tabs = document.querySelectorAll('nav button');
+const tabs = document.querySelectorAll('nav.subs button'), groups = document.querySelectorAll('nav.groups button');
+const lastInGroup = {};
 function showTab(t) {
-  tabs.forEach(b => b.setAttribute('aria-selected', b.dataset.t === t));
+  const g = document.querySelector(`nav.subs [data-t="${t}"]`).dataset.g;
+  lastInGroup[g] = t;
+  groups.forEach(b => b.setAttribute('aria-selected', b.dataset.g === g));
+  tabs.forEach(b => { b.hidden = b.dataset.g !== g; b.setAttribute('aria-selected', b.dataset.t === t); });
+  document.querySelector('nav.subs').classList.toggle('one', [...tabs].filter(b => !b.hidden).length < 2);
   document.querySelectorAll('section').forEach(s => s.classList.toggle('on', s.id === t));
   try { localStorage.setItem('tab', t); } catch {}
 }
 tabs.forEach(b => b.onclick = () => showTab(b.dataset.t));
+groups.forEach(b => b.onclick = () => showTab(lastInGroup[b.dataset.g] || document.querySelector(`nav.subs [data-g="${b.dataset.g}"]`).dataset.t));
+// 규칙 문서 목차: 각 h2로 바로 가기
+document.querySelectorAll('.doc').forEach((d, n) => {
+  const toc = d.parentNode.querySelector('.toc'); if (toc) toc.innerHTML = [...d.querySelectorAll('h2')].map((h, i) => {
+    h.id = `d${n}-${i}`; return `<a href="#${h.id}">${esc(h.textContent)}</a>`;
+  }).join('');
+});
 
 /* ================= 회사 종류 ================= */
 editor('edTypes', 'types', [
@@ -736,8 +1256,8 @@ function serverChecks(n) {
   const up = v('sUp'), full = mbps(false), aoi = mbps(true), inds = marketTypes().length || 1, perInd = n / inds;
   const L = lottoStats(), st = (ok, warn) => ok ? 'ok' : warn ? 'warn' : 'bad';
   return [
-    ['네트워크 (방장 업로드)', st(full <= up * .5, aoi <= up * .5), `전체 동기화 ${full.toFixed(1)} Mbps · 같은 구역만 ${aoi.toFixed(1)} Mbps`, full > up * .5 ? (aoi <= up * .5 ? '구역(씬)별 관심 영역 동기화를 넣어야 해.' : '방장 PC로는 무리. 전용 서버가 필요해.') : '방장 호스트로 충분해.', full],
-    ['방장 의존', st(n <= 20, n <= 40), n === 1 ? '혼자' : `방장 1명이 ${n - 1}명 상태·저장 처리`, '방장이 나가면 서버가 멈춰. 인원이 많을수록 방장 이전·전용 서버를 정해야 해.'],
+    ['네트워크 (서버 업로드)', st(aoi <= up * .5, aoi <= up), `전체 동기화 ${full.toFixed(1)} Mbps · 같은 맵만 ${aoi.toFixed(1)} Mbps`, aoi > up * .5 ? '같은 맵만 보내도 빠듯해. 서버를 회선 좋은 PC에서 돌려야 해.' : '같은 맵만 보내는 동기화(1단계에 들어감)로 충분해.', aoi],
+    ['인원 상한', st(n <= 10, n <= 50), n === 1 ? '혼자 (내 PC 서버)' : `서버 1개가 ${n}명 상태·저장 처리`, n > 50 ? '정한 상한(PC 50)을 넘어. 올리려면 부하 테스트(6단계)가 필요해.' : n > 10 ? '모바일 서버는 10명까지라 PC 서버만 가능해.' : 'PC·모바일 서버 모두 가능해. 앱 안 서버는 주인이 나가면 저장하고 멈춰.'],
     ['부지', st(n * perPlayer <= supply, n * perPlayer * ratio <= supply), `최대 ${n * perPlayer}개 · 예상 ${Math.round(n * perPlayer * ratio)}개 / 공급 ${supply}개`, n * perPlayer > supply ? `모두 최대치로 사면 신규 지역 ${Math.ceil((n * perPlayer - supply) / (v('dNew') || 1))}곳 필요 (시청 확장 신청).` : '여유 있어.'],
     ['회사 경쟁', st(perInd >= 1 && perInd <= 3, perInd < 1 || perInd <= 6), `시장 계산 업종 ${inds}개 · 업종당 ${perInd.toFixed(1)}개 회사`, perInd < 1 ? '비어 있는 업종이 많아 서버 정보에 빨간 글씨가 많아져.' : perInd > 3 ? '한 업종에 회사가 몰려 확보율 겹침이 커. 업종이나 NPC 인구를 늘려야 해.' : '적당해.'],
     ['NPC 인구', 'ok', `${num(n * v('sPer'))}명`, '수요 계산은 숫자라 부담이 없지만, 화면을 걸어다니는 NPC 수는 따로 상한을 정해야 해.'],
@@ -746,7 +1266,7 @@ function serverChecks(n) {
     ['성향·서버 이름', st(n >= 5, n >= 2), `성향 16종 중 최대 ${Math.min(n, 16)}종`, n < 5 ? '동률이 잦아 가나다순으로 이름이 정해지는 경우가 많아.' : '정상.'],
     ['시상식', st(n >= 15, true), `부문당 경쟁자 ${n}명`, n <= 5 ? '모든 사람이 상을 받을 수 있어 의미가 약해.' : n < 15 ? '같은 사람이 여러 상을 휩쓸 수 있어. 중복 수상 제한을 정할지.' : '정상.'],
     ['인스타 인지도', st(n >= 15, true), `게시물 1개 최대 좋아요 ${Math.max(n - 1, 0)}개`, '좋아요를 플레이어만 누르면 인원이 적을수록 인지도가 거의 안 올라. NPC 좋아요를 넣을지 정해야 해.'],
-    ['구역(씬) 분산', st(n / scenes >= .5 && n / scenes <= 6, true), `구역당 평균 ${(n / scenes).toFixed(1)}명`, n / scenes < .5 ? '대부분 구역이 비어 있어 도시가 썰렁해.' : n / scenes > 6 ? '방장이 모든 씬을 동시에 돌려야 해서 부하가 커.' : '적당해.'],
+    ['구역(씬) 분산', st(n / scenes >= .5 && n / scenes <= 6, true), `구역당 평균 ${(n / scenes).toFixed(1)}명`, n / scenes < .5 ? '대부분 구역이 비어 있어 도시가 썰렁해.' : n / scenes > 6 ? '서버가 모든 맵을 동시에 관리해서 부하가 커.' : '적당해.'],
     ['로또 돈 풀림 (인원 무관)', L.ev > L.price ? 'bad' : 'ok', `주당 최대 ${won(n * v('lMax') * (L.ev - L.price))}`, L.ev > L.price ? '살수록 이득이라 인원에 비례해 돈이 풀려. 상금표부터 고쳐야 해.' : '정상.'],
   ];
 }
@@ -756,7 +1276,7 @@ function calcServer() {
   $('sNTxt').textContent = n + '명';
   const vd = core.some(c => c[1] === 'bad') ? ['현재 구조로 어려움', 'var(--warn)'] : core.some(c => c[1] === 'warn') ? ['조건부 가능', 'var(--mid)'] : ['가능', 'var(--ok)'];
   $('sVerdict').innerHTML = `<span style="color:${vd[1]}">${vd[0]}</span>`;
-  $('sTiles').innerHTML = [['NPC 인구', num(n * v('sPer')) + '명'], ['최대 부지 수요', n * v('dMax') + '개'], ['최대 회사 수', n + '개'], ['방장 업로드', checks[0][4].toFixed(1) + ' Mbps']].map(([a, b]) => `<div class="tile"><span>${a}</span><b>${b}</b></div>`).join('');
+  $('sTiles').innerHTML = [['NPC 인구', num(n * v('sPer')) + '명'], ['최대 부지 수요', n * v('dMax') + '개'], ['최대 회사 수', n + '개'], ['서버 업로드', checks[0][4].toFixed(1) + ' Mbps']].map(([a, b]) => `<div class="tile"><span>${a}</span><b>${b}</b></div>`).join('');
   $('sChecks').innerHTML = '<tr><th>항목</th><th>판정</th><th>계산</th><th>고려할 점</th></tr>' + checks.map(([name, s, val, note]) =>
     `<tr><td><b>${name}</b></td><td style="color:${MARK[s][1]};white-space:nowrap">● ${MARK[s][0]}</td><td>${val}</td><td class="muted">${note}</td></tr>`).join('');
   $('sRanges').innerHTML = '<tr><th>구간</th><th>판정 (대표 인원)</th><th>걸리는 항목</th><th>요약</th></tr>' + DATA.ranges.map(r => {
@@ -799,6 +1319,26 @@ $('bAdd').onclick = () => {
 $('bReset').onclick = () => { if (confirm('보드를 기본 목록으로 되돌릴까? 추가한 항목과 메모가 사라지고 팀 전체에 적용돼.')) { DATA.issues = clone(DEFAULTS.issues); drawBoard(); save(); } };
 EDITORS.issues = drawBoard;
 
+/* ================= 저장본 고치기 (결정된 내용을 한 번만 반영, 팀이 쓴 메모는 유지) ================= */
+const MIG = 1;
+const MIG_RANGES = {"솔로 모드. 거래·범죄·경쟁·주식 체결을 NPC로 대체해야 함.": "혼자 하기 = 내 PC 서버(1명). 거래·범죄·경쟁·주식 체결을 NPC로 대체해야 함.", "방장 호스트로 충분. 15명부터 모두 최대치로 사면 기존 빈부지가 모자람.": "PC·모바일 서버 모두 가능(모바일은 10명까지). 15명부터 모두 최대치로 사면 기존 빈부지가 모자람.", "전용 서버 필요, 부지·업종 수를 기획부터 늘려야 함.": "정한 상한(PC 50)을 넘음. 부하 테스트(6단계) 뒤에 정함. 부지·업종 수도 늘려야 함."};
+const MIG_ISSUES = {
+  'server-size': [2, '서버 열기/참가 방식. 인원 상한 PC 50·모바일 10, 혼자 하기 = 내 PC 서버(1명) (2026-10-13)'],
+  'net-host': [2, '방장 호스트 대신 서버가 판정: 앱 안 서버 또는 서버 프로그램. 같은 맵만 동기화 (2026-10-13)'],
+  'night-skip': [2, '기본 00~06시 건너뜀, 서버 주인이 바꿀 수 있음. 시작=끝이면 24시간 (2026-10-16)'],
+  'night-activity': [1, '구조만 4c에 구현, 지금은 항상 잠자기. 임시 수치: 야간 알바 기력 -40·+5만원, 놀러 가기 기력 -30·스트레스 -40·-3만원. 살인 청부는 해금 이벤트 기획 때'],
+};
+function migrate(d, from) {
+  if (from >= MIG) return false;
+  d.ranges.forEach(r => { if (MIG_RANGES[r.note]) r.note = MIG_RANGES[r.note]; });
+  for (const [id, [st, memo]] of Object.entries(MIG_ISSUES)) {
+    let it = d.issues.find(i => i.id === id);
+    if (!it) d.issues.push(it = clone(DEFAULTS.issues.find(i => i.id === id)));
+    if (!it.memo) { it.s = st; it.memo = memo; }
+  }
+  return true;
+}
+
 /* ================= 입력값 저장 + 전체 재계산 ================= */
 const paramInputs = [...document.querySelectorAll('section input[id], section select[id]')].filter(el => !el.hasAttribute('data-nosave') && !['rIng', 'rText'].includes(el.id));
 paramInputs.forEach(el => el.addEventListener('input', () => { PARAMS[el.id] = el.value; recalc(); save(); }));
@@ -814,7 +1354,7 @@ function renderAll() {
 }
 
 let savedTab; try { savedTab = localStorage.getItem('tab'); } catch {}
-showTab($(savedTab) && document.querySelector(`nav [data-t="${savedTab}"]`) ? savedTab : 'types');
+showTab($(savedTab) && document.querySelector(`nav.subs [data-t="${savedTab}"]`) ? savedTab : 'status');
 renderAll();
 fetch('/api/state').then(r => r.ok ? r.json() : {}).then(s => {
   if (s && s.v === 3) {
@@ -822,7 +1362,9 @@ fetch('/api/state').then(r => r.ok ? r.json() : {}).then(s => {
     DATA = { ...clone(DEFAULTS), ...s.data, recipes: { ...clone(DEFAULTS.recipes), ...(s.data || {}).recipes } };
     PARAMS = s.params || {};
   }
+  const migrated = !!(s && s.v === 3) && migrate(DATA, s.mig || 0);
   renderAll(); $('gStatus').textContent = '팀 공용 저장본 불러옴';
+  if (migrated) save();
 }).catch(() => { $('gStatus').textContent = '서버 연결 실패 — 변경 내용이 저장되지 않아.'; });
 </script>
 </body>
