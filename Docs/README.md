@@ -1,5 +1,7 @@
 # 문서 목록
 
+규칙 문서(Git_Collaboration, Multiplayer_Coding_Rules, `ArtSource/AGENTS.md`)는 팀원용 복사본이 어드민 페이지 「협업 규칙」 탭에 있습니다. 정본은 여기 md이고, 고치면 어드민 복사본도 다시 복사해 배포합니다.
+
 | 문서 | 내용 |
 | --- | --- |
 | [Architecture.md](Architecture.md) | 프로젝트 구조: 폴더·어셈블리, 실행 중 구성, 돈, 멀티 방향 |

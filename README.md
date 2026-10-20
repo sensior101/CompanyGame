@@ -47,4 +47,3 @@
 ## 협업
 
 브랜치·커밋·씬 작업 규칙은 [Docs/Git_Collaboration.md](Docs/Git_Collaboration.md)를 따릅니다.
-한 씬은 한 번에 한 명만 수정하고, 자주 바뀌는 부분은 프리팹으로 빼서 작업합니다.
