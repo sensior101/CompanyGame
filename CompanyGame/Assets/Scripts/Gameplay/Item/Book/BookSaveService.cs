@@ -3,7 +3,10 @@ using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 
-/// <summary>Persists authored books without changing the existing session-only rules for other items.</summary>
+/// <summary>
+/// Persists authored books without changing the existing session-only rules for other items. This PC's books.json is
+/// neither read nor written while the character or the world is a sync-layer server's (12.10.3): the server keeps them.
+/// </summary>
 public static class BookSaveService
 {
     [Serializable]
@@ -31,6 +34,8 @@ public static class BookSaveService
     static SaveFile current;
     static string lastSavedJson;
     static string PathName => Path.Combine(Application.persistentDataPath, "books.json");
+
+    static bool OnServer => WorldSaveRunner.OnServer?.Invoke() == true || WorldSaveRunner.WorldOnServer?.Invoke() == true;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     static void ResetCache() { current = null; lastSavedJson = null; }
@@ -61,7 +66,7 @@ public static class BookSaveService
 
     public static void RestoreInventory(InventoryState inventory)
     {
-        if (inventory == null) return;
+        if (inventory == null || OnServer) return;
         var item = Resources.Load<ItemData>("Inventory/Books/BlankBook");
         if (!item || !item.IsBook) { Debug.LogWarning("[Book] BlankBook item asset is missing."); return; }
         if (Current.inventory.Exists(saved => saved != null && saved.slot >= InventoryState.BaseCapacity) &&
@@ -111,7 +116,7 @@ public static class BookSaveService
 
     public static void SaveInventory(InventoryState inventory)
     {
-        if (inventory == null) return;
+        if (inventory == null || OnServer) return;
         var entries = new List<SavedBook>();
         for (int i = 0; i < inventory.Capacity; i++)
         {
@@ -132,7 +137,7 @@ public static class BookSaveService
 
     public static void SaveWorldDrop(string dropId, string scenePath, Vector3 position, ItemStack stack)
     {
-        if (stack == null || stack.IsEmpty || !stack.Item.IsBook) return;
+        if (stack == null || stack.IsEmpty || !stack.Item.IsBook || OnServer) return;
         Current.drops.RemoveAll(x => x.dropId == dropId);
         Current.drops.Add(new SavedBook
         {
@@ -145,7 +150,7 @@ public static class BookSaveService
 
     public static void RemoveWorldDrop(string dropId)
     {
-        if (Current.drops.RemoveAll(x => x.dropId == dropId) > 0) Write();
+        if (!OnServer && Current.drops.RemoveAll(x => x.dropId == dropId) > 0) Write();
     }
 
     static void Write()

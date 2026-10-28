@@ -17,7 +17,6 @@ public sealed class PropertyUseController : MonoBehaviour
 
     const float HoldSeconds = 5f;
     const float GaugeDelay = .25f;
-    const string StartingDeedPrefix = "goshiwon_";
 
     State state;
     float held;
@@ -73,28 +72,16 @@ public sealed class PropertyUseController : MonoBehaviour
     }
 
     // Once per session; waits (retrying each frame) until the inventory exists.
+    // On a sync-layer server the server gives it as the character enters (12.10.5), never this client.
     void GrantStartingDeed(PropertyRegistry registry)
     {
         var inventory = InventoryManager.Instance ? InventoryManager.Instance.State : null;
-        if (startingDeedDone || inventory == null || Time.unscaledTime < nextGrantTime) return;
-        for (int i = 0; i < inventory.Capacity; i++)
-        {
-            var stack = inventory.GetSlot(i);
-            if (stack != null && !stack.IsEmpty && IsStartingDeed(stack.Item)) { startingDeedDone = true; return; }
-        }
+        if (startingDeedDone || inventory == null || Time.unscaledTime < nextGrantTime || InventoryLedgerRules.OnServer) return;
         startingDeedDone = true;
-        var deeds = new List<ItemData>(Resources.LoadAll<ItemData>("Inventory/Deeds"));
-        deeds.Sort((a, b) => string.CompareOrdinal(a.itemId, b.itemId));
-        foreach (var deed in deeds)
-            if (IsStartingDeed(deed) && registry.GetOwner(deed.propertyId) == null)
-            {
-                if (!inventory.TryAdd(deed, 1, out _)) { startingDeedDone = false; nextGrantTime = Time.unscaledTime + 1f; }
-                return;
-            }
+        if (InventoryLedgerRules.HasStartingDeed(inventory)) return;
+        var deed = InventoryLedgerRules.NextStartingDeed(d => registry.GetOwner(d.propertyId) == null);
+        if (deed && !inventory.TryAdd(deed, 1, out _)) { startingDeedDone = false; nextGrantTime = Time.unscaledTime + 1f; }
     }
-
-    static bool IsStartingDeed(ItemData item) =>
-        item && item.IsDeed && item.propertyId.StartsWith(StartingDeedPrefix, StringComparison.Ordinal);
 
     void UpdateDeed(PropertyRegistry registry)
     {
@@ -125,7 +112,7 @@ public sealed class PropertyUseController : MonoBehaviour
         if (owner == me) { state = State.Holding; heldDeed = deed; heldOwnershipKey = key; held = 0f; return; }
         state = State.WaitRelease;
         if (owner != null) Say(label + "은(는) 이미 다른 플레이어(" + NoParse(owner) + ")가 소유하고 있습니다.");
-        else if (registry.TryRegister(key, me)) Say(label + "의 소유권을 등록했습니다.");
+        else if (registry.TryRegister(key, me)) Say(SharedWriteGate.InRoom ? "처리 중…" : label + "의 소유권을 등록했습니다.");
     }
 
     void Hold(PropertyRegistry registry, ItemData deed, string key)
@@ -135,7 +122,7 @@ public sealed class PropertyUseController : MonoBehaviour
         if (held >= HoldSeconds)
         {
             if (registry.TryAbandon(key, GameSession.LocalPlayerName))
-                Say(deed.propertyName + "의 소유권을 포기했습니다.");
+                Say(SharedWriteGate.InRoom ? "처리 중…" : deed.propertyName + "의 소유권을 포기했습니다.");
             state = State.WaitRelease;
             HideGauge();
         }

@@ -77,7 +77,16 @@ public partial class TradeSession
                 yield return new ItemStack(session.CursorItem, session.CursorCount)
                     { InstanceId = session.CursorInstanceId, BookData = session.CursorBookData?.Clone() };
     }
+    /// <summary>True while a cursor of <paramref name="inventory"/> holds items outside it (its layout is not whole).</summary>
+    public static bool Holding(InventoryState inventory)
+    {
+        foreach (var session in pending)
+            if (ReferenceEquals(session.Inventory, inventory) && session.HasCursorItem) return true;
+        return false;
+    }
     public InventoryState Inventory { get; }
+    /// <summary>The TradeCatalog shop of these offers (12.10.4): a trade with it is sent to a sync-layer server as p.trade.</summary>
+    public string ShopId { get; set; }
     public TradeOffer[] Offers { get; private set; }
     readonly Func<TradeOffer[]> offerProvider;
     TradeOffer cursorTrade;
@@ -122,7 +131,7 @@ public partial class TradeSession
     {
         error=null;
         var stack=Inventory.GetSlot(source);
-        if(!GameSession.IsAuthority || Offers.Length!=0 || offerProvider!=null || filter==null ||
+        if(Offers.Length!=0 || offerProvider!=null || filter==null ||
             stack==null || stack.IsEmpty || !filter(stack))
         { error="전달할 수 없는 아이템입니다.";return false; }
         return PickUp(source,out error,true,true);
@@ -146,7 +155,6 @@ public partial class TradeSession
     public bool TryTakeOffer(int offer,out string error)
     {
         error=null;
-        if(!GameSession.IsAuthority){error="거래는 호스트의 승인이 필요합니다.";return false;}
         if(!HasOffer(offer)){error="거래할 항목을 확인해 주세요.";return false;}
         var trade=Offers[offer];var received=trade.get.Resolve();
         if (!IsOfferAvailable(offer)) { error="지금은 거래할 수 없는 아이템입니다."; return false; }
@@ -187,7 +195,6 @@ public partial class TradeSession
     public bool TryPlace(int destination,out string error)
     {
         error=null;if(!CursorItem){error="커서에 아이템이 없습니다.";return false;}
-        if(HasExchanged && !GameSession.IsAuthority){error="거래는 호스트의 승인이 필요합니다.";return false;}
         if (cursorTrade?.fulfillment != null)
         {
             if (!cursorTrade.fulfillment.CanTake(out error)) return false;
@@ -202,7 +209,7 @@ public partial class TradeSession
         }
         var draft=Inventory.Copy();
         if(!draft.TryPlaceStack(destination,HeldStack,true,out int amount,out error))return false;
-        var committedOffer=cursorTrade;int committedCount=cursorTradeCount;
+        var committedOffer=cursorTrade;int committedCount=cursorTradeCount;string committedId=CursorInstanceId;
         CursorCount-=amount;
         if(CursorCount==0)ClearCursor();
         else
@@ -212,7 +219,16 @@ public partial class TradeSession
             originalInstanceId=CursorInstanceId;originalBookData=CursorBookData?.Clone();
             cursorTrade=null;cursorTradeCount=0;
         }
-        Inventory.ReplaceWith(draft);Inventory.NotifyChanged();NotifyCashTrade(committedOffer,committedCount);return true;
+        Inventory.ReplaceWith(draft);Inventory.NotifyChanged();NotifyCashTrade(committedOffer,committedCount);
+        // Placing even part of it settles every exchange made on the cursor (the rest stays mine on the cursor).
+        if(committedOffer!=null)SendTrade(new[]{(IndexOfOffer(committedOffer),committedCount)},committedId);
+        return true;
+    }
+    // p.trade (12.10.4), after the trade was made here: the server makes it on its ledger with its own catalog.
+    void SendTrade((int offer,int count)[] lines,string uniqueId)
+    {
+        if(string.IsNullOrEmpty(ShopId))return;
+        InventoryLedgerRules.Send(Inventory,"p.trade",new SharedOpArgs{b=ShopId,a=InventoryLedgerRules.Lines(lines),c=uniqueId??""});
     }
     public bool TryCancel(out string error)
     {
@@ -251,7 +267,7 @@ public partial class TradeSession
         CashService.NotifyTransaction(Inventory,delta,delta<0?MoneyChangeReason.Purchase:MoneyChangeReason.Sale,
             itemName+(delta<0?" 구매":" 판매"));
     }
-    static bool TryPay(InventoryState inventory, TradeItem payment, out int firstSlot, out ItemStack firstPaid, out string error)
+    internal static bool TryPay(InventoryState inventory, TradeItem payment, out int firstSlot, out ItemStack firstPaid, out string error)
     {
         error=null;firstSlot=-1;firstPaid=null;if(payment.IsFree)return true;
         if(!payment.item || payment.item.IsCurrency)

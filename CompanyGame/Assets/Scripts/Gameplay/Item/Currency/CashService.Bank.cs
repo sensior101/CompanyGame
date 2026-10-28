@@ -49,26 +49,15 @@ public static partial class CashService
                 out error);
         }
 
-        if (faceValue < MinimumFaceValue ||
-            quantity <= 0)
+        if (!PlanWithdraw(
+                inventory,
+                faceValue,
+                quantity,
+                out InventoryState draft,
+                out long total,
+                out error))
         {
-            return Fail(
-                "한 장의 금액은 0원 이상, 장수는 1 이상으로 입력해 주세요.",
-                out error);
-        }
-
-        long total;
-
-        try
-        {
-            total =
-                checked(faceValue * quantity);
-        }
-        catch (OverflowException)
-        {
-            return Fail(
-                "출금 금액이 처리 가능한 범위를 초과합니다.",
-                out error);
+            return false;
         }
 
         if (total > 0 && !bank.CanAfford(total))
@@ -82,17 +71,6 @@ public static partial class CashService
 
         try
         {
-            InventoryState draft =
-                inventory.Copy();
-
-            if (!draft.TryAdd(
-                    GetCurrency(faceValue),
-                    quantity,
-                    out error))
-            {
-                return false;
-            }
-
             if (total > 0 && !bank.TryDebitSilently(total))
             {
                 return Fail(
@@ -104,6 +82,8 @@ public static partial class CashService
 
             if (total > 0) bank.NotifyWithdrawal(total);
             inventory.NotifyChanged();
+            if (bank == BankManager.Instance)
+                InventoryLedgerRules.Send(inventory, "p.cash.withdraw", new SharedOpArgs { n = faceValue, a = quantity.ToString(System.Globalization.CultureInfo.InvariantCulture) });
 
             return true;
         }
@@ -194,13 +174,13 @@ public static partial class CashService
         if (quantity <= 0 || quantity > stack.Count)
             return Fail("입금할 화폐 수량을 확인해 주세요.", out error);
 
-        long total;
+        long total, faceValue = stack.Item.CurrencyValue;
 
         try
         {
             total =
                 checked(
-                    stack.Item.CurrencyValue *
+                    faceValue *
                     quantity);
         }
         catch (OverflowException)
@@ -236,6 +216,8 @@ public static partial class CashService
 
             if (total > 0) bank.NotifyDeposit(total);
             inventory.NotifyChanged();
+            if (bank == BankManager.Instance)
+                InventoryLedgerRules.Send(inventory, "p.cash.deposit", new SharedOpArgs { n = faceValue, a = quantity.ToString(System.Globalization.CultureInfo.InvariantCulture) });
 
             return true;
         }
@@ -243,5 +225,102 @@ public static partial class CashService
         {
             transactionInProgress = false;
         }
+    }
+
+    // Checks a withdrawal and adds the notes to a copy (the bank is not touched).
+    static bool PlanWithdraw(
+        InventoryState inventory,
+        long faceValue,
+        int quantity,
+        out InventoryState draft,
+        out long total,
+        out string error)
+    {
+        draft = null;
+        total = 0;
+        error = null;
+
+        if (inventory == null)
+        {
+            return Fail(
+                "지갑 또는 인벤토리를 찾을 수 없습니다.",
+                out error);
+        }
+
+        if (faceValue < MinimumFaceValue ||
+            quantity <= 0)
+        {
+            return Fail(
+                "한 장의 금액은 0원 이상, 장수는 1 이상으로 입력해 주세요.",
+                out error);
+        }
+
+        try
+        {
+            total =
+                checked(faceValue * quantity);
+        }
+        catch (OverflowException)
+        {
+            return Fail(
+                "출금 금액이 처리 가능한 범위를 초과합니다.",
+                out error);
+        }
+
+        draft = inventory.Copy();
+        return draft.TryAdd(
+            GetCurrency(faceValue),
+            quantity,
+            out error);
+    }
+
+    /// <summary>
+    /// The server's ledger (12.10.4): a withdrawal on a wallet and an inventory of its own.
+    /// No screen manager, lock or event: the owner of an in-app server plays in this process.
+    /// </summary>
+    public static bool LedgerWithdraw(
+        IWallet wallet,
+        InventoryState inventory,
+        long faceValue,
+        int quantity,
+        out string error)
+    {
+        if (wallet == null)
+            return Fail("지갑 또는 인벤토리를 찾을 수 없습니다.", out error);
+        if (!PlanWithdraw(inventory, faceValue, quantity, out InventoryState draft, out long total, out error))
+            return false;
+        if (total > 0 && !wallet.TrySpend(total, MoneyChangeReason.Withdrawal))
+            return Fail("지갑 잔액이 부족합니다.", out error);
+        inventory.ReplaceWith(draft);
+        return true;
+    }
+
+    /// <summary>
+    /// The server's ledger (12.10.4): <paramref name="faceValue"/> x <paramref name="quantity"/> goes from the carried
+    /// cash to the wallet, paid from any notes (change as PlanPayment makes it). Refused only when the total is not carried.
+    /// </summary>
+    public static bool LedgerDeposit(
+        IWallet wallet,
+        InventoryState inventory,
+        long faceValue,
+        int quantity,
+        out string error)
+    {
+        if (wallet == null || inventory == null || faceValue < MinimumFaceValue || quantity <= 0)
+            return Fail("입금할 화폐 수량을 확인해 주세요.", out error);
+        long total;
+        try { total = checked(faceValue * quantity); }
+        catch (OverflowException) { return Fail("입금 금액이 처리 가능한 범위를 초과합니다.", out error); }
+        // Cash is compared by its total (InventoryLedgerRules.SameContents): the ledger's notes may be others than the
+        // client's until its layout comes, so the total is paid from any notes, change included.
+        if (CarriedTotal(inventory) < total)
+            return Fail("입금할 화폐가 부족합니다.", out error);
+        if (!PlanPayment(inventory, total, out InventoryState draft, out error))
+            return false;
+        if (total > 0 && !wallet.AddMoney(total, MoneyChangeReason.Deposit))
+            return Fail("지갑에 입금할 수 있는 금액을 초과합니다.", out error);
+        inventory.ReplaceWith(draft);
+        error = null;
+        return true;
     }
 }

@@ -48,9 +48,17 @@ public class StockMarketManager : GameSystem<StockMarketManager>
         base.OnDestroy();
     }
 
-    public TradeReceipt Buy(string stockId, int quantity) => Exchange.Buy(Now, stockId, quantity);
+    public TradeReceipt Buy(string stockId, int quantity) => Tell("p.stock.buy", Exchange.Buy(Now, stockId, quantity));
 
-    public TradeReceipt Sell(string stockId, int quantity) => Exchange.Sell(Now, stockId, quantity);
+    public TradeReceipt Sell(string stockId, int quantity) => Tell("p.stock.sell", Exchange.Sell(Now, stockId, quantity));
+
+    // On a sync-layer server the trade is shown at once and the server does it again on its ledger (12.10.1).
+    private static TradeReceipt Tell(string kind, TradeReceipt receipt)
+    {
+        if (receipt.result == TradeResult.Success)
+            SharedWriteGate.SendPersonal(kind, new SharedOpArgs { a = receipt.stockId, n = receipt.quantity });
+        return receipt;
+    }
 
     public List<StockQuote> GetQuotes() => Exchange.GetQuotes();
 

@@ -17,6 +17,8 @@ public sealed class BookEditSession
 public sealed class BookInstanceData
 {
     public const int PageCount = 20;
+    /// <summary>A page written from now on holds at most this many characters (12.10.3); a longer page saved before stays as it is.</summary>
+    public const int MaxPageChars = 2000;
     public string title = "";
     public string authorPlayerId;
     public string authorName;
@@ -26,6 +28,17 @@ public sealed class BookInstanceData
     public string libraryLoanId;
     public string libraryWorkId;
     public bool IsLibraryLoan => !string.IsNullOrEmpty(libraryLoanId);
+
+    // Kept as "missing" so a book read from any JSON counts as loaded unless its snapshot said otherwise.
+    [NonSerialized] bool bodyMissing;
+    /// <summary>
+    /// False while the pages are not here (12.10.3): on a sync-layer server a character's, a drop's and a request's books
+    /// carry no pages; the server keeps them and BookReader fetches them when the book is opened. Not serialized.
+    /// </summary>
+    public bool bodyLoaded { get => !bodyMissing; set => bodyMissing = !value; }
+
+    /// <summary>The longest a page may become: <see cref="MaxPageChars"/>, or what it already held when longer.</summary>
+    public static int PageLimit(string before) => Math.Max(MaxPageChars, before?.Length ?? 0);
 
     // Every inventory, selector and trade view uses this book presentation.
     public string Tooltip(string fallbackTitle) =>
@@ -76,7 +89,7 @@ public sealed class BookInstanceData
     public BookInstanceData Clone()
     {
         var copy = new BookInstanceData { title = title ?? "", authorPlayerId = authorPlayerId,
-            authorName = authorName, permission = permission, isPublished = isPublished, libraryLoanId = libraryLoanId, libraryWorkId = libraryWorkId };
+            authorName = authorName, permission = permission, isPublished = isPublished, libraryLoanId = libraryLoanId, libraryWorkId = libraryWorkId, bodyMissing = bodyMissing };
         if (pages != null)
             Array.Copy(pages, copy.pages, Math.Min(pages.Length, PageCount));
         for (int i = 0; i < PageCount; i++) copy.pages[i] ??= "";

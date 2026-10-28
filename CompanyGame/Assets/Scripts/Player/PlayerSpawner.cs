@@ -11,6 +11,9 @@ public static class PlayerSpawner
 {
     const string PrefabName = "Player";
 
+    /// <summary>The title scene has no player: it is hidden there and shown again when a map loads.</summary>
+    public const string TitleSceneName = "Title";
+
     /// <summary>The one player, kept across map loads.</summary>
     public static PlayerMovement Player { get; private set; }
 
@@ -38,6 +41,12 @@ public static class PlayerSpawner
 
     static void Place(Scene scene, string spawnId, bool spawnRequired)
     {
+        if (scene.name == TitleSceneName)
+        {
+            if (Player) Player.gameObject.SetActive(false);
+            return;
+        }
+        if (Player) Player.gameObject.SetActive(true);
         if (!Player) Spawn();
         if (!Player)
         {

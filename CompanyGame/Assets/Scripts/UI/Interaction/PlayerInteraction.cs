@@ -63,11 +63,7 @@ public class PlayerInteraction : MonoBehaviour
     {
         NameTag.Font = uiFont;
         var tag = NameTag.Ensure(gameObject, GameSession.LocalPlayerName);
-        tag.nameSource = () =>
-        {
-            string nick = PlayerData.Instance ? PlayerData.Instance.Profile?.nickname : null;
-            return string.IsNullOrEmpty(nick) ? GameSession.LocalPlayerName : nick;
-        };
+        tag.nameSource = () => GameSession.LocalPlayerName; // the server's character name; the account nickname is never shown
         tag.hideWhen = () =>
         {
             var cam = movement && movement.viewCamera ? movement.viewCamera.GetComponent<PlayerCameraController>() : null;
@@ -94,7 +90,7 @@ public class PlayerInteraction : MonoBehaviour
     {
         yield return null;
         if (trader && trader.openAfterDialogue && trader.IsInRange(transform) &&
-            OpenTrade(trader.offers, () => trader && trader.IsInRange(transform)))
+            OpenTrade(trader.Offers, () => trader && trader.IsInRange(transform), trader.shopId))
             TradeSpeaker = trader;
     }
 
@@ -388,16 +384,17 @@ public class PlayerInteraction : MonoBehaviour
     public bool TryTradeWithNearest()
     {
         var trader = NpcTrader.FindNearest(transform);
-        if (!trader || !OpenTrade(trader.offers, () => trader && trader.IsInRange(transform))) return false;
+        if (!trader || !OpenTrade(trader.Offers, () => trader && trader.IsInRange(transform), trader.shopId)) return false;
         TradeSpeaker = trader;
         return true;
     }
 
     /// <summary>
     /// Opens the shared trade window. Any NPC, dialogue or quest can call this.
-    /// stillAvailable closes the window when it turns false (e.g. the player walked away).
+    /// stillAvailable closes the window when it turns false (e.g. the player walked away). A TradeCatalog shop's trades
+    /// (shopId) are told to a sync-layer server (12.10.4).
     /// </summary>
-    public bool OpenTrade(TradeOffer[] offers, Func<bool> stillAvailable = null)
+    public bool OpenTrade(TradeOffer[] offers, Func<bool> stillAvailable = null, string shopId = null)
     {
         if (!CanStartInteraction() || offers == null) return false;
         var inventory = InventoryManager.Instance ? InventoryManager.Instance.State : null;
@@ -405,7 +402,7 @@ public class PlayerInteraction : MonoBehaviour
         EnsureUI();
         tradeStillAvailable = stillAvailable;
         SuspendControls(); ui.HidePrompt();
-        tradeUI = TradeWindow.Create(new TradeSession(inventory, offers), uiFont, CloseTrade);
+        tradeUI = TradeWindow.Create(new TradeSession(inventory, offers) { ShopId = shopId }, uiFont, CloseTrade);
         SceneManager.MoveGameObjectToScene(tradeUI.gameObject, SceneLoadManager.CurrentMap);
         return true;
     }

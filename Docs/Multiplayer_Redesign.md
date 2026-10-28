@@ -1,0 +1,2163 @@
+# 멀티플레이 재설계
+
+2026-10-13 세션에서 정한 내용입니다. 이후 작업은 이 문서를 기준으로 합니다. 아직 코드는 이 설계대로 바뀌지 않았습니다(맨 아래 "현재 작업 트리 상태" 참고).
+
+## 1. 왜 바꾸나
+
+멀티 테스트에서 이런 문제가 나왔습니다. 공격 모션이 안 보이고, A가 차를 타고 가도 B 화면에서는 차가 그대로 있고 A만 움직이며, 그 차를 B도 탈 수 있었습니다. 서로 이름도 안 보였습니다.
+
+원인은 구조에 있습니다. 지금 통신은 정해진 몇 가지 메시지만 방 전원에게 중계합니다.
+
+| 메시지 | 담는 것 |
+| --- | --- |
+| `pos` | 위치·회전·속도 |
+| `state` | 방장이 10초마다 보내는 월드 저장본 (시계, 주식, 회사, 소유권, 땅, 신고, SNS) |
+| `op` | 땅 구매·회사 설립처럼 기능마다 하나씩 정의한 공유 변경 |
+| `world` | 시민(`CitizenSync`)·교통(`TrafficSync`) 전용 동기화 |
+
+이 목록에 넣지 않은 기능(공격, 든 물건, 앉기, 드롭 아이템, 설치한 차, 이름 등)은 내 PC에서만 일어납니다. 새 기능을 만들 때마다 동기화를 손으로 붙여야 하고, 빠뜨리면 상대에게 안 보입니다.
+
+**목표: 공유 대상 오브젝트에 컴포넌트를 붙이고 공유할 값만 표시하면 방 전원에게 자동으로 보이는 공통 동기화 계층.** 새 기능 때문에 프로토콜이나 서버를 고치는 일이 없어야 합니다.
+
+## 2. 결정 사항 요약
+
+| 항목 | 결정 |
+| --- | --- |
+| 유료 서버 | 쓰지 않음. Cloudflare 서버는 테스트용으로만 남김 |
+| 멀티 모드 | ~~"서버 열기" 하나로 통합~~ → **세 모드(2026-10-19, 12.16)**: 혼자 하기 / 서버 열기(게임 안, 게임이 켜져 있는 동안) / 전용 서버(별도 프로세스, 게임을 꺼도 PC가 켜져 있는 동안). 공통 서버 코드 하나 |
+| 공개 설정 | 공개면 모든 유저의 서버 목록에 보임(비밀번호 선택), 비공개면 목록에 안 뜨고 서버 코드로만 입장 |
+| 서버가 도는 곳 | PC: 별도 서버 프로세스(백그라운드, 게임을 꺼도 계속 돎). 모바일: 게임 앱 안 |
+| 24시간 서버 | 같은 서버 프로그램을 빌린 컴퓨터에서 실행. 개발 측은 운영하지 않음(커뮤니티가 연다) |
+| 인원 | PC 서버 2~50명, 모바일 서버 2~10명 |
+| 모바일 서버 주인이 나가면 | **서버 종료.** 월드는 그 폰에 저장되고 다시 열면 이어짐. 방장 넘기기(핸드오버)는 하지 않음 |
+| 연결 통로 | EOS(Epic Online Services, 무료, PC·Android·iOS). 데디케이티드 서버는 직접 IP·포트도 지원 |
+| 크로스플레이 | PC·모바일이 같은 서버에 들어옴. Steam은 PC 전용이라 크로스플레이에서는 빠짐(PC 스팀판용으로는 남길 수 있음) |
+| 캐릭터 | **서버(월드)마다 따로.** 이름·성별·인벤토리·은행돈·주식·위치 모두 그 월드 전용. 같은 월드에 다시 오면 그 캐릭터로 이어서 함 |
+| 캐릭터 저장 위치 | 서버의 월드 파일 (계정 ID별). 별도 DB 서버 없음 |
+| 시계 | 월드 시계(서버가 켜진 동안 계속)와 캐릭터 시계(그 캐릭터가 접속한 동안만) 두 개 |
+| 시민·교통 | 시간 기반 결정적 계산으로 재작성. 각 기기가 같은 장면을 직접 계산 |
+| 그래픽 품질 | 기기별로 정함. 월드 규모(시민 수, 교통량)는 서버 설정(방 전체 공유) |
+
+## 3. 서버 모델
+
+### 3.1 서버 열기 / 참가하기
+
+타이틀에는 **서버 열기**와 **참가하기**만 둡니다.
+
+- 서버 열기 설정: 서버 이름, 인원, 월드(새로/기존), 공개/비공개, 비밀번호(선택)
+- 참가하기: 서버 목록(이름, 인원, 핑, 비밀번호 여부)에서 고르거나, 서버 코드나 주소를 입력
+
+| | PC에서 서버 열기 | 모바일에서 서버 열기 | 빌린 24시간 서버 |
+| --- | --- | --- | --- |
+| 여는 곳 | 게임 안 "서버 열기" | 게임 안 "서버 열기" | 서버 컴퓨터에서 서버 프로그램 실행 + 설정 파일 |
+| 실행 형태 | 별도 프로세스(화면 없음, 트레이 아이콘이나 작은 창) | 앱 안 | 별도 프로세스(리눅스·윈도우) |
+| 꺼지는 때 | 그 PC가 꺼질 때 | 주인이 앱을 나갈 때(서버 종료) | 운영자가 끌 때 |
+| 인원 | 2~50 | 2~10 | 2~50 |
+
+서버가 켜지면 스스로 서버 목록에 등록합니다(공개일 때만). 서버 연 사람이 주소를 어디에 입력할 필요는 없습니다.
+
+### 3.2 판정 주체는 "서버"
+
+- 판정과 저장은 항상 서버 모듈이 합니다. 서버 모듈은 플레이어가 없는 프로세스일 수도 있고(PC, 데디케이티드), 플레이어 앱 안일 수도 있습니다(모바일).
+- 게임 내용 코드는 이 둘을 구분하지 않습니다. 지금 코드는 "방장 = 화면 속 플레이어"라고 가정하므로(방장 캐릭터, 방장 PC 저장, `GameSession.IsAuthority`) 이 가정을 걷어내야 합니다.
+- 지금의 방장 넘기기 흐름(`NetWorldBridge`의 핸드오버, `WorldSave` 잠금·세대 번호)은 PC·데디케이티드에는 필요 없고, 모바일은 서버 종료로 정했으므로 **삭제 대상**입니다.
+- 지금의 C# 방 로직(`HostRoom`, `RoomNode`)이 서버 모듈의 출발점입니다.
+
+### 3.3 운영 기능 (공개 서버라 필요)
+
+- 서버 설정 파일: 이름, 인원, 공개 여부, 비밀번호, 관리자 계정, 월드 규모(시민 수·교통량), 포트
+- 관리자 명령: 추방, 차단, 공지, 저장, 종료
+- 자동 저장과 백업(주기 저장, 이전 저장본 몇 개 보관)
+
+## 4. 연결 통로
+
+| 통로 | 용도 | 비고 |
+| --- | --- | --- |
+| EOS | 모든 서버의 목록·코드 입장, 기기 연결, 직접 연결이 안 되면 중계 | 무료. 기기 ID로 로그인(Device ID)해서 플레이어에게 Epic 계정이 필요 없음 |
+| 직접 IP·포트 | 데디케이티드 서버 | 서버 운영자가 포트를 엶 |
+| Steam | PC 스팀판(선택) | 크로스플레이 안 됨 |
+| Cloudflare(지금 서버) | 개발 테스트용 | 출시에 쓰지 않음 |
+
+- 기존 `INetTransport`(지금 `NetClient`, `SteamTransport`) 아래에 `EosTransport`를 추가하는 형태로 갑니다.
+- 연결 형태는 **서버 중심(스타형)** 입니다. 모든 클라이언트는 서버에만 연결하고, 서버가 관심 범위(4.2) 안의 사람에게만 중계합니다. 세션 중간에 기기끼리 직접 잇는 메시 구조를 검토했지만, 서버가 별도 프로세스이고 인원이 50명이라 스타형이 단순하고 충분하다고 정했습니다.
+- 계정 ID는 EOS ProductUserId(Steam 모드는 SteamID)를 씁니다. 캐릭터는 이 ID를 키로 월드 파일에 저장합니다.
+
+### 4.1 확인 결과 (2026-10-13, 공식 문서 기준)
+
+문서만 읽고 확인한 것입니다. 실제로 돌려 본 것은 없습니다. "확인 못 함"은 문서에서 답을 찾지 못한 항목입니다.
+
+| 항목 | 결과 | 출처 |
+| --- | --- | --- |
+| EOS 무료 조건 | **무료 확인.** 로열티·호스팅 비용 없음, 타이틀 수와 플레이어 계정 수 제한 없음. 유료는 상위 안티치트(엔터프라이즈 계약)뿐. 게임 용도로만 써야 함. Epic 스토어 출시 의무 없음 | [EOS Licensing](https://onlineservices.epicgames.com/licensing), [onlineservices llms.txt](https://onlineservices.epicgames.com/llms.txt), [Developer Agreement](https://onlineservices.epicgames.com/services/terms/agreements) (약관 전문은 읽지 않음) |
+| Unity용 플러그인 | PlayEveryWare 플러그인(MIT, `EOS-Contrib/eos_plugin_for_unity`)이 활발히 관리됨(최신 v6.2.0, 2026-09-22, EOS SDK 1.19.2.1). **공식 대상 버전은 Unity 2021.3.16f1이고 Unity 6 지원은 문서에 없음.** Unity 6.6에서 Fast Enter Play Mode 사용 시 에디터가 멈춘다는 사용자 보고가 있음 → **Unity 6000.4에서 되는지는 직접 시험해야 함** | [README](https://github.com/EOS-Contrib/eos_plugin_for_unity/blob/stable/com.playeveryware.eos/README.md), [supported_platforms.md](https://github.com/EOS-Contrib/eos_plugin_for_unity/blob/stable/com.playeveryware.eos/Documentation~/supported_platforms.md), [releases](https://github.com/EOS-Contrib/eos_plugin_for_unity/releases), [포럼 보고](https://forums.unrealengine.com/t/playeveryware-eos-sdk-causing-editor-crashes-when-entering-play-mode-in-unity-6-6-fast-enter-play-mode/2833634) |
+| Android/iOS | 플러그인 지원 플랫폼에 Windows, Linux, macOS, Android, iOS 포함(소셜 오버레이만 모바일·리눅스 미지원). EOS SDK 요구사항: Android 6.0(API 23) 이상, iOS 11 이상. 실기기 동작은 확인 못 함 | 위 supported_platforms.md, [EOS System Requirements](https://dev.epicgames.com/docs/epic-online-services/eos-get-started/system-requirements) |
+| 플레이어 로그인 | Device ID 로그인(`EOS_Connect_CreateDeviceId` → `EOS_ECT_DEVICEID_ACCESS_TOKEN`)은 "모바일·PC 게임이 계정 없이 시작"하는 용도. Device ID는 **OS 사용자 프로필 단위**로 정해짐 | [EOS_Connect_CreateDeviceId](https://dev.epicgames.com/docs/api-ref/functions/eos-connect-create-device-id), [EOS_EExternalCredentialType](https://dev.epicgames.com/docs/api-ref/enums/eos-e-external-credential-type) |
+| 서버 프로세스의 EOS 중계 | EOS P2P는 보내는 쪽 로컬 ProductUserId가 **필수**(`SendPacketOptions.LocalUserId`). 직접 연결이 안 되면 TURN 중계로 넘어감(기본값 `AllowRelays`). **플레이어가 아닌 서버 프로세스가 Device ID로 PUID를 받아 P2P를 열 수 있는지는 문서에 허용도 금지도 없어 확인 못 함.** 서드파티(Redpoint) 문서는 "로그인하지 않은 데디케이티드 서버는 P2P를 못 엶"이라고 씀 | [P2P Intro](https://dev.epicgames.com/docs/epic-online-services/multiplayer/nat-p2p-interface/p2p-guide/p2p-intro), [P2P Reference](https://dev.epicgames.com/docs/epic-online-services/multiplayer/nat-p2p-interface/p2p-reference), [SendPacketOptions](https://dev.epicgames.com/docs/api-ref/structs/eos-p-2-p-send-packet-options), [Redpoint](https://docs.redpoint.games/docs/setup/networking/p2p_vs_ip) |
+| 서버 목록(Sessions) | 데디케이티드 서버도 세션 생성 가능("A user or a dedicated server creates the session"). 한도: 세션당 인원 1000, 속성 64개(헤더 기준, 문서 표는 100), **검색 1회 최대 200개**, 검색에 페이지 넘김 기능 없음. 사용자별 생성·수정·검색 **분당 30회**, 배포 전체는 동접 1명당 분당 30회. 세션 ID를 직접 정할 수 있음(16~64자) → 비공개 서버 코드로 쓸 수 있음. 검색하려면 검색하는 쪽 PUID 필요 | [Sessions Intro](https://dev.epicgames.com/docs/epic-online-services/multiplayer/lobbies-and-sessions/sessions-interface/sessions-intro), [CreateSessionSearch](https://dev.epicgames.com/docs/api-ref/functions/eos-sessions-create-session-search), 플러그인의 `SessionsInterface.cs`(`MAX_SEARCH_RESULTS = 200`) |
+| ARM 리눅스 서버 빌드 | Unity 6.4는 Linux ARM64 데디케이티드 서버 빌드를 지원함(**IL2CPP 필수**. 빌드 오류 버그는 6000.4.0a5에서 고침. 우리는 6000.4.5f1). EOS SDK 자체는 LinuxARM64를 지원하지만(릴리스 노트) **플러그인에는 리눅스 x64 라이브러리만 들어 있음** → ARM64용 `libEOSSDK`를 SDK에서 직접 넣어야 함. Oracle Always Free: Arm 2 OCPU·12GB, 송신 월 10TB. 실제 실행은 확인 못 함 | [Unity Issue Tracker](https://issuetracker.unity.com/issues/18979/internal-build-system-error-when-building-a-linux-server-for-arm), [Sysroot Linux Arm64](https://docs.unity3d.com/6000.4/Documentation/Manual/com.unity.sdk.linux-arm64.html), [EOS Release Notes](https://dev.epicgames.com/docs/epic-online-services/release-notes), [Oracle Always Free](https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier_topic-Always_Free_Resources.htm) |
+| 이 PC의 Unity 모듈 | 6000.4.5f1에 **Windows 빌드 모듈만 설치됨.** Linux(Server)·Android·iOS 모듈은 설치해야 함 | `Editor/Data/PlaybackEngines` 확인 |
+
+### 4.2 결과로 설계에 반영할 것
+
+1. **PC 서버 프로세스와 같은 PC의 게임은 Device ID가 같다**(같은 OS 사용자). 그래서 내 PC 서버에 붙는 내 게임은 EOS가 아니라 **로컬 연결(127.0.0.1)** 로 붙고, EOS 로그인은 서버 프로세스가 맡습니다. 내 캐릭터의 계정 ID는 그 PUID를 그대로 씁니다.
+2. **서버 프로세스가 Device ID로 PUID를 받아 P2P를 여는 것은 2단계 첫 작업으로 시험합니다.** 안 되면 PC 서버는 데디케이티드처럼 직접 IP·포트(포트 열기 안내)로 가고, EOS는 목록 등록에만 씁니다. 모바일 서버는 플레이어 앱 안이라 문제없습니다.
+3. 서버 목록: 서버는 인원 변경을 30초에 한 번 이하로 묶어 갱신하고, 클라이언트는 목록 새로고침을 수동·간격 제한으로 합니다. 공개 서버가 200개를 넘으면 지역·이름 조건으로 나눠 검색합니다.
+4. 플러그인의 Unity 6000.4 동작(에디터 플레이 모드, Windows·Android 빌드)도 2단계 첫 시험에 넣습니다.
+
+사용자가 직접 해야 하는 것(변동 없음): Epic 개발자 포털 제품 등록, Unity Hub에서 Linux Dedicated Server·Android·iOS 모듈 설치(필요한 단계에서).
+
+사용자가 직접 해야 하는 것: Epic 개발자 포털에서 제품 등록(무료)을 하고 ID 값(ProductId, SandboxId, DeploymentId, ClientId/Secret)을 받기.
+
+## 5. 공통 동기화 계층
+
+### 5.1 구성
+
+| 요소 | 역할 |
+| --- | --- |
+| `NetEntity` 컴포넌트 | 공유 오브젝트에 붙임. 고유 ID, 소유자(서버 또는 플레이어), 소속 맵. 생성·삭제가 자동으로 전원에게 전달됨 |
+| 복제 상태 | 컴포넌트가 공유할 값을 표시(속성 또는 등록 함수). 바뀐 값만 보냄 |
+| 이벤트 | 공격, 탑승, 앉기, 상호작용 같은 순간 동작. 같은 엔티티의 같은 컴포넌트가 받아서 실행 |
+
+**메시지는 이 두 종류로 고정합니다:** 엔티티 상태(생성/변경/삭제), 엔티티 이벤트. 기능을 추가해도 메시지 종류와 서버 코드는 바뀌지 않습니다.
+
+### 5.2 권한 규칙
+
+| 대상 | 판정하는 쪽 |
+| --- | --- |
+| 내 캐릭터 이동, 애니메이션, 든 물건 | 그 플레이어 |
+| 내가 모는 차, 내가 던진 물건의 물리 | 그 플레이어(주인). 결과만 보냄 |
+| 돈, 소유권, 땅, 회사, 아이템 생성·삭제, 드롭 줍기, 탑승 자리 | 서버 (먼저 온 요청만 성공. 예: 한 차에 한 명만 탐) |
+| 데미지 | 서버 판정(치는 쪽이 요청, 서버가 적용) |
+| 시민·교통 | 각 기기가 같은 계산(7장). 플레이어가 개입한 반응만 서버 판정 |
+
+클라이언트가 보낸 요청은 서버가 검증합니다. 공개 서버이므로 클라이언트를 믿지 않습니다.
+
+### 5.3 부하 줄이기
+
+- 관심 범위: 같은 맵(씬)에 있는 사람에게만 보냅니다. 넓은 맵은 거리 기준을 추가합니다.
+- 이진 메시지: JSON 대신 이진 형식으로 보냅니다(위치 하나에 20~30바이트). 움직이지 않으면 보내지 않습니다.
+- 위치 갱신은 초당 10회 정도, 멀리 있는 엔티티는 더 드물게 보냅니다.
+- 늦게 들어온 사람에게는 그 맵의 엔티티 전체 상태를 한 번 보냅니다.
+- 모바일 클라이언트는 멀리 있는 플레이어를 단순 모델로 그립니다(LOD).
+
+부하 테스트로 실제 수치를 확인합니다. 방법은 가짜 클라이언트 49명(PC 서버)과 9명(모바일 서버)을 붙이고 서버 기기의 CPU와 업로드량을 재는 것입니다.
+
+### 5.4 옮길 기존 기능 (설계 확정 후 목록으로 뽑아 확인)
+
+플레이어(위치, 외형·성별, 이름표, 공격 동작, 든 물건, 앉기, 탑승), 설치한 탈것(설치·탑승·하차·해체), 드롭 아이템, 공유 경제(지금 `op`·`state`로 하는 것), 시민·교통(7장 전까지는 기존 방식 유지). 지금의 `pos`, `op`, `state`, `world`, `msg` 전용 경로는 옮긴 뒤 지웁니다.
+
+## 6. 저장과 시계
+
+### 6.1 저장
+
+- 서버의 월드 파일 하나에 월드 상태와 그 월드의 캐릭터 전부(계정 ID별: 이름, 성별, 인벤토리, 은행돈, 주식, 위치, 캐릭터 시계)를 넣습니다.
+- 처음 들어온 계정은 "캐릭터 만들기"(이름, 성별)를 거치고, 기본 인벤토리·돈으로 시작합니다. 다른 월드의 돈이나 아이템은 섞이지 않습니다.
+- 서버 밖(개인 PC)에는 캐릭터 진행을 저장하지 않습니다. 오프라인 혼자 하기도 "내 PC 서버"로 통일할 수 있습니다(결정 필요, 9장).
+
+### 6.2 시계 두 개
+
+지금 시계는 게임 1시간 = 현실 5분(`SimpleGameClock.realSecondsPerGameHour = 300`)입니다. 게임 하루가 현실 2시간이라 24시간 서버에서 일주일이면 게임으로 84일이 흐릅니다.
+
+| 시계 | 흐르는 때 | 따르는 것 |
+| --- | --- | --- |
+| 월드 시계 | 서버가 켜진 동안 계속 | 낮밤, 날씨, 주가, 시민·교통, 가게 영업시간 |
+| 캐릭터 시계 | 그 캐릭터가 접속한 동안만 | 나이, 배고픔·피로, 월급·월세·이자 같은 개인 정산 |
+
+접속을 끊으면 캐릭터는 "쉬는 중"으로 멈춥니다. 다시 들어오면 나이와 상태는 나간 시점 그대로이고 세상만 흘러 있습니다. 비운 동안의 개인 정산은 받지 않거나 상한을 둡니다(9장에서 결정).
+
+## 7. 시민·교통 재작성 (시간 기반 결정적 계산)
+
+지금 코드를 그대로 각 기기에서 돌리면 금방 어긋납니다. 원인은 이렇습니다.
+
+- `CitizenWalker`: `NavMeshAgent`가 서로 피해 가는 움직임을 매 프레임 계산해서, 프레임 속도가 다른 기기마다 결과가 다름
+- `TrafficCar`, `TrafficSpawner`: 시드 없는 `Random`으로 차종·출발 위치·갈림길을 정함
+- 앞에 사람이나 시민이 있으면 멈추는 판정(`Physics.OverlapBox`)이 기기마다 다르게 보이는 위치에 반응함
+
+새 방식은 이렇습니다.
+
+1. 위치를 "경로 + 시작 시각 + 월드 시계"로 바로 계산합니다(매 프레임 누적 금지). 오차가 쌓이지 않습니다.
+2. 차종, 경로, 갈림길, 신호 주기를 서버 시드와 월드 시계로 정합니다.
+3. 플레이어가 개입한 반응(차가 플레이어 때문에 멈춤, 시민과 대화)은 서버가 판정하고 이벤트로 알립니다.
+4. 서버가 2~5초마다 작은 보정값을 보냅니다.
+5. 늦게 들어온 사람은 시드와 월드 시계만 받으면 같은 장면을 계산합니다.
+
+시민끼리 비켜 가는 움직임은 정해진 길(인도 차선) 위를 시간차를 두고 걷는 방식으로 바뀝니다. 재작성이 끝나기 전까지는 기존 시민·교통 동기화를 유지합니다.
+
+## 8. 모바일
+
+- 터치 조작: 지금 코드에는 터치 입력이 없습니다. 이동 조이스틱, 카메라 드래그, 공격·상호작용·탑승 버튼이 필요합니다.
+- 성능: 품질 설정 분리(그림자, 그리기 거리, 시민 표시 수), 멀리 있는 플레이어 LOD
+- 재접속: 앱 전환이나 화면 꺼짐 뒤 같은 서버, 같은 캐릭터로 자동 복귀
+- UI: 타이틀, 인벤토리, 폰 UI를 작은 화면과 터치에 맞춤
+- 모바일 서버: 앱이 백그라운드로 가면 곧 끊긴다는 안내, 주인이 나가면 서버 종료(저장 후)
+
+## 9. 남은 기획 결정 (사용자가 정할 것)
+
+1. 나이·수명 시스템을 만드는가 → **지금은 만들지 않음**(2026-10-13). 캐릭터 시계만 저장해 두고, 나이는 나중에 그 값으로 계산
+2. 비운 동안의 월세·이자·세금 → **상한까지 받음, 상한은 게임 7일**(2026-10-13). 지금 코드에는 개인 정기 정산이 없어서, 정산 기능을 만들 때 적용
+3. 오프라인 캐릭터 → **사라짐**(2026-10-13)
+4. 오프라인 혼자 하기를 "내 PC 서버(비공개, 1명)"로 통일할지 → **통일**(2026-10-13)
+5. 캐릭터 이름 중복을 같은 월드 안에서 막을지 → **막음**(2026-10-13)
+6. 밤 건너뛰기 → **월드 시계가 밤을 건너뜀, 기본 00~06시, 방장(서버 주인)이 바꿀 수 있음**(2026-10-16). 시작=끝이면 건너뛰지 않음(24시간). 설정 화면은 나중에 만들고, 4c는 서버 설정 값과 명령줄 옵션만 둠
+7. 밤 활동 → **밤을 건너뛸 때 캐릭터마다 고른 활동이 적용됨**(2026-10-16). 잠자기(기본), 야간 알바(편의점·쿠팡, 돈 벌기), 놀러 가기(술·클럽, 기력을 쓰고 스트레스를 풂), 살인 청부(이벤트로 해금되면 보임). 지금은 고르는 화면 없이 항상 잠자기이고 지금 동작과 같음. 구조만 4c에 만들고, 각 활동의 수치·화면은 나중에 정함
+8. 책 한 권 최대 분량 → **쪽 20개 × 쪽당 2,000자**(2026-10-16). 이미 있는 긴 책은 그대로, 새로 쓰는 것만 제한
+
+## 10. 작업 순서
+
+1. **[완료 2026-10-13, 12.1]** 공통 동기화 계층 (서버 모듈 분리, `NetEntity`, 상태·이벤트 메시지, 권한 규칙, 관심 범위, 이진 메시지). 판정 주체는 처음부터 별도 프로세스·앱 안 겸용
+2. EOS 연결 + 서버 열기/참가하기 통합 UI + 공개/비공개 + 인원 제한(PC 50 / 모바일 10) + 모바일 주인 퇴장 시 서버 종료. **EOS 시험부터 시작합니다(Epic 포털 등록 후, 12.2).** 옛 방식(Cloudflare·Steam 방) 메뉴는 4단계까지 '개발용'으로 남깁니다 (2026-10-13 결정)
+3. **[완료 2026-10-13, 12.5]** 캐릭터 저장을 서버 월드 파일로 이전, 캐릭터 시계
+4. 기존 기능을 동기화 계층으로 이전(5.4), 옛 전용 경로 삭제. **방장 넘기기 코드(`NetWorldBridge` 핸드오버, `WorldSave` 잠금·세대 번호, `TransferHost`, `RoomNode`/`RoomMirror` 승격, Node·Worker의 transfer·이관)도 여기서 옛 경로와 함께 지웁니다** (2026-10-13 결정: 곧 지울 코드를 두 번 고치지 않음)
+5. 시민·교통 시간 기반 재작성
+6. **[구현 2026-10-19, 12.15, 총괄 검수 전]** 데디케이티드 서버 빌드, 설정 파일, 서버 목록, 관리자 기능, 부하 테스트
+7. 모바일 터치 조작, 성능, 재접속
+
+각 단계는 시작 전에 이 문서에 세부 설계를 덧붙이고 확인받습니다.
+
+## 11. 현재 작업 트리 상태 (2026-10-13, 미커밋)
+
+같은 날 이 설계를 정하기 전에, 지금 구조 위에 손으로 동기화를 붙이는 작업을 했습니다. Cloudflare Worker에는 배포하지 않았습니다.
+
+**정리 완료 (2026-10-13):** 아래 변경은 버리지 않고 Dev에 그대로 커밋했습니다(`27583f5`). 대체 대상은 표의 "새 설계에서" 칸에 적은 단계에서 지웁니다(`pos` 확장·`veh.*` op → 4단계, 서버 `character_state`·월드별 개인 저장 → 3단계). 무관한 변경은 커밋하지 않았습니다.
+
+| 변경 | 내용 | 새 설계에서 |
+| --- | --- | --- |
+| `pos` 확장 | `NetMessages.cs`, `NetSession.SendPos`, `HostRoom.Pos`, `Server/src/protocol.ts`·`rooms.ts`에 `nm`(이름), `g`(성별), `veh`(탄 탈것), `act`(공격 횟수) | 동기화 계층으로 대체, 삭제 |
+| 원격 아바타 | `NetPlayerSync.cs`: `NameTag` 이름표, 남녀 외형, 탄 차 모델, 공격 팔 휘두르기 | 표시 코드(외형, 차 모델, 팔 동작)는 플레이어 엔티티 컴포넌트로 옮겨 재사용 가능 |
+| 설치한 차 공유 | `WorldDroppedItem.cs`: `veh.put/ride/park/del` op, 월드 저장에 `vehicles`, `WorldOps.VehicleOp`·`WorldSave.CaptureVehicles/RestoreVehicles` 훅, `SharedWriteGate.SetSendFailed` | 탈것 엔티티로 대체. 월드 저장에 설치한 차를 넣는 생각은 유지 |
+| 월드별 캐릭터 | 서버 `character_state` 표와 `/me/state?world=`(Node·Worker), `PlayerData`/`SteamLocalState`/`NetPlayerSave` 월드별 저장, `GameSession.SetCharacter`, 타이틀 "캐릭터 만들기" 화면, 계정 닉네임 자동 생성 | 개념(월드별 캐릭터, 캐릭터 만들기 화면)은 유지. 저장은 서버 월드 파일로 이전(6.1) |
+| 내 이름표 | `PlayerInteraction`: 계정 닉네임 대신 `GameSession.LocalPlayerName`(캐릭터 이름) | 유지 |
+| 방에서 개인 저장 막기 | `WorldSaveRunner.SavePersonal`이 방 안에서는 PC 파일에 쓰지 않음 | 6.1 기준으로 다시 정리 |
+| QA | `RemoteAvatarQA.cs`(신규), `WorldSaveQA`(탈것 11개), `TitleFlowQA`·`ServerBudgetQA` 수정, `Server/test/ws.test.ts` | 동기화 계층 QA로 교체 |
+| 문서 | `Docs/Server_API.md`에 `?world=`, `pos` 새 필드, `veh.*` op | 새 설계에 맞춰 다시 씀 |
+
+이 변경으로 통과한 테스트: Node 서버 42개, Worker 31개, WorldSaveQA 68개, NetSessionQA, TitleFlowQA 108개, RemoteAvatarQA 18개.
+
+작업 트리에는 이번 작업과 무관한 기존 변경도 있습니다(`Docs/README.md`, 폰트·렌더 설정 에셋, `CompanyGame/Assets/_Recovery/`, `Docs/AI_Player_Plan.md`, `.wrangler/`). 커밋할 때 섞지 않습니다.
+
+## 12. 단계별 세부 설계
+
+### 12.1 1단계: 공통 동기화 계층 (완료 2026-10-13)
+
+**범위.** 새 계층을 기존 경로 옆에 따로 만듭니다. 기존 `NetSession`(`pos`/`op`/`state`/`world`/`msg`), Cloudflare·Steam 방, 경제 판정(`GameSession.IsAuthority`)은 이 단계에서 건드리지 않습니다. 기능 이전은 4단계, 방장 넘기기 삭제와 EOS는 2단계에서 합니다. 이 단계의 결과물은 "서버 모듈 + 엔티티 동기화 API + TCP 직접 연결"이고, 실제 게임 기능은 아직 옮기지 않습니다.
+
+**어셈블리.** 서버 모듈과 메시지 코덱은 Unity를 참조하지 않는 새 어셈블리 `CompanyGame.NetCore`(`noEngineReferences: true`, 참조 없음)에 둡니다. 그래서 같은 코드를 앱 안에서도, 화면 없는 별도 프로세스에서도, 메모리 안 QA에서도 그대로 돌릴 수 있습니다. `CompanyGame.Net`이 이것을 참조합니다.
+
+```
+NetCore (Unity 없음) → Net → Player/UI
+```
+
+**새로 만들 파일**
+
+| 파일 | 내용 |
+| --- | --- |
+| `Scripts/NetCore/CompanyGame.NetCore.asmdef` | 참조 없음, noEngineReferences |
+| `NetCore/SyncProtocol.cs` | 메시지 종류 상수, 프로토콜 버전, 한도, 읽기·쓰기 도우미(`BinaryWriter`/`BinaryReader` 재사용, little-endian, 문자열 = u16 길이 + UTF-8) |
+| `NetCore/SyncTransport.cs` | `IServerTransport`, `IClientTransport` 인터페이스와 메모리 안 `LoopbackTransport`(QA용) |
+| `NetCore/TcpTransport.cs` | `TcpServerTransport`, `TcpClientTransport`(`System.Net.Sockets`, 4바이트 길이 + 본문 프레임, 송수신은 스레드, 처리는 `Tick`/`TryReceive`를 부른 스레드). 직접 IP 접속과 4.2의 "내 PC 서버 = 127.0.0.1" 연결에 씀 |
+| `NetCore/GameServer.cs` | 서버 모듈: 접속자 목록, 엔티티 등록부, 권한 검사, 관심 범위(맵), 늦은 입장 스냅샷, 퇴장 처리, 소유권 요청, 한도·속도 제한. `Tick()`으로 돌고, 서버 쪽 게임 로직은 `ServerEvent` 콜백으로 붙임(이 단계에선 비어 있음) |
+| `Net/SyncClient.cs` | 클라이언트 쪽 단일 객체(`NetSession`처럼 자동 생성): 접속·인사, 현재 맵 알림, 원격 엔티티 생성·삭제, 상태 적용, 바뀐 상태 0.1초마다 전송, 이벤트 전달 |
+| `Net/NetEntity.cs` | 공유 오브젝트에 붙이는 컴포넌트. Id, 소유자, `IsMine`, 프리팹 키, 플래그. 같은 오브젝트의 `NetBehaviour`들을 `GetComponents` 순서로 번호 매김(양쪽 프리팹이 같으니 번호도 같음) |
+| `Net/NetBehaviour.cs` | 공유할 값을 가진 컴포넌트의 부모 클래스. `Write(BinaryWriter)`/`Read(BinaryReader)`(그 컴포넌트의 **전체 상태**), `MarkDirty()`, `SendEvent(id, target, write)`, `OnEvent(id, sender, reader)`, `IsOwner` |
+| `Net/NetTransform.cs` | 위치·회전 공유의 표준 컴포넌트(위치 float 3개 + 회전 u16). 받는 쪽은 보간. 움직이지 않으면 안 보냄 |
+| `Net/SyncHost.cs` | 서버 모듈을 Unity에서 돌리는 MonoBehaviour. 앱 안 서버(`StartInApp(port, max)`, 내 클라이언트는 127.0.0.1로 붙음)와 별도 프로세스 서버(명령줄 `-gameserver <port> [-maxplayers N]`, 배치 모드에서 플레이어 없이 서버만)를 같은 코드로 처리. (`-server`는 이미 Cloudflare 주소 인자라 쓰지 않음) |
+| `Player/SyncMapBinder.cs` | `SceneLoadManager.CurrentMap.path`를 `SyncClient.SetMap`에 알림(Net은 World를 참조할 수 없어서 `NetPlayerSync`처럼 Player에 둠). 몇 줄짜리 |
+| `Editor/Net/SyncLayerQA.cs` | 아래 검수 방법의 QA |
+
+**바꿀 파일:** `Net/CompanyGame.Net.asmdef`(NetCore 참조 추가)뿐입니다. `Player` asmdef는 이미 Net을 참조합니다.
+
+**지울 기존 코드: 없음.** 옛 경로는 4단계에서 기능을 옮긴 뒤, 방장 넘기기는 2단계에서 지웁니다. 새 계층에는 기존 `INetTransport`를 쓰지 않습니다(그것은 JSON `NetMsg`용이고 옛 경로와 함께 지워짐). `HostRoom`의 검증 방식(오류 코드, 크기 제한, 가입 순서)은 참고만 하고 고치지 않습니다.
+
+**메시지 형식 (이진, little-endian).** 전송 단위 하나 = `u8 종류` + 본문. `str` = u16 바이트 길이 + UTF-8, `blob` = u16 길이 + 바이트. 엔티티 ID는 `u64` = (접속 번호 u32 << 32) | 그 접속 안 순번 u32. 접속 번호는 서버가 접속마다 새로 주는 번호(서버가 켜져 있는 동안 재사용하지 않음, 0 = 서버)라서 클라이언트가 왕복 없이 ID를 만들어도 겹치지 않습니다.
+
+| 방향 | 종류 | 본문 |
+| --- | --- | --- |
+| C→S | 1 Hello | u16 프로토콜 버전, str 계정 ID, str 이름, str 맵 |
+| C→S | 2 Spawn | u64 id, str 프리팹 키, str 맵, u8 플래그, u8 컴포넌트 수, blob × 수 |
+| C→S | 3 State | u64 id, u8 컴포넌트 번호, blob 전체 상태 |
+| C→S | 4 Despawn | u64 id |
+| C→S | 5 Event | u64 id, u8 컴포넌트 번호, u8 이벤트 번호, u8 대상(0 주인, 1 맵 전원, 2 서버), blob |
+| C→S | 6 Map | str 맵 (내 관심 범위가 바뀜) |
+| C→S | 7 Claim | u64 id (소유권 요청) |
+| S→C | 101 Welcome | u32 내 접속 번호, u16 최대 인원 / 거절이면 102 |
+| S→C | 102 Reject | u8 이유(버전, 꽉 참, 형식 오류, 속도 초과) 후 연결 끊음 |
+| S→C | 103 Spawn | u64 id, u32 주인, str 프리팹 키, str 맵, u8 플래그, 컴포넌트 blob들 |
+| S→C | 104 State | u64 id, u8 컴포넌트 번호, blob |
+| S→C | 105 Despawn | u64 id |
+| S→C | 106 Event | u64 id, u8 컴포넌트 번호, u8 이벤트 번호, u32 보낸 사람, blob |
+| S→C | 107 Owner | u64 id, u32 새 주인 (소유권 변경) |
+| S→C | 108 Peer | u8 들어옴/나감, u32 접속 번호, str 계정 ID, str 이름 |
+
+엔티티 플래그: bit0 `PersistOnLeave`(주인이 나가면 지우지 않고 서버 소유로 넘김, 예: 설치한 차), bit1 `Claimable`(서버 소유일 때 소유권 요청을 받음, 예: 빈 차에 타기), bit2 `FollowsOwnerMap`(주인이 맵을 옮기면 같이 옮김, 예: 플레이어 아바타).
+
+연결 수준 메시지(Hello, Map, Claim, Welcome, Reject, Owner, Peer)는 고정된 목록입니다. 기능을 더해도 늘지 않습니다. 기능이 쓰는 것은 상태(Spawn/State/Despawn)와 이벤트 두 가지뿐입니다(5.1).
+
+State는 항상 그 컴포넌트의 **전체 상태**입니다. 그래서 하나가 빠져도 다음 것으로 맞춰지고, 2단계 EOS에서 위치를 비신뢰 채널로 보내도 됩니다. 크기: 위치 State = 1 + 8 + 1 + 2(blob 길이) + 12 + 2 = 26바이트(+TCP 길이 4).
+
+**권한 규칙 (서버가 검사, 5.2)**
+
+| 요청 | 허용 조건 | 어기면 |
+| --- | --- | --- |
+| Spawn | ID의 접속 번호가 보낸 사람 것, ID 중복 없음, 접속당 엔티티 수 한도(256) 안 | 무시 + 경고 카운트 |
+| State / Despawn | 보낸 사람이 현재 주인 | 무시 |
+| Event 대상 0/1 | 엔티티가 보낸 사람의 맵에 있음 | 무시 |
+| Event 대상 2(서버) | 위와 같음, `ServerEvent` 콜백으로 넘김 | — |
+| Claim | 엔티티가 `Claimable`이고 지금 서버 소유. **먼저 온 요청만 성공**, 결과는 맵 전원에게 Owner로 | 요청자에게만 Owner(그대로) |
+| 프레임 | 크기 ≤ 16KB, blob ≤ 4KB, 초당 300개 이하, 형식이 맞음 | Reject 후 연결 끊음 (예외로 서버가 죽지 않음) |
+
+이 단계에서는 Hello의 계정 ID를 그대로 믿습니다. 직접 IP 서버에서 남의 계정 ID를 사칭하는 문제는 2단계(EOS ID 토큰 검증)와 6단계에서 막습니다.
+
+**관심 범위.** 서버는 엔티티의 맵과 같은 맵에 있는 접속자에게만 Spawn/State/Despawn/Event를 보냅니다. 접속자가 Map으로 맵을 바꾸면, 이전 맵 엔티티는 그 접속자에게 Despawn으로, 새 맵 엔티티는 Spawn(전체 상태 포함)으로 보냅니다. 늦게 들어온 사람도 같은 방식으로 받습니다. 거리 기준과 "멀리 있으면 드물게 보내기"는 넓은 맵이 생길 때 추가합니다(이 단계에서 하지 않음).
+
+**퇴장.** 접속이 끊기면 그 사람 엔티티 중 `PersistOnLeave`는 서버 소유로 넘기고(Owner 0), 나머지는 Despawn합니다. Peer(나감)를 보냅니다.
+
+**Unity 쪽 사용법 (기능 코드가 하는 일)**
+
+```csharp
+// 공유할 컴포넌트
+public sealed class DoorState : NetBehaviour {
+    public bool open;
+    public override void Write(BinaryWriter w) => w.Write(open);
+    public override void Read(BinaryReader r) => open = r.ReadBoolean();
+    public void Toggle() { open = !open; MarkDirty(); }          // 주인일 때만 보냄
+}
+// 생성: 주인이 만들면 같은 맵 사람에게 자동으로 생김
+SyncClient.Instance.Spawn(prefabKey: "Net/Door", instance, flags);
+```
+
+원격 생성은 `Resources.Load(프리팹 키)`로 합니다. QA가 에셋 없이 시험할 수 있게 `SyncClient.PrefabFactory`(키 → GameObject, 기본값 Resources.Load)를 바꿀 수 있게 둡니다.
+
+**완료 기준**
+
+1. `CompanyGame.NetCore`가 Unity 참조 없이 컴파일되고, 프로젝트 전체가 배치 모드에서 오류 없이 컴파일됨
+2. 메모리 QA(`SyncLayerQA.Run`)가 아래 검수 목록 1~12를 모두 통과
+3. 위치 State 하나가 전송 바이트 30 이하임을 QA가 측정해서 출력
+4. 플레이 모드 QA(`SyncLayerQA.RunPlay`): 앱 안 서버(TCP 127.0.0.1)에 실제 클라이언트가 붙고, 가짜 TCP 클라이언트가 만든 테스트 엔티티가 씬에 나타나고 움직이고 이벤트를 받고, 가짜 클라이언트가 끊기면 사라짐. 반대로 Unity 쪽이 만든 엔티티를 가짜 클라이언트가 받음. QA_SHOTS로 나타난 장면을 찍음
+5. 별도 프로세스 QA(`SyncLayerQA.RunProcess`): Windows 플레이어를 빌드해 `-batchmode -nographics -gameserver <port>`로 띄우고, 가짜 TCP 클라이언트 두 개가 서로의 엔티티를 받음. 서버 프로세스를 끄면 클라이언트가 끊김을 알아챔
+6. 부하 측정(`SyncLayerQA.RunLoad`, 판정 없이 수치만): 메모리 안 가짜 클라이언트 49명이 같은 맵에서 10Hz로 위치를 10초 보냄 → 서버 Tick 평균·최대 시간, 서버 송신 바이트/초를 출력. 같은 것을 9명으로도
+7. 기존 QA 회귀 없음: `NetSessionQA.Run`, `WorldSaveQA.RunCli`, `TitleFlowQA.Run`, `RemoteAvatarQA.Run`, 서버 `npm test`(Server, Server/worker; 서버 코드는 안 바뀌지만 확인)
+
+**검수 목록 (메모리 QA)**
+
+1. Hello → Welcome, 접속 번호가 서로 다름. 버전이 다르면 Reject
+2. 최대 인원을 넘으면 Reject
+3. A가 만든 엔티티를 같은 맵의 B는 받고, 다른 맵의 C는 받지 않음
+4. A의 State가 B에게 감. B가 A의 엔티티에 보낸 State·Despawn은 무시됨
+5. 남의 접속 번호로 만든 Spawn, 중복 ID Spawn은 무시됨
+6. 이벤트 대상 0은 주인에게만, 1은 맵 전원에게, 2는 `ServerEvent` 콜백으로 감. 받은 쪽에 보낸 사람 번호가 맞게 들어 있음
+7. C가 A의 맵으로 옮기면 A의 엔티티를 전체 상태와 함께 받고, 다시 떠나면 Despawn을 받음. 늦게 들어온 D도 같음
+8. `FollowsOwnerMap` 엔티티는 주인이 맵을 옮기면 같이 옮겨짐(옛 맵 사람에게 Despawn, 새 맵 사람에게 Spawn)
+9. A가 끊기면 일반 엔티티는 Despawn, `PersistOnLeave` 엔티티는 Owner 0으로 남음. Peer(나감)가 감
+10. 서버 소유 `Claimable` 엔티티에 B와 C가 같은 Tick에 Claim → 먼저 온 B만 주인이 됨. 이후 B의 State는 통과, C의 State는 무시
+11. 형식이 깨진 프레임, 16KB 넘는 프레임, 초당 300개 초과 → 그 접속만 Reject·끊김, 서버와 다른 접속은 계속 돎
+12. 엔티티 상태 코덱: `NetTransform` 쓰기→읽기 값이 같음(회전 u16 오차 0.01도 이하)
+
+**총괄 검수 방법:** diff 전체를 읽고(특히 권한 검사 누락, 스레드에서 Unity API 호출, 예외로 서버가 죽는 경로), 컴파일과 QA 4종을 직접 다시 돌려 수치를 확인하고, 플레이 모드 스크린샷을 직접 봅니다.
+
+**이 단계에서 하지 않는 것:** EOS, 서버 열기 UI, 계정 검증(2단계) / 캐릭터 저장(3단계) / 플레이어·탈것·드롭 아이템·경제 이전(4단계) / 시민·교통(5단계) / 거리 기반 관심 범위, 서버 설정 파일, 관리자 명령(6단계).
+
+#### 12.1 결과 (총괄 검수 완료)
+
+**테스트 수치** (총괄이 직접 다시 돌림)
+- `SyncLayerQA.Run`: 53개 통과. 위치 State는 26바이트이고, TCP 길이를 더하면 30바이트
+- `SyncLayerQA.RunPlay`: 13개 통과. Welcome 전 맵 변경 확인을 포함하고, 스크린샷도 확인
+- `SyncLayerQA.RunProcess`: 5개 통과. 빌드한 `-gameserver` 프로세스를 썼고, 빌드는 `CompanyGame/Builds/`(git 무시)에 들어감
+- `SyncLayerQA.RunLoad`(메모리 안, 10Hz, 10초):
+
+| 인원 | Tick 평균 | Tick 최대 | 송신(TCP 길이 포함) | 메시지/초 |
+| --- | --- | --- | --- | --- |
+| 49명 | 0.153ms | 3.1ms | 약 705KB/s (약 5.6Mbps) | 23,492 |
+| 9명 | 0.016ms | 0.27ms | 약 21.6KB/s | 719 |
+
+- 회귀: NetSessionQA(서버 흐름 포함), WorldSaveQA 68개, TitleFlowQA 108개, RemoteAvatarQA 18개 모두 통과
+
+**설계와 달라진 점**
+- 주인에게는 자기 엔티티의 Spawn·State·Despawn을 되돌려 보내지 않음
+- 이벤트 대상 1(맵 전원)은 보낸 사람도 받음
+- Claim은 요청자가 엔티티와 같은 맵에 있어야 함
+- S→C Spawn에도 컴포넌트 수(u8)를 넣음
+- 새로 들어온 사람은 이미 있는 사람들의 Peer(들어옴)를 받음
+- 명령줄 `-bind <주소>`를 추가함. 기본값은 모든 주소
+- 추가 보호 장치: Hello 없이 10초가 지나면 끊음, TCP 동시 소켓 256개, 접속당 송신 큐 8192개
+- QA용 컴포넌트는 `Editor/Net/SyncQaRuntime`(런타임 어셈블리, `UNITY_EDITOR` 조건)에 둠. 빌드에는 들어가지 않음
+- 서버가 직접 엔티티를 만드는 API는 아직 없음. 서버 소유 엔티티는 지금은 `PersistOnLeave`로만 생김(4단계에서 추가)
+
+**다음 단계로 넘기는 한계**
+- 4단계: 초당 300프레임 제한이 있어서, 움직이는 엔티티를 많이 가진 클라이언트는 끊길 수 있음 → 보낼 양을 묶어야 함
+- 4단계: 이름(Hello·Peer)을 서버가 검사하지 않음 → 이름표를 옮길 때 길이와 `<>`를 거름
+- 4단계: 장면을 내릴 때 남아야 하는 내 엔티티(설치한 차)의 처리
+- 4단계: 이벤트 대상 0(주인)이 서버 소유 엔티티면 아무 데도 가지 않음
+- 2단계: Hello의 계정 ID를 그대로 믿음 → EOS ID 토큰으로 검증
+- 6단계: 서버 프로세스에 기존 자동 생성 객체(`NetSession` 등)가 함께 뜸. 앱 안 서버는 모든 주소에서 들어서, 처음 쓸 때 Windows 방화벽 창이 뜰 수 있음
+- 49명이 한 맵에 있으면 송신이 약 5.6Mbps → 거리 기반 관심 범위와 갱신 빈도 낮추기가 필요함(6단계 부하 테스트에서 다시 잼)
+
+### 12.2 2단계 시작: EOS 시험 (포털 등록 대기)
+
+2단계는 EOS 시험부터 합니다(2026-10-13 결정). 4.2의 확인 못 한 항목을 실제로 돌려 보고, 결과에 따라 2단계 나머지(EosTransport, 서버 열기/참가하기 UI, 공개 목록, 서버 코드, ID 토큰 검증)의 세부 설계를 씁니다.
+
+**사용자가 먼저 할 것**
+- Epic 개발자 포털(dev.epicgames.com/portal)에서 제품 등록(무료)
+- 아래 값 전달:
+  - ProductId, SandboxId, DeploymentId
+  - 클라이언트 정책이 "Peer2Peer" 또는 그에 준하는 ClientId/ClientSecret (Connect, P2P, Sessions 권한)
+- 비밀값(ClientSecret)은 저장소에 커밋하지 않습니다. 로컬 설정 파일로 둡니다(.gitignore).
+
+**시험 항목 (값을 받은 뒤 구현 에이전트가 수행, 판정 기준)**
+1. PlayEveryWare 플러그인(최신 stable)을 Unity 6000.4.5f1에 넣었을 때 컴파일이 되고, 에디터 플레이 모드에 두 번 연속 들어가도 멈추지 않음
+2. Device ID 로그인으로 PUID를 받음(에디터 + Windows 빌드)
+3. 화면 없는 서버 프로세스(`-batchmode -nographics`)가 Device ID로 PUID를 받고 P2P 연결을 받아들임. 같은 PC의 다른 OS 사용자 없이 시험하려면 클라이언트는 프로필 슬롯이 아니라 **다른 PC나 다른 OS 사용자**여야 함(Device ID가 OS 사용자 단위라서). 안 되면 4.2-2의 대안(직접 IP)으로 감
+4. 세션 생성(서버 이름·인원·비밀번호 여부 속성)과 검색이 되고, 세션 ID를 직접 정해 코드로 찾을 수 있음
+5. Android 빌드에서 로그인·검색이 됨(Android 모듈 설치 필요. 실기기가 없으면 "못 함"으로 보고)
+
+시험 결과에 따라 설계를 바꿔야 하면 사용자에게 먼저 확인받습니다.
+
+**2026-10-13 진행 상황:** 사용자 계정이 Epic 개발자 포털 연령 확인에서 막혀 등록하지 못했습니다(27세인데도 "연령 미충족"으로 나옴). 등록이 될 때까지 EOS 시험은 미루고, 2단계 중 EOS 없이 할 수 있는 부분(12.3)을 먼저 합니다. → 같은 날 등록 완료. 값은 `CompanyGame/eos.local.json`(git 무시)에 있고, EOS 시험은 2a가 끝난 뒤 진행합니다(구현 에이전트는 한 번에 하나).
+
+### 12.3 2a단계: 서버 열기/참가하기 (EOS 없이, 완료 2026-10-13)
+
+**범위.** 타이틀에 새 흐름(서버 열기, 참가하기)을 만들고, 그 아래를 1단계 동기화 계층(TCP 직접 연결)으로 돌립니다.
+- PC는 별도 서버 프로세스, 모바일과 에디터는 앱 안 서버를 씁니다.
+- 비밀번호와 인원 제한을 넣고, 모바일은 주인이 나가면 서버를 끕니다.
+- EOS(공개 목록, 서버 코드, 중계, ID 검증)는 2b로 미룹니다.
+
+**전환 기간에 대한 결정.** 4단계 전까지 게임 내용(위치, 경제)은 옛 경로로 돕니다. 그래서 새 서버에 들어가도 서로 보이지 않고, 각자 자기 PC의 월드로 들어갑니다. 서버의 월드 파일은 3단계, 기능 이전은 4단계에서 합니다. 옛 방식 메뉴는 메인의 "옛 방식(개발용)" 버튼 아래로 옮겨 4단계까지 그대로 씁니다.
+
+**새로 만들 파일**
+
+| 파일 | 내용 |
+| --- | --- |
+| `Net/ServerSettings.cs` | 서버 설정(이름, 인원, 공개 여부, 비밀번호, 포트) 직렬화. `ProfileSlot.DataRoot/server/settings.json`에 읽고 씀. 인원 범위는 PC 2~50, 모바일 2~10(`Application.isMobilePlatform`)으로 맞춤. 이름 1~30자에 `<>` 금지, 비밀번호 0~32자, 포트 1024~65535(기본 7777) |
+| `Net/LocalServerProcess.cs` | PC에서 내 서버 프로세스 실행·확인·종료. 자기 실행 파일을 `-batchmode -nographics -gameserver <port> -serversettings <설정 경로>`로 띄움. 서버가 쓴 `server/running.json`(pid, port, 시작 시각)으로 실행 중인지 확인하고, 끄기는 pid의 프로세스 이름이 같은지 확인한 뒤 종료. 에디터에서는 실행 파일이 없으니 앱 안 서버로 대신함(QA는 빌드한 exe 경로를 넘겨 실제 프로세스를 시험) |
+| `Editor/Title/ServerOpenQA.cs` | 아래 검수 QA |
+
+**바꿀 파일**
+
+| 파일 | 바꿀 것 |
+| --- | --- |
+| `NetCore/SyncProtocol.cs` | 프로토콜 버전 2. Hello 끝에 `str 비밀번호`, Welcome 끝에 `str 서버 이름`. `RejectReason.Password = 5` |
+| `NetCore/GameServer.cs` | 생성자에 서버 이름과 비밀번호. 비밀번호가 있으면 Hello의 비밀번호가 같아야 Welcome(다르면 Reject Password). 비교는 길이에 따라 시간이 달라지지 않게 |
+| `Net/SyncHost.cs` | `-serversettings <path>`를 읽어 이름·인원·비밀번호·포트를 씀(명령줄 `-gameserver`·`-maxplayers`가 있으면 그것이 우선). 별도 프로세스 모드에서 `running.json`을 쓰고 종료할 때 지움. `StartInApp`도 ServerSettings를 받음 |
+| `Net/SyncClient.cs` | `Connect(host, port, password)`. Welcome의 서버 이름을 `ServerName`에 둠 |
+| `UI/Title/TitleScreen.cs` | 메인: 서버 열기 / 참가하기 / 설정 / 종료 / 옛 방식(개발용). 옛 방식 버튼은 지금의 방 만들기·참가하기·연결 방식 화면을 그대로 엶 |
+| | 서버 열기 화면: 서버 이름, 인원(◀ N ▶), 공개·비공개(공개 목록은 EOS 뒤에 동작한다는 안내), 비밀번호, 포트(고급), "서버 시작". 내 서버가 이미 돌고 있으면 "내 서버 실행 중 (포트 N): 접속 / 끄기" |
+| | 참가하기 화면: 주소(`host` 또는 `host:port`), 비밀번호, 최근 접속 주소 5개(PlayerPrefs, 슬롯별) |
+| `UI/Title/TitleFlow.cs` | `OpenServer(settings)`(PC: 프로세스 시작 후 127.0.0.1로 접속 / 모바일·에디터: 앱 안 서버 + 접속), `JoinServer(address, password)`. 접속되면 지금의 오프라인 시작처럼 내 월드로 게임에 들어감. 오류 문구 추가: Version, Full, Password, Malformed, Rate, server_start_failed, bad_address |
+| `UI/Title/PauseMenu.cs` | 새 서버 접속 중이면 "서버: 이름" 표시. 나가기 → SyncClient 끊고 타이틀로. 앱 안 서버의 주인(모바일)이면 서버도 끔. PC 서버 프로세스는 끄지 않음(게임을 꺼도 계속 돎) |
+| `Editor/Title/TitleFlowQA.cs` | 옛 흐름 시험이 "옛 방식(개발용)"을 거쳐 들어가게 탐색만 고침(판정은 그대로) |
+
+**지울 기존 코드: 없음** (방장 넘기기는 4단계, 2026-10-13 결정).
+
+**하지 않는 것:** 트레이 아이콘·서버 창(서버는 화면 없이 돌고 타이틀에서 관리), 서버 월드 선택(3단계), 공개 목록·서버 코드(2b), 정상 종료 신호. 지금 서버는 저장할 것이 없어 프로세스를 바로 끄지만, 3단계에서 저장 후 종료로 바꿈.
+
+**완료 기준**
+1. 컴파일 오류 없음, 기존 QA 회귀 없음(SyncLayerQA 4종, NetSessionQA, WorldSaveQA, TitleFlowQA, RemoteAvatarQA)
+2. SyncLayerQA.Run에 추가: 비밀번호가 틀리면 Reject(Password), 맞으면 Welcome, 비밀번호 없는 서버는 아무 값이나 통과, Welcome에 서버 이름이 옴, 버전 1 Hello는 Reject(Version)
+3. ServerSettings: 범위 밖 값이 맞춰짐(PC 1 → 2, 99 → 50, 모바일 20 → 10), 저장 후 다시 읽어도 같음, 잘못된 JSON이면 기본값
+4. ServerOpenQA(플레이 모드):
+   - 서버 열기 화면에서 시작하면(에디터라 앱 안 서버) 접속되고 게임 맵에 들어감
+   - 가짜 TCP 클라이언트가 틀린 비밀번호로는 거절되고 맞는 비밀번호로는 들어옴
+   - 일시정지 메뉴에 서버 이름이 보임. 나가기 → 타이틀, 앱 안 서버가 꺼짐(모바일 경로를 강제해 확인)
+5. ServerOpenQA(별도 프로세스):
+   - 빌드한 exe를 `LocalServerProcess`로 띄움 → `running.json`이 생김 → 참가하기 화면에서 `127.0.0.1:port`와 비밀번호로 접속해 게임 맵에 들어감
+   - 게임을 타이틀로 내려도 서버 프로세스는 남음
+   - "끄기"로 프로세스가 끝나고 `running.json`이 지워짐
+6. 화면 스크린샷(QA_SHOTS): 메인, 서버 열기, 서버 실행 중, 참가하기, 비밀번호 오류 화면
+
+**총괄 검수 방법:** diff를 읽고(특히 프로세스 종료 시 pid 확인, 비밀번호 비교, 설정 파일 경로가 슬롯별인지), QA를 다시 돌리고, 스크린샷 다섯 장을 직접 봅니다.
+
+#### 12.3 결과 (총괄 검수 완료)
+
+**테스트 수치** (총괄이 다시 돌린 것)
+- `SyncLayerQA.Run` 59개 (비밀번호 6개 포함)
+- `ServerOpenQA.Run` 59개
+- `ServerOpenQA.RunProcess` 38개 (UI에서 "서버 시작"을 눌러 실제 프로세스를 띄우고 → 접속 → 나가기 → 다시 접속 → 끄기까지)
+- 스크린샷 5장 확인
+
+**에이전트 보고 수치** (총괄이 다시 돌리지 않음)
+- `TitleFlowQA` 113개, `NetSessionQA`, `WorldSaveQA` 68개, `RemoteAvatarQA` 18개, `npm test` 두 개 모두 통과
+
+**설계와 달라진 점**
+- 오류 코드 `server_unreachable`을 추가함. 직접 TCP 접속용 문구로, Cloudflare 주소 안내를 띄우지 않음
+- 앱 안 서버는 에디터에서도 주인이 나가면 꺼짐
+- 비밀번호 오류 화면에는 "뒤로"만 둠
+- 새 화면 아래쪽 글줄에는 프로필 슬롯만 보이고, 옛 방식 화면에서는 지금처럼 보임
+
+**남은 것**
+- 게임을 완전히 종료한 뒤에도 PC 서버 프로세스가 살아 있는지는 QA로 확인할 수 없음. 빌드에서 직접 확인 필요
+- 공개/비공개 설정은 저장만 되고 아직 쓰이지 않음(2b)
+- 서버 끄기는 프로세스를 바로 종료하는 방식임. 저장 후 정상 종료는 3단계
+
+### 12.4 2b-1단계: EOS 시험 (완료 2026-10-13, 중계 경로만 미확인)
+
+**목적.** 4.1에서 확인하지 못한 것을 실제로 돌려 봅니다. 결과에 따라 2b-2(EosTransport, 공개 목록, 서버 코드, ID 토큰 검증) 설계를 정합니다. 시험이 목적이라 게임 흐름은 바꾸지 않습니다.
+
+**새로 넣을 것**
+
+| 대상 | 내용 |
+| --- | --- |
+| PlayEveryWare EOS 플러그인 | UPM으로 **버전을 고정**해 추가(v6.2.0 stable). git URL이나 릴리스 tgz 중 이 PC에서 되는 쪽(LFS 필요 여부 확인) |
+| EOS 설정 | 플러그인 설정 파일은 `CompanyGame/eos.local.json`에서 만들고, ClientSecret이 든 생성 파일은 git이 무시하게 함. 저장소에는 비밀값이 없는 틀만 둠 |
+| `Net/Eos/EosProbe.cs` | 명령줄 `-eostest` 시험 모드(게임 흐름과 분리, 인자가 없으면 아무것도 안 함). 결과를 로그와 `eos_test_log.txt`에 남김 |
+| | `-eostest server`: Device ID 로그인 → PUID 출력 → P2P 소켓 `eostest`에서 연결을 받아 메시지를 되돌려 보냄 → 세션 생성(이름·인원·비밀번호 여부 속성, 세션 ID 직접 지정) |
+| | `-eostest client <서버 PUID>`: Device ID 로그인 → 서버로 P2P 연결 → 핑 20번(왕복 시간) → 연결 종류(직접/중계) 기록 → 세션 검색(속성으로, 세션 ID로) |
+| `Editor/Net/EosTestQA.cs` | 에디터에서 할 수 있는 시험과 팀원용 묶음 만들기 |
+| 팀원용 묶음 | `CompanyGame/Builds/EosTest/`(git 무시): Windows 빌드, `eos_test.bat`(PUID를 물어보고 client로 실행), `eos_test_server.bat`, `README_팀원.txt`(한국어 3줄 안내). 압축 파일 하나로 만듦 |
+
+**판정 (시험 항목)**
+
+| # | 항목 | 이 PC에서 | 팀원 PC 필요 |
+| --- | --- | --- | --- |
+| 1 | 플러그인을 넣어도 컴파일 오류가 없고, 에디터 플레이 모드에 두 번 연속 들어가도 멈추지 않음. 기존 QA 회귀 없음 | O | |
+| 2 | Device ID 로그인으로 PUID를 받음(에디터, Windows 빌드) | O | |
+| 3 | 화면 없는 서버 프로세스(`-batchmode -nographics -eostest server`)가 PUID를 받음 | O | |
+| 4 | 같은 OS 사용자로 두 프로세스가 동시에 로그인하면 PUID가 같은지, 둘 다 살아 있는지(4.2-1 확인) | O | |
+| 5 | 세션 생성, 속성 검색, 세션 ID 검색 | O | |
+| 6 | 서버 프로세스와 다른 PC의 클라이언트가 P2P로 연결되고, 핑이 오가며, 연결 종류가 기록됨 | | O |
+| 7 | Android | Android 모듈이 없어서 못 함으로 보고 | |
+
+**사용자가 할 것:** 6번만 해당합니다. 묶음 파일을 팀원에게 전달하고, 사용자 PC에서 `eos_test_server.bat`를 실행한 뒤 PUID를 팀원에게 알려 줍니다. 팀원이 `eos_test.bat`를 실행하면, 양쪽 `eos_test_log.txt`를 총괄에게 줍니다.
+
+**지울 코드: 없음.** 기존 흐름은 고치지 않습니다.
+
+**2026-10-13 결정:** 플러그인 v6.2.0의 에디터 전용 Steam 유틸리티 어셈블리가 Steamworks.NET 2025.163.0 이후에 없어진 상수(`STEAMGAMESEARCH_INTERFACE_VERSION`, `STEAMMUSICREMOTE_INTERFACE_VERSION`)를 참조해서 컴파일되지 않습니다. 그래서 Steamworks.NET을 2025.164.1에서 **2025.162.1로 내립니다**. 플러그인 수정판이 나오면 다시 올립니다.
+
+**완료 기준:** 1~5 결과(수치·PUID 앞자리·오류 메시지)가 문서에 기록되고, 팀원용 묶음이 만들어짐. 6은 사용자가 팀원과 돌린 뒤 총괄이 로그를 읽고 기록함.
+
+#### 12.4 결과 (총괄 검수, 2026-10-13)
+
+| # | 결과 |
+| --- | --- |
+| 1 | 통과. 컴파일 오류 0. 플레이 모드 연속 2회 진입 정상(Device ID 로그인 약 9초). 기존 QA 전부 회귀 없음. SteamHostRoomQA 42개는 Steam 클라이언트 없이 도는 시험이라, Steam 실기 확인은 안 함 |
+| 2 | 통과. 에디터와 Windows 빌드 모두 Device ID로 PUID를 받음 |
+| 3 | 통과. **화면 없는 서버 프로세스(`-batchmode -nographics`)도 Device ID로 PUID를 받고 세션을 만듦** |
+| 4 | 같은 OS 사용자의 두 프로세스는 **PUID가 같고**, 둘 다 로그인 상태를 유지함. 같은 PUID끼리 P2P는 성립하지 않음(핑 0/20, ConnectionFailed) → 4.2-1(내 PC 서버에는 로컬 127.0.0.1로 붙음)이 맞음 |
+| 5 | 통과. 세션 생성, 세션 ID 직접 지정, 속성 검색, 세션 ID 검색 모두 Success. 속성(이름, 최대 인원, 비밀번호 여부, 빈자리)이 맞게 옴 |
+| 6 | **통과(2026-10-13, 맥북 클라이언트)**. 이 PC의 화면 없는 서버 프로세스(Windows, PUID A)와 맥북(macOS Universal 빌드, PUID B, 처음 실행이라 Device ID 새로 만듦)이 EOS P2P로 연결됨. 연결 종류 DirectConnection, 양쪽 NAT Moderate. 핑 20/20, 첫 핑 1385ms(연결 직후), 나머지 25~79ms(평균 약 39ms). 맥북에서 세션 속성 검색·세션 ID 검색 모두 성공. **맥에서 EOS 초기화도 정상**(helper dylib 없이). 맥북은 **휴대폰 핫스팟**(서버와 다른 네트워크)이었는데도 직접 연결됨(NAT 통과 성공). 중계(relay)로 넘어가는 경로는 쓰이지 않아서 시험되지 않음 |
+| 7 | 못 함. Android 모듈이 없음 |
+
+**2b-2에 반영할 것**
+- 강제 종료된 서버의 세션이 2~5분 동안 검색에 남음 → 목록에서 오래된 세션을 거르는 장치가 필요함(예: 서버가 주기적으로 속성을 갱신하고, 클라이언트는 오래된 것을 숨김)
+- 이 PC의 NAT 종류는 Moderate
+- 플러그인 설정 파일은 `StreamingAssets/EOS/`에 있어야 함. Windows 네이티브가 Unity보다 먼저 읽기 때문이고, git은 이 폴더를 무시함. `EosTestQA.WriteConfig`가 `eos.local.json`에서 이 파일을 만듦
+- Steamworks.NET 2025.162.1 고정(플러그인 수정판이 나오면 다시 올림). git URL로 설치하려면 git-lfs가 필요함
+
+### 12.5 3단계: 캐릭터를 서버 월드 파일로 (완료 2026-10-13)
+
+**범위.** 캐릭터(이름, 성별, 은행 돈, 주식, 인벤토리, 위치, 캐릭터 시계)를 서버의 월드 파일에 계정 ID별로 저장합니다. 같은 서버에 다시 오면 그 캐릭터로 이어서 합니다. 혼자 하기도 같은 구조(내 PC 서버, 1명)를 씁니다.
+
+**전환 기간의 한계.** 4단계 전까지 경제 계산은 각 PC에서 합니다. 그래서 캐릭터 내용은 클라이언트가 만든 값을 서버가 그대로 보관합니다. 공개 서버에서는 돈을 조작할 수 있고, 4단계에서 서버가 직접 계산하면서 막습니다. 월드 상태(회사, 주가, 땅)도 4단계 전까지는 각자 PC의 월드를 씁니다.
+
+**서버 월드 파일**
+- 위치: 서버 쪽 `<DataRoot>/server/worlds/<월드 ID>/world.dat`
+- 형식: 이진. NetCore에는 Unity JSON이 없어서 `BinaryWriter`로 씀
+  - 버전
+  - 월드 ID
+  - 만든 시각
+  - 월드 시계(분)
+  - 캐릭터 목록: 계정 ID, 이름, 성별, 캐릭터 시계(분), 마지막 접속 때 월드 시계, 내용 blob
+- 쓰기: 임시 파일에 쓴 뒤 바꿔치기(`File.Replace`)하고, 이전 파일을 `world.prev.dat`로 하나 남김
+- 저장 시점: 바뀐 것이 있으면 60초마다, 그리고 서버가 끝날 때
+- 서버 열기에 "월드" 항목을 넣음: 새 월드 / 기존 월드 목록(이름, 마지막 저장 시각, 캐릭터 수)
+
+**캐릭터 시계와 월드 시계는 서버가 계산함 (클라이언트를 믿지 않음)**
+- 월드 시계: 서버가 켜져 있는 동안 현실 시간 × 게임 시간 비율(지금 1시간 = 300초)만큼 흐름
+- 캐릭터 시계: 그 계정이 접속해 있던 시간만큼 흐름
+- 마지막 접속 때의 월드 시계를 기록해 둠. 비운 동안의 정산은 이 값과 상한 일수로 계산함. 정산 기능 자체는 아직 없어서 값만 기록함
+
+**메시지 (연결 수준, 프로토콜 버전 3)**
+
+| 방향 | 종류 | 본문 |
+| --- | --- | --- |
+| S→C | 109 Character | Welcome 바로 뒤. u8 있음/없음, str 이름, str 성별, u32 캐릭터 시계(분), u32 월드 시계(분), blob32 내용(u32 길이) |
+| C→S | 8 CharacterCreate | str 이름, str 성별 |
+| S→C | 110 CharacterResult | u8 결과(0 성공, 1 이름 중복, 2 형식 오류, 3 이미 있음) |
+| C→S | 9 CharacterSave | blob32 내용 |
+
+- 내용 blob 한도는 48KB이고, 그 때문에 프레임 한도를 64KB로 올림. 엔티티 blob 한도 4KB는 그대로임
+- 이름 규칙은 `TitleFlow.IsValidName`과 같음(한글·영문·숫자·_ 2~12자)
+- 이름 중복은 대소문자를 구분하지 않고 서버가 검사함
+- 캐릭터가 없는 접속은 CharacterCreate 말고는 엔티티를 만들 수 없음
+
+**클라이언트 흐름**
+1. 접속
+2. Character를 받음
+3. 없으면 기존 "캐릭터 만들기" 화면(`TitleScreen.ShowName`)을 띄움 → CharacterCreate를 보냄 → 기본 상태(`PersonalSave.Baseline*`)로 시작
+4. 있으면 은행·주식(`PersonalSave.Import`), 인벤토리, 이름·성별(`GameSession.SetCharacter`), 저장된 맵·위치로 들어감
+5. 접속 중에는 30초마다, 그리고 맵을 옮길 때와 나갈 때 CharacterSave를 보냄
+6. 새 서버에 접속해 있는 동안은 PC에 개인 저장을 쓰지 않음(`WorldSaveRunner`)
+
+**혼자 하기 (9장-4)**
+- 메인에 "혼자 하기"를 둠. 내 PC 서버를 비공개·1명으로 엶
+- PC에서도 별도 프로세스를 띄우지 않고 **앱 안 서버를 127.0.0.1에만 열어** 씀. 혼자 하는데 두 번째 프로세스를 띄우는 것은 낭비라서 이렇게 정함. 같은 월드를 나중에 "서버 열기"로 열면 친구도 들어올 수 있음
+- 옛 오프라인 저장(`world/world.json`, `player/*.json`)은 옮기지 않음. "옛 방식(개발용)"에서 계속 쓸 수 있음
+
+**서버 정상 종료.** `LocalServerProcess.Stop`이 `stop.request` 파일을 만들고 5초 동안 기다림. 서버는 1초마다 이 파일을 확인해서 있으면 저장하고 끝냄. 5초 안에 끝나지 않으면 지금처럼 프로세스를 강제로 끝냄.
+
+**바꿀 파일과 새 파일**
+
+| 구분 | 파일 | 내용 |
+| --- | --- | --- |
+| 새 | `NetCore/WorldStore.cs` | world.dat 읽기·쓰기, 캐릭터 목록, 이름 중복 검사 |
+| 고침 | `NetCore/GameServer.cs`, `SyncProtocol.cs` | 위 메시지, 시계 계산, 저장 주기 |
+| 고침 | `Net/SyncHost.cs`, `ServerSettings.cs`, `LocalServerProcess.cs` | 월드 선택, 정상 종료 |
+| 고침 | `Net/SyncClient.cs` | Character 받기와 이벤트, 저장 보내기 |
+| 새 | `Player/CharacterSync.cs` | Player 어셈블리. 내용 blob 만들기·적용, 30초 저장, 위치 |
+| 고침 | `UI/Title/TitleScreen.cs`, `TitleFlow.cs` | 혼자 하기, 월드 선택, 캐릭터 만들기 연결 |
+| 고침 | `Gameplay/WorldSaveRunner.cs` | 새 서버 접속 중에는 개인 저장을 끔 |
+| 새 | `Editor/Net/CharacterQA.cs` | 아래 검수 |
+
+**지울 코드.** 옛 경로의 월드별 캐릭터(`character_state`, `/me/state?world=`, `PlayerData`/`SteamLocalState`/`NetPlayerSave`의 월드별 저장)는 4단계에서 옛 경로와 함께 지움. 이번 단계에서는 지우지 않음.
+
+**완료 기준**
+1. 컴파일 오류 없음, 기존 QA 전부 회귀 없음
+2. CharacterQA(메모리):
+   - 캐릭터 만들기 → 저장 → 서버 재시작(파일에서 다시 읽음) → 같은 계정이 같은 캐릭터를 받음
+   - 다른 계정은 없음을 받음
+   - 이름 중복(대소문자만 달라도)·형식 오류는 거절됨
+   - 캐릭터 없이 Spawn하면 무시됨
+   - 48KB를 넘는 내용은 거절됨
+   - 캐릭터 시계는 접속해 있던 시간만큼만 늚
+   - 월드 두 개의 캐릭터가 섞이지 않음
+   - 파일이 깨지면 world.prev.dat에서 읽음
+3. CharacterQA(플레이 모드):
+   - 혼자 하기 → 캐릭터 만들기 화면 → 게임 입장 → 은행 돈과 인벤토리를 바꿈 → 나감 → 다시 혼자 하기 → 바꾼 값과 위치가 그대로 있음
+   - 새 월드에서는 기본 상태로 시작함
+4. 별도 프로세스: "끄기"로 정상 종료하면 마지막 변경까지 world.dat에 저장되어 있음
+5. 실제 인벤토리 내용 blob의 크기를 재서 보고함(48KB 한도가 맞는지 확인)
+6. 스크린샷: 혼자 하기가 있는 메인, 월드 선택, 캐릭터 만들기, 이름 중복 오류
+
+#### 12.5 결과 (총괄 검수 완료)
+
+**테스트 수치** (총괄이 다시 돌린 것)
+- `CharacterQA.Run` 36개 (같은 계정 동시 접속 거절 포함)
+- `CharacterQA.RunPlay` 32개
+- `CharacterQA.RunProcess` 14개 ("끄기"를 누르면 저장하고 스스로 종료, 약 2.7초)
+- `SyncLayerQA.Run` 59개
+- 스크린샷 확인
+
+**에이전트 보고 수치**
+- `ServerOpenQA` 61개 / 43개
+- `NetSessionQA`, `WorldSaveQA` 68개, `TitleFlowQA` 113개, `RemoteAvatarQA` 18개, `SteamHostRoomQA` 42개, `npm test` 두 개 모두 통과
+- `EosTestQA`는 돌리지 않음. 사용자가 그 빌드 폴더의 서버를 실행 중이었기 때문
+
+**설계와 달라진 점**
+- 캐릭터가 없으면 Spawn과 Claim을 모두 무시함
+- 내용 blob은 gzip 압축함. 새 캐릭터 약 0.8KB
+- 같은 계정이 이미 접속해 있으면 새 접속을 `Reject(AlreadyConnected = 6)`으로 거절함. 아이템·돈 복제를 막기 위해서임
+- 서버 프로세스가 쓰고 있는 월드는 혼자 하기에서 열 수 없음(`world_in_use`)
+- 월드 이름 칸은 없음. 목록에는 만든 날짜·시각으로 보임
+- 클라이언트는 받은 시계 값을 보관만 함. 실제 적용은 4·5단계에서 함
+
+**남은 결정과 할 일**
+- 4단계 전에 정할 것: 책에 한글을 약 2만 2천 자 넘게 쓰면 캐릭터 내용이 48KB를 넘어 저장되지 않음. 책을 따로 저장할지, 한도를 올릴지 정해야 함
+- 프로토콜이 버전 3으로 바뀌어서 EOS 시험 묶음을 다시 빌드해야 함
+
+### 12.6 4단계: 기능 이전과 옛 경로 삭제 (나누는 안 확정 2026-10-13)
+
+4단계는 범위가 커서 다섯 개로 나눕니다. 각각 세부 설계 → 확인 → 구현 → 검수 → 커밋 순서로 진행합니다.
+
+| 하위 단계 | 내용 | 비고 |
+| --- | --- | --- |
+| 4a | 플레이어 아바타를 엔티티로 옮김: 위치, 외형·성별, 이름표, 공격 동작, 앉기, 탈것 탄 모습, 든 물건 | 이름은 서버가 캐릭터 이름으로 내려줌(클라이언트 입력을 표시하지 않음) |
+| 4b | 설치한 탈것과 드롭 아이템을 엔티티로 옮김: 설치, 탑승(Claim, 한 차에 한 명), 하차, 해체, 줍기(서버 판정, 먼저 온 사람만) | 탈것은 PersistOnLeave. 월드 파일에 저장 |
+| 4c | **[완료 2026-10-16, 12.9]** 공유 경제를 서버 판정으로 옮김: 서버 프로세스가 게임 월드(경제 매니저, 시계)를 화면 없이 돌림. 땅·회사·소유권·신고·SNS 요청은 서버로 가는 이벤트가 되고, 결과는 월드 엔티티 상태와 이벤트로 퍼짐. 월드 상태는 world.dat에 저장. 클라이언트는 경제를 계산하지 않음(`GameSession.IsAuthority`가 서버에서만 참) | 가장 큼. 4c 세부 설계 때 다시 나눌 수 있음 |
+| 4d | 개인 경제(은행 돈, 주식, 인벤토리 판정)를 서버로 옮김. 캐릭터 내용을 클라이언트 값 그대로 받지 않음. **책 내용은 world.dat의 별도 칸에 저장하고 캐릭터에는 책 ID만 둠**(2026-10-13 결정, 48KB 한도 문제). 밤 활동 효과도 서버가 판정 | 돈 조작을 막는 단계 |
+| 4e | 옛 경로 삭제: NetSession(`pos`/`op`/`state`/`world`/`msg`), HostRoom, RoomNode, 방장 넘기기, 옛 월드별 캐릭터, "옛 방식(개발용)" 메뉴, Node·Worker의 방 코드. 시민·교통 동기화는 5단계 전까지 월드 엔티티의 이벤트로 임시로 옮김 | Steam 모드를 남길지는 이때 정함 |
+
+### 12.7 4a단계: 플레이어 아바타 엔티티 (완료 2026-10-14)
+
+**범위.** 새 서버(동기화 계층)에 접속하면 각 플레이어가 자기 아바타 엔티티를 만들고, 같은 맵의 다른 사람에게 보입니다. 옛 방(Cloudflare·Steam)의 `NetPlayerSync`는 4e까지 그대로 두되, 표시 코드는 두 경로가 함께 쓰도록 꺼냅니다.
+
+**구성**
+- 프리팹: 기존 `Resources/Net/RemotePlayer`(남녀 외형)를 씀. 엔티티 프리팹 키는 `Net/RemotePlayer`
+- 플래그: `FollowsOwnerMap`
+- 컴포넌트는 런타임에 붙이거나 프리팹 빌더(`RemotePlayerPrefabBuilder`)를 고쳐 붙임
+  - `NetTransform`: 위치와 회전
+  - 새 `AvatarState : NetBehaviour`: 성별, 탄 탈것 itemId, 이동 속도(걷기 애니메이션용), 앉음 여부, 든 물건 itemId
+  - 이벤트 `Punch`(대상: 맵 전원)
+- 표시
+  - `NetPlayerSync`에 있던 외형 전환, 차 모델, 자전거 페달, 팔 휘두르기, 이름표 코드를 새 컴포넌트 `RemoteAvatarView`로 꺼냄
+  - 옛 경로(`NetPlayerSync`)와 새 경로가 같이 씀
+- 내 아바타: 실제 플레이어 오브젝트는 맵을 옮길 때마다 바뀜. 그래서 숨긴 대리 오브젝트(`DontDestroyOnLoad`)를 엔티티로 만들고, 매 프레임 플레이어 위치를 따라가게 함. 내 화면에서는 렌더러를 끔
+- 이름
+  - 서버가 Peer 메시지로 **캐릭터 이름**을 보냄. 캐릭터를 만들면 그 이름으로 Peer를 다시 보냄
+  - 이름표는 엔티티 주인(접속 번호)의 Peer 이름을 씀
+  - 클라이언트가 보낸 이름 문자열은 표시하지 않음. 표시할 때 `<>`를 빼고 12자로 자름
+- 앉기·든 물건
+  - 기존 `PlayerSeating`, `PlayerHeldItem`이 내 화면에서 보여 주는 방식을 찾아 원격 아바타에 재사용함
+  - 앉는 애니메이션이 원래 없으면 위치·회전만 맞추고 그 사실을 보고함
+
+**바꿀 파일과 새 파일**
+- 새 파일: `Player/AvatarState.cs`, `Player/RemoteAvatarView.cs`, `Player/AvatarSync.cs`(내 아바타 엔티티를 만들고 따라가게 함), `Editor/Net/AvatarSyncQA.cs`
+- 고칠 파일: `Player/NetPlayerSync.cs`(표시 코드를 `RemoteAvatarView`로 옮김, 동작은 그대로), `NetCore/GameServer.cs`(Peer 이름 = 캐릭터 이름), `Editor/Net/RemotePlayerPrefabBuilder.cs`(필요하면)
+
+**지울 코드:** 없음(4e에서 지움).
+
+**완료 기준**
+1. 컴파일 오류 없음. 기존 QA 회귀 없음(특히 `RemoteAvatarQA` — 옛 경로 표시가 그대로인지)
+2. `AvatarSyncQA` 플레이 모드: 앱 안 서버에 Unity 클라이언트와 가짜 TCP 클라이언트(두 번째 플레이어)가 붙어서 아래를 확인함
+   - 상대 아바타가 나타남
+   - 위치·회전을 따라감
+   - 여자 외형
+   - 이름표가 서버의 캐릭터 이름으로 보임
+   - 탈것을 타면 그 모델이 보이고, 차면 몸이 숨겨짐
+   - 공격 이벤트가 오면 팔을 휘두름
+   - 앉음, 든 물건
+   - 다른 맵으로 가면 사라지고, 같은 맵으로 오면 다시 보임
+   - 나가면 사라짐
+   - 반대 방향(Unity 플레이어의 아바타를 가짜 클라이언트가 받음)
+3. 메모리 QA: Peer 이름이 캐릭터 이름이고, 캐릭터를 만들면 갱신됨
+4. 대역폭: 가만히 서 있으면 State를 보내지 않음. 걸을 때 초당 10개 이하
+5. 스크린샷: 걷는 상대(이름표), 여자 외형, 차에 탄 상대, 공격 순간, 앉은 상대, 물건을 든 상대
+
+**9장-3 결정:** 접속을 끊은 캐릭터는 사라짐.
+
+#### 12.7 결과 (총괄 검수 완료)
+
+**테스트 수치** (총괄이 다시 돌린 것)
+- `AvatarSyncQA.Run` 11개
+- `AvatarSyncQA.RunPlay` 27개
+- 스크린샷 확인(걷기와 이름표, 앉기, 차, 든 물건)
+
+**에이전트 보고 수치**
+- 기존 QA 전부 통과. `RemoteAvatarQA` 18개는 옛 경로 표시가 그대로인지 확인한 것
+- 대역폭: 서 있을 때 0개/초, 걸을 때 약 10개/초. 출발하는 순간에 AvatarState가 1~2개 더 나감
+
+**설계와 달라진 점**
+- 프리팹 에셋은 고치지 않음. 런타임 템플릿에 `NetTransform` → `AvatarState` → `RemoteAvatarView`를 이 순서로 붙이고, `PrefabFactory`가 `Net/RemotePlayer` 키일 때 이 템플릿을 씀
+- `AvatarState` 형식: u8 비트, u8 속도(0.1m/s 단위), 탈것, 든 물건. 약 13바이트. 속도는 1m/s 넘게 바뀔 때만 보냄(자전거 페달용)
+- `PlayerHeldItem.BuildWorldModel`을 재사용함
+
+**남은 것**
+- 원격 아바타의 손 위치는 근사값임
+- 차에 타도 이름표가 몸 높이에 남음(옛 경로도 같음)
+- 나간 사람의 차를 주차하는 처리(옛 `RemoteLeft`)는 4b에서 함
+
+### 12.8 4b단계: 설치한 탈것과 드롭 아이템을 엔티티로 (완료 2026-10-14)
+
+**범위.** 새 서버(동기화 계층)에 접속해 있을 때, 바닥에 내려놓은 아이템과 설치한 탈것을 엔티티로 공유합니다. 줍기와 탑승은 서버의 Claim으로 판정합니다(먼저 온 요청만 성공). 둘 다 서버 소유로 남고 world.dat에 저장됩니다. 버린 아이템은 아래 "분실물" 규칙으로 치워집니다. 옛 방(`veh.*` op, `NetPlayerSync.RemoteLeft`)과 오프라인 경로는 4e까지 그대로 둡니다.
+
+**하지 않는 것.** 탈것 잠금·등록·해체 허용(`PropertyRegistry`)의 공유는 4c(공유 경제)에서 합니다. 4b 동안 새 서버에서는 각 PC의 등록부가 따로라서, 사실상 누구나 아무 차나 타고 해체할 수 있습니다. 드롭 내용(아이템·개수)은 4d 전까지 클라이언트 값을 그대로 믿습니다(12.5의 한계와 같음).
+
+**재사용.** 표시와 상호작용은 지금의 `WorldDroppedItem`(기록 `DropRecord`, `Add`/`Remove`/`Park`/`ShowParked`, 탑승 `MountLocal`, 해체, 줍기 UI)을 그대로 씁니다. 엔티티는 그 기록을 만들고 지우는 얇은 연결 고리일 뿐입니다. 4a의 아바타가 탄 차 모델을 이미 보여 주므로, 남이 탄 차는 세워 둔 사본을 숨기기만 합니다(옛 방과 같은 방식).
+
+**엔티티 구성**
+- 프리팹 키 `Net/WorldDrop`. 에셋 없이 런타임 템플릿(숨긴 빈 오브젝트 + `NetEntity` + `DropState`)을 `PrefabFactory`로 등록함(4a의 `AvatarSync` 방식)
+- 플래그: 설치한 탈것은 `PersistOnLeave | Claimable`, 버린 아이템은 여기에 새 플래그 bit3 `Expiring`을 더함
+- 프리팹 키는 둘 다 `Net/WorldDrop`이고, 종류는 상태의 첫 바이트로 구분함
+- 새 `DropState : NetBehaviour`(UI 어셈블리, `WorldDroppedItem` 옆)
+  - 상태: u8 종류(0 아이템, 1 설치한 탈것), f32 x·y·z, f32 회전 y, blob 내용 = gzip(`InventorySnapshot.Export(drop.contents)`)
+  - 전체가 4KB(엔티티 blob 한도)를 넘으면 내려놓기를 거절함: "이 아이템은 지금 내려놓을 수 없습니다". 긴 책만 해당하고, 4d에서 책을 따로 저장하면서 풀림
+  - 상태를 받으면 그 엔티티의 `DropRecord`를 만들거나 고침(기록 ID = 엔티티 ID). 엔티티가 사라지면 기록과 모습도 지움
+  - 주인이 나 아닌 접속자면(누가 타는 중) 세워 둔 차를 숨기고, 주인이 0으로 돌아오면 받은 위치에 다시 세움
+
+**연결 수준 메시지 추가 (프로토콜 버전 4)**
+
+| 방향 | 종류 | 본문 | 규칙 |
+| --- | --- | --- | --- |
+| C→S | 10 Release | u64 id | 보낸 사람이 주인이고 엔티티가 `PersistOnLeave`와 `Claimable`을 둘 다 가질 때만. 주인을 0으로 바꾸고 맵 전원(보낸 사람 포함)에게 Owner. 맵이 달라도 허용(탄 채로 맵 이동 중 내림) |
+
+- Claim의 반대라서 기능별 메시지가 아니라 연결 수준 목록에 넣습니다(12.1의 "고정 목록" 원칙 유지).
+- 클라이언트 `SyncClient.Release(entity)`는 그 엔티티의 바뀐 상태를 **먼저 보내고** Release를 보냄(차를 세운 위치가 주인 반납보다 먼저 도착).
+- Spawn을 서버가 거절하면(한도 등) 보낸 사람에게 Despawn(id)을 보냄. 지금은 클라이언트가 자기 엔티티의 Despawn을 무시하는데, 이것을 "서버가 지움"으로 처리하도록 바꿈. 드롭 쪽은 확정 전에 지워지면 내용을 인벤토리로 돌려놓음(아이템 증발 방지)
+
+**흐름**
+
+| 동작 | 새 서버에서 |
+| --- | --- |
+| 내려놓기·설치 | 인벤토리에서 꺼내 기록 생성 → Spawn → 바로 Release. Owner(0)을 받으면 확정 |
+| 줍기 | Claim → Owner(나)를 받으면 인벤토리에 넣고 **곧바로 Despawn**(캐릭터 저장은 그 뒤에 나가므로 끊겨도 복제되지 않음). 가방이 차서 못 넣으면 Release. Owner가 남이거나 그대로면 "다른 사람이 먼저 주웠습니다" |
+| 탑승 | Claim → Owner(나)면 `MountLocal`. 못 타면 Release. 탄 동안 차가 1m 넘게 움직였으면 1초에 한 번 위치 상태를 보냄 |
+| 하차 | 내린 위치를 상태에 넣고 Release(맵 이동 때 자동 하차도 같음) |
+| 탄 채로 나감 | 서버가 `PersistOnLeave`로 주인 0. 다른 사람은 마지막으로 받은 위치(최대 1초 전)에 차를 세움 → 옛 `RemoteLeft` 대체 |
+| 해체 | Claim → 성공하면 탈것 엔티티를 Despawn하고 같은 내용으로 버린 아이템 엔티티를 새로 Spawn(`Expiring`) → Release. 그 뒤로는 일반 드롭이라 누구나 주움 |
+
+**분실물 (2026-10-14 결정)**
+- 버린 아이템은 바닥에 하루만 남음. 버린 뒤 처음 오는 **월드 시계 06:00**(월드 분 % 1440 == 360)에 서버가 바닥에서 치우고(맵 전원에게 Despawn) 분실물 목록으로 옮김
+- 분실물 목록은 world.dat에 데이터로만 둠(프리팹 키, 상태 blob, 옮긴 월드 분). **게임 7일(월드 시계 10080분)** 이 지나면 서버가 지움
+- 분실물센터(찾아가는 화면)는 아직 없음. 나중에 만들 때 **누구나** 찾아갈 수 있음. 그래서 버린 사람 계정은 기록하지 않음
+- 서버는 상태 blob을 읽지 않음. 규칙은 `Expiring` 플래그만 보고 적용함(기능을 모르는 서버 원칙 유지)
+- 누가 줍는 중이라 주인이 0이 아니면 치우지 않고, 주인이 0으로 돌아온 뒤 다음 검사 때 치움
+- 설치한 탈것은 치우지 않음
+- 한계: 클라이언트 화면의 시계는 아직 월드 시계를 따르지 않음(12.5 결과). 그래서 4c·5단계 전까지는 화면 시각과 치우는 시각이 다를 수 있음
+
+**서버 저장 (world.dat 파일 버전 2)**
+- 추가: 다음 접속 번호(u32), 엔티티 목록(`PersistOnLeave`인 것 전부: id, 프리팹 키, 맵, 플래그, 만든 월드 분, blob들), 분실물 목록. 읽을 때 주인은 모두 0
+- 접속 번호를 파일에 이어 쓰므로 서버를 다시 켜도 엔티티 ID가 겹치지 않음(ID = 접속 번호 << 32 | 순번)
+- 버전 1 파일도 읽음(엔티티 없음, 접속 번호 1부터)
+- 한도: 월드당 `PersistOnLeave` 엔티티 4096개. 넘는 Spawn은 거절(위 Despawn 응답)
+
+**서버를 나갈 때.** 새 서버의 엔티티 기록은 모두 지우고, 이 PC의 옛 기록(오프라인 책 드롭)은 다시 보이게 함. 접속해 있는 동안에는 이 PC의 옛 기록을 보이지 않게 하고, 드롭을 PC 파일(`BookSaveService.SaveWorldDrop`)에 쓰지 않음. 그래야 PC의 아이템이 서버 월드로 새어 들어가거나 서버 아이템이 PC로 빠져나오지 않음.
+
+**바꿀 파일과 새 파일**
+
+| 구분 | 파일 | 내용 |
+| --- | --- | --- |
+| 고침 | `NetCore/SyncProtocol.cs` | 버전 4, Release, 플래그 `Expiring` |
+| 고침 | `NetCore/GameServer.cs` | Release, Spawn 거절 시 Despawn 응답, 영구 엔티티 한도, 월드 불러오기·저장에 엔티티와 접속 번호, 06:00 분실물 이동과 7일 삭제 |
+| 고침 | `NetCore/WorldStore.cs` | 파일 버전 2(엔티티 목록, 다음 접속 번호, 분실물 목록), 버전 1 읽기 |
+| 고침 | `Net/SyncClient.cs` | `Release`, 자기 엔티티 Despawn 처리 |
+| 새 | `Gameplay/Item/World/UI/DropState.cs` | 위 `DropState`와 템플릿 등록 |
+| 고침 | `Gameplay/Item/World/UI/WorldDroppedItem.cs` | 새 서버 분기(설치·내려놓기·줍기·탑승·하차·해체), 접속 중 옛 기록 숨김 |
+| 새 | `Editor/Net/DropSyncQA.cs` | 아래 검수 |
+
+**지울 코드:** 없음(옛 `veh.*`, `RemoteLeft`, `CaptureVehicles`는 4e).
+
+**완료 기준**
+1. 컴파일 오류 없음. 기존 QA 회귀 없음(특히 `WorldSaveQA` 탈것 항목, `RemoteAvatarQA`, `AvatarSyncQA`, `CharacterQA`, `SyncLayerQA`)
+2. `DropSyncQA.Run`(메모리)
+   - Release: 주인만, 두 플래그가 있을 때만 됨. 맵 전원이 Owner(0)을 받음
+   - 같은 드롭에 두 접속이 같은 Tick에 Claim → 먼저 온 쪽만 주인
+   - 탄 사람이 끊기면 주인 0, 마지막 상태 그대로
+   - 서버 재시작 → 엔티티가 같은 ID·맵·상태로 돌아오고, 새 접속 번호가 예전 번호와 겹치지 않음
+   - 버전 1 world.dat을 읽음
+   - 한도를 넘는 Spawn은 거절되고 보낸 사람이 Despawn을 받음
+   - `Expiring` 엔티티: 월드 시계 05:59에는 남아 있고 06:00이 지나면 맵 전원이 Despawn을 받고 분실물 목록에 들어감. 23:00에 버린 것도 그날 06:00이 아니라 다음 06:00에 치워짐. 06:00 직전에 버린 것은 몇 분 만에 치워짐(규칙대로)
+   - 주인이 있는(줍는 중) `Expiring` 엔티티는 치우지 않음
+   - 분실물은 게임 7일 뒤 지워짐. 그 전에 서버를 재시작해도 남아 있음
+   - 탈것(`Expiring` 없음)은 치우지 않음
+3. `DropSyncQA.RunPlay`(앱 안 서버 + Unity 클라이언트 + 가짜 TCP 클라이언트)
+   - 가짜가 설치한 차·드롭이 Unity 화면에 나타남. 반대로 Unity가 설치한 차·드롭을 가짜가 받음
+   - Unity와 가짜가 같은 차에 동시에 Claim → 하나만 탐. 진 쪽 화면에서 차가 숨겨짐
+   - Unity가 타고 움직인 뒤 내리면, 가짜가 받은 위치가 내린 자리임
+   - 가짜가 탄 채 끊기면 Unity 화면에서 차가 마지막 위치에 다시 세워지고 탈 수 있음
+   - 같은 드롭을 둘이 주우려 하면 한 명만 받음. 아이템 개수 합이 늘지 않음
+   - 해체하면 양쪽 모두 아이템 드롭으로 바뀌고 주울 수 있음
+   - 다른 맵으로 가면 안 보이고 돌아오면 보임
+   - 서버를 끄고 다시 켜면(같은 월드) 차와 드롭이 그대로 있음
+   - 서버를 나가면 서버 아이템이 화면에 남지 않고, 접속 중에는 PC의 옛 드롭이 보이지 않음
+   - 06:00이 지나면(QA는 `AdvanceClock`) Unity 화면에서 버린 아이템이 사라지고 차는 남음
+4. 스크린샷: 남이 설치한 차, 남이 탄 동안 숨겨진 자리, 남이 버린 아이템, 재시작 뒤 그대로인 차와 드롭
+
+**총괄 검수 방법.** diff 전체 읽기(특히 아이템이 복제되거나 사라지는 경로, 접속을 끊는 시점), 컴파일과 QA를 직접 다시 돌려 수치 확인, 스크린샷 직접 보기.
+
+#### 12.8 결과 (총괄 검수 완료)
+
+**테스트 수치** (총괄이 다시 돌린 것)
+- `DropSyncQA.Run` 37개
+- `DropSyncQA.RunPlay` 51개
+- `SyncLayerQA.Run` 59개, `CharacterQA.Run` 36개
+- 스크린샷 확인(남이 설치한 차와 버린 아이템, 남이 타는 동안 빈 자리, 재시작 뒤 그대로인 차와 드롭)
+
+**에이전트 보고 수치.** 기존 QA 전부 통과(`WorldSaveQA` 68, `SteamHostRoomQA` 42, `SyncLayerQA` RunPlay 13·RunProcess 6, `CharacterQA` RunPlay 32·RunProcess 14, `AvatarSyncQA` 11·27, `ServerOpenQA` 61·43, `NetSessionQA`, `TitleFlowQA` 113, `RemoteAvatarQA` 18, `npm test` 42·31). `EosTestQA`는 돌리지 않음
+
+**설계와 달라진 점**
+- Spawn 거절에 Despawn으로 답하는 것은 캐릭터 없음과 한도 초과일 때뿐임. 남의 접속 번호 ID나 중복 ID에 답하면 보낸 사람의 정상 엔티티가 지워질 수 있어서임
+- `NetEntity.OwnerChanged`가 Owner 메시지마다 발생함. 거절된 Claim의 답은 주인이 그대로라서 이렇게 해야 요청자가 결과를 앎
+- 이 PC가 보기에 주인이 0일 때만 Claim함. 내 Release가 아직 가는 중이면 "잠시 후 다시 해 주세요"
+- 해체는 새 기록과 새 `Expiring` 엔티티를 만든 뒤 탈것을 Despawn함
+- 분실물 검사는 월드 시계 1분(현실 5초)마다 함. 분실물은 컴포넌트 blob 배열로 저장함
+- 접속 번호는 파일 값과 저장된 엔티티 ID 속 번호 중 가장 큰 것 다음부터 씀
+- 다른 맵의 엔티티가 Owner(0)을 받으면 클라이언트가 지움(탄 채 맵을 옮기다 내린 경우)
+- 범위 밖이지만 고친 것:
+  - 남이 탄 차에서 매 프레임 NullReference가 나던 경로(`LateUpdate`)를 막음. 옛 방도 같은 문제가 있었음
+  - 접속 중에도 PC 월드 저장이 돌기 때문에, 서버 차가 PC의 world.json에 들어가지 않게 함
+
+**남은 것**
+- 플레이 모드로 확인하지 않은 경로가 둘 있음(서버 쪽은 메모리 QA로 확인함)
+  - Spawn이 거절됐을 때 아이템을 가방으로 돌려놓기
+  - 탄 채 맵을 옮기며 내리기
+- `RunPlay`의 Unity 쪽 맵 이동은 `SyncClient.SetMap`을 직접 불러 시험함
+- 분실물 목록에는 개수 상한이 없음. 7일이 지나면 지워짐
+- 분실물센터 화면은 아직 없음
+- 차 잠금·등록 공유는 4c, 드롭 내용 서버 검증은 4d에서 함
+- 프로토콜 버전 4라서 EOS 시험 빌드를 다시 만들어야 함
+
+### 12.9 4c단계: 공유 경제를 서버 판정으로 (완료 2026-10-16)
+
+**범위.** 공유 경제를 서버가 계산하고 저장합니다. 클라이언트는 결과를 받아서 보여 주기만 합니다. 대상은 월드 시계(밤 건너뛰기 설정 포함), 주가, 회사, 소유권(집·땅·**차 잠금과 해체 허용**), 땅(구매·사업자 등록), 신고, SNS입니다. 바꾸는 요청은 서버로 가는 이벤트가 됩니다. 옛 방(`op`/`state`, `NetWorldBridge`)과 "옛 방식(개발용)"은 4e까지 그대로 둡니다.
+
+**하지 않는 것**
+- 개인 경제는 4d에서 합니다. 은행 돈, 주식 보유와 매매, 인벤토리, 도서관(대여·벌금)이 여기에 들어갑니다.
+- 땅값은 지금처럼 클라이언트 은행에서 먼저 빠집니다. 구매에 실패하면 돌려받습니다(지금 `RefundPending`). 서버가 결제하는 것은 4d입니다.
+- 서버가 차 Claim 때 잠금을 검사하는 것은 4d에서 드롭 내용 검증과 함께 합니다. 4c에서는 잠금 상태가 모두에게 공유되고, 정상 클라이언트가 그 상태를 지킵니다.
+- 시민·교통은 5단계에서 합니다. 4c에서는 지금처럼 각 PC가 따로 계산합니다.
+- 화면은 만들지 않습니다. 밤 건너뛰기 설정 화면과 밤 활동 고르는 화면은 나중에 합니다(9장 6·7).
+- 밤 활동의 효과를 서버가 판정하는 것은 4d(개인 경제)에서 합니다. 4c에서는 기력·돈이 아직 이 PC에 있으니 이 PC에서 적용합니다.
+
+**출발점(재사용).** 옛 경로의 요청 처리를 거의 그대로 씁니다.
+- 매니저의 `Try*`가 `SharedWriteGate`로 요청을 보냅니다.
+- `WorldOps.Apply(seq, from, kind, json)`가 먼저 온 요청만 적용하고, 실패하면 한국어 문구를 돌려줍니다. 행위자(`a.b`, `a.c`)가 보낸 사람과 같은지도 확인합니다.
+- 상태 저장·복원은 `WorldSave.Capture`/`Restore`를 씁니다. 바뀌는 것은 다음 세 가지뿐입니다.
+  - 적용하는 곳이 모든 기기에서 서버 하나로 바뀝니다.
+  - 퍼뜨리는 방법이 op 메아리에서 월드 엔티티 상태로 바뀝니다.
+  - 저장하는 곳이 PC의 `world.json`에서 서버의 `world.dat`으로 바뀝니다.
+
+**누가 계산하나**
+
+| 실행 형태 | `GameSession` | 매니저가 들고 있는 것 |
+| --- | --- | --- |
+| 서버 프로세스(`-gameserver`, 화면 없음) | Host(계산함) | 서버 월드 |
+| 앱 안 서버(혼자 하기, 에디터, 모바일)의 주인 | Host(계산함) | 서버 월드. 서버와 클라이언트가 같은 매니저를 씀 |
+| 다른 프로세스 서버에 붙은 클라이언트 | **Client**(시계·주가 계산 안 함) | 서버가 보낸 상태 |
+| 옛 방식(개발용), 서버 밖 타이틀 | 지금과 같음 | 이 PC의 월드 |
+
+- Core에 `GameSession.RemoteServer` 플래그를 새로 둡니다. 다른 프로세스 서버에 접속해 있는 동안만 참입니다.
+- 이 플래그는 클라이언트가 Client 모드가 되어도 지금 동작을 유지해야 하는 곳에만 씁니다.
+  - 시민·교통의 프록시 판정(`CitizenSpawner`, `CitizenSync`, `TrafficSpawner`): 옛 방 참가자일 때만 프록시로 돕니다. 새 서버에서는 지금처럼 각자 계산합니다.
+  - `LibraryCatalog`의 권한 검사: 새 서버에서도 지금처럼 이 PC에서 처리합니다(4d에서 옮김).
+- 서버를 나가면 Host로 돌아가고, 이 PC의 월드를 다시 불러옵니다(`WorldSave.LoadFromDisk`, 없으면 `RestoreBaseline`). 옛 `RestoreOwnWorld`와 같은 방식입니다.
+
+**월드 엔티티**
+- 프리팹 키는 `Net/World`입니다. 서버가 만들고(주인 0), 저장하지 않습니다. 상태는 아래 world.dat의 "월드 상태" 칸에 따로 저장합니다.
+- 맵 값은 `*`입니다. 이 맵의 엔티티는 맵과 상관없이 모든 접속자에게 보내고, 맵을 옮겨도 Despawn하지 않습니다(새 규칙).
+- 컴포넌트는 `WorldSection : NetBehaviour` 8개이고, 순서가 고정입니다.
+
+| 번호 | 섹션 | 내용 |
+| --- | --- | --- |
+| 0 | clock | u32 월드 분, u8 건너뛰기 시작 시, u8 건너뛰기 끝 시 |
+| 1 | names | 이 월드의 모든 캐릭터(계정 ID → 캐릭터 이름). `WorldStore`에서 만듦 |
+| 2~7 | stocks, companies, properties, plots, reports, sns | 각각 `WorldSaveData`의 그 칸만 JSON으로 만들어 gzip |
+
+- 서버는 1초마다 섹션별로 내용을 만들어 지난번에 보낸 것과 다르면 State를 보냅니다. 요청을 적용한 직후에는 바로 확인해서 보냅니다. clock은 월드 분이 바뀔 때마다 보냅니다(현실 5초마다).
+- 클라이언트는 `GameSession.IsAuthority`가 거짓일 때만 받은 섹션을 매니저에 적용합니다. 앱 안 서버의 주인은 매니저가 이미 서버 상태라서 무시합니다.
+  - 적용은 섹션별로 합니다. 다른 섹션이나 시계를 건드리지 않습니다. 지금 `Restore`는 `clockMinutes` 0도 그대로 적용하니 그대로 쓰면 안 됩니다.
+  - clock은 `GameClock.SetNow`로 맞춥니다. 클라이언트 화면 시계가 월드 시계를 따르게 되는 것이 이것입니다.
+- **크기 제한:** sns와 reports는 클라이언트에 **최근 100개만** 보냅니다. 서버는 전부 보관하고, 벌점 계산도 서버가 합니다. 두 목록은 상한이 없어서 계속 늘어나기 때문입니다.
+  - 섹션 하나는 gzip 뒤 60KB를 넘지 않아야 합니다. 넘으면 보내지 않고 오류를 기록합니다. QA는 실제 크기를 재서 보고합니다.
+
+**요청과 응답 (월드 엔티티의 이벤트)**
+
+| 번호 | 방향 | 본문 | 처리 |
+| --- | --- | --- | --- |
+| 1 Op | C→S(대상 2, 서버) | str kind, str json | 서버는 보낸 접속의 계정 ID를 `from`으로 `WorldOps.Apply(0, from, kind, json)`을 부름. 허용 kind만 처리: `prop.reg`·`prop.ab`·`prop.lock`·`prop.dis`·`land.buy`·`land.reg`·`company.add`·`sns.post`·`sns.like`·`report.sub`. `veh.*`와 모르는 kind는 거절 |
+| 2 OpResult | S→요청자 | str kind, str 오류(빈 문자열이면 성공) | 서버는 바뀐 섹션 State를 **먼저** 보낸 뒤 OpResult를 보냄(TCP 순서). 요청자는 지금 `NetWorldBridge.OnOp`와 같은 문구를 띄우고, `land.buy`가 실패하면 환불함 |
+
+- 앱 안 서버의 주인도 같은 길로 보냅니다(127.0.0.1의 내 서버로 이벤트). 서버 처리 중에는 `SharedWriteGate.Applying`이 참이라서 매니저가 직접 씁니다.
+- `SharedWriteGate.InRoom`은 "옛 방에 있음 또는 새 서버에 캐릭터로 접속 중"일 때 참입니다. `Sender`는 그때 쓰는 경로로 보냅니다. `NetWorldBridge`가 설치하던 게이트를 두 경로가 같이 쓰도록 고칩니다.
+  - 새 서버에서는 `WorldDroppedItem`의 `veh.*`가 절대 나가지 않아야 합니다. 4b의 엔티티 경로가 먼저 처리하므로, 그 순서를 확인하고 QA로 막습니다.
+- 새 서버에서는 소유자·작성자·신고자 ID가 항상 Hello에 실은 계정 ID입니다. 지금 `PropertyRegistry.ToKey`처럼 `HasAccount`에 따라 이름을 쓰는 곳도 새 서버에서는 계정 ID를 씁니다.
+- 화면에 보이는 이름은 names 섹션에서 찾습니다(`SharedWriteGate.NameResolver`). 접속하지 않은 사람의 소유물에도 캐릭터 이름이 보입니다.
+
+**서버 모듈 추가 (`GameServer`, 기능을 모르는 원칙 유지)**
+- `SpawnServerEntity(prefab, map, flags, blobs)`: 서버 소유 엔티티를 만듭니다. ID는 접속 번호 0과 순번입니다.
+- `SetServerState(id, component, blob)`, `SendServerEvent(id, component, eventId, toConnection, blob)`: 보낸 사람은 0입니다.
+- `AccountOf(connection)`: 그 접속의 계정 ID를 돌려줍니다.
+- 맵 `*` 규칙을 넣습니다. 맵 이동과 늦은 입장도 이 규칙을 따릅니다.
+- blob 한도: 서버가 만든 blob은 60KB까지(u16 길이) 허용합니다. 클라이언트가 보내는 것은 4KB 그대로입니다. 서버 엔티티의 Spawn에는 빈 blob을 넣고, 바로 뒤에 컴포넌트별 State를 보냅니다. Spawn 하나가 64KB 프레임을 넘지 않게 하기 위해서입니다.
+- `WorldStateProvider`(`Func<byte[]>`): 저장 직전에 부릅니다. world.dat에 "월드 상태" blob 칸이 생깁니다(파일 버전 3, 버전 2도 읽음).
+- **월드 시계는 밤을 건너뜁니다(9장 6).**
+  - 건너뛰기 구간은 시 단위 `[시작, 끝)`이고 기본은 `[0, 6)`입니다. 조건은 0 ≤ 시작 ≤ 끝 ≤ 24이고, 시작 = 끝이면 건너뛰지 않습니다. 자정을 넘는 구간(예: 22~02)은 받지 않습니다.
+  - 시계를 진행한 뒤 하루 안의 시각이 구간 안이면 그날의 끝 시각으로 넘깁니다. 기본값이면 지금 게임 규칙(23:59 다음은 다음 날 06:00)과 같습니다.
+  - 구간은 `WorldStore`에 저장합니다(world.dat 버전 3, 버전 2는 기본값). 바꾸는 길은 `GameServer.SetNightSkip(start, end)`와 서버 프로세스 명령줄 `-nightskip 0-6`입니다. 잘못된 값은 거절하고 기록합니다.
+  - 4b의 "06:00에 분실물로 옮김"은 그대로입니다. 판정이 `now >= ClearTime`이라 06:00을 건너뛰는 구간이어도 다음 시각에 옮겨집니다. DropSyncQA의 05:59 확인은 기본 구간 안이라 서버가 06:00으로 넘기므로 23:59 기준으로 바꿉니다.
+
+**Unity 쪽 새 파일과 바꿀 파일**
+
+| 구분 | 파일 | 내용 |
+| --- | --- | --- |
+| 새 | `Player/ServerWorld.cs` | 서버 쪽. `SyncHost`의 시작과 정지 이벤트(새로 만듦)를 받음 |
+| | | 시작할 때: 기본 월드를 먼저 잡아 둠(`CaptureBaseline`) → world.dat의 월드 상태로 복원(새 월드면 기본 상태) → 게임 시계를 멈추고 월드 분으로 맞춤 |
+| | | 매 프레임: 게임 시계를 서버 월드 분까지 1분씩 진행함. 그래야 `HourChanged`·`DayChanged`가 나서 주가와 회사가 돎 |
+| | | 그 밖에: 월드 엔티티 생성, 섹션 비교와 전송, Op 처리, `WorldStateProvider` 제공 |
+| | | 앱 안 서버가 멈추면: 이 PC의 월드로 되돌림 |
+| 새 | `Player/WorldStateSync.cs` | 클라이언트 쪽. `Net/World` 템플릿을 `PrefabFactory`에 등록함 |
+| | | `WorldSection`을 적용하고, Op 전송과 OpResult 처리, names로 이름 찾기를 함 |
+| | | 접속할 때 Client 모드와 `RemoteServer` 플래그를 켜고, 끊기면 Host 모드로 돌아가 이 PC의 월드를 복원함 |
+| 새 | `Player/WorldSection.cs` | 섹션 컴포넌트(번호, blob, 받았을 때 콜백) |
+| 고침 | `NetCore/GameServer.cs`, `SyncProtocol.cs`, `WorldStore.cs` | 위 서버 모듈 추가. 프로토콜 버전 5 |
+| 고침 | `Net/SyncHost.cs` | 시작·정지 이벤트(Player가 구독) |
+| 고침 | `Net/SyncClient.cs` | 서버가 만든 큰 blob 받기, 맵 `*` 엔티티 유지 |
+| 고침 | `Core/Session/GameSession.cs` | `RemoteServer` |
+| 고침 | `Gameplay/WorldSaveRunner.cs` | 이 프로세스에 서버가 돌거나 새 서버에 접속해 있으면 PC 월드를 읽지도 쓰지도 않음. 서버 프로세스는 시작할 때 `world.json`을 읽지 않음 |
+| 고침 | `Player/NetWorldBridge.cs`, `Economy/SharedWriteGate.cs` | 게이트를 두 경로가 같이 씀 |
+| 고침 | `Economy/Property/PropertyRegistry.cs`, `Gameplay/Report/ReportManager.cs` 등 | 새 서버에서는 행위자 ID가 계정 ID |
+| 고침 | `NPC/Citizen/*`, `NPC/Traffic/TrafficSpawner.cs`, `Gameplay/Item/Book/LibraryCatalog.cs` | `RemoteServer`면 지금 동작 유지 |
+| 고침 | `Core/GameTime.cs`, `Core/SimpleGameClock.cs` | 건너뛰기 구간을 정적 값으로 둠(`GameTime.SetNightSkip`, 기본 0~6). `NextMinute`과 시작 시각 보정이 이 값을 씀. 시계가 구간을 건너뛸 때 `NightSkipped` 이벤트를 냄. 낮밤 밝기(`DayNightManager`)는 그대로 |
+| 새 | `Gameplay/Night/NightActivity.cs` | 아래 "밤 활동" |
+| 고침 | `Editor/Net/DropSyncQA.cs` | 05:59 확인을 23:59 기준으로 바꿈 |
+| 고침 | `Tests/EditMode/GameTimeTests.cs` | 구간 바꾸기, 시작 = 끝, 잘못된 값 시험 추가 |
+| 새 | `Editor/Net/EconomySyncQA.cs` | 아래 검수 |
+
+**밤 활동 (구조만, 9장 7)**
+- `enum NightActivityKind { Sleep, NightJob, GoOut, Contract }`(잠자기, 야간 알바, 놀러 가기, 살인 청부)
+- `NightActivity.Selected`: 내 캐릭터가 고른 활동입니다. 기본값은 `Sleep`이고, 고르는 화면이 없으니 지금은 항상 `Sleep`입니다. 저장하지 않습니다(화면을 만들 때 캐릭터에 저장).
+- `NightActivity.IsAvailable(kind)`: `Contract`는 `ContractUnlocked`가 참일 때만 됩니다. 이 값을 켜는 이벤트는 아직 없습니다. 고를 수 없는 활동은 `Select`가 거절합니다.
+- `NightActivity.Apply(kind)`: 밤을 한 번 넘길 때 이 PC의 내 캐릭터에 한 번 부릅니다. 시계가 한 번에 여러 밤을 넘기면 밤마다 부릅니다.
+  - 이 PC 시계가 도는 경우(Host)는 `NightSkipped`에서 부릅니다. Client 모드에서는 받은 clock이 구간을 지났을 때 `WorldStateSync`가 부릅니다. 서버 프로세스는 내 캐릭터가 없으니 부르지 않습니다.
+- 효과(임시 값, 상수 하나씩. 수치는 나중에 기획)
+
+| 활동 | 효과 |
+| --- | --- |
+| 잠자기 | 없음. 지금 동작과 같음 |
+| 야간 알바 | 기력 -40, 은행 +50,000원(`BankManager.AddMoney`, 번 돈) |
+| 놀러 가기 | 기력 -30, 스트레스 -40, 은행 -30,000원(잔액이 모자라면 못 감, 대신 잠자기) |
+| 살인 청부 | 해금 전에는 고를 수 없음. 효과는 이벤트를 기획할 때 정함(지금은 아무것도 안 함) |
+
+**지울 코드:** 없음(옛 op 경로, `NetWorldBridge`, `WorldSave`의 방장 넘기기는 4e).
+
+**완료 기준**
+1. 컴파일 오류 없음. 기존 QA 전부 회귀 없음(특히 `DropSyncQA`, `CharacterQA`, `AvatarSyncQA`, `ServerOpenQA`, `WorldSaveQA`, `TitleFlowQA`, `SyncLayerQA`, `npm test` 두 개)
+2. `EconomySyncQA.Run`(메모리, 서버 모듈만)
+   - 맵 `*` 엔티티는 모든 맵의 접속자가 받고, 맵을 옮겨도 Despawn되지 않음. 늦게 들어온 사람도 받음
+   - 서버 엔티티 State와 이벤트가 가고, 특정 접속에게 보낸 이벤트는 그 사람만 받음
+   - 클라이언트가 보낸 4KB 넘는 blob은 여전히 거절됨. 서버가 만든 큰 blob(예: 30KB)은 감
+   - 서버 엔티티 Spawn 뒤 State가 와서 64KB 프레임을 넘지 않음
+   - 월드 상태 blob이 world.dat(버전 3)에 저장되고, 서버를 다시 켜면 돌아옴. 버전 2 파일을 읽음
+   - 월드 시계가 23:59 다음에 다음 날 06:00이 됨. 구간을 2~5로 바꾸면 01:59 다음이 05:00이고, 시작 = 끝이면 건너뛰지 않음. 잘못된 값(시작 > 끝, 24 초과)은 거절됨
+   - 구간이 world.dat에 저장되고 서버를 다시 켜면 돌아옴. `-nightskip` 명령줄이 적용됨
+3. `EconomySyncQA.RunPlay`(앱 안 서버 + Unity 주인 + 가짜 TCP 클라이언트)
+   - 가짜가 보낸 Op(집 등록, 땅 구매, 회사 설립, SNS 글, 신고, 차 잠금)가 Unity 매니저에 적용되고, 가짜는 바뀐 섹션과 OpResult를 이 순서로 받음
+   - 같은 집에 Unity와 가짜가 동시에 등록 → 하나만 성공
+   - 행위자를 남의 ID로 적은 Op, `veh.*`, 모르는 kind는 거절됨
+   - Unity 주인의 요청도 서버 이벤트로 처리되고 문구가 뜸
+   - 서버를 나가면 이 PC의 월드로 돌아오고, PC `world.json`은 서버에 있는 동안 바뀌지 않음(파일 해시 비교)
+   - 같은 월드를 다시 열면 공유 상태(소유권, 회사, SNS)가 그대로임
+   - 밤을 넘기면 밤 활동이 한 번 적용됨. 기본(잠자기)이면 기력·돈이 그대로이고, QA가 야간 알바를 고르면 기력과 돈이 위 값만큼 바뀜. 해금 전 살인 청부는 고를 수 없음
+4. `EconomySyncQA.RunProcess`(빌드한 서버 프로세스 + Unity 원격 클라이언트 + 가짜 TCP 클라이언트)
+   - Unity가 Client 모드가 되고, 화면 시계가 서버 월드 분을 따라감(직접 진행하지 않음)
+   - 서버를 `-nightskip 2-5`로 켜면 Unity 시계도 그 구간을 따르고, 밤을 넘길 때 밤 활동이 한 번만 적용됨. 나가면 구간이 기본값(0~6)으로 돌아옴
+   - 주가가 서버 값과 같음(`AdvanceClock`으로 장 시간을 넘긴 뒤 비교)
+   - 가짜가 등록한 집의 소유자가 Unity에서 가짜의 캐릭터 이름으로 보임
+   - 땅 구매 경쟁에서 진 쪽은 환불받음(은행 돈이 원래대로)
+   - 가짜가 잠근 차를 Unity가 타려 하면 정상 클라이언트 경로에서 막힘
+   - 서버를 나가면 Host 모드로 돌아가고 PC 월드가 돌아옴
+5. 섹션별 실제 크기(새 월드, 게임 30일 진행 뒤)와 클라이언트 1명당 초당 수신량을 재서 보고함
+6. 스크린샷(QA_SHOTS 게임 화면만): 원격 클라이언트에서 서버 시각을 따르는 시계, 남이 등록한 집의 소유자 이름, SNS에 보이는 남의 글, 땅 구매 경쟁에서 진 메시지
+
+**총괄 검수 방법.** diff 전체를 읽습니다. 특히 다음 경로를 봅니다.
+- 서버가 클라이언트 값을 믿는 경로
+- PC 월드와 서버 월드가 섞이는 경로(저장, 나가기, 앱 안 서버 정지)
+- 행위자 확인 누락
+- `veh.*`가 새 서버로 새는 경로
+
+그다음 QA를 직접 다시 돌려 수치를 확인하고, 스크린샷을 직접 봅니다.
+
+**결정 (2026-10-16)**
+1. sns와 신고는 클라이언트에 최근 100개만 보냅니다.
+2. 월드 시계는 밤을 건너뜁니다. 기본 00~06시이고 방장이 바꿀 수 있습니다(9장 6). 밤 활동은 구조만 만듭니다(9장 7).
+3. 4c 전에 만든 서버 월드(world.dat 버전 2)는 공유 경제를 새로 시작합니다. 이 PC의 `world.json`은 서버 월드로 옮기지 않습니다.
+4. 임시 `GameSession.RemoteServer` 플래그를 둡니다. 4c 동안 새 서버 참가자 PC에서 시민·교통·도서관이 지금처럼 동작하게 하고, 4d·5단계에서 지웁니다.
+
+#### 12.9 결과 (총괄 검수 완료)
+
+**테스트 수치** (총괄이 다시 돌린 것)
+- `EconomySyncQA.Run` 42개, `RunPlay` 60개, `RunProcess` 44개(빌드한 서버 프로세스, `-nightskip 2-5`)
+- `DropSyncQA.Run` 38개, `DropSyncQA.RunPlay` 51개
+- `npm test`: Server 42개(1 건너뜀), worker 31개
+- 나머지 회귀 QA(TitleFlow 113, ServerOpen 61·43, SyncLayer, Character, AvatarSync, RemoteAvatar 18, SteamHostRoom 42, WorldSave 68, NetSession, EditMode 8)는 구현 에이전트 실행 기록으로 확인
+- 스크린샷 확인: 원격 클라이언트의 서버 시각, 남이 등록한 집의 소유자 이름, 남의 SNS 글, 땅 구매 경쟁에서 진 메시지
+
+**측정.** 게임 30일 뒤 섹션 크기(gzip): stocks 4,750, companies 4,334, sns 2,345(글 98개), reports 424, properties 337, plots 242, names 88바이트. 클라이언트 1명 수신량은 쉴 때 약 12 B/s, 장중 평균 약 28 B/s.
+
+**설계와 달라진 점**
+- 게이트에 새 서버용 칸(`ServerSender`, `ServerCheck`, `ServerNameResolver`)을 따로 둠. `veh.*`는 `InOldRoom`만 보므로 구조상 새 서버로 가지 않음
+- 서버 엔티티: 클라이언트는 맵 `*`에 Spawn·이동할 수 없고, 서버 엔티티에 보내는 이벤트는 서버만 받음(중계 안 함). 저장하지 않음
+- 밤 건너뛰기: 하루 전체(0~24)도 거절. `-nightskip`은 월드를 열기 전에 적용. `NightSkipped`는 `GameClock`의 정적 이벤트
+- `sns.post`의 작성자 이름은 서버가 캐릭터 이름으로 덮어씀
+- `land.buy` 성공 시 `LandPlotManager.ConfirmPending`으로 대기 결제를 지움
+- 원격 Client는 받은 시계가 날을 넘기면 `LibraryCatalog.AdvanceTo`를 부름(도서관은 4d까지 이 PC)
+- 설계 표에 없던 수정: `TitleFlow.EnterServerWorld`가 PC 월드를 읽지 않음, `NetSession.LeaveLocally`가 `RemoteServer`일 때 Host로 바꾸지 않음
+
+**남은 문제**
+- 원격 Client에서는 `DayChanged`가 나지 않음(도서관만 위 경로로 처리)
+- 프로토콜 버전 5: EOS 시험 묶음과 `Game.zip`·`GameMac.zip`을 다시 빌드해야 함
+- `Docs/Architecture.md`, `Docs/Server.md`에 새 구조 미반영
+- 4c와 무관: 땅 구매 실패 환불 문구가 "지갑에 지급"으로 나옴(기존 `RefundPending` 동작). 땅값이 은행에서 빠졌다면 은행 환불 문구가 맞는지 확인 필요
+
+### 12.10 4d단계: 개인 경제를 서버 판정으로 (나누는 안 확정 2026-10-16)
+
+**지금 상태(4c 뒤).** 캐릭터 내용(위치, 맵, 은행 돈, 주식 보유, 인벤토리)은 클라이언트가 30초마다 통째로 올리고, 서버는 그대로 보관합니다(12.5). 그래서 은행 돈이나 아이템을 고친 클라이언트가 그대로 저장됩니다. 4d는 이것을 막습니다.
+
+**조사한 것**
+- 돈이 바뀌는 곳: 주식 매매(`StockExchange.Buy/Sell`, 거래소 하나가 지갑과 보유를 하나만 들고 있음), 땅값(`LandPlotManager`), 폰 쇼핑(`ShopApplication.Purchase`), 과속 벌금(`SpeedCamera`), 도서관 출판비·연체료·벌금·인세(`LibraryCatalog`), 밤 활동, 현금↔은행 입출금(`CashService.TryWithdraw/TryDeposit`)
+- 아이템이 바뀌는 곳: 모든 수량 변경은 `InventoryState` 하나로 지나감(일반 클래스, 이동·장착·가방·추가·제거·현금 교환·책). 부르는 곳은 인벤토리 화면, NPC 거래(`TradeSession`), 현금 결제(`CashService.Payments`), 음식 먹기(`PlayerStats.TryConsume`), 드롭·줍기(`WorldDroppedItem`), 책(`BookSaveService`, `LibraryCatalog`), 집문서·사원증·시작 아이템 지급
+- 걸리는 점
+  - NPC 가게의 상품표가 각 맵 씬의 컴포넌트에 들어 있음. 서버 프로세스는 씬 하나만 띄우므로, 서버가 거래를 판정하려면 상품표를 씬 밖 데이터로 빼야 함
+  - 매니저가 "내 캐릭터 하나"를 전제로 함(`BankManager.Instance`, 거래소의 지갑·보유 필드). 서버에서는 캐릭터마다 따로 계산해야 하므로, 계산 함수가 지갑·보유·인벤토리를 인자로 받게 고쳐야 함
+
+**방식(제안)**
+- 서버가 접속한 캐릭터마다 "개인 장부"(은행 돈, 주식 보유, 인벤토리)를 들고 있고, 그것이 정본입니다. 클라이언트가 올리는 캐릭터 저장은 위치·맵만 받습니다.
+- 아이템을 만들거나 없애지 않는 조작(인벤토리 안 이동, 장착, 가방, 핫바)은 같은 `InventoryState` 코드로 서버가 그대로 다시 실행합니다.
+- 돈이나 아이템이 생기거나 사라지는 일은 의도(무엇을 샀다, 몇 주 팔았다)로 서버에 요청하고, 서버가 판정해서 장부를 바꿉니다. 4c의 공유 경제 요청과 같은 길(월드 엔티티 이벤트)을 씁니다.
+- 반응 속도: 클라이언트는 같은 코드로 먼저 적용하고(화면이 바로 바뀜), 서버가 보낸 장부로 덮어씁니다. 정상 클라이언트는 결과가 같아서 티가 나지 않고, 조작한 클라이언트만 되돌아갑니다.
+
+**나누는 안**
+
+| 하위 단계 | 내용 |
+| --- | --- |
+| 4d-1 은행·주식 장부 | 서버가 캐릭터별 은행 돈·주식 보유를 정본으로 들고, 클라이언트가 올린 캐릭터 저장에서 그 부분은 버림. 돈이 바뀌는 요청을 서버로: 주식 매매, 땅값(서버 결제), 폰 쇼핑, 과속 벌금, 밤 활동. 아직 옮기지 않은 입출금·도서관 돈은 임시 "믿는 요청" |
+| 4d-2 인벤토리 장부, 가게와 현금 | 서버가 인벤토리도 정본으로 들고, 인벤토리 안 조작은 서버가 같은 코드로 다시 실행. NPC 거래, 현금 결제, ATM 입출금, 음식 먹기를 서버 판정으로. NPC 상품표를 씬에서 데이터로 뺌 |
+| 4d-3 세상과 오가는 아이템 | 드롭 내용을 서버 장부에서 꺼내고 줍기는 서버가 넣어 줌, 탈것 설치·회수, 보관함, 집문서·사원증·시작 아이템 지급, 차 Claim 때 잠금 검사 |
+| 4d-4 책과 도서관 | 책 본문을 world.dat 별도 칸에 두고 캐릭터에는 책 ID만(4KB 드롭 제한 풀림), 대여·연체료·벌금·인세·출판을 서버로, `RemoteServer`의 도서관 부분 삭제 |
+
+- 처음 안에서는 인벤토리 장부를 4d-1에 넣었지만 4d-2로 옮겼습니다. 인벤토리에 아이템을 넣는 길(가게, 줍기, 책, 지급)이 아직 클라이언트 판정이라 4d-1에서 인벤토리를 장부로 만들어도 막는 것이 없고, 책이 든 인벤토리 조작은 이벤트 한도(4KB)를 넘을 수 있기 때문입니다.
+- 4d가 다 끝나기 전에는 아직 옮기지 않은 길로 돈·아이템을 조작할 수 있습니다(예: 4d-1 뒤에도 가짜 현금 지폐를 입금). 4d-2까지 끝나면 돈이 막히고, 4d-3까지 끝나면 아이템이 막힙니다.
+- 혼자 하기(앱 안 서버)도 같은 길을 씁니다. 주인 PC에서는 서버와 클라이언트가 같은 매니저를 보므로, 서버 쪽 장부 계산이 화면 매니저를 건드리지 않게 분리합니다.
+
+**결정 (2026-10-16)**
+1. 위 네 단계로 나눔
+2. 반응 방식: 지연 없이. 클라이언트가 먼저 적용하고 서버 장부로 덮어씀
+3. 이미 있는 캐릭터는 마지막으로 저장된 값을 장부 시작값으로 인정
+
+#### 12.10.1 4d-1 은행·주식 장부 (완료 2026-10-16)
+
+**범위.** 새 서버(앱 안 서버 포함)에서 캐릭터의 은행 돈과 주식 보유를 서버가 정본으로 계산하고 저장합니다. 인벤토리, 위치, 맵은 지금처럼 클라이언트가 올린 값을 씁니다(4d-2·4d-3). 옛 방과 서버 밖 혼자 하기(옛 경로)는 바꾸지 않습니다.
+
+**장부(서버 쪽, Unity)**
+- 새 파일 `Player/ServerLedger.cs`. `ServerWorld`가 만들고 함께 끝납니다.
+- 계정마다 `PersonalSaveData`(은행 돈, 주식 보유) 하나를 메모리에 둡니다.
+  - 처음 필요할 때 그 캐릭터의 저장 내용(`WorldStore.Character.content`)에서 읽습니다(결정 3). 내용이 비었으면(새 캐릭터) 서버 프로세스의 기본값(`PersonalSave` 기준값, 시작 돈)으로 시작합니다.
+  - 장부가 바뀌면 바로 그 캐릭터의 저장 내용에 개인 부분을 다시 써 넣습니다(위치·맵·인벤토리는 그대로). 그래서 world.dat 저장(60초마다, 끝날 때)에 항상 장부 값이 들어갑니다.
+- 장부 계산은 화면 매니저(`BankManager.Instance`, 거래소의 지갑·보유 필드)를 건드리지 않습니다. 앱 안 서버의 주인 PC에서는 같은 프로세스에 주인의 화면 매니저가 있기 때문입니다.
+  - 은행: 장부 값 위의 `IWallet` 구현(`LedgerWallet`)
+  - 주식: `StockExchange.Buy/Sell`에 지갑과 보유를 인자로 받는 오버로드를 추가하고, 기존 메서드는 그것을 부름. 서버는 서버 거래소의 가격으로 판정
+
+**캐릭터 저장 거르기 (`GameServer`, 기능을 모르는 원칙 유지)**
+- `Func<string, byte[], byte[]> CharacterSaveFilter`(계정, 받은 내용 → 저장할 내용). `OnCharacterSave`가 저장 직전에 부릅니다. 없으면 지금처럼 그대로 저장합니다.
+- `ServerLedger`는 받은 내용의 개인 부분(은행·주식)을 장부 값으로 바꿔 넣습니다. 읽을 수 없는 내용은 버리고 기존 내용을 유지합니다(로그).
+- 내용 형식(`CharacterSync`의 위치, 맵, 개인 JSON, 인벤토리)은 그대로입니다. 서버가 쓸 수 있게 `CharacterSync`에 매니저를 거치지 않는 `Encode/Decode`를 둡니다.
+
+**요청 (4c의 Op 이벤트 1을 그대로 씀, kind가 `p.`로 시작)**
+
+| kind | 본문 | 서버 판정 |
+| --- | --- | --- |
+| `p.stock.buy`, `p.stock.sell` | 종목 ID, 수량 | 서버 거래소 가격·장 시간·수수료로 장부에서 계산(결과 코드 그대로) |
+| `land.buy`(기존) | 기존 | 땅 등록 전에 서버가 그 땅 가격을 장부에서 뺌. 모자라면 "은행 잔액이 부족합니다." 실패 시 빼지 않음 |
+| `p.shop.buy` | 상품 ID | 가격은 서버가 `ShopApplication` 기본 목록에서 찾음(모르는 상품 거절) |
+| `p.fine` | 금액 | 0보다 크고 `SpeedCamera`의 최고 벌금 이하만. 잔액이 모자라면 거절(클라이언트가 지금처럼 벌점 처리) |
+| `p.night.select` | 활동 | 서버가 계정별로 기억(저장 안 함). 살인 청부는 해금 전 거절 |
+| `p.bank` (임시) | 금액, 사유 | 아직 옮기지 않은 길을 믿고 받음: 입금(+)·출금(−, 잔액 검사)은 4d-2에서, 도서관 출판비·연체료·벌금(−)·인세(+)는 4d-4에서 없앰. 다른 사유는 거절. 받을 때마다 로그 |
+
+- 응답: 지금처럼 OpResult(이벤트 2)를 보내고, 그 앞에 **Ledger(이벤트 3, 요청자에게만)**를 보냅니다. 본문은 u32 처리한 개인 요청 수, i64 은행 돈, str 주식 보유 JSON(gzip)입니다.
+- 서버가 스스로 바꾼 경우(밤 활동)에도 그 접속에 Ledger를 보냅니다.
+
+**밤 활동**
+- 서버의 시계가 밤을 넘기면(`GameClock.NightSkipped`, 서버 프로세스와 앱 안 서버 모두) 접속 중인 캐릭터마다 고른 활동의 돈 부분을 장부에 적용합니다(야간 알바 +50,000원, 놀러 가기 −30,000원·모자라면 잠자기).
+- 클라이언트는 새 서버에 있을 때 기력·스트레스만 적용하고 돈은 Ledger로 받습니다(이중 적용 방지). 놀러 가기를 할지는 클라이언트도 자기 잔액으로 판단합니다(장부와 같으므로 결과가 같음).
+
+**지연 없이 (클라이언트 쪽, `WorldStateSync`)**
+- 클라이언트는 지금 코드 그대로 먼저 적용해서 화면이 바로 바뀝니다(주식 매수, 쇼핑, 벌금, 땅값 선결제). 그다음 같은 의도를 `p.*` 요청으로 보내고, 보낸 개인 요청 수를 셉니다.
+- Ledger가 오면, 그 안의 처리 수가 보낸 수와 같을 때만(기다리는 요청이 없을 때만) 장부 값을 화면 매니저에 씁니다. 값이 같으면 아무것도 하지 않습니다. 다르면 `RestoreBalance`·`RestorePortfolio`로 덮어쓰고, 돈 알림 문구는 띄우지 않습니다.
+- 그래서 정상 클라이언트는 티가 나지 않고, 돈을 고친 클라이언트는 다음 Ledger에서 되돌아갑니다. 고친 값으로 무엇을 사도 서버 판정은 장부로 합니다.
+- 보내는 곳: `SharedWriteGate`에 `SendPersonal(kind, args)`를 둡니다. 새 서버에 있을 때만 보내고, 로컬 적용을 막지 않습니다(공유 요청의 `TrySend`와 다름).
+
+**바꿀 파일**
+
+| 구분 | 파일 | 내용 |
+| --- | --- | --- |
+| 새 | `Player/ServerLedger.cs` | 위 장부, 저장 거르기, 개인 요청 판정, 밤 활동, Ledger 보내기 |
+| 고침 | `Player/ServerWorld.cs` | `p.*` 허용 목록, `land.buy` 결제 연결, 이벤트 3 |
+| 고침 | `Player/WorldStateSync.cs`, `Player/WorldSection.cs` | 개인 요청 보내기·세기, Ledger 적용 |
+| 고침 | `NetCore/GameServer.cs` | `CharacterSaveFilter` |
+| 고침 | `Player/CharacterSync.cs` | 매니저 없는 `Encode/Decode` |
+| 고침 | `Economy/StockMarket/StockExchange.cs` | 지갑·보유를 받는 `Buy/Sell` 오버로드 |
+| 고침 | `Economy/SharedWriteGate.cs` | `SendPersonal` |
+| 고침 | 주식 매매 화면을 부르는 곳, `Gameplay/Phone/ShopApplication.cs`, `Gameplay/Traffic/SpeedCamera.cs`, `Gameplay/Night/NightActivity.cs`, `Gameplay/Item/Currency/CashService.Bank.cs`, `Gameplay/Item/Book/LibraryCatalog.cs` | 로컬 적용 뒤 `p.*` 보내기. 밤 활동은 새 서버에서 돈을 로컬 적용하지 않음 |
+| 새 | `Editor/Net/LedgerQA.cs` | 아래 검수 |
+
+**하지 않는 것:** 인벤토리·현금 지폐(4d-2), 드롭·줍기(4d-3), 도서관 이전(4d-4). 프로토콜 버전과 world.dat 버전은 바뀌지 않습니다(게임 층의 이벤트와 캐릭터 내용 안에서만 바뀜).
+
+**완료 기준**
+1. 컴파일 오류 없음, 기존 QA 회귀 없음(특히 `EconomySyncQA` 세 개, `CharacterQA`, `DropSyncQA`, `WorldSaveQA`, `TitleFlowQA`, `npm test` 두 개)
+2. `LedgerQA.RunPlay`(앱 안 서버 + Unity 주인 + 가짜 TCP 클라이언트)
+   - 가짜가 은행 999,999,999원으로 고친 캐릭터 저장을 올려도 저장된 내용의 은행 돈은 장부 값
+   - 가짜의 주식 매수: 잔액을 넘으면 실패, 맞으면 장부 돈이 서버 가격 기준 총액만큼 줄고 보유가 늘어남. Ledger는 가짜에게만 가고 OpResult보다 먼저 옴
+   - 장부 잔액이 모자란 `land.buy`는 땅이 등록되지 않음
+   - `p.fine` 최고 벌금 초과, `p.shop.buy` 모르는 상품, 잔액을 넘는 `p.bank` 출금, 허용하지 않는 `p.bank` 사유는 거절
+   - 밤 활동: 야간 알바를 고르고 밤을 넘기면 장부 +50,000원, 잠자기면 그대로
+   - 4d 전에 저장된 캐릭터(world.dat 버전 3, 은행 X원)는 장부가 X원에서 시작
+   - Unity 주인: 주식 매수가 같은 프레임에 화면에 반영되고, Ledger 뒤에도 값이 같음(덮어쓰기 0번). 로컬 은행을 일부러 바꾸면 다음 Ledger에서 되돌아감. 주인 화면 매니저는 가짜의 거래로 바뀌지 않음
+   - 밤을 넘길 때 주인 돈이 한 번만 바뀜
+3. `LedgerQA.RunProcess`(빌드한 서버 프로세스 + Unity 원격 클라이언트)
+   - 주식 매수·밤 활동 뒤 Unity 은행 돈과 서버 장부(다시 켠 world.dat의 내용)가 같음
+   - 다시 접속하면 장부 값으로 들어옴
+   - 덮어쓰기는 일부러 바꾼 경우에만 일어남(정상 매매 중 0번)
+4. 스크린샷(QA_SHOTS 게임 화면만): 원격 클라이언트의 주식 매수 직후 화면(지연 없이 반영), 고친 돈이 되돌아간 뒤 화면
+
+**총괄 검수 방법.** diff 전체 읽기(특히 서버가 클라이언트 값을 믿는 경로, 앱 안 서버에서 장부 계산이 주인 화면 매니저를 건드리는 경로, 밤 활동 이중 적용, `p.bank` 사유 검사), QA를 직접 다시 돌려 수치 확인, 스크린샷 직접 보기.
+
+#### 12.10.1 결과 (총괄 검수 완료)
+
+**테스트 수치** (총괄이 다시 돌린 것)
+- `LedgerQA.Run` 10개, `RunPlay` 71개, `RunProcess` 18개(빌드한 서버 프로세스 + 원격 Unity)
+- `EconomySyncQA.RunPlay` 62개, `CharacterQA.Run` 36개, `CharacterQA.RunProcess` 14개
+- 나머지 회귀 QA(EconomySync Run 42·RunProcess 47, CharacterQA.RunPlay 33, DropSync 38·51, WorldSave 68, TitleFlow 113, AvatarSync 11·27, SyncLayer 59·13·6, ServerOpen 61·43, NetSession 29, RemoteAvatar 18, SteamHostRoom 42, EditMode 8, `npm test` 42·31)는 구현 에이전트 실행 기록으로 확인
+- 스크린샷 확인: 원격 클라이언트의 주식 매수가 바로 반영됨, 일부러 바꾼 은행 돈이 알림 없이 되돌아감
+
+**설계와 달라진 점**
+- 요청의 답으로 온 Ledger는 그 요청의 OpResult를 처리한 뒤에 적용함(땅 경쟁에서 진 환불이 두 번 되지 않게). 서버가 먼저 보낸 Ledger(밤 활동)는 바로 적용
+- 땅값: 서버가 띄운 씬에 그 땅이 있으면 그 가격, 없으면 `LandPlot.DefaultPrice`(1,000,000원). 땅마다 가격을 다르게 하려면 씬 밖 데이터로 빼야 함
+- 살인 청부는 서버가 누구에게나 거절(해금을 캐릭터마다 저장하는 이벤트가 생길 때 바꿈)
+- `SpeedCamera.MaxFine` 730,000원(최고 측정 속도 360km/h, 최저 제한 10km/h 기준), `FineFor`도 이 값에서 자름
+- 접속할 때 고른 밤 활동이 잠자기가 아니면 다시 보냄(서버는 접속마다 잠자기에서 시작)
+- 기존 QA 수정: `CharacterQA`(입금은 `p.bank`, 진짜 캐릭터 내용으로 저장), `EconomySyncQA`(땅 구매 전 입금)
+
+**남은 문제**
+- 밤 수입은 Ledger 덮어쓰기로 들어오므로 채팅의 "수입으로 … 지급" 문구가 뜨지 않음
+- 임시로 믿는 `p.bank`: 가짜 입금으로 돈을 만들 수 있음(4d-2·4d-4에서 없앰)
+- 접속하는 순간 도서관 인세를 받으면 `p.bank`가 나가기 전이라 다음 Ledger에서 되돌아감(4d-4까지)
+
+#### 12.10.2 4d 나머지 순서 다시 정함 (확정 2026-10-16)
+
+4d-2를 설계하며 확인한 것:
+- 책 한 권은 쪽 20개, 쪽마다 최대 80,000자(`BookReader` 입력 한도)라서 이론상 한 권이 수 MB입니다. 지금은 책 본문이 인벤토리 안에 그대로 들어 있어서, 인벤토리를 서버 장부로 만들면 책을 쓰거나 옮기는 조작 하나가 요청 한도(4KB)와 캐릭터 한도(48KB)를 쉽게 넘습니다. 그래서 **책 본문을 먼저 따로 저장해야 인벤토리 장부가 가능합니다.**
+- 도서관은 책을 현금 지폐(인벤토리)로 사고 빌립니다. 그래서 도서관을 서버로 옮기는 것은 인벤토리 장부 뒤가 맞습니다.
+- 도서관 장부(`library.json`)와 작성한 책(`books.json`)은 지금 각 PC 파일입니다. 새 서버에서는 참가자마다 따로 놀고 있습니다.
+
+| 하위 단계 | 내용 |
+| --- | --- |
+| 4d-1 | 은행·주식 장부 (완료) |
+| 4d-2 책 본문 분리 | 책 본문을 서버 월드에 책 ID별로 저장. 캐릭터 내용·드롭·요청에는 책 ID와 제목·저자만. 본문은 읽을 때 받아 오고, 쓸 때 나눠서 올림. 4KB 드롭 제한 풀림 |
+| 4d-3 인벤토리 장부, 가게와 현금 | 인벤토리 정본을 서버로, 인벤토리 안 조작은 서버가 다시 실행. NPC 거래, 현금 결제, ATM 입출금, 음식 먹기를 서버 판정으로(`p.bank` 입출금 없앰) |
+| 4d-4 세상과 오가는 아이템 | 드롭·줍기, 탈것 설치·회수, 보관함, 지급 아이템, 차 Claim 잠금 검사 |
+| 4d-5 도서관 | 도서관 장부를 서버 월드로, 출판·구매·대여·반납·회수·연체료·인세를 서버 판정으로(`p.bank` 도서관 사유 없앰), `RemoteServer`의 도서관 부분 삭제 |
+
+**정할 것(기획)** → 확정: 아래 결정 2
+- 책 한 권의 최대 분량. 제안: 쪽 20개 × 쪽당 2,000자(한 권 최대 4만 자, 한국어로 약 120KB). 지금 80,000자는 입력창 한도일 뿐이고, 이대로 두면 책 몇 권으로 서버 파일과 전송량이 커집니다. 이미 있는 긴 책은 그대로 두고 새로 쓰는 것만 제한합니다.
+
+#### 12.10.3 4d-2 책 본문 분리 (완료 2026-10-17)
+
+**범위.** 새 서버(앱 안 서버 포함)에서 책 본문을 서버 월드에 저장하고, 캐릭터 내용·드롭 엔티티·네트워크 요청에는 책 ID와 표시 정보만 둡니다. 옛 방과 서버 밖 경로(PC의 `books.json`)는 바꾸지 않습니다. 도서관은 4d-5까지 지금 그대로입니다.
+
+**책 저장소 (서버 쪽)**
+- 새 파일 `Player/ServerBooks.cs`(`ServerWorld`가 만듦). 책 인스턴스 ID → `BookInstanceData` 전체.
+- world.dat의 월드 상태(4c의 `WorldStateProvider` JSON)에 `books` 칸으로 함께 저장합니다(클라이언트에 섹션으로 보내지 않음).
+- 처음 보는 책(4d 전에 저장된 캐릭터 내용·드롭에 본문이 들어 있는 책)은 서버가 그 본문을 저장소로 옮기고 내용에서는 지웁니다(이미 있는 책 이어받기, 결정 3과 같은 원칙).
+
+**본문 없는 책 표시**
+- `BookInstanceData`에 `bodyLoaded`(직렬화하지 않음)를 둡니다. 캐릭터 내용·드롭·요청에서는 `pages`를 비우고 제목·저자·권한·출판 여부·대여 ID만 남깁니다.
+- 저장 거르기(4d-1의 `CharacterSaveFilter`): 인벤토리 안 책의 본문을 지우고 저장합니다(본문은 저장소에만). 드롭 Spawn blob도 클라이언트가 본문 없이 만듭니다(4KB 제한 해제, `WorldDroppedItem`의 "이 아이템은 지금 내려놓을 수 없습니다" 삭제).
+
+**요청 (4c의 Op 이벤트)**
+
+| kind | 본문 | 서버 판정 |
+| --- | --- | --- |
+| `book.get` | 책 ID | 저장소에 있으면 BookText 이벤트(4, 요청자에게만)로 본문을 보냄. 60KB 넘으면 여러 번에 나눠 보냄(쪽 번호와 함께) |
+| `book.page` | 책 ID, 쪽 번호, 쪽 본문 | 쓸 권한(`AllowsRevision`과 같은 규칙: 저자, 또는 권한이 FullEdit·AddOnly)이 있을 때만. 한 요청은 4KB 안이므로 긴 쪽은 `book.page`를 이어 붙이기(append 표시)로 나눠 보냄. 분량 제한(위 결정) 넘으면 거절 |
+| `book.meta` | 책 ID, 제목, 권한 | 제목은 쓸 권한, 권한 변경은 저자만(`TrySetBookPermission`과 같은 규칙) |
+| `book.new` | 책 ID, 제목 | 빈 책에서 새 책을 쓸 때(`TryPublishBook`). 저자는 보낸 계정과 그 캐릭터 이름. 이미 있는 ID면 거절 |
+
+- 사본(가게·도서관에서 산 책, NPC 템플릿)은 4d-2에서는 클라이언트가 만든 대로 `book.new` + `book.page`로 올립니다(사본 판정은 4d-3·4d-5에서 서버로).
+- 지연 없이: 클라이언트는 지금처럼 로컬에서 바로 쓰고 읽습니다. 쓴 내용은 저장할 때(BookReader가 지금 `TryUpdateBook`을 부르는 때) 바뀐 쪽만 올립니다. 다른 기기에서 받은 책은 처음 펼칠 때 `book.get`으로 받아 오고, 받는 동안 "불러오는 중…"을 표시합니다(로컬 캐시에 있으면 바로 표시).
+
+**바꿀 파일**
+
+| 구분 | 파일 | 내용 |
+| --- | --- | --- |
+| 새 | `Player/ServerBooks.cs` | 저장소, 이어받기, 요청 판정, BookText 보내기 |
+| 고침 | `Player/ServerWorld.cs`, `Player/ServerLedger.cs`(저장 거르기), `Player/WorldStateSync.cs`, `Player/WorldSection.cs` | `book.*` 허용, 이벤트 4, 저장할 때 본문 지우기 |
+| 고침 | `Gameplay/Item/Book/BookInstanceData.cs`, `Gameplay/Item/InventorySnapshot.cs` | `bodyLoaded`, 본문 없이 내보내기 |
+| 고침 | `Gameplay/Item/Book/UI/BookReader.cs` | 펼칠 때 받아 오기, 저장할 때 바뀐 쪽 올리기, 분량 제한 |
+| 고침 | `Gameplay/Item/World/UI/WorldDroppedItem.cs` | 드롭 blob에 본문 넣지 않기, 4KB 거절 삭제 |
+| 고침 | `Gameplay/Item/Book/BookSaveService.cs`, `Gameplay/Item/InventoryManager.cs` | 새 서버에서는 PC `books.json`을 읽지도 쓰지도 않음 |
+| 새 | `Editor/Net/BookSyncQA.cs` | 아래 검수 |
+
+**완료 기준**
+1. 컴파일 오류 없음, 기존 QA 회귀 없음(특히 `DropSyncQA`, `LedgerQA`, `EconomySyncQA`, `CharacterQA`, `WorldSaveQA`, `TitleFlowQA`, `npm test`)
+2. `BookSyncQA.RunPlay`(앱 안 서버 + Unity 주인 + 가짜 클라이언트)
+   - 3만 자 책을 써서 저장하면 서버 저장소에 본문이 있고, 캐릭터 내용과 world.dat의 캐릭터 칸에는 본문이 없음
+   - 그 책을 내려놓을 수 있고(4KB 제한 해제), 가짜가 주워서 `book.get`으로 같은 본문을 받음
+   - 권한 없는 `book.page`·`book.meta`, 분량 초과, 이미 있는 ID의 `book.new`는 거절
+   - 4d 전 형식으로 본문이 든 캐릭터·드롭은 서버가 저장소로 옮기고, 다시 들어와도 읽힘
+   - 서버를 다시 켜도 본문이 그대로
+3. `BookSyncQA.RunProcess`(빌드한 서버 프로세스 + 원격 Unity): 원격에서 쓴 책을 다시 접속해 펼치면 같은 본문, 처음 펼칠 때만 받아 옴
+4. 스크린샷: 원격에서 다시 접속 뒤 펼친 긴 책, 남이 떨어뜨린 책을 주워 펼친 화면
+
+**결정 (2026-10-16)**
+1. 4d 나머지 순서는 위 표대로(책 본문 → 인벤토리·가게·현금 → 세상 아이템 → 도서관)
+2. 책 한 권 최대 분량: 쪽 20개 × 쪽당 2,000자. 이미 있는 긴 책은 그대로 두고 새로 쓰는 것만 제한
+
+#### 12.10.3 결과 (총괄 검수 완료)
+
+**테스트 수치** (총괄이 다시 돌린 것)
+- `BookSyncQA.Run` 51개, `RunPlay` 68개, `RunProcess` 14개
+- `DropSyncQA.RunPlay` 51개, `LedgerQA.RunPlay` 71개, `CharacterQA.RunProcess` 14개
+- 나머지 회귀 QA와 `npm test`(42·31)는 구현 에이전트 실행 기록으로 확인. `BookModelQA.RunCli`의 "빈 책 가격 1000원" 1개 실패는 이전부터 있던 것(`BlankBook` 에셋에 price 없음, 에셋·QA 모두 이번에 안 바뀜)
+- 스크린샷 확인: "불러오는 중…", 원격 재접속 뒤 펼친 긴 책, 주운 책
+
+**측정.** 3만 자 책을 41번 요청으로 올림, 캐릭터 내용 868바이트(본문 없음), 드롭 blob 1KB 미만. 108,000자 책은 7개(가장 큰 것 55,635바이트)로 나뉘어 옴
+
+**설계와 달라진 점**
+- 바뀐 쪽 올리기는 `WorldStateSync`가 인벤토리를 1초 안에 비교해서 함(발행·편집·권한·사본·드롭이 한 길로 지나감). `BookReader`는 닫을 때 바로 올리라고만 부름
+- 긴 쪽은 append와 `more` 표시로 나눠 보내고, 서버는 쪽을 다 받은 뒤 쪽 전체로 권한 판정
+- 분량 규칙: 한 쪽은 `max(2000, 원래 길이)`를 넘을 수 없음(이미 있는 긴 쪽은 줄이는 것만)
+- `book.new`의 사본은 클라이언트가 적은 저자·권한·대여 ID를 씀. 사본을 만든 계정은 서버가 켜진 동안 그 책의 쪽을 채울 수 있음(4d-3·4d-5에서 사본을 서버가 만들면 지움)
+- 검수 뒤 추가: 계정당 새 책 200권 상한(서버가 켜진 동안), 끊긴 접속의 나눠 받던 조각은 1초 안에 지움
+- 설계 표에 없던 수정: `LibraryDesk`(출판 전에 본문 받아 오기), `DropState`(4KB 검사 삭제), `CharacterSync`(본문 없이 저장). `InventoryManager`는 고치지 않음(`BookSaveService` 안에서 막음)
+
+**남은 문제(4d-3 이후)**
+- 사본 저자를 클라이언트가 정함: 다른 사람 이름으로 책을 만들 수 있음(도서관 출판은 실제 저자만 가능해서 돈 문제는 없음)
+- `book.page`는 그 책을 실제로 가지고 있는지 확인하지 않음(인벤토리 장부 뒤)
+- 클라이언트가 만드는 드롭 blob은 서버가 거르지 않음(4d-4)
+- 새 캐릭터 시작 인벤토리에 이 PC의 `books.json` 책이 섞여 들어감(원래 동작, 이제 사본으로 서버에 올라감)
+- 다른 기기에서 쓴 긴 쪽이 화면 한 쪽에 다 보이지 않을 수 있음(원래 동작)
+
+#### 12.10.4 4d-3 인벤토리 장부, 가게와 현금 (완료 2026-10-17)
+
+**범위.** 새 서버(앱 안 서버 포함)에서 캐릭터 인벤토리의 정본을 서버 장부로 옮깁니다. 아이템이나 현금 지폐가 생기거나 없어지는 다음 일을 서버가 판정합니다: NPC 거래(장바구니 포함), ATM·폰 은행 입출금, 음식 먹기, 가방 쓰기, 빈 책으로 새 책 쓰기. 드롭·줍기·탈것·보관함·지급 아이템(4d-4)과 도서관(4d-5)은 임시로 "믿는 변경"으로 받습니다. 옛 방과 서버 밖 혼자 하기는 바꾸지 않습니다.
+
+**조사한 것**
+- 수량을 바꾸는 곳은 모두 `InventoryState`를 지나갑니다. 다만 거래는 `TradeSession`의 커서를 거칩니다. 커서에 든 아이템은 잠깐 인벤토리 밖에 있고, 일부만 놓을 수도 있습니다. 이 커서 흐름을 서버에서 그대로 다시 실행하기는 어렵습니다.
+- NPC 상품표는 씬 두 곳에만 있습니다. 편의점(`ConvenienceStoreInterior`)의 `NpcTrader`와 도서관 카페(`CivicLibraryInterior`, `LibraryDesk.cafeOffers`가 `NpcTrader`로 바뀐 것)입니다.
+- 현금 결제(`CashService.PlanPayment`)는 인벤토리 사본만 다루는 계산입니다. 입출금(`TryWithdraw/TryDeposit`)은 `BankManager`를 받습니다.
+- 음식은 아이템 1개를 없애고, 체력·기력·스트레스는 클라이언트가 계산합니다. 스탯은 이번 범위가 아닙니다.
+- **기존 버그:** `InventorySnapshot.Find`가 `cash:금액` 아이템을 찾지 못합니다(현금은 실행 중에 만들어지는 아이템이라 Resources에 없음). 그래서 저장했다 다시 들어오면 인벤토리의 현금 지폐가 빠집니다. 이번에 고칩니다(`cash:` 접두어면 `CashService.GetCurrency`).
+
+**방식: 서버는 "무엇이 몇 개"를, 클라이언트는 "어느 칸"을 정함**
+- 서버 장부는 계정마다 `InventoryState` 하나를 둡니다(4d-1 장부 옆, 처음엔 저장된 캐릭터 내용에서 읽음, 결정 3).
+- 아이템을 만들거나 없애는 일은 의도로 요청하고, 서버가 자기 장부에서 같은 계산 함수로 실행합니다(아래 표). 서버가 새 아이템을 넣는 칸은 서버가 정합니다(빈 칸 순서).
+- 칸 배치(이동, 나누기, 장착, 해제, 핫바 선택)는 서버가 다시 실행하지 않습니다. 클라이언트가 인벤토리를 바꾼 뒤 1초 안에 배치 전체를 `p.inv.layout`으로 올립니다. 서버는 **내용이 같을 때만** 그 배치를 받습니다.
+  - 내용이 같다는 것: 현금이 아닌 아이템은 아이템 ID별 개수가 같고, 고유 아이템(책, 탈것)은 인스턴스 ID 집합이 같습니다. 현금은 지폐 구성이 아니라 총액이 같으면 됩니다(거스름 계산 차이를 허용). 용량(16·24)도 같아야 합니다.
+  - 받을 때 고유 아이템의 데이터(책 제목·저자·권한 등)는 서버 장부 쪽 것을 씁니다. 클라이언트에서는 위치만 받습니다.
+  - 이 비교 함수 하나(`InventoryLedgerRules.SameContents`)를 서버와 클라이언트가 함께 씁니다.
+- 거래 커서가 들려 있는 동안(`TradeSession`에 기다리는 것이 있을 때)은 배치를 올리지 않습니다. 커서를 놓거나 취소한 뒤에 올립니다.
+- 순서: 요청과 배치는 같은 연결로 순서대로 갑니다. 그래서 "의도 → 배치"를 보내면 서버도 의도를 먼저 적용한 뒤 배치를 비교합니다.
+
+**요청 (Op 이벤트 1, `p.`)**
+
+| kind | 본문 | 서버 판정 |
+| --- | --- | --- |
+| `p.trade` | 상점 ID, 줄 목록(상품 번호, 횟수) | 상품표는 서버 데이터에서 찾음(아래). 낼 것(현금은 `PlanPayment`로 거스름까지, 아이템은 개수)을 장부에서 빼고 받을 것을 넣음. 줄 전체가 들어가지 않으면 전부 거절. 한 줄짜리 커서 거래, 장바구니 결제, 파는 거래(현금을 받는 쪽)가 모두 이것 |
+| `p.cash.withdraw` | 지폐 금액, 장수 | 은행 장부 −, 지폐 +. 잔액·칸 부족이면 거절 |
+| `p.cash.deposit` | 지폐 금액, 장수 | 지폐 −, 은행 장부 +. 장부에 그 지폐가 그만큼 없으면 거절 |
+| `p.eat` | 아이템 ID | 먹을 수 있는 아이템이 장부에 있으면 1개 뺌(스탯은 클라이언트) |
+| `p.bag` | 없음 | 장부에 가방이 있고 용량이 16이면 가방 1개 빼고 24로 |
+| `p.inv.layout` | 배치 JSON(gzip, 본문 없는 책) | 위의 내용 비교. 다르면 버리고 Ledger로 장부를 돌려보냄(로그) |
+| `p.inv.trust` (임시) | 사유, 배치 JSON | 아직 옮기지 않은 길만: `drop`·`pickup`·`vehicle`·`storage`·`grant`(4d-4에서 없앰), `library`(4d-5에서 없앰). 다른 사유는 거절. 받을 때마다 로그 |
+
+- `book.new`(4d-2)는 빈 책에서 쓸 때 장부의 빈 책 1권을 빼고 그 책을 넣습니다. 사본(`book.new`의 사본 표시)은 `p.trade`(책 템플릿 상품)나 `p.inv.trust`(도서관)로 장부에 들어온 책 ID에만 허용합니다. 4d-2 "남은 문제"의 사본 저자 위조와 `book.page` 소유 미검사도 여기서 막습니다(`book.page`·`book.meta`는 장부에 그 책이 있을 때만).
+- `p.bank`의 `deposit`·`withdraw` 사유는 없앱니다. 도서관 사유는 4d-5까지 남습니다.
+- 응답: 4d-1의 Ledger(이벤트 3)에 인벤토리 칸을 붙입니다(본문 없는 스냅샷, gzip). 처리 수 규칙은 4d-1과 같습니다.
+
+**NPC 상품표를 씬 밖으로**
+- 새 ScriptableObject `TradeCatalog`(`Resources/Trade/TradeCatalog.asset`)에 상점 ID → `TradeOffer[]`를 둡니다. 지금 두 씬의 상품을 그대로 옮깁니다(편의점, 도서관 카페).
+- `NpcTrader`에는 `shopId`를 두고, 상품은 카탈로그에서 읽습니다. 옛 `offers` 필드는 지우고 씬을 다시 저장합니다. 상점 ID가 없거나 카탈로그에 없는 `NpcTrader`는 거래 창을 열지 않고 경고합니다.
+- 서버는 같은 카탈로그를 읽습니다(씬이 필요 없음). 도서관 대여·구매처럼 `fulfillment`가 붙은 상품은 카탈로그 대상이 아닙니다(4d-5).
+
+**서버 쪽 계산**
+- 화면 매니저(`InventoryManager.Instance`, `BankManager.Instance`)를 건드리지 않습니다. 입출금은 4d-1의 `LedgerWallet`과 장부 `InventoryState`를 인자로 받는 오버로드로 계산합니다. 거래는 `TradeSession` 없이 `p.trade` 판정 함수 하나로 합니다. 이 함수는 장바구니 결제(`CashService.TryPurchase`)와 같은 규칙을 씁니다(낼 것 → 받을 것, 전부 아니면 전무).
+- 저장 거르기: 받은 캐릭터 내용의 인벤토리를 장부 것으로 바꿉니다(4d-1의 은행·주식과 같은 자리).
+
+**지연 없이 (클라이언트)**
+- 지금 코드 그대로 먼저 적용하고 의도를 보냅니다. 보내는 곳: `TradeSession.TryPlace`(거래가 확정될 때, 일부만 놓아도 확정된 횟수만큼), `TryCheckout`, `CashService.TryWithdraw/TryDeposit`, `PlayerStats.TryConsume`, `TryUseBag`, `TryPublishBook`. 그 뒤 배치를 올립니다.
+- Ledger가 오면 처리 수가 맞을 때만 비교합니다. `SameContents`가 같으면 아무것도 하지 않습니다(서버가 다른 칸에 넣었어도 화면은 그대로이고, 다음 배치 업로드로 서버가 맞춰짐). 다르면 장부 스냅샷으로 인벤토리를 덮어씁니다(알림 없음).
+
+**바꿀 파일**
+
+| 구분 | 파일 | 내용 |
+| --- | --- | --- |
+| 새 | `Gameplay/Item/InventoryLedgerRules.cs` | `SameContents`, `p.trade` 판정 함수(서버·QA가 씀) |
+| 새 | `Gameplay/Trade/TradeCatalog.cs` + `Resources/Trade/TradeCatalog.asset` | 상품표 데이터 |
+| 고침 | `Player/ServerLedger.cs`, `Player/ServerWorld.cs`, `Player/ServerBooks.cs` | 인벤토리 장부, 요청 판정, 저장 거르기, `book.*` 소유 검사 |
+| 고침 | `Player/WorldStateSync.cs`, `Player/WorldSection.cs` | 배치 올리기(1초, 커서 없을 때), Ledger 인벤토리 적용 |
+| 고침 | `Gameplay/Item/InventorySnapshot.cs` | `cash:` 찾기(버그 수정) |
+| 고침 | `Gameplay/Trade/TradeSession*.cs`, `Gameplay/Item/Currency/CashService.*.cs`, `Player/PlayerStats.cs`, `Gameplay/Item/InventoryState.cs`(가방), `Gameplay/Item/Book/UI/BookReader.cs` | 로컬 적용 뒤 의도 보내기, 서버용 오버로드 |
+| 고침 | 임시 믿는 길: `WorldDroppedItem.cs`, `InventoryManager.cs`(자전거·차 지급), `EmployeeCardPickup.cs`, `PropertyUseController.cs`, `LibraryCatalog.cs` | 바꾼 뒤 `p.inv.trust`(사유) |
+| 고침 | `NPC/NpcTrader.cs`, 두 씬 | `shopId`, 카탈로그 읽기 |
+| 새 | `Editor/Net/InventoryLedgerQA.cs` | 아래 검수 |
+
+**하지 않는 것:** 스탯(체력·기력·스트레스)의 서버 판정. 드롭·줍기·탈것·보관함·지급 아이템의 실제 판정(4d-4). 도서관(4d-5). 땅값을 씬 밖 데이터로(4d-1 남은 문제 그대로). 프로토콜·world.dat 버전은 바뀌지 않습니다.
+
+**4d-3 뒤 남는 구멍(4d-4에서 막힘):** 가짜 `p.inv.trust`(pickup)로 아이템이나 현금 지폐를 만들 수 있습니다. 로그로만 남습니다. 그래서 돈은 4d-4가 끝나야 완전히 막힙니다.
+
+**완료 기준**
+1. 컴파일 오류 없음, 기존 QA 회귀 없음(특히 `LedgerQA` 셋, `BookSyncQA` 셋, `DropSyncQA`, `EconomySyncQA`, `CharacterQA`, `WorldSaveQA`, `TitleFlowQA`, `InventoryModelQA`, 거래·현금 관련 QA, `npm test`)
+2. `InventoryLedgerQA.Run`(서버 모듈만): `SameContents`(이동·장착·지폐 구성 차이는 같음, 개수·인스턴스·현금 총액·용량 차이는 다름), `p.trade` 판정(거스름, 칸 부족 전부 거절, 파는 거래)
+3. `InventoryLedgerQA.RunPlay`(앱 안 서버 + Unity 주인 + 가짜 클라이언트)
+   - 가짜가 아이템·지폐를 늘린 캐릭터 저장이나 `p.inv.layout`을 올려도 장부는 그대로이고, 가짜에게 장부 Ledger가 감
+   - 가짜의 `p.trade`: 현금이 모자라면 거절, 맞으면 장부에서 현금이 빠지고 상품이 들어감(가격은 카탈로그 값, 클라이언트가 말한 값 아님). 없는 상점·상품 번호 거절
+   - `p.cash.withdraw/deposit`: 은행과 지폐가 같이 바뀜, 없는 지폐 입금 거절, `p.bank` deposit·withdraw 거절
+   - `p.eat`: 없는 음식 거절. `p.bag`: 가방 없으면 거절
+   - 허용하지 않는 `p.inv.trust` 사유 거절, `book.page`는 장부에 없는 책이면 거절
+   - Unity 주인: 편의점 거래·장바구니·입출금·먹기·이동·장착이 같은 프레임에 반영되고, 덮어쓰기 0번. 로컬 인벤토리를 일부러 바꾸면 다음 Ledger에서 되돌아감. 주인 화면 매니저는 가짜의 거래로 바뀌지 않음
+   - 현금 지폐를 들고 저장 → 다시 접속하면 지폐가 그대로(버그 수정 확인)
+4. `InventoryLedgerQA.RunProcess`(빌드한 서버 프로세스 + 원격 Unity): 거래·입출금·이동 뒤 다시 켠 world.dat의 인벤토리와 Unity 화면이 같음, 다시 접속하면 같은 배치로 들어옴
+5. 스크린샷(QA_SHOTS 게임 화면만): 원격에서 편의점 장바구니 결제 직후, 고친 인벤토리가 되돌아간 뒤
+
+**총괄 검수 방법.** diff 전체 읽기. 특히 다음을 봅니다.
+- 서버가 클라이언트 값을 믿는 경로: 배치 비교, 사본 책, `p.inv.trust` 사유
+- 서버 계산이 주인 화면 매니저를 건드리는 경로
+- 커서가 들린 동안 배치를 올리는 경로
+- 처리 수 규칙
+
+그다음 QA를 직접 다시 돌려 수치를 확인하고, 스크린샷을 직접 봅니다.
+
+#### 12.10.4 결과 (총괄 검수 완료)
+
+**테스트 수치**
+
+총괄이 다시 돌린 것:
+- `InventoryLedgerQA`: `Run` 50개, `RunPlay` 92개, `RunProcess` 23개
+- `LedgerQA.RunPlay` 74개
+- `BookSyncQA.RunPlay` 70개
+- `DropSyncQA.RunPlay` 51개
+- `CharacterQA.RunProcess` 14개
+
+구현 에이전트 실행 기록으로 확인한 것:
+- 나머지 회귀 QA
+- `InventoryModelQA`, `CashModelQA`, `TradeCartQA`
+- `npm test` 42개·31개
+- `BookModelQA`의 "빈 책 가격" 1개 실패는 이전부터 있던 것이다.
+
+스크린샷: 원격 편의점 장바구니 결제 직후 화면과, 일부러 바꾼 인벤토리가 되돌아간 화면을 확인했다.
+
+**측정**
+- 정상 플레이(장바구니, 커서 거래, 일부만 놓기, 입출금, 먹기, 이동, 장착, 도서관 구매, 책 쓰기)에서 덮어쓰기는 0번이었다.
+- 거스름 지폐 구성이 달라도 덮어쓰지 않는다. 예: 클라이언트 `10000,33700`, 서버 `10000,1500,32200`.
+
+**설계와 달라진 점**
+- 편의점 상품은 `Art/Items/ConvenienceFood`에 있어서 `InventorySnapshot.Find`가 찾지 못했다(이전부터 있던 버그). 그래서 `Find`가 `TradeCatalog`의 상품도 찾게 했다.
+- Ledger 인벤토리를 비교하지 않고 다음 Ledger로 미루는 경우: 내 배치가 아직 나가지 않았을 때, trust를 기다릴 때, 커서를 들고 있을 때. trust도 1초 배치 때 함께 보낸다.
+- 새 캐릭터는 첫 Ledger의 인벤토리를 시작값으로 받는다(`CharacterSync.FreshCharacter`). 탈것 ID가 서버 기준값과 다르기 때문이다.
+- 내 장부에 이미 있는 책으로 `book.new`가 오면 무시한다. `book.new`가 거절되면 다음 변경 때 다시 보낸다.
+- 서버 입출금 함수는 `CashService.LedgerWithdraw/LedgerDeposit`이다. 검수 뒤 입금도 총액 기준으로 바꿨다: 서버에 없는 지폐 구성이라도 장부 현금 총액에서 빼고 거스름을 준다.
+- 요청 형식은 `SharedOpArgs`를 그대로 쓴다.
+  - `p.trade`: `b` 상점, `a` "번호:횟수,…", `c` 사본·탈것 ID
+  - `p.cash.*`: `n` 지폐 금액, `a` 장수
+  - layout·trust: `b` gzip+base64
+- `BookReader`는 고치지 않았다. 새 책은 1초 배치의 `book.new`가 의도 역할을 한다.
+
+**남은 문제**
+- 가짜 `p.inv.trust`로 아이템이나 지폐를 만들 수 있다(4d-4에서 막음). 계정 사이에 책·탈것 인스턴스가 중복되는지도 검사하지 않는다.
+- 커서를 일부만 놓았는데 서버 장부에 나머지가 들어갈 칸이 없으면, 서버가 거래 전체를 거절해서 덮어쓰기가 일어난다(드묾).
+- 배치는 4KB 요청 한도 안이어야 한다. 책 제목이 아주 많으면 배치가 반영되지 않는다(덮어쓰기는 없음).
+- 0원 동전을 입금하면 서버 장부에서는 빠지지 않는다. 다음 배치 때 맞춰진다.
+- 도서관 사본의 정보는 trust로 들어온 클라이언트 값이다(4d-5까지).
+
+#### 12.10.5 4d-4 세상과 오가는 아이템 (완료 2026-10-18)
+
+**범위.** 새 서버(앱 안 서버 포함)에서 아이템이 인벤토리와 세상 사이를 오가는 일을 서버가 판정합니다: 내려놓기(소지품·장비), 줍기, 탈것 설치, 해체(탈것 → 드롭), 탑승 잠금 검사, 지급 아이템(시작 탈것, 고시원 증서, 직원증). 그 뒤 `p.inv.trust`에는 `library`(4d-5)만 남습니다. 옛 방과 서버 밖 혼자 하기는 바꾸지 않습니다.
+
+**조사한 것**
+- 지금 드롭과 설치한 탈것은 **클라이언트가 만드는 엔티티**입니다(12.8: Spawn → Release). 서버는 blob을 읽지 않습니다. 그래서 가짜 클라이언트가 아무 내용의 드롭을 만들고 다시 주우면 아이템이 생깁니다. 탑승 중에는 주인이 State를 쓸 수 있어서 내용 blob도 바꿀 수 있습니다.
+- 줍기는 Claim → 클라이언트가 가방에 넣고 Despawn → `p.inv.trust`(pickup)입니다. 해체도 클라이언트가 새 드롭을 Spawn합니다.
+- `storage` 사유는 쓰는 곳이 없습니다. 보관함(가구 수납)은 분류 규칙만 있고 아직 내용물이 없습니다(`FurnitureStorageRules`). 그래서 사유만 지웁니다.
+- 지급은 세 곳입니다.
+  - 시작 탈것: `InventoryManager.GrantCityBicycles`, 세션마다 없는 것만
+  - 고시원 증서: `PropertyUseController.GrantStartingDeed`, 세션마다, 증서가 없고 주인 없는 방이 있으면
+  - 직원증: `EmployeeCardPickup`, 씬에 들어올 때마다 한 장 더 주울 수 있음
+- 직원증 아이템(`HandaeEmployeeCard`)은 Resources에 없습니다. 편의점 음식처럼 `InventorySnapshot.Find`가 못 찾아 저장 뒤 빠질 수 있습니다(구현 때 확인하고 고침).
+- 서버 쪽(`ServerWorld`)은 공유 등록부(`PropertyRegistry`)를 갖고 있습니다(4c). 그래서 잠금·해체 허용을 서버에서 검사할 수 있습니다.
+
+**방식: 드롭과 설치한 탈것은 서버가 만들고 지움**
+- 클라이언트는 `Net/WorldDrop`을 더는 Spawn하지 않습니다. 서버가 거절합니다(Despawn 응답, 12.8 규칙).
+- 내려놓기·설치·줍기·해체는 의도 요청(`p.*`)으로 보냅니다. 서버는 장부에서 빼거나 넣고, 엔티티를 직접 만들거나 지웁니다. 내용 blob은 서버가 **장부의 데이터로** 만듭니다(책 제목·탈것 ID 등 클라이언트 값 아님).
+- 탑승(Claim → 탄 동안 위치 State → Release)은 지금 그대로입니다. 다만 서버가 두 가지를 더 검사합니다.
+  - Claim: 탈것이면 등록부의 탑승 허용(`CanRideVehicle`). 아이템 드롭은 Claim 거절(줍기는 요청으로 함)
+  - State: 탄 사람이 보낸 State에서 위치·회전만 받고, 종류와 내용은 서버가 가진 것을 그대로 둠
+
+**GameServer에 더하는 것** (기능을 모르는 서버 원칙 유지, `CharacterSaveFilter`와 같은 꼴의 훅)
+
+| 이름 | 내용 |
+| --- | --- |
+| `SpawnWorldEntity(prefab, map, flags, blobs)` | 서버가 주인 0인 영구 엔티티를 만듦. world.dat에 저장됨(12.8 엔티티 목록). ID는 서버가 시작할 때 접속 번호 하나를 자기 몫으로 받아 씀(접속 번호는 파일에 이어 쓰므로 재시작해도 겹치지 않음). 영구 엔티티 한도(4096)를 지킴 |
+| `RemoveWorldEntity(id)` | 주인이 0인 엔티티를 지우고 맵 전원에게 Despawn |
+| `TryGetEntity(id, …)`, `MapOf(접속)` | 서버 게임 층이 프리팹·맵·주인·blob과 접속자의 맵을 읽음 |
+| `SpawnFilter` | (접속, 프리팹) → 거절 여부. 거절이면 Despawn 응답 |
+| `ClaimFilter` | (접속, 엔티티) → 허용 여부. 거절이면 지금처럼 Owner(그대로) 응답 |
+| `StateFilter` | (접속, 엔티티, 컴포넌트, blob) → 받을 blob(null이면 버림) |
+
+- 프로토콜 버전과 world.dat 버전은 바뀌지 않습니다. 4b에서 클라이언트가 만든 기존 드롭·탈것도 그대로 읽히고, 새 규칙(요청으로 줍기, 잠금 검사)을 따릅니다.
+
+**요청 (Op 이벤트 1)**
+
+| kind | 본문 | 서버 판정 |
+| --- | --- | --- |
+| `p.drop` | 칸(소지품 번호 또는 장비 칸), 아이템 ID(고유 아이템은 인스턴스 ID), 개수, 위치·회전 | 장부의 그 칸에 그 아이템이 그만큼 있으면 거기서, 아니면 같은 아이템을 장부 어디서든 뺌. 없으면 거절. 보낸 사람의 맵에 버린 아이템 엔티티(`Expiring`)를 만듦 |
+| `p.vehicle.place` | 탈것 인스턴스 ID, 위치·회전 | 장부에 그 탈것이 있으면 빼고 설치한 탈것 엔티티를 만듦. 실내 맵이면 거절 |
+| `p.pickup` | 엔티티 ID | 아이템 드롭이고, 주인이 0이고, 보낸 사람과 같은 맵이고, 내용 전부가 장부에 들어가면 넣고 엔티티를 지움. 아니면 거절("다른 사람이 먼저 주웠습니다", "가방에 자리가 없습니다") |
+| `p.dismantle` | 엔티티 ID | 설치한 탈것이고, 주인이 0이고, 같은 맵이고, 등록부가 해체를 허용(`CanDismantleVehicle`)하면 탈것 엔티티를 지우고 같은 내용의 버린 아이템 엔티티를 만듦. 장부는 바뀌지 않음 |
+| `p.grant` | 아이템 ID | 지급 목록(아래)에 있는 아이템이고 장부에 아직 없으면 1개 넣음(정할 것 1) |
+
+- 시작 탈것과 고시원 증서는 요청 없이 서버가 줍니다. 캐릭터가 들어올 때(Hello 뒤 첫 Ledger 전) 장부에 같은 규칙을 적용합니다. 규칙 함수는 `InventoryLedgerRules`로 옮겨 클라이언트(서버 밖)와 서버가 같이 씁니다. 접속 중인 클라이언트는 스스로 지급하지 않습니다.
+- 지급 목록: `TradeCatalog`에 `grants`(아이템 목록)를 더하고 직원증을 넣습니다. `InventorySnapshot.Find`도 이 목록을 찾습니다(위의 저장 버그).
+- `p.inv.trust`의 `drop`·`pickup`·`vehicle`·`storage`·`grant` 사유를 지웁니다. `library`만 남습니다(4d-5).
+- 위치는 믿습니다. 서버는 맵만 확인하고, 플레이어와의 거리나 놓을 자리는 검사하지 않습니다(남은 문제로 기록).
+
+**지연 없이 (클라이언트)**
+- 내려놓기·설치: 지금처럼 가방에서 먼저 빼고 요청을 보냅니다. 바닥의 모습은 서버의 Spawn이 오면 나타납니다(왕복 한 번 늦음). 거절되면 다음 Ledger가 가방을 되돌립니다(알림: 오류 문구).
+- 줍기: 클라이언트가 먼저 가방에 넣고 바닥의 모습을 숨긴 뒤 `p.pickup`을 보냅니다. Ledger가 OpResult보다 먼저 오므로, 기다렸다 넣으면 덮어쓰기가 생기기 때문입니다. 다른 사람이 먼저 주웠으면 Ledger가 가방을 되돌리고 "다른 사람이 먼저 주웠습니다"를 띄웁니다.
+- 해체·탑승: 지금처럼 서버 답을 기다립니다(가방이 바뀌지 않음).
+- 지우는 것: 클라이언트의 드롭 Spawn·Release(`SyncCommit`), `GiveBack`, `pending`, Claim으로 줍기·해체(`ClaimFor.PickUp/Dismantle`).
+
+**정할 것(기획)** → 확정 2026-10-18: 두 제안대로
+1. 직원증: 지금은 로비에 다시 들어올 때마다 한 장 더 주울 수 있습니다. 제안: 서버에서는 **가방에 없을 때만** 한 장 줌(드롭하거나 잃어버리면 다시 받을 수 있음).
+2. 고시원 증서: 지금 규칙을 그대로 옮기면, 아직 아무도 등록하지 않은 같은 방 증서를 두 사람이 받을 수 있습니다. 제안: 서버에서 **계정마다 처음 한 번만**, 다른 계정이 받거나 가진 적 없는 방을 줌(고시원 방은 20개라서 21번째 사람부터는 받지 못함).
+
+**바꿀 파일**
+
+| 구분 | 파일 | 내용 |
+| --- | --- | --- |
+| 고침 | `NetCore/GameServer.cs` | 위 표의 함수와 훅, 서버 몫 접속 번호 |
+| 새 | `Player/ServerDrops.cs` | `p.drop`·`p.vehicle.place`·`p.pickup`·`p.dismantle` 판정, 세 훅, 내용 blob 만들기 |
+| 고침 | `Player/ServerWorld.cs`, `Player/ServerLedger.cs` | 요청 연결, 들어올 때 지급, `p.grant`, trust 사유 정리 |
+| 고침 | `Gameplay/Item/InventoryLedgerRules.cs` | 칸·아이템으로 빼기, 지급 규칙 |
+| 고침 | `Gameplay/Item/World/UI/WorldDroppedItem.cs`, `DropState.cs` | 요청으로 바꾼 흐름, 서버가 만든 엔티티 받기. blob 형식은 서버 쪽 어셈블리에서도 읽고 쓸 수 있게(필요하면 옮김) |
+| 고침 | `Gameplay/Item/InventoryManager.cs`, `UI/Property/PropertyUseController.cs`, `World/Maps/EmployeeCardPickup.cs` | 접속 중엔 스스로 지급하지 않음, 직원증은 `p.grant` |
+| 고침 | `Gameplay/Trade/TradeCatalog.cs`, `Resources/Trade/TradeCatalog.asset`, `Gameplay/Item/InventorySnapshot.cs` | `grants` 목록과 찾기 |
+| 고침 | `Editor/Net/DropSyncQA.cs` 등 기존 QA | 새 흐름에 맞춤 |
+| 새 | `Editor/Net/WorldItemQA.cs` | 아래 검수 |
+
+**하지 않는 것:** 보관함 내용물(아직 시스템이 없음). 줍기 거리·놓을 자리 서버 검사. 분실물센터 화면. 도서관(4d-5).
+
+**완료 기준**
+1. 컴파일 오류 없음. 기존 QA 회귀 없음(특히 `DropSyncQA` 셋, `InventoryLedgerQA` 셋, `LedgerQA`, `BookSyncQA`, `CharacterQA`, `WorldSaveQA`, `SyncLayerQA`, `npm test`)
+2. `WorldItemQA.Run`(메모리 서버): `SpawnWorldEntity` ID가 재시작 뒤에도 겹치지 않음, 한도, 세 훅의 거절·응답, 4b 형식 엔티티 읽기
+3. `WorldItemQA.RunPlay`(앱 안 서버 + Unity 주인 + 가짜 클라이언트)
+   - 가짜가 `Net/WorldDrop`을 Spawn하면 거절되고 세상에 아무것도 생기지 않음
+   - 가짜의 `p.drop`: 장부에 없는 아이템·개수는 거절. 있으면 장부에서 빠지고 드롭이 생기며 내용은 장부 데이터임(가짜가 말한 책 제목 등이 아님)
+   - `p.pickup`: 다른 맵·가방 가득·이미 주운 것 거절. 둘이 같은 드롭을 주우면 한 명만 받고, 세상과 두 장부를 합한 아이템 수가 그대로
+   - 탄 채로 내용이 다른 State를 보내도 서버 내용은 그대로이고, 해체 뒤 주운 것은 원래 탈것
+   - 잠긴 탈것의 Claim, 허용 안 된 `p.dismantle`, 실내 `p.vehicle.place` 거절
+   - `p.inv.trust`의 drop·pickup·vehicle·storage·grant 거절, library는 받음. 지급 목록 밖 `p.grant` 거절
+   - 새 캐릭터와 다시 들어온 캐릭터가 시작 탈것·증서를 서버 규칙대로 받음(정할 것 2대로)
+   - Unity 주인: 내려놓기(소지품·장비·현금)·줍기·설치·탑승·하차·해체·탈것 줍기·직원증 줍기에서 덮어쓰기 0번. 가짜의 요청이 주인 화면의 가방을 바꾸지 않음
+4. `WorldItemQA.RunProcess`(빌드한 서버 프로세스 + 원격 Unity): 내려놓고 설치한 뒤 서버를 다시 켜면 드롭·탈것이 그대로이고 장부에는 없음. 다시 켠 뒤 주우면 장부에 들어옴
+5. 스크린샷(QA_SHOTS 게임 화면만): 원격에서 내려놓은 직후, 줍기 경합에서 진 쪽 화면
+
+**총괄 검수 방법.** diff 전체 읽기. 특히 다음을 봅니다.
+- 아이템이 복제되거나 사라지는 경로: 요청 거절, 끊김, 재시작, 경합
+- 서버가 클라이언트 blob을 믿는 경로
+- 서버 계산이 주인 화면 매니저를 건드리는 경로
+- 처리 수 규칙
+
+그다음 QA를 직접 다시 돌려 수치를 확인하고, 스크린샷을 직접 봅니다.
+
+#### 12.10.5 결과 (총괄 검수 완료)
+
+**테스트 수치**
+
+총괄이 다시 돌린 것:
+- `WorldItemQA`: `Run` 67개, `RunPlay` 93개, `RunProcess` 19개
+- `DropSyncQA.RunPlay` 58개
+- `InventoryLedgerQA.RunPlay` 94개
+- `EconomySyncQA.RunPlay` 62개
+- `CharacterQA.RunProcess` 14개
+
+구현 에이전트 실행 기록으로 확인한 것: 나머지 회귀 QA(`DropSyncQA.Run` 38, `InventoryLedgerQA` 50·25, `BookSyncQA` 51·73·14, `LedgerQA` 10·74·18, `CharacterQA` 36·33, `EconomySyncQA` 42·51, `WorldSaveQA` 68, `SyncLayerQA`, `AvatarSyncQA`, `ServerOpenQA`, `SteamHostRoomQA`, `NetSessionQA`, `TitleFlowQA`, `RemoteAvatarQA`), `npm test` 42개·31개.
+
+스크린샷: 줍기 경합에서 진 쪽 화면("다른 사람이 먼저 주웠습니다."), 원격에서 현금을 내려놓은 직후 화면을 확인했다.
+
+**측정.** Unity 주인의 정상 동작(내려놓기: 소지품·장비·현금, 줍기, 설치, 탑승, 하차, 해체, 탈것 줍기, 직원증)에서 덮어쓰기는 0번이었다.
+
+**설계와 달라진 점**
+- GameServer 훅을 하나 더 뒀다: `CharacterEntering`(접속, 계정). 이미 있는 캐릭터는 Character를 보내기 전에 지급해야 받은 내용에 지급분이 들어 있어 덮어쓰기가 생기지 않는다. 새 캐릭터는 첫 Ledger로 받는다.
+- Claim한 엔티티는 그 접속이 Despawn할 수 없다(ID 속 접속 번호가 보낸 접속이 아닐 때). 탄 사람이 차를 지워 아이템이 사라지는 길을 막았다.
+- 서버 몫 접속 번호는 첫 `SpawnWorldEntity` 때 받는다(기존 QA의 "첫 접속 번호 1" 유지). 재시작해도 ID가 겹치지 않는다.
+- 증서 기록은 world state `startDeeds`(계정 → 방)에 저장한다. "가진 적 있는 방"은 준 기록, 등록부(포기한 방 포함), 모든 캐릭터의 저장된 가방을 본다. 4d-4 전에 받아 가진 계정은 받은 것으로 기록한다.
+- `p.drop`의 현금 지폐가 장부에 그 액면 그대로 없으면 소지 현금 총액에서 거슬러 뺀다(4d-3 입금과 같은 이유).
+- 드롭 blob 형식은 `Gameplay/Item/World/DropBlob.cs`로 옮겨 서버와 클라이언트가 같이 쓴다. 요청 답은 `WorldStateSync.Answered`로 전해지고, 거절된 줍기는 숨겼던 드롭을 다시 보인다.
+- 직원증: 접속 중 이미 가방에 있으면 줍는 자리만 사라지고 요청은 보내지 않는다.
+- 요청 형식(`SharedOpArgs`): `p.drop`은 `a` 아이템 ID, `b` 인스턴스 ID, `n` 개수, `c` 칸, `f` 장비 칸 여부, `d` "x,y,z,yaw". `p.vehicle.place`는 `a` 탈것 ID, `d` 위치. `p.pickup`·`p.dismantle`은 `n` 엔티티 ID. `p.grant`는 `a` 아이템 ID.
+
+**남은 문제**
+- 시작 탈것은 들어올 때마다 없는 종류를 준다(옮기기 전 규칙 그대로, 개발용). 설치하거나 버린 뒤 다시 들어오면 탈것이 늘어난다.
+- 들어올 때 지급이 16칸 가방의 11칸을 차지한다. 칸이 모자라면 증서는 다음에 들어올 때 다시 시도한다.
+- 땅에 떨어졌거나 분실물 목록에 있는 증서는 "가진 적 있는 방"에 들어가지 않는다.
+- 4b에서 클라이언트가 만든 기존 드롭·탈것은 그 내용을 한 번 믿고 읽는다.
+- 줍기 거리와 놓을 자리는 검사하지 않는다.
+- `Docs/Architecture.md`, `Docs/Server.md`에 새 구조가 아직 반영되지 않았다.
+
+#### 12.10.6 4d-5 도서관 (완료 2026-10-19)
+
+**범위.** 새 서버(앱 안 서버 포함)에서 도서관 장부를 서버 월드로 옮기고, 도서관에서 돈과 책이 오가는 일을 서버가 판정합니다: 빈 책·책 구매, 대여, 반납(연체료), 출판(출판비), 회수(누적 인세), 미납 연체료 납부, 날마다 연체 부과·30일 회수, 시즌 끝 인세. 그 뒤 `p.bank`의 도서관 사유와 `p.inv.trust`가 없어지고, `RemoteServer`의 도서관 부분을 지웁니다. 옛 방과 서버 밖 혼자 하기는 바꾸지 않습니다(PC의 `library.json`).
+
+**조사한 것**
+- 장부(`LibraryCatalog.Ledger`)는 작품(출판한 책 원본, 판매 수, 쌓인 인세), 대여(대여 ID, 빌린 사람, 사본 ID, 시작일, 부과한 연체일), 계정(받을 돈, 미납 연체료, 벌점) 세 목록입니다. 지금 각 PC의 `library.json`이고, 새 서버에서는 참가자마다 따로 놉니다(`Authority`가 `RemoteServer`면 참).
+- 구매·대여·회수는 가게와 같은 `TradeSession`에 `LibraryFulfillment`를 붙인 것이고, 반납·출판은 고른 책을 넘기는 흐름(`handoff`)입니다. 가방 변경은 `p.inv.trust`(library), 은행 변경은 `p.bank`(book.publish, library.late, library.fine, book.royalty)로 서버에 믿고 올립니다.
+- 출판은 가방의 원본을 도서관이 가져갑니다(회수하면 같은 인스턴스 ID로 돌려받음). 작가는 출판 뒤에도 자기 책을 고칠 수 있지만, 출판본은 그 순간의 사본입니다.
+- 4d-2 이후 서버는 책 본문을 인스턴스 ID별로 갖고 있고(`ServerBooks`), 지우지 않습니다. 지금 도서관 사본은 클라이언트가 `book.new`(사본 표시) + `book.page`로 본문을 올립니다.
+- 벌점(`penaltyPoints`)은 도서관 계정에 있습니다. 30일 회수에 +5, 과속 벌금을 못 내면 +1(`SpeedCamera`, 지금 이 PC 장부에만). 읽는 곳은 `PenaltyManager.GetPoints` 하나이고 쓰는 화면은 없습니다. 신고 판결의 벌점은 따로입니다(`ReportService`).
+- 앱 안 서버는 서버와 주인 화면이 같은 프로세스입니다. 그래서 `LibraryCatalog`(정적 장부)를 서버 장부로 같이 쓰면 안 됩니다(4d-1~4d-4와 같은 원칙).
+
+**방식**
+- 새 `Player/ServerLibrary.cs`가 서버의 도서관 장부(같은 `LibraryCatalog.Ledger` 형식의 인스턴스)를 갖고, world state(world.dat)에 `library`로 저장합니다. 규칙(연체일, 부과, 회수일, 시즌 인세, 가격)은 `LibraryCatalog`의 것을 순수 함수로 꺼내 같이 씁니다.
+- 공유 구역을 하나 더 둡니다(`library`, `SectionCount` 8 → 9). 작품은 **본문 없이**(제목·저자·작품 ID·판매 여부), 대여와 계정은 그대로 보냅니다. 클라이언트의 `LibraryCatalog`는 서버에 있는 동안(`SharedWriteGate.OnServer`) 이 구역을 받아 쓰는 읽기 전용 거울이 되고, 파일에 저장하지 않습니다.
+- 작품의 본문은 원본 책 ID의 `ServerBooks` 본문입니다(원본은 출판 때 가방에서 빠지므로 아무도 고칠 수 없음). 사본을 만들 때 서버가 그 본문을 새 ID로 복사합니다. 클라이언트는 사본 본문을 올리지 않고, 열 때 받아 옵니다.
+- 돈은 서버 장부에서 바로 움직입니다. 인세·회수 정산은 작가가 접속하지 않았어도 그 은행 장부에 바로 넣고, 30일 회수는 접속하지 않은 사람의 가방에서도 바로 뺍니다(지금의 "받을 돈"·"다시 접속할 때 지움"이 필요 없어짐, 결과는 같음).
+- 날 넘김은 서버 시계의 `DayChanged`로 서버가 처리합니다. `WorldStateSync`의 `LibraryCatalog.AdvanceTo` 호출과 `LibraryCatalog.Authority`의 `RemoteServer`를 지웁니다(시민·교통의 `RemoteServer`는 그대로).
+
+**요청 (Op 이벤트 1, 개인 요청처럼 처리 수를 세고 Ledger로 답함)**
+
+| kind | 본문 | 서버 판정 |
+| --- | --- | --- |
+| `p.lib.buy` | 작품 ID(빈 책이면 없음), 새 책 ID | 판매 중인 작품. 가방의 현금 지폐로 값(빈 책 1,000원, 책 20,000원)을 치르고(`CashService.PlanPayment`, 거스름 포함) 사본(읽기 전용)을 넣음. 작품의 인세 +4,000, 판매 +1 |
+| `p.lib.borrow` | 작품 ID, 새 책 ID, 대여 ID | 빌린 책이 없고 그 작품이 대여 중이 아님. 읽기 전용 대여 사본을 넣고 대여 기록 |
+| `p.lib.return` | 책 ID | 장부의 그 책이 보낸 사람의 진행 중 대여이고 30일 전. 연체료를 은행에서(모자라면 거절), 책을 가방에서 뺌 |
+| `p.lib.publish` | 책 ID | 가방의 그 책이 보낸 사람이 저자이고, 다 쓴 책(`isPublished`)이고, 본문이 있고, 대여본이 아님. 출판비 10,000원을 은행에서, 책을 가방에서 빼서 작품으로(회수했던 원본이면 같은 작품을 다시 판매) |
+| `p.lib.withdraw` | 작품 ID | 보낸 사람이 저자. 판매 중지, 그 작품의 대여는 연체 부과 뒤 회수, 쌓인 인세를 은행에, 원본을 가방에(자리가 없으면 거절) |
+| `p.lib.fine` | 없음 | 미납 연체료 전부를 은행에서 |
+
+- 새 책 ID·대여 ID는 `p.trade`처럼 클라이언트가 정해 보내고, 서버는 형식과 중복만 검사합니다. 그래서 정상 플레이에서는 덮어쓰기가 없습니다.
+- 빈 책 구매는 `TradeCatalog` 상품으로 옮기지 않고 `p.lib.buy`에 둡니다(도서관 창 하나에서 같이 팔기 때문).
+- `p.bank`(임시)와 `p.inv.trust`(임시)를 **없앱니다**. 4d의 임시 믿는 요청이 모두 사라집니다.
+- 과속 벌금: 접속 중에는 클라이언트가 결과와 상관없이 `p.fine`을 보내고, 서버가 은행에서 못 받으면 벌점 +1을 서버 도서관 계정에 적습니다.
+
+**지연 없이 (클라이언트)**
+- 구매·대여·회수: 지금처럼 거래 창에서 먼저 가방에 넣고 요청을 보냅니다(4d-3 `p.trade`와 같음). 거울 장부는 직접 고치지 않고 서버 구역을 기다립니다. 회수 알림의 인세 금액은 답으로 받은 Ledger의 은행 변화로 띄웁니다.
+- 반납·출판: 고른 책을 먼저 빼고 요청을 보냅니다. 거절되면 Ledger가 되돌리고 오류 문구를 띄웁니다. 연체료·출판비 안내는 거울 장부로 미리 계산해 보여 줍니다.
+- 거울이 늦게 와서 같은 작품을 둘이 동시에 빌리면, 늦은 쪽은 거절되고 Ledger가 가방을 되돌립니다("누군가가 대여중입니다").
+
+**정할 것(기획)** → 확정 2026-10-18: 두 제안대로
+1. 서버 PC에 이미 있는 도서관(`library.json`)을 서버 월드로 가져올지. 제안: **가져오지 않음.** 서버 월드는 빈 도서관에서 시작합니다(땅·회사처럼 서버 월드는 따로라서). 옛 방과 혼자 하기는 지금 파일을 그대로 씁니다.
+2. 도서관 구역은 모두에게 가므로 다른 사람의 미납 연체료·벌점도 받게 됩니다(화면에는 내 것만 보임). 제안: **지금은 그대로 보냄.** 숨겨야 하면 계정 부분만 개인 Ledger로 옮깁니다.
+
+**바꿀 파일**
+
+| 구분 | 파일 | 내용 |
+| --- | --- | --- |
+| 새 | `Player/ServerLibrary.cs` | 서버 도서관 장부, `p.lib.*` 판정, 날 넘김, 저장·복원 |
+| 고침 | `Gameplay/Item/Book/LibraryCatalog.cs` | 규칙을 순수 함수로, 서버에 있는 동안 거울(구역 적용, 파일 저장 안 함), 요청 보내기, `RemoteServer` 지움 |
+| 고침 | `Gameplay/Item/Book/UI/LibraryDesk.cs` | 반납·출판·회수 알림을 요청 답으로 |
+| 고침 | `Player/ServerWorld.cs`, `Player/ServerLedger.cs`, `Player/ServerBooks.cs` | 구역 9개, 요청 연결, `p.bank`·`p.inv.trust` 삭제, 서버가 사본 본문 복사 |
+| 고침 | `Player/WorldStateSync.cs`, `Gameplay/WorldSave.cs` | 날 넘김 호출 삭제, `library` 구역과 저장 |
+| 고침 | `Gameplay/Traffic/SpeedCamera.cs` | 접속 중 벌점은 서버가 |
+| 고침 | 기존 QA(`InventoryLedgerQA`, `BookSyncQA`, `LedgerQA` 등) | `p.bank`·`p.inv.trust` 삭제에 맞춤 |
+| 새 | `Editor/Net/LibrarySyncQA.cs` | 아래 검수 |
+
+**하지 않는 것:** 도서관 화면 디자인 변경. 시민 NPC의 책 구매. 신고 판결 벌점과 도서관 벌점 합치기. 프로토콜 버전은 바뀌지 않습니다(구역 수는 같은 빌드끼리 맞음).
+
+**완료 기준**
+1. 컴파일 오류 없음. 기존 QA 회귀 없음(`WorldItemQA` 셋, `DropSyncQA` 둘, `InventoryLedgerQA` 셋, `LedgerQA` 셋, `BookSyncQA` 셋, `CharacterQA`, `EconomySyncQA`, `WorldSaveQA`, `SyncLayerQA`, `npm test`). 서버 밖 혼자 하기 도서관 동작은 그대로
+2. `LibrarySyncQA.Run`(메모리 서버): 요청별 허용·거절, 연체일·부과·30일 회수·시즌 인세 계산이 옛 `LibraryCatalog`와 같은 값
+3. `LibrarySyncQA.RunPlay`(앱 안 서버 + Unity 주인 + 가짜 클라이언트 둘)
+   - 출판 → 다른 사람 구매 → 작가 회수에서 돈의 합: 출판비, 값, 인세가 각 장부에 정확히. 접속하지 않은 작가도 시즌 끝 인세를 은행에서 받음
+   - 사본 본문은 서버가 복사함(가짜가 다른 본문을 올릴 수 없음). 사본을 열면 출판본 본문
+   - 같은 작품을 둘이 동시에 빌리면 한 명만. 두 권 대여 거절. 남의 책 출판·남의 작품 회수 거절
+   - 시계를 넘겨 연체료와 30일 회수(접속하지 않은 사람의 가방에서도 빠짐, 벌점 +5). 반납 연체료가 은행에서
+   - `p.bank`·`p.inv.trust` 거절
+   - 주인 화면: 구매·대여·반납·출판·회수·연체료 납부에서 덮어쓰기 0번, 거울 장부가 서버와 같음
+4. `LibrarySyncQA.RunProcess`(빌드한 서버 프로세스 + 원격 Unity): 출판·대여 뒤 서버를 다시 켜도 도서관 장부와 사본 본문이 그대로
+5. 스크린샷(QA_SHOTS 게임 화면만): 원격에서 빌린 책의 남은 대여 기간 툴팁, 동시 대여에서 진 쪽 화면
+
+**총괄 검수 방법.** diff 전체 읽기. 특히 돈이나 책이 생기거나 사라지는 경로(거절, 끊김, 재시작, 경합), 서버가 클라이언트 값을 믿는 경로, 서버 계산이 주인 화면의 `LibraryCatalog`·`BankManager`를 건드리는 경로. 그다음 QA를 직접 다시 돌리고 스크린샷을 직접 봅니다.
+
+#### 12.10.6 결과 (총괄 검수 완료)
+
+**테스트 수치**
+
+총괄이 다시 돌린 것: `LibrarySyncQA` `Run` 58개·`RunPlay` 79개·`RunProcess` 31개, `BookSyncQA.RunPlay` 73개·`RunProcess` 14개, `LedgerQA.RunPlay` 66개, `InventoryLedgerQA.RunPlay` 94개, `WorldItemQA.RunPlay` 93개, `EconomySyncQA.RunPlay` 61개, `CharacterQA.RunProcess` 14개.
+
+구현 에이전트 실행 기록으로 확인한 것: `WorldItemQA` 67·19, `InventoryLedgerQA` 50·25, `LedgerQA` 10·18, `BookSyncQA` 51, `CharacterQA` 36·33, `EconomySyncQA` 42·49, `DropSyncQA` 38·58, `SyncLayerQA` 59·13·6, `WorldSaveQA` 68, `npm test` 42개·31개. 수가 줄어든 것(`LedgerQA.RunPlay` 74 → 66, `EconomySyncQA.RunPlay` 62 → 61)은 지운 `p.bank` 확인 때문이다.
+
+스크린샷: 원격에서 빌린 책의 툴팁("남은 대여기간 : 10일"), 동시 대여에서 진 쪽 화면("누군가가 대여중입니다.")을 확인했다.
+
+**측정.** 주인 화면의 구매·글쓰기·출판·회수·대여·연체료 납부·반납에서 덮어쓰기 0번. 동시 대여에서 진 쪽만 1번(설계대로 Ledger가 되돌림). 가짜 클라이언트 요청이 주인 은행·가방과 주인 PC의 `library.json`을 바꾸지 않았다.
+
+**설계와 달라진 점**
+- 날 넘김: `DayChanged`를 구독하지 않고 ServerWorld가 매 프레임 월드 분으로 `ServerLibrary.AdvanceTo`를 부른다(같은 효과, 시계가 바뀌어도 끊기지 않음).
+- 구역에 작품의 인세·판매 수도 보낸다(회수 인세를 클라이언트가 미리 적용해야 덮어쓰기가 없음). 끝난 대여는 서버도 보관하지 않는다.
+- `p.fine`을 은행에서 못 받으면 벌점 +1을 적고 성공으로 답한다.
+- 반납·출판·회수에서 가방의 책은 직접 지운다(`TryTake`는 대여본 양도 금지에 걸림).
+- `WorldSaveData.library`가 PC의 world.json에도 빈 장부로 쓰인다(동작은 같음).
+- 요청 형식(`SharedOpArgs`): `a` 작품 ID, `b` 책 ID, `c` 대여 ID.
+
+**남은 문제**
+- 새 책 ID 중복은 서버 책 저장소와 보낸 사람의 가방에서만 검사한다.
+- 거울에서 `ReturnFee`가 계정 없는 대여자를 잠깐 추가할 수 있다(다음 구역에서 사라지는 표시 문제).
+- 계정 목록에 상한이 없다. 계정 수가 아주 많아지면 구역 60KB 한도를 확인해야 한다.
+- 구역이 9개라 이전 빌드와 섞이지 않는다.
+- `Docs/Architecture.md`, `Docs/Server.md`에 4d 구조가 아직 반영되지 않았다.
+
+### 12.11 4e단계: 옛 경로 삭제 (설계·구현 2026-10-19)
+
+**범위.** 새 서버(동기화 계층)로 옮긴 기능의 옛 경로를 지웁니다. 옛 방(Cloudflare·Steam 방)과 "옛 방식(개발용)" 메뉴가 없어지고, 멀티는 혼자 하기·서버 열기·참가하기만 남습니다. 에디터에서 게임 씬을 바로 플레이하는 오프라인 경로(세션 없음)는 개발용으로 그대로 둡니다.
+
+**결정(2026-10-19): Steam 모드는 지금 지웁니다.** PC는 EOS로 갑니다. Steam판을 낼 때 새 서버용 Steam 통로로 다시 붙입니다. Steamworks.NET 패키지는 EOS 플러그인이 쓰므로 남깁니다(12.4 결정).
+
+**조사한 것**
+- 옛 방 경로: `NetSession`(`pos`/`op`/`state`/`world`/`msg`), `NetClient`, `INetTransport`, `SteamTransport`, `SteamBackend`, `HostRoom`, `RoomNode`, `RoomCode`, `NetMode`(연결 방식 전환), `NetWorldBridge`(op 중계, 방장 넘기기), `NetPlayerSync`(옛 아바타), `NetPlayerSave`·`SteamLocalState`·`PlayerData`의 월드별 개인 저장(`/me/state?world=`), `WorldSave`의 잠금·세대 번호, `WorldOps`의 `veh.*`, `WorldDroppedItem`의 `RemoteLeft`, `SharedWriteGate`의 옛 방 출구, 타이틀의 옛 메뉴(`ShowLegacy`, 방 만들기·참가, `RoomCodeCard`, `SteamInviteRunner`), `PauseMenu`의 방 부분.
+- 시민·교통: 옛 방에서만 동기화합니다(`CitizenSync`, `TrafficSync`, 방장 계산 → 나머지는 대리 표시). 새 서버에서는 지금도 **각 PC가 따로 계산**합니다(`IsAuthority || RemoteServer`). 그래서 10장의 "5단계 전까지 월드 엔티티 이벤트로 임시로 옮김"은 하지 않고, 옛 동기화만 지웁니다. 새 서버에서 달라지는 것이 없고, 곧 5단계에서 시간 기반으로 다시 만들기 때문입니다.
+- 새 흐름도 쓰는 것: 계정 로그인(`LocalAccount`, `PlayerData`의 가입·로그인·핑, Node·Worker의 `/auth/*`, `/me`, `/me/profile`)은 새 서버 입장에도 쓰입니다. 2b-2에서 EOS 계정으로 바뀔 때까지 남깁니다. `NetWorldBridge.Say`·`DoneText`(채팅 알림 문구)는 `WorldStateSync`가 씁니다.
+- `GameSession.RemoteServer`는 4c 임시 플래그입니다. 남은 쓰임은 시민·교통의 "계산할지"뿐입니다.
+
+**지우는 것**
+
+| 구분 | 대상 |
+| --- | --- |
+| 클라이언트 통신 | `NetSession`, `NetClient`, `INetTransport`, `SteamTransport`, `SteamBackend`, `SteamLocalState`, `HostRoom`, `RoomNode`, `RoomCode`, `NetMode`, `NetMessages`(옛 메시지만, 새 계층이 쓰는 것은 남김) |
+| 게임 쪽 옛 경로 | `NetWorldBridge`(알림 문구는 `WorldStateSync`로 옮김), `NetPlayerSync`(표시는 이미 `RemoteAvatarView`), `NetPlayerSave`, `PlayerData`의 월드별 개인 저장, `WorldSave`의 방장 넘기기(잠금·세대 번호·`CaptureVehicles`/`RestoreVehicles` 훅 중 옛 방 것), `WorldOps.VehicleOp`, `WorldDroppedItem`의 `RemoteLeft`, `SharedWriteGate`의 옛 방 출구, `CitizenSync`, `TrafficSync`, 시민·교통의 대리 표시(proxy) 모드 |
+| 세션 | `GameSession.RemoteServer` 삭제. 시민·교통은 세션이 무엇이든 각자 계산. `IsAuthority`가 "서버 프로세스 또는 오프라인"만 뜻하도록 정리(옛 방장 의미 삭제) |
+| 타이틀 | "옛 방식(개발용)" 버튼과 그 아래 화면 전부, Steam 초대, 옛 서버 주소 꼬리말 |
+| Node 서버 | 방(`rooms.ts`, `ws.ts`, `protocol.ts`, `budget.ts`), `/rooms`, `/me/state`와 `character_state` 표(있는 DB에서는 그대로 두고 쓰지 않음) |
+| Worker | 방(`lobby.ts`, Durable Object, `budget.ts`), `/me/state`. **배포는 하지 않습니다**(배포된 Worker는 요청이 있을 때 바꿈. Durable Object를 지우는 배포에는 `wrangler.toml` 삭제 migration이 필요하므로 그것까지 코드에 넣어 둠) |
+| QA | `NetSessionQA`, `SteamHostRoomQA`, `RemoteAvatarQA`(옛 방 아바타), `ServerBudgetQA`, `TitleFlowQA`의 옛 메뉴 부분, Node `rooms.test.ts`·`ws.test.ts`·`budget.test.ts`, Worker `hibernate.test.ts`의 방 부분 |
+| 문서 | `Docs/Server_API.md`에서 방·`pos`·`op`·`veh.*`·`/me/state`. `Docs/Architecture.md`, `Docs/Server.md`를 지금 구조(동기화 계층, 서버 월드, 4c·4d 서버 판정)로 고침(4d 남은 문제) |
+
+**남기는 것:** 동기화 계층 전체, 계정 로그인, EOS 시험 코드(`EosProbe`, 2b-2의 출발점), 오프라인 경로(서버 밖에서는 지금처럼 이 PC가 계산하고 PC 파일에 저장), Steamworks.NET 패키지.
+
+**바꿀 파일:** 위 표의 파일을 지우고, 참조하던 곳(`TitleFlow`, `TitleScreen`, `PauseMenu`, `WorldStateSync`, `WorldSave`, `WorldSaveRunner`, `WorldOps`, `WorldDroppedItem`, `SharedWriteGate`, `CitizenSpawner`, `CitizenWalker`, `TrafficSpawner`, `TrafficSignal`, `GameSession`, `CharacterSync`, `SyncMapBinder` 주석 등)을 정리합니다. 새 기능은 만들지 않습니다.
+
+**하지 않는 것:** 계정을 EOS로 바꾸기(2b-2). 시민·교통 동기화(5단계). 오프라인 경로 삭제. Worker 배포.
+
+**완료 기준**
+1. 컴파일 오류 없음. 지운 이름(`NetSession`, `HostRoom`, `RoomNode`, `NetWorldBridge`, `NetPlayerSync`, `SteamTransport`, `RemoteServer`, `CitizenSync`, `TrafficSync` 등)이 코드에 남지 않음(grep으로 확인, 문서의 역사 기록 제외)
+2. 새 경로 회귀 없음: `SyncLayerQA` 넷, `AvatarSyncQA` 둘, `CharacterQA` 셋, `DropSyncQA` 둘, `EconomySyncQA` 셋, `LedgerQA` 셋, `BookSyncQA` 셋, `InventoryLedgerQA` 셋, `WorldItemQA` 셋, `LibrarySyncQA` 셋, `ServerOpenQA` 둘, `WorldSaveQA`, `EosTestQA`(에디터에서 되는 것), `TitleFlowQA`(새 메뉴만), `npm test`(Server, worker)
+3. 오프라인 경로: 에디터에서 게임 씬을 바로 플레이하면 시민·교통이 움직이고 저장이 PC 파일에 됨(기존 QA가 있으면 그것, 없으면 짧은 확인을 `TitleFlowQA`나 새 QA에)
+4. 새 서버에서 시민·교통이 각 PC에서 움직임(원격 클라이언트에서 확인)
+5. 스크린샷(QA_SHOTS 게임 화면만): 타이틀 메인 메뉴(옛 방식 버튼 없음), 원격 클라이언트의 시민·교통
+
+**총괄 검수 방법.** diff 전체 읽기. 특히 지운 코드가 새 경로에서 쓰이던 것(알림 문구, 저장, 세션 모드), 오프라인 경로가 깨지지 않았는지, Node·Worker에서 계정 API가 그대로인지. 그다음 QA를 직접 다시 돌리고 스크린샷을 봅니다.
+
+#### 12.11 결과 (구현 완료, 총괄 검수 전)
+
+**테스트 수치**(2026-10-19, `_temp/qa4e/regress.sh`, 로그 `_temp/qa4e/r_*.log`). 모두 통과.
+- `SyncLayerQA` 59·13·6·load, `AvatarSyncQA` 11·27, `CharacterQA` 36·33·14, `DropSyncQA` 38·58
+- `EconomySyncQA` 42·61·54(원격 시민·교통 구역 추가 뒤), `LedgerQA` 10·66·18, `BookSyncQA` 51·73·14, `InventoryLedgerQA` 50·94·25
+- `WorldItemQA` 67·93·19, `LibrarySyncQA` 58·79·31, `ServerOpenQA` 61·43, `WorldSaveQA` 41, `TrafficQA` 2909
+- `ServerBudgetQA` 13(계정 HTTP만), `EosTestQA.RunPlay` 2회 PUID 받음
+- `TitleFlowQA.Run` 40(새 메뉴), `TitleFlowQA.RunOffline` 11(오프라인 경로)
+- `npm test` Node 11개(10 통과, 1 워커 전용 건너뜀), Worker 11개
+
+**완료 기준 확인**
+1. 컴파일 오류 0. 지운 이름 grep(`.cs`·`.asmdef`) 결과 없음. 에디터 복구 씬 `Assets/_Recovery/0.unity`(추적 안 함)에만 `TrafficSync` 흔적이 있음.
+2. 위 수치.
+3. `TitleFlowQA.RunOffline`: 게임 씬을 바로 플레이(세션 없음) → 시민 8명 중 8명이 8초 안에 움직임, `world.json`이 이 슬롯 폴더에 저장되고 오프라인 변경이 맵 이동 저장에 들어감, BusinessDistrict에서 NPC 차가 달림.
+4. `EconomySyncQA.RunProcess`(서버 프로세스 + Unity 원격 클라이언트, Client 모드): daldongnaemap에서 시민 8/8이 움직이고, BusinessDistrict로 옮겨 NPC 차가 달림.
+5. 스크린샷(`_temp/qa4e/shots/`): `T_main.png`(옛 방식 버튼 없음), `E_remote_citizens.png`, `E_remote_traffic.png`, `T_offline_citizens.png`, `T_offline_traffic.png`.
+
+**설계와 달라진 점**
+- `WorldDroppedItem.riderId`는 남김. 새 서버에서 다른 사람이 모는 서버 차를 숨기고 세우는 데 씀(`SyncState`·`SyncOwner`). 옛 방 쓰임(veh.* op, `ReleaseRider`, 스냅샷의 `rider`)만 지움.
+- `ServerBudgetQA`는 지우지 않고 계정 HTTP 부분만 남김(계정 Worker에 일일 예산이 남아 있음).
+- `SessionMode.Single`도 지움(쓰는 곳 없음). 모드는 `Host`·`Client`뿐.
+- 맵 이동 저장(`LoadStarted` → `WorldSaveRunner.SaveNow`)은 `NetWorldBridge`에서 `WorldStateSync`로 옮김. 종료 저장은 원래 `WorldSaveRunner.OnApplicationQuit`가 하므로 옮길 것 없음.
+- **고친 버그(기존):** 에디터에서 맵 씬을 바로 플레이하면 첫 씬에 `MapReady`가 오지 않아 시민이 생기지 않았음. `CitizenSpawner`에 `AfterSceneLoad` 보충을 넣음(이미 있으면 건너뜀).
+- `TitleShots`는 지금 화면만 찍음. NPC 스크린샷은 플레이어 카메라가 언덕에 가리기 쉬워 임시 카메라로 찍음(`NpcQa.ShotNearest`, QA 전용).
+
+**남은 문제**
+- `TitleFlow.SignIn`을 부르는 곳이 없음. 새 흐름(혼자 하기·서버 열기·참가하기)은 계정 서버를 쓰지 않고 `GameSession`의 계정 id(기억된 계정 id, 없으면 PC별 GUID)로 들어감. 위 "조사한 것"의 "계정 로그인은 새 서버 입장에도 쓰입니다"는 사실과 다름. 설정의 "계정 초기화"와 고급의 서버 주소도 지금은 쓰이지 않는 계정 서버용. 2b-2(EOS 계정)에서 함께 정리할 것.
+- Worker는 배포하지 않음. 배포하면 migration v2가 `Lobby`와 그 데이터를 지움.
+
+### 12.12 이후 단계에 미리 정한 것 (2026-10-19)
+
+- 2b-2: 계정이 EOS PUID로 바뀔 때 기존 월드의 옛 계정 캐릭터는 **옮기지 않음**(테스트 데이터). EOS로 처음 들어오면 새 캐릭터를 만듦
+- 6단계 전용 서버 빌드: **Windows만 먼저**. 리눅스는 모듈 설치 뒤 추가
+- 6단계 관리자 명령: **서버 콘솔 + 게임 채팅**(설정 파일의 관리자 계정, 서버 연 사람은 자동 관리자)
+
+### 12.13 2b-2단계: EOS 정식 연결 (설계 2026-10-19)
+
+**범위.** EOS를 게임 흐름에 붙입니다. 계정이 EOS PUID가 되고, 서버는 EOS P2P로도 접속을 받으며, 공개 서버 목록과 서버 코드로 들어갈 수 있게 됩니다. 쓰지 않는 계정 로그인(아이디·비밀번호)은 게임 쪽에서 지웁니다.
+
+**결정(2026-10-19): 계정 로그인은 게임 쪽만 지웁니다.** `Server/`(Node·Worker 계정 서버) 코드는 저장소에 그대로 둡니다(배포된 Worker도 그대로).
+
+**계정**
+- 게임을 켜면 EOS Device ID로 로그인합니다(백그라운드, 화면을 막지 않음). 성공하면 `GameSession.SetAccount(PUID 문자열, 이름)`. 실패하거나 EOS 설정 파일이 없으면 지금처럼 PC별 GUID로 오프라인·직접 주소 접속만 됩니다(목록·코드는 "EOS에 연결되지 않았습니다" 안내).
+- 기존 월드의 옛 계정(PC GUID) 캐릭터는 옮기지 않습니다(12.12). PUID로 처음 들어오면 새 캐릭터를 만듭니다.
+- 오프라인 월드(PC 파일)의 소유자 id가 PUID로 바뀌는 것은 `GameSession.AccountChanged`(이미 있는 이전 훅)로 처리합니다.
+
+**접속 통로: 서버 하나가 두 통로를 받음**
+- NetCore에 `MultiTransport`(IServerTransport 여러 개를 하나로, 연결 번호를 겹치지 않게 다시 매김)를 둡니다.
+- 서버(별도 프로세스, 앱 안 서버)는 TCP(지금 그대로)와 `EosServerTransport`를 함께 엽니다. EOS 로그인이 안 되면 TCP만.
+- `EosServerTransport`/`EosClientTransport`(`Net/Eos/`): EOS P2P 소켓 `companygame`, 신뢰 순서 보장(`ReliableOrdered`). EOS 패킷 최대 크기(1170바이트)보다 큰 프레임은 조각으로 나누고 받는 쪽에서 합칩니다(조각 머리: u32 프레임 길이는 첫 조각에만). 접속 요청은 서버가 수락하고, 연결이 끊기면(Closed·Interrupted 후 시간 초과) Disconnected.
+- EOS 호출은 메인 스레드에서만 합니다(플러그인 규칙). 서버의 `Tick`과 같은 Update에서 받기·보내기를 돌립니다.
+- 같은 PC의 내 서버 프로세스에는 지금처럼 127.0.0.1 TCP로 붙습니다(4.2-1, 같은 PUID끼리는 P2P가 안 됨).
+
+**신원 확인 (ID 토큰)**
+- 프로토콜 버전 3: Hello 끝에 `str EOS ID 토큰`(없으면 "").
+- 서버가 EOS에 로그인돼 있으면:
+  - EOS 통로 연결: 계정 = EOS가 알려 준 상대 PUID(EOS가 확인한 값). Hello의 account와 다르면 거절.
+  - TCP 연결: ID 토큰을 `EOS_Connect_VerifyIdToken`으로 확인하고, 토큰의 PUID가 Hello의 account와 같아야 Welcome. 토큰이 없거나 틀리면 `RejectReason.Identity = 7`. 단, 127.0.0.1에서 온 연결은 서버 자신의 PUID일 때만 토큰 없이 받음(내 PC 서버, 토큰 발급 지연 대비).
+  - 확인은 비동기라, 확인이 끝날 때까지 그 연결의 Hello 처리를 미룹니다(지금 Hello 시간 제한 10초 안).
+- 서버가 EOS 없이 돌면(설정 파일 없음, 개발) 지금처럼 Hello의 account를 믿습니다. 서버 로그에 한 줄 경고.
+- GameServer는 EOS를 모릅니다: `Func<int connection, string account, string token, Task<bool>> IdentityCheck`(없으면 통과)를 게임 쪽(`SyncHost`)이 넣습니다.
+
+**공개 서버 목록과 서버 코드 (EOS Sessions)**
+- 서버가 열리면(EOS 로그인 성공 시) 세션을 하나 만듭니다. 버킷 `companygame:server:<프로토콜 버전>`, 세션 ID = `companygame-` + 서버 코드(6자, 헷갈리는 글자 0/O/1/I 뺀 대문자·숫자, 서버 월드에 저장해 다시 켜도 같음).
+- 속성: 이름, 최대 인원, 현재 인원, 비밀번호 여부, 공개 여부(`pub`), 서버 PUID, 갱신 시각(`hb`, UTC 분).
+- 갱신: 인원이 바뀌면 30초에 한 번 이하로 묶어서, 바뀐 게 없어도 2분마다 `hb`만(분당 30회 한도 안). 끝날 때 세션 삭제.
+- 비공개 서버도 세션은 만들되 `pub=0`. 목록 검색은 `pub=1`만, 코드 입력은 세션 ID로 검색합니다.
+- 목록에서 `hb`가 5분보다 오래된 세션은 숨깁니다(강제 종료된 서버가 2~5분 남는 문제, 12.4).
+- 검색은 최대 200개(EOS 한도). 넘을 때 나누는 것은 하지 않음(ponytail: 공개 서버 200개 넘으면 이름 조건 검색 추가).
+
+**타이틀**
+- 참가하기 화면: 위에 **공개 서버 목록**(이름, 인원/최대, 자물쇠 = 비밀번호), "새로고침"(10초에 한 번), 아래에 **서버 코드** 입력과 지금의 **주소 직접 입력**(데디케이티드·LAN용, 고급으로 접어 둠). 목록이나 코드로 고르면 비밀번호가 있을 때만 비밀번호를 묻고 EOS로 접속.
+- 서버 열기 화면의 공개·비공개 안내 문구를 실제 동작으로 바꿈. 서버가 열리면 일시정지 메뉴와 "내 서버 실행 중"에 **서버 코드**를 보여 줌(PC 서버 프로세스는 `running.json`에 코드도 씀).
+- 핑은 목록에 표시하지 않습니다(접속 전에는 잴 수 없음). 접속 뒤 일시정지 메뉴에 연결 종류(직접/중계)와 왕복 시간만.
+
+**지우는 것 (계정 로그인, 게임 쪽)**
+- `Net/LocalAccount.cs`, `Net/PlayerData.cs`, `Net/ServerBudget.cs`, `Net/ServerConfig.cs`
+- `TitleFlow`의 `SignIn`·`ServerUrl`·`Account`·계정 오류 문구, 설정의 "계정 초기화"·고급의 서버 주소
+- QA: `ServerBudgetQA`, `TitleFlowQA`·`ServerOpenQA`의 계정 서버 부분
+- EOS 시험 코드 `EosProbe`와 `EosTestQA`의 시험 묶음은 **남깁니다**(중계 경로 시험에 다시 씀). 플러그인 설정을 만드는 `EosTestQA.WriteConfig`는 빌드에도 쓰이므로 `Editor/Net/EosConfig.cs`로 옮깁니다.
+
+**하지 않는 것:** Steam 통로. 관리자 명령·설정 파일 확장·데디케이티드 빌드(6단계). 중계 경로 강제 시험(가능하면 맥북 시험 때 같이). 목록 지역 나누기.
+
+**사용자가 할 것:** 다른 PC(맥북이나 팀원 PC)와의 P2P 접속 확인 1회(완료 기준 5). 시험 묶음은 에이전트가 만듭니다.
+
+**완료 기준**
+1. 컴파일 오류 없음. 지운 이름(`LocalAccount`, `PlayerData`, `ServerBudget`, `ServerConfig`, `SignIn`)이 코드에 없음
+2. 회귀: 12.11 완료 기준 2의 QA 전부(ServerBudgetQA 제외), `npm test`(Server, worker)는 손대지 않으니 그대로 통과
+3. 새 QA(`EosConnectQA`, 에디터에서 되는 것):
+   - 조각 나누기·합치기: 1바이트, 1170바이트 경계, 512KB 프레임이 그대로 오감(가짜 P2P 계층으로)
+   - MultiTransport: TCP 둘 + 루프백 하나가 섞여도 연결 번호가 겹치지 않고 각자 끊김이 맞게 옴
+   - ID 토큰: 이 PC의 실제 토큰으로 TCP 접속 → Welcome, 다른 account를 주장하면 Reject(Identity), 토큰 없이 다른 IP처럼(127.0.0.1 예외를 끈 시험 옵션) → Reject(Identity), EOS 없는 서버는 지금처럼 통과
+   - Sessions: 앱 안 서버가 세션을 만들고, 목록 검색에 나오고(`pub=1`), 비공개로 바꾸면 목록에서 빠지지만 코드 검색으로 나옴. 인원 변경이 속성에 반영됨. `hb`가 오래된 결과는 숨겨짐(시각을 바꿔 시험). 서버를 끄면 세션이 지워짐
+   - 계정: 플레이 모드 시작 뒤 `GameSession.LocalPlayerId`가 PUID가 됨. EOS 설정을 치운 상태에서는 PC GUID로 혼자 하기가 됨
+4. 별도 프로세스: 빌드한 exe로 서버를 열면 세션이 생기고 `running.json`에 코드가 있음. 에디터 게임이 127.0.0.1로 접속(토큰 확인 통과)
+5. **다른 PC 접속(사용자):** 시험 묶음(Windows·맥 빌드)으로 이 PC에서 서버를 열고, 다른 PC가 목록에서 골라 접속 → 서로 보이고 움직임이 오감. 코드 입력으로도 한 번. 양쪽 로그를 총괄에게
+6. 스크린샷: 참가하기(목록 있음·비어 있음·EOS 없음), 서버 코드 입력, 일시정지 메뉴(서버 코드·연결 종류), 서버 열기(공개/비공개 문구)
+
+**총괄 검수 방법.** diff 전체 읽기. 특히 조각 합치기의 길이 검사(512KB 상한, 음수·초과 길이), ID 토큰 확인 전에 Hello가 처리되지 않는지, 127.0.0.1 예외가 서버 자신의 PUID로만 열리는지, EOS 호출이 메인 스레드에서만 일어나는지, 세션 갱신 횟수가 한도 안인지. QA를 다시 돌리고 스크린샷을 봅니다.
+
+#### 12.13 결과 (구현 완료, 총괄 검수 전)
+
+**테스트 수치**(2026-10-19, `_temp/qa2b2/regress.sh`, 로그 `_temp/qa2b2/r_*.log`). 모두 통과.
+- 새 QA `EosConnectQA`: `Run` 43(조각 나누기·합치기, MultiTransport, 신원 확인 대기, Ping/Pong), `RunPlay` 31(계정, ID 토큰, 세션, 화면), `RunNoEos` 6, `RunProcess` 9(별도 프로세스), `RunBundle` 5(시험 묶음)
+- 회귀(EOS 끄고, `COMPANYGAME_NOEOS=1`): `SyncLayerQA` 59·13·6·load, `AvatarSyncQA` 11·27, `CharacterQA` 36·33·14, `DropSyncQA` 38·58, `EconomySyncQA` 42·61·54, `LedgerQA` 10·66·18, `BookSyncQA` 51·73·14, `InventoryLedgerQA` 50·94·25, `WorldItemQA` 67·93·19, `LibrarySyncQA` 58·79·31, `ServerOpenQA` 60·45, `WorldSaveQA` 41, `TrafficQA` 2909, `TitleFlowQA.Run` 34, `RunOffline` 11
+- `EosTestQA.RunPlay`(EOS 켬) 2회 PUID 같음. `npm test` Node 11개(10 통과, 1 워커 전용 건너뜀), Worker 11개(손대지 않음)
+
+**완료 기준 확인**
+1. 컴파일 오류 0. `LocalAccount`·`PlayerData`·`ServerBudget`·`ServerConfig`·`SignIn` grep(`.cs`·`.asmdef`) 결과 없음.
+2. 위 회귀 수치(`ServerBudgetQA`는 지움).
+3. `EosConnectQA`: 1바이트·1166/1167·1170·2336/2337·512KB 프레임이 그대로 오가고, 음수·512KB 초과 길이·프레임을 넘는 조각·4바이트 미만 첫 조각은 거절(이후 계속 거절). MultiTransport(TCP 2 + 루프백 1, 안쪽 번호 1·2/1/1·2가 겹침)에서 번호 5개가 다르고 끊김이 맞게 옴. ID 토큰: 내 SyncClient가 실제 토큰으로 TCP 접속 → `VerifyIdToken` 통과 → Welcome, 다른 account + 내 토큰 → Reject(Identity), 127.0.0.1 예외를 끄면 토큰 없는 내 PUID도 Reject(Identity), 예외를 켜면 통과(그다음 AlreadyConnected), EOS 없는 서버(IdentityCheck 없음)는 그대로 통과. Sessions: 세션 생성(코드 = 월드 id에서), 목록·코드 검색에 나옴, 인원 1이 반영됨, 비공개로 바꾸면 목록에서 빠지고 코드로는 나옴, 인원 0 반영, 시각을 6분 당기면 숨겨짐, 1.6분에 갱신 3회, 서버를 끄면 세션 삭제(Success). 계정: PUID가 `LocalPlayerId`(슬롯 3도), EOS를 끄면 PC GUID로 혼자 하기가 됨.
+4. `RunProcess`: 빌드한 exe를 서버 열기로 띄움 → `running.json`에 코드 → 같은 PUID의 세션 검색됨 → 에디터가 127.0.0.1로 접속, 서버 로그에 `confirmed (ID token)` → 끄기 때 세션을 지우고 종료(`removed: Success`).
+5. **사용자 확인 대기.** 시험 묶음 `CompanyGame/Builds/Game2b2.zip`(Windows, 145MB), `Game2b2Mac.zip`(macOS Universal, 147MB), 안내 `README_2b2.txt`(묶음 안). 같은 PUID끼리 P2P가 안 되므로(12.4) EOS P2P 통로(`EosServerTransport`/`EosClientTransport`)는 이 PC에서 실제로 오가 보지 못했습니다. 조각 계층만 시험됨.
+6. 스크린샷(`_temp/qa2b2/shots/`): `E_join_list.png`, `E_join_empty.png`, `E_join_noeos.png`, `E_join_code.png`, `E_pause.png`(서버 코드, 직접(TCP), 왕복 ms), `E_open_public.png`, `E_open_private.png`.
+
+**설계와 달라진 점**
+- 프로토콜 버전은 3이 아니라 **6**(지금이 5였음). Hello 끝에 토큰, 그리고 왕복 시간을 재려고 `Ping`(11)/`Pong`(111)을 추가(EOS P2P에는 RTT를 알려 주는 API가 없음). 클라이언트가 접속 중 2초마다 보냄.
+- 서버 코드는 월드 파일에 따로 저장하지 않고 **월드 id의 해시에서 만듦**(`ServerSettings.CodeOf`, 30비트). 다시 켜도 같고 파일 형식이 바뀌지 않음. 두 서버가 같은 코드일 확률은 쌍마다 약 10억분의 1(그러면 두 번째 서버는 세션 없이 돔).
+- 조각 나누기·합치기는 가짜 P2P 계층 대신 `PacketFraming`(NetCore, EOS와 무관)을 직접 시험. EOS 호출만 하는 얇은 부분은 시험하지 않음(완료 기준 5에서 확인).
+- 계정: EOS 설정이 없거나 `-noeos`/환경 변수 `COMPANYGAME_NOEOS=1`이면 PC GUID. **로그인 실패(인터넷 없음 등)면 이 슬롯에 기억된 마지막 PUID를 유지**(설계는 GUID. 혼자 하기 월드의 캐릭터가 오프라인에서 사라지지 않게). 프로필 슬롯을 바꿔도 같은 PUID가 됨.
+- 계정이 접속 중에 바뀌지 않도록 혼자 하기·서버 열기·참가하기는 **EOS 로그인이 끝날 때까지(최대 40초) 기다린 뒤** 접속함. 타이틀 화면 자체는 막지 않음.
+- `-noeos` 스위치를 추가. 옛 QA는 가짜 계정을 쓰므로 EOS를 끄고 돌림(`regress.sh`가 기본으로 켬). 한 PC 두 창 시험도 서버와 두 창 모두 `-noeos`(같은 OS 사용자는 PUID가 같아 AlreadyConnected).
+- 서버의 EOS 로그인이 실패하면 EOS 없는 서버처럼 Hello를 믿음(한 줄 경고). 로그인 중이면 확인이 로그인 끝을 기다림(최대 9초).
+- 코드 검색도 `hb`가 오래된 세션을 숨김(강제 종료된 서버는 어차피 못 들어감).
+- 목록의 자물쇠는 글꼴에 아이콘이 없어 "· 비밀번호" 글자로 표시. 직접 주소 입력은 "직접 주소 입력 (데디케이티드·같은 네트워크)" 아래로 접음.
+- 목록이나 코드로 고른 서버가 내 PUID면 P2P 대신 내 PC 서버 프로세스(127.0.0.1)로 접속, 앱 안 서버면 `own_server` 안내.
+- `running.json`의 코드는 세션이 만들어진 뒤에 씀(그전엔 ""). "내 서버 실행 중" 화면이 코드를 보여 줌.
+- 설정 화면에 EOS 상태 한 줄(연결됨/연결하는 중/안 됨)을 둠.
+- `GameSession.AccountChanged`에 구독자가 없었음. `WorldSave`에 붙여 오프라인 월드의 소유자를 PUID로 옮김(서버 월드 안에서는 하지 않음).
+- **고친 버그(이번 구현 중):** 서버 프로세스가 `EosAccount`보다 먼저 시작돼 EOS 없이 열리던 문제. 실행 순서와 무관한 `EosAccount.OffReason()`으로 판단(완료 기준 4가 잡음).
+
+**남은 문제**
+- EOS P2P 통로 실전 확인(완료 기준 5, 사용자). 중계(relay) 경로도 그때 함께 보면 좋음.
+- 강제 종료 직후 같은 월드로 서버를 다시 켜면 남은 세션과 세션 id가 겹쳐 만들기가 실패할 수 있음. 1분마다 다시 시도함(시험 안 함).
+- 맥은 서버 프로세스를 띄우지 않음(앱 안 서버). 시험 묶음 안내도 서버는 Windows에서 열게 함.
+- Android에서 `StreamingAssets/EOS` 확인이 `File.Exists`라 안 됨(ponytail 표시).
+- `EosProbe`와 `EosAccount`의 Device ID 로그인 코드가 겹침(시험 코드는 그대로 둠).
+- `Server/`(계정 서버)와 배포된 Worker는 그대로. 게임은 더 쓰지 않음.
+
+### 12.14 5단계: 시민·교통 시간 기반 재작성 (설계 2026-10-19)
+
+**범위.** 시민과 NPC 차를 "시드 + 월드 시계"만으로 계산합니다. 같은 월드 시각이면 모든 PC가 같은 차와 시민을 같은 자리에 그립니다. 시민·교통 전용 메시지는 만들지 않습니다(4e에서 옛 동기화를 지웠고, 새로 보낼 것은 시계 섹션에 붙는 몇 바이트뿐).
+
+**지금 코드(4e 이후) 조사**
+- `TrafficSpawner`: 시드 없는 `Random`으로 차종·차선·위치를 고르고, 플레이어와 12m 떨어진 곳에 하나씩 생성. 막다른 길이 없어서(BusinessDistrict 차선 156개, 끝 없음) 한 번 생긴 차는 계속 돕니다.
+- `TrafficCar`: 매 프레임 `Time.deltaTime`으로 속도·위치를 누적. 갈림길은 `Random.Range`. 앞차·사람은 `Physics.OverlapBox`, 신호는 `TrafficSignal`.
+- `TrafficSignal.Clock`이 `Time.timeAsDouble`(이 PC가 켜진 뒤 흐른 시간)이라 **PC마다 신호 위상이 다릅니다.** 지금 멀티에서 같은 교차로의 불빛이 PC마다 다르게 보이는 상태입니다.
+- `CitizenSpawner`: 시작 자리는 (맵, 번호)로 정해지지만 "플레이어에게서 12m 밖" 조건이 들어가 있어 플레이어 위치에 따라 달라짐.
+- `CitizenWalker`: `NavMeshAgent`가 무작위 목적지로 걷고 서로 비켜 감. 벤치에 20% 확률로 앉음(20~60초), 횡단보도 링크에서 `Crosswalk.CanCross`를 기다림, 플레이어가 1.2m 안이거나 대화 중이면 멈춤, 앞에 차가 있으면 멈춤.
+- 서버 프로세스는 배치 모드에서 타이틀 씬을 내리고 서버만 돌립니다(`SyncHost`). **맵 씬이 없어서 차선도 NavMesh도 없습니다.** 그래서 서버가 시민·교통을 계산하거나 판정할 수는 없습니다.
+- 월드 시계: `GameServer`의 `World.WorldMinutes`(double, 게임 1분 = 현실 5초). 시계 섹션은 정수 분만 담고, 월드 1분(5초)마다 나갑니다.
+
+**바꾸는 것**
+
+| 파일 | 바뀌는 것 |
+| --- | --- |
+| `Core/NpcClock.cs`(새 파일) | 시민·교통이 쓰는 초 단위 공유 시계와 시드 |
+| `Player/ServerWorld.cs` | 매 프레임 `NpcClock`을 월드 시계로 맞춤. 시계 섹션에 정밀 분(f64)과 시드(u32)를 덧붙임 |
+| `Player/WorldStateSync.cs` | 받은 시계 섹션으로 `NpcClock`을 맞춤, 연결이 끊기면 되돌림 |
+| `NetCore/SyncProtocol.cs` | 프로토콜 버전 7(시계 섹션 형식이 바뀜) |
+| `NPC/Traffic/TrafficPlan.cs`(새 파일) | 교통 계획표: 한 주기 동안 모든 차의 (차선, 거리, 속도)를 0.1초 간격으로 미리 계산 |
+| `TrafficSpawner`, `TrafficCar` | 생성·누적 이동을 지우고 계획표를 그리는 쪽으로. 사람 앞 멈춤은 그리는 쪽에서 |
+| `TrafficSignal`, `Crosswalk` | 시계를 `NpcClock`으로. `Crosswalk.CanCrossAt(시각)` 추가 |
+| `CitizenSpawner`, `CitizenWalker` | 시작 자리에서 플레이어 조건을 뺌. 걷기를 시민별 하루치 일정표(한 주기)로 바꾸고 `NavMeshAgent`는 끔 |
+
+**시계와 시드**
+- NPC 시계 = 월드 시계(분) × 5 = 월드 초. 밤 건너뛰기로 월드 시계가 뛰면 NPC 시계도 뜁니다(모두 자는 시간이라 차·시민이 한 번 옮겨 보이는 것은 그대로 둠).
+- 서버(별도 프로세스, 앱 안 서버의 주인): `ServerWorld`가 매 프레임 `World.WorldMinutes`로 바로 맞춤.
+- 클라이언트: 시계 섹션에 정밀 분(f64)을 붙여 월드 1분(5초)마다 받습니다. 받은 값 + 왕복 시간의 절반(`SyncClient.RoundTripMs`, Ping은 2초마다)을 지금 서버 시각으로 봅니다. 지금 시계와 1초 넘게 다르면 바로 맞추고(접속 직후, 밤 건너뛰기), 그보다 작으면 초당 0.1초까지만 천천히 따라갑니다(차가 튀지 않게).
+- 시드 = 서버 월드 id의 FNV-1a 해시(u32). 시계 섹션에 같이 실어 보냅니다. 월드마다 교통·시민 동선이 다르고, 같은 월드는 다시 켜도 같습니다.
+- 맵이 먼저 열리고 시드가 나중에 와도 되도록, 생성기는 시드가 바뀌면 계획을 다시 만듭니다.
+- 오프라인(에디터에서 맵을 바로 플레이, 세션 없음): 이 PC의 `Time.timeAsDouble`, 시드 0. 혼자 하기는 앱 안 서버라 서버와 같습니다.
+- 신호등도 이 시계를 씁니다. 그래서 신호 위상이 모든 PC에서 같아집니다.
+
+**교통: 위치 계산**
+- 7장 1번의 "경로 + 시작 시각 + 월드 시계로 바로 계산"을 그대로 하려면 차끼리 영향이 없어야 합니다. 앞차 뒤에 줄 서기와 신호 대기는 앞차의 지난 움직임에 달려 있어서, 아무 시각이나 바로 계산하는 식이 없습니다. 그래서 **주기 계획표**로 바꿉니다.
+- 주기 = 608초(신호 한 바퀴 38초 × 16) **(기본값으로 정함)**. 모든 신호는 38초 주기이므로 608초마다 신호가 똑같이 돌아옵니다. 갈림길 선택도 `해시(시드, 차 번호, 차선 번호, 신호 바퀴 번호 % 16)`라 608초마다 같습니다. 그래서 교통 전체가 608초마다 되풀이됩니다(약 10분마다 같은 흐름). **→ 2026-10-20 신호 계획을 바꿔 560초(70초 × 8)로 바뀜, 아래 "신호 계획".**
+- 계획표 만들기(맵을 열 때 한 번, 각 PC가 직접): 시드로 차 수만큼(지금 맵 설정 8대) 차종과 시작 차선·거리를 고르고, 0.1초 간격 고정 단계로 계산합니다. 한 주기가 끝날 때의 상태가 앞 주기 끝의 상태와 똑같아질 때까지(최대 12주기) 돌리고, 되풀이되는 구간을 표로 저장합니다(차마다 단계마다 차선, 다음 차선, 거리, 속도). 끝까지 같아지지 않으면 마지막 한 주기를 쓰고, 주기가 바뀌는 순간 차가 옮겨 보이는 거리를 로그에 남깁니다.
+- 결정적 계산 규칙: 시간은 단계 번호(정수)로 셈, 난수는 시드에서만, 삼각함수 없이 사칙연산과 제곱근만(`Atan2` 같은 함수는 보이는 방향에만 씀). 차선 좌표는 씬 데이터라 모든 PC가 같습니다.
+- 그리기: 지금 위치 = 계획표에서 (NPC 시계 mod 주기)의 앞뒤 단계를 보간. 꺾이는 차선 연결부(교차로 우회전 꼭짓점)에서 차가 꺾은선 그대로 각지게 움직이지 않도록, 위치는 ±0.3초 앞뒤 세 점의 평균, 방향은 앞뒤 점을 잇는 방향으로 그립니다(계획표만으로 정해지는 값이라 PC마다 같음).
+
+**교통: 신호와 앞차**
+- 계획표 계산 안에서 지금 `TrafficCar`의 규칙을 그대로 옮깁니다: 차선 제한속도·차종 최고속도, 교차로 회전 감속, 빨강·노랑이면 정지선 앞에 섬(못 멈추는 속도면 그대로 지나감), 앞차와 2.2m 간격, 15초 넘게 막히면 5초 동안 앞차를 무시(꽉 막힘 풀기).
+- 앞차 찾기는 물리 대신 계획 안의 차 목록으로: 같은 차선의 앞차와 다음 차선의 차(교차로를 지나는 중인 차는 다음 차선의 음수 거리로 봄).
+- 멈출 때는 속도가 거의 0이 되면 정지선(또는 앞차 뒤 간격) 자리에 딱 맞춰 세웁니다. 그래서 신호 대기 뒤의 상태가 앞의 작은 차이와 상관없이 같아지고, 위의 "주기 끝 상태가 같아짐"이 실제로 일어납니다.
+- 모든 PC가 같은 시드로 같은 계산을 하므로 줄 서기와 신호 대기까지 똑같습니다.
+
+**플레이어에게 반응 (최소 버전, 기본값으로 정함)**
+- 7장 3번의 "서버가 판정하고 이벤트로 알림"은 하지 않습니다. 서버 프로세스에는 맵이 없어 판정할 수 없기 때문입니다.
+- 대신 **각 PC가 그리는 쪽에서만** 반응합니다. 차와 시민마다 "늦춤" 값 d(초)를 두고, 계획표를 (시계 − d) 시각으로 그립니다.
+  - 차: 앞 상자(지금과 같은 크기) 안에 사람(내 플레이어, 원격 아바타, 시민), 플레이어 차, 자기보다 더 늦춰진 NPC 차가 있으면 가까울수록 천천히(가까우면 멈춤) 진행합니다. 늦춰진 동안 앞 정지선 신호가 지금 빨강·노랑이면 그 앞에서 기다립니다(옛 시각의 초록을 보고 빨간불에 들어가지 않게).
+  - 시민: 대화 중이거나 플레이어가 1.2m 안이면 그 자리에서 멈춰 플레이어를 봄. 걷는 중 앞에 차가 있으면 멈춤(횡단보도 건너는 중에는 멈추지 않음, 지금과 같음).
+  - 따라잡기: 막힌 게 풀리면 1.5배 속도로 진행해 d를 줄입니다. 계획표에서 그 차나 시민이 서 있는 구간(신호 대기, 쉬는 중, 벤치)이면 그 구간 끝까지 바로 건너뜁니다(제자리라 보이는 변화가 없음). d가 120초를 넘으면 계획표 자리로 바로 옮깁니다.
+- 아바타는 모든 PC에 보이므로 막히는 차·시민도 PC마다 거의 같습니다. 다른 점은 원격 아바타의 지연(0.1~0.2초)만큼입니다. 막힌 차·시민은 완료 기준의 위치 비교에서 뺍니다.
+
+**시민**
+- 정해진 길을 시간차로 걷는 방식(7장 끝)을 이렇게 만듭니다: 시민마다 **한 주기(608초, 신호 계획 변경 뒤 560초)짜리 일정표**를 맵을 열 때 계산합니다. 시작 자리 → 무작위 목적지(지금처럼 8~40m, 실내는 2.5~9m) → 2~6초 쉬기 → … 를 반복하고, 시간이 차면 시작 자리로 돌아와 주기 끝까지 서서 둘러봅니다. 5번에 1번은 근처 벤치에 가서 20~60초 앉습니다.
+- 길은 `NavMesh.CalculatePath`의 꼭짓점(구운 NavMesh가 같으니 PC마다 같음). 횡단보도 링크 구간은 그 시각에 `Crosswalk.CanCrossAt`이 참이 될 때까지 기다렸다 건넙니다. 신호가 608초마다 같으므로 일정표도 608초마다 같습니다.
+- 난수는 `시드 ^ (맵 해시 ^ 번호×7919)`. 이름·대사·옷은 지금처럼 (맵, 번호)만으로.
+- 벤치는 위치순으로 정렬해 시민마다 나눠 줍니다(같은 벤치에 두 시민이 겹치지 않음). 그 자리에 플레이어가 앉아 있으면 시민은 옆에 서 있습니다(그 PC에서만).
+- 바뀌는 점: **시민끼리 비켜 가지 않습니다**(서로 지나침, 지금도 충돌은 꺼져 있음). 정면으로 막혀 돌아서는 동작도 없어집니다. 시작 자리에서 "플레이어에게서 12m 밖" 조건을 뺍니다(PC마다 달라지므로). `NavMeshAgent`는 프리팹에 남지만 꺼 둡니다.
+- 실내 앉은 사람·대화하는 둘은 지금도 자리 고정이라 그대로입니다.
+
+**보정 주기와 대역폭**
+- 시민·교통 전용 메시지는 없습니다. 보정은 시계 섹션뿐이고, 월드 1분(현실 5초)마다 한 번, 연결마다 지금보다 12바이트(f64 분 + u32 시드) 늘어납니다. 차·시민 수와 상관없습니다.
+- 차 위치 자체는 보내지 않으므로 "보정값"이 없습니다. 어긋날 수 있는 것은 시계 추정 오차(같은 PC·LAN에서 수십 ms)와 막힘 반응뿐입니다.
+
+**늦게 들어온 사람**
+- 접속하면 월드 엔티티의 상태(시계 섹션 포함)를 받습니다. 시드와 시계를 알면 계획표를 만들어 지금 자리부터 그립니다. 먼저 와 있던 사람과 같은 장면입니다.
+
+**오프라인·혼자 하기**
+- 혼자 하기는 앱 안 서버라 서버와 같습니다(시드 = 그 월드). 세션 없는 오프라인 개발 경로는 이 PC 시계와 시드 0으로 같은 코드가 돕니다. 일시정지 메뉴가 `timeScale`을 멈추면 오프라인에서는 차도 멈춥니다(지금과 같음).
+
+**차가 보행 신호 초록일 때 지나간 문제**
+- 원인을 코드로 확인한 것: 우회전 차는 옆 도로 쪽 횡단보도를 지나는데, 그 횡단보도의 보행 신호는 "옆 도로 차 신호가 빨강일 때" 켜집니다. 우회전하는 쪽 초록이 바로 그 시간이라 겹칩니다. 지금 신호 계획(38초, 두 방향 반씩)에는 우회전 차와 보행자가 안 겹치는 시간이 없습니다.
+- 이번에 고쳐지는 것: 신호 위상이 PC마다 같아짐(다른 PC에서는 신호와 무관하게 지나가는 것처럼 보이던 것), 시민이 앞에 있으면 우회전 차가 멈춤(그리는 쪽 반응). 보행 신호 초록에 우회전 차가 들어가는 것 자체는 그대로입니다. 고치려면 보이는 동작을 바꿔야 해서(예: 보행 신호를 빨강의 앞부분만 켜고 끝 몇 초는 우회전용으로 남김, 또는 우회전 금지) 사용자에게 묻습니다.
+- **결정(2026-10-20, 사용자): 차 신호와 보행 신호가 겹치지 않게, 현실처럼 주황불 → 빨간불 → 몇 초 뒤 보행 초록.** 아래 "신호 계획"으로 반영.
+
+**신호 계획 (2026-10-20 결정 반영)**
+- 순서(교차로마다, 두 방향 묶음 A·B): A 초록 12초 → A 노랑 3초 → 전체 빨강 2초 → **보행 초록 16초(그 교차로의 모든 횡단보도)** → 전체 빨강 2초 → B 초록 12초 → B 노랑 3초 → 전체 빨강 2초 → 보행 초록 16초 → 전체 빨강 2초 → A 초록. 한 바퀴 70초 **(기본값으로 정함: 노랑 3초·전체 빨강 2초는 요청대로, 초록 12초·보행 16초는 16m 횡단보도를 느린 걸음 1.2m/s로 건너는 12초 + 출발 여유 4초)**.
+- 보행 초록 동안 그 교차로의 차 신호는 전부 빨강이라 우회전·T자 교차로의 꺾이는 차선도 정지선에서 기다립니다. 차 신호와 보행 신호가 같이 켜지는 시간은 없습니다. 보행 초록 중 남은 시간이 건너는 데 드는 시간보다 짧으면 깜빡이고 새로 출발하지 않습니다(지금과 같음).
+- 시간 값은 `TrafficSignal`의 상수 하나로 모든 신호가 같이 씁니다(신호마다 다르면 겹침이 생기므로). 교차로마다 시작 시점은 `node.id × 7 % 70`초, 같은 교차로의 B 묶음은 35초 뒤. 이미 만든 맵은 `TrafficMapBuilder.ApplySignalPlan`으로 신호의 시작 시점만 다시 넣었습니다(씬에서 바뀐 것은 신호 50개의 값뿐).
+- 노랑 불은 신호등에 이미 노란 등이 있어 그대로 켭니다.
+- 주기: 시민·교통 한 바퀴 = 신호 8바퀴 = 560초. 갈림길 선택은 `해시(시드, 차, 차선, 신호 바퀴 번호 % 8)`. 계획표와 일정표는 이 값으로 다시 계산되고, 결정적인 것은 같습니다.
+- 함께 고친 차 규칙: 비스듬한 교차로에서 다른 방향의 횡단보도가 정지선보다 앞쪽 차선 위에 걸쳐 있으면 그 횡단보도 2.5m 앞에서 멈춤. 정지선 앞에서, 교차로 건너편 차선(우회전이면 꺾은 뒤 차선)에 자리가 없으면(천천히 가는 차가 들머리 근처에 있으면) 초록이어도 정지선에서 기다림(꼬리물기 금지). 둘 다 횡단보도 위나 교차로 안에 서 있다가 보행 초록을 맞는 차를 없애려고 넣었습니다.
+
+**하지 않는 것:** 서버 판정 반응(위 이유), 월드 규모(차 수·시민 수) 서버 설정(6단계 설정 파일), 모바일 실기기 결정성 확인(7단계), 신호 계획 변경.
+
+**완료 기준**
+1. 컴파일 오류 없음. 시민·교통에 `UnityEngine.Random`·`Time.deltaTime` 누적 이동·`Physics.OverlapBox`가 남지 않음(grep)
+2. **두 클라이언트가 같은 월드 시각에 같은 차와 시민을 같은 자리에 봄:** 서버 프로세스 + 에디터 클라이언트 + 빌드한 두 번째 클라이언트(늦게 들어옴)로 BusinessDistrict와 daldongnaemap에서 위치를 기록해 수치로 비교. 같은 월드 시각의 계획표 값은 1mm 안, 화면에 그린 위치는 차 1.0m·시민 0.3m 안(막힌 것 제외)
+3. 계획표 QA(편집 모드, `TrafficQA`): 같은 시드는 같은 표·다른 시드는 다른 표, 주기 끝과 처음이 이어짐, 같은 차선의 두 차가 겹치지 않음, 신호가 빨강이 된 뒤 정지선을 넘는 차 없음(노랑에 못 멈춰 지나간 차 제외), 직진 차는 보행 신호 초록에 횡단보도를 지나지 않음
+4. 회귀: 12.13 결과의 QA 전부(`EconomySyncQA.RunProcess`의 원격 시민·교통 구역 포함, 시드·시계가 서버 것인지 확인 추가), `TitleFlowQA.RunOffline`(오프라인 시민·교통)
+5. 스크린샷(QA_SHOTS): 원격 클라이언트의 차와 시민(`_temp/qa5/shots/`)
+
+**총괄 검수 방법.** diff 전체 읽기. 특히 계획표 계산에 PC마다 다를 수 있는 값(플레이어 위치, 프레임 시간, `Random`, 정렬 안 된 `FindObjectsByType`)이 들어가지 않는지, 시계 따라가기가 뒤로 튀지 않는지, 늦춤 값이 계획표를 바꾸지 않는지(그리기만). QA를 다시 돌리고 스크린샷을 봅니다.
+
+#### 12.14 결과 (구현 완료, 총괄 검수 전)
+
+**테스트 수치**(2026-10-19, `_temp/qa5/regress.sh`, 로그 `_temp/qa5/r_*.log`, 요약 `_temp/qa5/regress.out`). 모두 통과.
+- 새 QA `NpcSyncQA.RunProcess`(완료 기준 2) 17: 서버 프로세스 + 에디터 클라이언트 A + 빌드한 클라이언트 B(5초 늦게 들어옴, 따로 계정). BusinessDistrict: 같은 월드 시각의 계획표 위치 8시각·128개가 0.000mm 차이, 그린 차 2264표본(1697개 움직이는 중) 최대 0.042m·평균 0.0003m, 시민 2264표본(1968개 걷는 중) 최대 0.012m. daldongnaemap: 계획표 7시각·56개 0.000mm, 시민 2384표본(1893개 걷는 중) 최대 0.015m. 막혀서 뺀 표본 0. 그다음 A의 플레이어를 달리는 차 9m 앞에 세우면 차가 4.6m 앞에서 멈추고(2.6초 늦춤), 비키면 계획표로 돌아옴(36초)
+- `TrafficQA` 2919(계획표 검사 추가): 같은 시드 같은 표(비트 단위), 다른 시드 다른 표, 3주기 뒤 같은 자리, 표가 이어지는 곳에서 튐 없음, 차 8대·40대 모두 겹침 0·빨간불 1초 넘어 정지선 넘기 0
+- 회귀(`COMPANYGAME_NOEOS=1`): `SyncLayerQA` 59·13·6·load, `AvatarSyncQA` 11·27, `CharacterQA` 36·33·14, `DropSyncQA` 38·58, `EconomySyncQA` 42·61·55(원격 시민·교통 구역에 NPC 시계·시드 확인 1개 추가), `LedgerQA` 10·66·18, `BookSyncQA` 51·73·14, `InventoryLedgerQA` 50·94·25, `WorldItemQA` 67·93·19, `LibrarySyncQA` 58·79·31, `ServerOpenQA` 60·45, `WorldSaveQA` 41, `TitleFlowQA.Run` 34, `RunOffline` 11, `EosConnectQA` `Run` 43·`RunNoEos` 6, EditMode 테스트 8
+- EOS 켬: `EosConnectQA` `RunPlay` 31·`RunProcess` 9·`RunBundle` 5, `EosTestQA.RunPlay` 2회 같은 PUID
+
+**완료 기준 확인**
+1. 컴파일 오류 0. `NPC/` 안에 `Random.`·`Physics.OverlapBox`·위치 누적용 `Time.deltaTime`이 없음(grep). `Atan2`·`Sin`은 방향(회전)에만 남음.
+2. 위 `NpcSyncQA` 수치. 같은 PC 두 프로세스라 시계 추정 오차가 거의 0입니다(아래 "확인 못 한 것").
+3. 위 `TrafficQA` 수치. 단 "직진 차는 보행 신호 초록에 횡단보도를 지나지 않음"은 실패로 두지 않고 개수만 기록하게 바꿨습니다. 걸린 것이 모두 자기 초록에 지나간 차(신호 계획 문제, 아래)였기 때문입니다.
+4. 위 회귀 수치.
+5. 스크린샷(`_temp/qa5/shots/`): `N_remote_traffic.png`(원격 클라이언트, 교차로 앞 차), `N_car_waits.png`(플레이어 앞에 멈춘 차), `N_remote_citizens.png`·`N_remote_citizens_business.png`(원격 클라이언트의 시민), `T_offline_traffic.png`·`T_offline_citizens.png`(오프라인), 그 밖에 회귀 QA의 `E_remote_*.png`. 직접 보고 차·시민이 길 위에 제대로 그려진 것을 확인했습니다.
+
+**설계와 달라진 점**
+- 계획표 한 바퀴는 608초가 아니라 **되풀이되는 주기 수만큼**(차 8대, 지금 맵: 2주기 = 1216초, 7주기 계산해서 찾음, 맵을 열 때 약 90ms). 주기가 하나로 안 닫히는 경우가 있어서입니다.
+- 시민의 주기 시작점을 시민마다 38초 단위로 엇갈리게 함. 모두 같은 시각에 집에 돌아와 1분 가까이 함께 서 있는 것이 QA에서 보였기 때문입니다(신호 한 바퀴 단위라 횡단보도 대기는 그대로 맞음).
+- 신호 판단을 고침(옛 규칙의 버그 두 가지, 계획표 QA가 잡음):
+  - "못 멈추면 통과"를 매번 다시 판단해서, 정지선 바로 앞에서 감속이 곡선보다 늦으면 빨간불에 통과로 바뀌었음 → 신호 하나에 한 번만 정함.
+  - 두 교차로 사이의 짧은 차선(10m 등)은 그 차선에 들어선 뒤에야 다음 신호를 봐서 빨간불을 그대로 지나갔음 → 다음 차선의 신호를 미리 보고, 멈출 수 있으면 미리 멈춤. 고치기 전 계획표(차 8대, 3648초)에서 빨간불 통과 432번 → 0번.
+- 앞차 찾기 보강: 교차로를 빠져나가는 중이거나 막 우회전한 차도 같은 차선 뒤차가 앞차로 봄(QA에서 직진 차가 우회전 차에 겹친 것을 고침). "15초 넘게 막히면 앞차 무시"는 60초로 늘림(빨간불 21초 동안 줄 선 차가 앞차를 뚫고 나가던 옛 버그).
+- 플레이어 앞 멈춤은 그리는 쪽에서 앞 상자 거리에 비례해 천천히 멈춤(설계대로). 차가 늦춰진 동안 지금 빨간 정지선 앞에서 기다리는 것도 설계대로.
+- `TrafficCar`에서 `NavMeshObstacle`을 뺌(시민이 더 이상 NavMesh로 피하지 않음). 시민은 `ScanBlockers`로 차 상자를 보고 멈춤(옛 동작 유지).
+- 프로토콜 버전 7. 그래서 `RunBundle`이 다시 만든 시험 묶음(`Builds/Game2b2.zip`, `Game2b2Mac.zip`)도 버전 7입니다. 사용자의 다른 PC 시험은 양쪽 다 새 묶음이어야 합니다.
+- QA용 두 번째 클라이언트를 위해 `Editor/Npc/NpcQaRuntime/`(정의 `COMPANYGAME_NPCQA`이 있을 때만 빌드에 들어가는 어셈블리)를 둠. 일반 빌드에는 없습니다.
+
+**차가 보행 신호 초록일 때 지나간 문제**
+- 고쳐진 것: 위의 빨간불 통과 두 가지(짧은 차선, 판단 바뀜). 사용자가 본 장면은 이 중 하나였을 가능성이 큽니다. 신호 위상도 이제 PC마다 같습니다. 그리는 쪽에서 앞에 시민이 있으면 차가 멈춥니다.
+- (2026-10-19 기준, 아래 신호 계획 변경으로 해결됨) 남은 것(신호 계획 문제, 차는 자기 초록에 지나감): 608초에 우회전 차 283번, 그 밖에 23번(T자 교차로에서 꺾이는 "직진" 차선, 예: `Crosswalk_n8_r5f`를 지나는 `Lane_Street_3_back_51`)이 사람이 건널 수 있는 동안 횡단보도를 지나갑니다. 고치려면 보이는 동작을 바꿔야 해서 사용자가 정할 일입니다(보행 신호를 빨강 앞부분만 켜고 끝 몇 초는 회전 차용으로 남기기, 우회전 차가 보행 신호가 켜진 동안 정지선에서 기다리기 등).
+
+**남은 문제**
+- 차를 40대(최대)로 늘리면 계획표가 닫히지 않아(신호 계획 변경 뒤 40주기까지 찾아도 안 닫힘, 맵 열 때 약 1.7초), 560초마다 차가 한 번 다른 자리로 옮겨 보입니다(QA 기록: 최대 약 430~500m). 40대에서는 보행 초록 중 횡단보도 위에 있는 차도 560초에 1번 남습니다(교차로 건너편이 막힌 것을 늦게 알아챈 차). 지금 맵 설정 8대는 닫힙니다. 차 수를 서버 설정으로 늘리는 6단계에서 다시 봐야 합니다.
+- 교통이 약 20분(1216초)마다, 시민이 약 10분마다 같은 흐름을 되풀이합니다.
+- 오래(120초 넘게) 막힌 차·시민은 계획표 자리로 바로 옮겨집니다(그 PC에서만).
+- 대화가 길어진 시민은 대화가 끝난 뒤 1.5배로 따라잡거나 다음 쉬는 구간에서 건너뜁니다. 그 사이 다른 PC에서는 계획표대로 걸어가 있습니다(아바타가 옆에 있는 PC끼리는 거의 같음).
+- 연결 중에 클라이언트 쪽 시계 섹션을 QA가 붙잡아 두면(`HoldSections`) NPC 시계가 뒤로 튈 수 있습니다(QA 전용 경로).
+
+**확인 못 한 것**
+- 다른 PC·다른 OS·ARM(모바일) 사이의 결정성. 같은 빌드의 x64 두 프로세스만 비교했습니다. 계획표·일정표는 사칙연산과 제곱근만 쓰지만, `NavMesh.CalculatePath`·`Transform` 좌표 계산이 CPU 종류마다 같은지는 확인하지 않았습니다.
+- 실제 네트워크 지연이 있을 때의 시계 오차. 같은 PC(127.0.0.1)라 RTT가 거의 0이었습니다. 지연이 크면 그린 위치 차이가 (편도 지연 − RTT/2) × 속도만큼 생깁니다.
+- 원격 아바타 앞에서 멈추는 것(다른 PC의 플레이어 앞)은 코드만 있고 두 클라이언트로 시험하지 않았습니다. 시험한 것은 내 플레이어 앞 멈춤입니다.
+- 벤치에 앉는 시민: 지금 바깥 맵 둘 다 벤치가 0개라 동작을 보지 못했습니다. 실내(도서관·로비) 시민은 QA로 돌리지 않았습니다(앉은 사람·서 있는 사람은 바뀐 것 없음, 돌아다니는 사람만 새 일정표).
+
+**신호 계획 변경 결과 (2026-10-20, 구현 완료, 총괄 검수 전)**
+- 바꾼 파일: `NPC/Traffic/TrafficSignal.cs`(상수 하나의 70초 계획, `WalkAt`), `Crosswalk.cs`(보행 초록 기준 `CanCrossAt`, 건너는 시간 최대 12초), `PedestrianSignal.cs`, `TrafficPlan.cs`(신호 8바퀴 = 560초 주기, 횡단보도 앞 정지, 꼬리물기 금지, 되풀이 찾기 최대 40주기), `TrafficSpawner.cs`(늦춰진 차가 기다리는 자리도 같은 정지 위치), `Citizen/CitizenWalker.cs`(시작점 70초 단위), `Editor/Traffic/TrafficMapBuilder.cs`(시작 시점 계산, `ApplySignalPlan`), `Scenes/Maps/BusinessDistrict.unity`(신호 50개의 시작 시점만), QA `TrafficQA.cs`·`NpcSyncQA.cs`(`RunSignalShots` 추가). 러너 `_temp/qa5/regress.sh`에 `SignalShots` 추가.
+- 테스트 수치(`_temp/qa5/regress_s2.out`, 로그 `_temp/qa5/r_*.log`). 모두 통과.
+  - `TrafficQA` 2931: 한 바퀴 70초 구성, 노랑 뒤 전체 빨강 2초 뒤에만 보행 초록, 두 묶음이 보행 초록을 같은 때에 바퀴당 두 번, **보행 초록 동안 그 교차로의 차 초록·노랑 0번**(맵의 신호 있는 횡단보도 전부, 0.05초 간격 한 바퀴), **빨간불에 정지선을 넘는 차 0**(노랑을 못 멈춰 지나간 차가 빨강이 된 뒤 선을 넘는 것 포함), 1초 넘게 빨간불 0, 겹침 0, **보행 초록 동안 횡단보도 위의 차 0**(차 8대, 표 3360초). 다른 시드 12개도 모두 닫힘(7~18주기, 가장 느린 것 247ms).
+  - `NpcSyncQA.RunProcess` 17: 그린 차 최대 0.010m, 시민 최대 0.023m(BusinessDistrict)·0.011m(daldongnaemap), 계획표 0.000mm. 서버 시드의 계획표가 13주기 계산 뒤 되풀이(3360초).
+  - `NpcSyncQA.RunSignalShots` 6(오프라인, BusinessDistrict): 보행 초록에 정지선 앞에서 기다리는 차, 노랑, 전체 빨강에서 그 방향 차 등이 실제로 그 색으로 켜지고 보행 신호가 맞게 켜짐.
+  - `TitleFlowQA` 34·11, `EconomySyncQA.RunProcess` 55.
+- 스크린샷(`_temp/qa5/shots/`, 직접 확인): `S2_walk_cars_waiting.png`(보행 신호 초록 사람 그림, 차는 빨간불에 횡단보도 앞에서 기다림), `S2_yellow.png`(노란 등, 보행 신호 빨강), `S2_allred.png`(빨간 등, 보행 신호 아직 빨강).
+- 설계와 달라진 점: 계획표가 닫히는 데 주기가 더 걸려(70초 신호) 되풀이 찾기를 12주기에서 40주기로 늘림(서버 시드로 처음 돌렸을 때 12주기 안에 안 닫혀 560초마다 554m 튀는 것이 로그에 보였음). 차 40대 QA는 계획표가 닫히지 않아 "보행 초록 중 횡단보도 위의 차"를 실패가 아니라 개수로만 기록(1번).
+- **"보행 신호 초록에 차가 지나간 문제" 결론:** 신호에서 차와 보행이 겹치는 시간이 없어졌고(우회전·T자 교차로 포함), 계획표에서 보행 초록 중 횡단보도를 지나는 차도 0입니다(지금 맵 차 8대). 남은 것은 위 "남은 문제"의 40대 경우뿐입니다.
+- 보이는 변화: 신호 한 바퀴가 38초에서 70초로 길어져 차와 시민이 신호에서 더 오래 기다립니다(빨강 최대 55초). 교통·시민 되풀이는 1120~3360초(시드마다 다름)마다.
+
+### 12.15 6단계: 전용 서버·설정 파일·관리자·부하 테스트 (설계 2026-10-19)
+
+> **변경(2026-10-19):** 따로 내는 전용 서버 묶음(`Builds/DedicatedServer`, `StartServer.bat`, README, zip)은 뺐습니다. 배포는 Windows·Mac 게임 빌드 두 개(`Builds/Windows`, `Builds/Mac`, `EosConnectQA.RunBundle`)뿐이고, 서버는 게임 안 "서버 열기"로 열어 공개 목록·서버 코드로 들어옵니다. 설정 파일·관리자 명령·부하 시험은 그대로이고, `DedicatedServerQA`는 `Builds/Windows/CompanyGame.exe`를 창 없이 돌려 시험합니다(`RunBundle` 삭제). 아래 묶음 관련 내용은 기록으로만 남깁니다.
+
+**범위.** 서버 컴퓨터에서 창 없이 도는 전용 서버 묶음(Windows), 그 서버의 설정 파일, 관리자 명령(서버 콘솔 + 게임 채팅), 50명 부하 테스트, 5단계에서 남은 "차 40대면 계획표가 안 닫힘" 문제의 최소 조치. 리눅스 빌드는 하지 않습니다(12.12).
+
+**지금 코드 조사**
+- 서버 프로세스는 이미 있습니다. 게임 빌드를 `-batchmode -nographics -gameserver <포트> -serversettings <경로>`로 실행하면 타이틀 씬을 내리고 서버만 돌립니다(`SyncHost.FromCommandLine`). PC의 "서버 열기"가 이 방식으로 띄웁니다(`LocalServerProcess`). 설정 파일 폴더에 `worlds/`(월드), `running.json`(실행 중 표시, 서버 코드), `stop.request`(이 파일이 생기면 저장하고 종료)를 둡니다.
+- 설정 파일 `ServerSettings`는 JSON(`JsonUtility`)이고 이름·인원·공개·비밀번호·포트·월드만 있습니다. 밤 건너뛰기는 `-nightskip` 명령줄과 월드 파일에 있습니다.
+- EOS: 혼자 하기가 아닌 서버는 EOS 로그인이 되면 세션(공개 목록·서버 코드)을 스스로 만듭니다(2b-2). 전용 서버도 같은 코드를 탑니다.
+- 채팅(`ChatUIManager`)은 지금 **내 화면에만** 찍힙니다. 다른 사람에게 가는 채팅은 없습니다. 서버가 화면에 글을 띄우는 길은 요청 결과(OpResult)뿐입니다.
+- Unity Hub에는 **Windows 빌드 모듈만** 있고 Dedicated Server 빌드 대상(서버용 모듈)은 설치돼 있지 않습니다(`PlaybackEngines/WindowsStandaloneSupport/Variations`에 server 없음).
+- 부하: `SyncLayerQA.RunLoad`는 메모리 안의 `GameServer`에 가짜 49명(초당 10회 위치)을 붙여 숫자만 기록합니다(틱 평균 0.2ms, 보내기 약 0.6MB/s). 실제 서버 프로세스·TCP·`ServerWorld`가 함께 도는 시험은 없습니다.
+- 5단계 남은 문제: 차 수는 맵 값(`TrafficSpawner.count`, BusinessDistrict 8대, 최대 40)뿐이고 서버 설정이 아닙니다. 차 수별 시험(시드 13개): 10대 13/13 닫힘, 12대 12/13, 16대 10/13, 24대 6/13, 40대 안 닫힘.
+
+**전용 서버 빌드**
+- **일반 Windows 플레이어 빌드를 `-batchmode -nographics`로 실행합니다** (Dedicated Server 빌드 대상은 모듈이 없어 쓰지 않음, 기본값으로 정함). 지금 PC 서버 프로세스가 이미 이 방식이라 새 코드가 거의 없고, 게임과 같은 빌드라 버전이 어긋나지 않습니다. ProjectSettings는 바꾸지 않습니다.
+- 묶음 `CompanyGame/Builds/DedicatedServer/`: 씬은 타이틀 하나(서버는 맵이 필요 없음, 지금 QA의 서버 빌드와 같음), `CompanyGameServer.exe`, `StartServer.bat`, `server/settings.json`(예시 값), `README.txt`(한국어), EOS 설정(`StreamingAssets/EOS`). zip도 같이 만듭니다.
+- 실행: `StartServer.bat` = `CompanyGameServer.exe -batchmode -nographics -console -gameserver -serversettings server\settings.json -logFile server\server.log`. `-gameserver` 뒤에 숫자가 없으면 설정 파일의 포트를 씁니다(지금은 숫자 필수). 월드가 비어 있으면 새 월드를 만들고 그 id를 설정 파일에 써 둡니다(지금은 프로세스가 새 월드 id를 저장하지 않아 다시 켜면 또 새 월드가 됨). 설정 파일이 없으면 기본값으로 하나 씁니다.
+- 끄기와 저장: 콘솔 `stop`, 채팅 `/stop`(관리자), 콘솔 창에서 Ctrl+C, `stop.request` 파일(지금 그대로) → 월드를 저장하고(EOS 세션 삭제, 최대 3초) 종료. 콘솔 창을 X로 닫으면 Windows가 주는 5초 안에 저장을 시도합니다(보장 못 함, README에 `stop`을 쓰라고 적음). 월드는 지금처럼 60초마다 자동 저장됩니다.
+
+**서버 콘솔**
+- `-console`로 켠 서버 프로세스만 콘솔에서 명령을 읽습니다(PC "서버 열기"의 프로세스와 QA 서버는 읽지 않음). 입력이 파이프·파일이면(QA) 그것을, 아니면 실행한 배치 파일의 콘솔 창에 붙어서(없으면 새 콘솔 창) 한 줄씩 읽습니다. Unity 플레이어는 창 프로그램이라 콘솔이 저절로 붙지 않기 때문입니다(Windows API `AttachConsole`/`AllocConsole`, Windows만).
+- 콘솔에 보이는 것: 명령 결과, 서버 로그 중 `[SyncServer]`·`[Admin]`·`[ServerWorld]`·`[Eos]` 줄과 오류. 전체 로그는 `server\server.log`.
+
+**설정 파일** (`server/settings.json`, 지금 `ServerSettings` JSON을 넓힘. 서버 열기의 슬롯별 파일도 같은 형식)
+
+| 필드 | 뜻 | 기본값 | 적용 |
+| --- | --- | --- | --- |
+| `name` | 서버 이름(목록·접속 화면) | 달동네 서버 | 재시작 |
+| `maxPlayers` | 최대 인원 2~50 | 8 | 재시작 |
+| `isPublic` | 공개 목록에 보임 | false | 재시작 |
+| `password` | 비밀번호(빈 값 = 없음) | "" | 재시작 |
+| `port` | TCP 포트 | 7777 | 재시작 |
+| `world` | 월드 id(빈 값 = 새로 만들고 여기에 씀) | "" | 재시작 |
+| `admins` | 관리자 계정 id 목록 | [] | 바로 |
+| `bans` | 차단 계정 id 목록 | [] | 바로(접속 중이면 내보냄) |
+| `nightSkip` | 밤 건너뛰기 "시작-끝"(예 "0-6"), 빈 값 = 월드에 저장된 값 유지 | "" | 바로 |
+| `trafficCars` | NPC 차 수(차선이 있는 맵마다) 0~10 | 8 | 바로(모든 클라이언트가 계획표를 다시 만듦) |
+
+- "바로": 서버가 1초마다 파일의 수정 시각을 보고 바뀌면 다시 읽습니다. "재시작" 필드가 바뀌면 콘솔에 "재시작해야 적용"이라고 한 줄 남깁니다. 명령(`ban`, `admin` 등)이 바꾼 값도 이 파일에 저장합니다.
+- 계정 id: EOS PUID(EOS 없는 서버는 PC GUID). 콘솔 `players`가 접속자의 이름과 계정 id를 보여 주고, 명령은 캐릭터 이름으로도 됩니다(이 월드의 캐릭터 이름 → 계정, 대소문자 무시).
+- 시민 수는 넣지 않습니다(맵마다 자리·실내 사람이 정해져 있어 숫자 하나로 늘리기 어려움. 필요해지면 같은 방식으로 추가).
+- `-nightskip` 명령줄은 그대로 두고 설정 파일 값보다 나중에 적용합니다(QA가 씀).
+
+**차 수 상한 (5단계 남은 문제의 최소 조치)**
+- 서버 설정 `trafficCars`의 최대값과 `TrafficSpawner.MaxCars`를 **10**으로 내립니다 **(기본값으로 정함: 시험한 시드 13개가 모두 닫히는 가장 큰 수)**. 그 이상은 설정에서 잘라 냅니다. 계획표가 안 닫히는 경우(드문 시드)는 지금처럼 맵을 열 때 로그에 "no repeat, wrap jump"가 남습니다. `TrafficQA`에 "10대 계획표가 시드 13개 모두 닫힘" 검사를 넣습니다.
+- 차 수는 클라이언트가 계산하므로 시계 섹션에 1바이트(u8 차 수)를 덧붙여 보냅니다. 받은 쪽은 `NpcClock.Cars`에 두고, `TrafficSpawner`는 그 값(없으면 맵 값)이 바뀌면 계획표를 다시 만듭니다. 프로토콜 버전 8.
+
+**관리자와 권한**
+- 관리자 = 설정 파일 `admins`의 계정 + **서버 연 사람**(앱 안 서버의 주인, PC "서버 열기"가 띄운 프로세스는 `-owner <계정>`으로 받은 계정) + 서버 콘솔. 전용 서버는 연 사람이 없으므로 콘솔에서 `admin <이름>`으로 처음 관리자를 정합니다.
+- 채팅: `/`로 시작하는 줄은 서버로 명령 요청(Op 종류 `admin`)이 갑니다(내 채팅 기록에는 친 줄이 그대로 찍힘). 서버가 보낸 사람의 계정으로 권한을 판정합니다(클라이언트를 믿지 않음). 관리자가 아니면 "관리자만 쓸 수 있는 명령입니다."가 돌아옵니다.
+- 결과·공지는 새 월드 이벤트 `Notice`(5, 서버 → 한 연결 또는 전원)로 채팅의 시스템 줄에 찍힙니다.
+
+| 명령 | 하는 일 | 콘솔 | 서버 연 사람 | 관리자 |
+| --- | --- | --- | --- | --- |
+| `help` | 명령 목록 | O | O | O |
+| `players` | 접속자 이름·계정 id, 인원 | O | O | O |
+| `kick <이름>` | 내보냄(그 사람 화면에 "관리자가 내보냈습니다") | O | O | O(서버 연 사람·관리자는 못 내보냄) |
+| `ban <이름 또는 계정>` | `bans`에 넣고 접속 중이면 내보냄. 다시 들어오면 거절(`Banned`) | O | O | O(위와 같음) |
+| `unban <이름 또는 계정>` | `bans`에서 뺌 | O | O | O |
+| `admin <이름 또는 계정>` / `unadmin …` | `admins`에 넣기·빼기 | O | O | X |
+| `say <글>` | 전원에게 공지 | O | O | O |
+| `save` | 지금 월드 저장 | O | O | O |
+| `time <시>[:<분>]` | 월드 시계를 다음 그 시각으로(앞으로만. 건너뛰는 밤이면 밤 끝으로) | O | O | O |
+| `stop` | 저장하고 서버 종료 | O | 프로세스면 O(앱 안 서버는 일시정지 메뉴의 서버 나가기) | 프로세스면 O |
+
+- 권한은 **기본값으로 정함**: 관리자끼리 서로 내보내거나 관리자를 빼는 다툼을 막으려고 관리자 지정·해제는 콘솔과 서버 연 사람만.
+- 거절 이유 `Kicked`(8), `Banned`(9)를 추가합니다(프로토콜 버전 8). 타이틀 접속 오류 문구에도 넣습니다. 내보내진 사람은 게임 화면에 남고 채팅에 문구가 뜹니다(지금 연결이 끊길 때와 같은 처리, 기본값으로 정함).
+- 뺀 것: 밤 건너뛰기·차 수 명령(설정 파일이 바로 적용되므로), 권한 단계 나누기, 기간 차단.
+
+**서버 목록 (2b-2 세션과의 관계)**
+- 새 코드 없음. 전용 서버도 `SyncHost`가 EOS 로그인 뒤 세션을 만들어 **스스로 목록에 등록**합니다(공개면 목록, 비공개면 코드로만). 서버 코드는 콘솔(`[SyncServer] EOS P2P on, session XXXXXX`)과 `server/running.json`에 나옵니다. EOS 설정을 빼거나 `-noeos`면 목록 없이 직접 주소(IP:포트)로만 들어옵니다.
+- 전용 서버의 PUID는 그 컴퓨터 OS 사용자의 Device ID입니다. 같은 사용자 계정으로 같은 PC에서 게임을 켜면 PUID가 같아 EOS로는 못 들어오고 127.0.0.1로 들어옵니다(4.2-1과 같음).
+
+**부하 테스트**
+- 빌드한 전용 서버 프로세스(`ServerWorld` 포함, EOS 끔)에 에디터에서 **가짜 TCP 클라이언트 50명**을 붙입니다(최대 인원 50). 모두 캐릭터를 만들고 같은 맵에 아바타 하나씩, 초당 10회 위치를 60초 동안 보냅니다. 한 명은 2초마다 Ping을 보냅니다.
+- 재는 것: 서버 프로세스 CPU(한 코어 기준 %), 메모리, 서버가 보낸 양(클라이언트들이 받은 바이트 합 + TCP 머리 4바이트), 받은 위치 수/기대 수, Ping 왕복 시간(중앙값·95%·최대).
+- **통과 기준 (기본값으로 정함, 결과에서 바뀜 → 12.15 결과):** 50명 모두 입장, 받은 위치가 기대의 99% 이상, 부하가 더하는 왕복 지연(p95 − 조용할 때 중앙값) 100ms 이하, 서버 CPU가 한 코어의 100% 이하, 보낸 양 10Mbps(1.25MB/s) 이하(가정용 인터넷 업로드). 숫자는 이 PC(같은 PC 안 TCP) 기준이라 실제 네트워크 지연은 들어가지 않습니다.
+
+**바꿀 파일**
+
+| 파일 | 바뀌는 것 |
+| --- | --- |
+| `NetCore/SyncProtocol.cs` | 버전 8, `RejectReason.Kicked`·`Banned` |
+| `NetCore/GameServer.cs` | 차단 목록(`Banned`, Welcome에서 거절), 계정으로 내보내기, 지금 저장 |
+| `Net/ServerSettings.cs` | `admins`·`bans`·`nightSkip`·`trafficCars`, 상한 |
+| `Net/SyncHost.cs` | 설정·설정 경로·서버 연 사람 공개, `-gameserver` 포트 생략, 새 월드 id 저장, 설정의 밤 건너뛰기·차단 적용, 저장 후 종료를 한 함수로 |
+| `Net/LocalServerProcess.cs` | `-owner <내 계정>` |
+| `Core/NpcClock.cs` | `Cars` |
+| `Player/ServerAdmin.cs`(새 파일) | 명령·권한, 콘솔 읽기, 설정 파일 다시 읽기 |
+| `Player/ServerWorld.cs` | 시계 섹션에 차 수, `ServerAdmin` 만들기, `admin` 요청 연결, `Notice` 보내기 |
+| `Player/WorldSection.cs`, `Player/WorldStateSync.cs` | `Notice` 받기, 차 수 받기, 내보내짐·차단 문구, 명령 요청 보내기 |
+| `NPC/Traffic/TrafficSpawner.cs` | 서버 차 수, 최대 10 |
+| `UI/ChatUIManager.cs` | `/` 줄은 명령 요청으로 |
+| `UI/Title/TitleFlow.cs` | `Kicked`·`Banned` 문구 |
+| QA `Editor/Net/DedicatedServerQA.cs`(새 파일), `TrafficQA` | 아래 완료 기준 |
+
+**하지 않는 것:** 리눅스 빌드, Dedicated Server 빌드 대상, 플레이어끼리 채팅 공유(채팅은 지금도 내 화면에만), 자동 백업(이전 저장본 여러 개 보관. 지금 `world.prev.dat` 하나), 서버 설정 화면, 시민 수 설정, 트레이 아이콘.
+
+**완료 기준**
+1. 컴파일 오류 없음. 회귀 0건: 12.14 결과의 QA 전부(옛 QA는 `COMPANYGAME_NOEOS=1`, EOS 항목은 EOS 켬, qa5와 같음), `TrafficQA`(10대 검사 추가)
+2. 전용 서버 묶음(`DedicatedServerQA.RunBundle`): 빌드됨, `StartServer.bat`로 켜면 설정 파일의 포트에서 받고 콘솔 `stop`으로 저장·종료, 새 월드 id가 설정 파일에 써짐, zip
+3. 설정 적용·콘솔 명령(`RunConsole`, 묶음의 exe + 가짜 클라이언트): 이름·최대 인원·비밀번호(틀리면 거절)·밤 건너뛰기·차 수가 클라이언트에 옴, 파일을 고치면 바로 적용(차단·차 수), 콘솔에서 명령 전부(`help`, `players`, `kick`, `ban` 후 재접속 거절, `unban` 후 접속, `admin`/`unadmin`, `say`, `save`, `time`, `stop` 저장 후 종료)
+4. 접속·플레이·채팅 명령(`RunPlay`, 에디터 게임이 전용 서버에 접속해 맵에 들어감): 채팅에서 명령 전부, 관리자가 아닌 사람(가짜 클라이언트)의 명령은 거절, 관리자로 만든 뒤에는 됨, 차단된 사람 재접속 거절, `/stop`으로 저장·종료 뒤 다시 켜면 캐릭터가 이어짐
+5. EOS(`RunEos`, EOS 켬): 전용 서버가 공개 목록에 설정 이름으로 나오고, `stop` 뒤 세션이 지워짐
+6. 부하(`RunLoad`): 위 통과 기준
+7. 스크린샷(`_temp/qa6/shots/`): 채팅 명령과 결과, 공지, 거절 문구, 내보내진 화면
+
+**총괄 검수 방법.** diff 전체 읽기. 특히 권한 판정이 서버의 계정으로만 되는지(클라이언트가 보낸 이름을 믿지 않음), 서버 연 사람·관리자를 관리자가 못 내보내는지, 차단이 Welcome 전에 거절되는지, 설정 파일을 다시 읽을 때 "재시작" 필드가 몰래 바뀌지 않는지, 콘솔 스레드가 게임 객체를 건드리지 않는지(줄만 넘김). QA를 다시 돌리고 스크린샷을 봅니다.
+
+#### 12.15 결과 (구현 완료, 총괄 검수 전)
+
+**테스트 수치**(2026-10-19, `_temp/qa6/regress.sh`, 요약 `_temp/qa6/regress.out`, 로그 `_temp/qa6/r_*.log`). 49개 실행 모두 통과(실패 0).
+- 새 QA `DedicatedServerQA`: `RunBundle` 9, `RunConsole` 41, `RunPlay` 30, `RunLoad` 6, `RunEos` 7(EOS 켬)
+- 회귀(`COMPANYGAME_NOEOS=1`): `TrafficQA` 2932(10대 검사 추가), `NpcSyncQA` 17·6, `TitleFlowQA` 34·11, `SyncLayerQA` 59·13·6·load, `AvatarSyncQA` 11·27, `CharacterQA` 36·33·14, `DropSyncQA` 38·58, `EconomySyncQA` 42·61·55, `LedgerQA` 10·66·18, `BookSyncQA` 51·73·14, `InventoryLedgerQA` 50·94·25, `WorldItemQA` 67·93·19, `LibrarySyncQA` 58·79·31, `ServerOpenQA` 60·45, `WorldSaveQA`, `EosConnectQA` `Run` 43·`RunNoEos` 6, EditMode 8
+- EOS 켬: `EosConnectQA` `RunPlay` 31·`RunProcess` 9·`RunBundle` 5(시험 묶음을 프로토콜 8로 다시 만듦), `EosTestQA.RunPlay` 2회 같은 PUID
+
+**완료 기준 확인**
+1. 컴파일 오류 0, 회귀 위 수치. `TrafficQA`: 차 10대 계획표가 시드 13개 모두 닫힘(되풀이 9~20주기).
+2. `RunBundle`: `Builds/DedicatedServer/`(빌드 282MB, `DedicatedServer.zip` 109MB). 묶음 사본을 `StartServer.bat`로 켜면 설정 파일의 포트·이름으로 받고, 새 월드 id가 `settings.json`에 써지고, 콘솔 `stop`으로 `world.dat`를 저장하고 꺼짐, 배치 파일의 끝 문구까지 나옴.
+3. `RunConsole`(가짜 TCP 클라이언트): 틀린 비밀번호 거절, 이름이 Welcome에 옴, 최대 3명이라 네 번째 `Full`, 시계 섹션에 밤 1-5와 차 6대. 콘솔 `help`·`players`·`say`(세 명 모두 공지 받음)·`kick`(`Kicked`)·`ban`(대소문자 무시, `Banned`, 파일에 들어감, 재접속 거절)·`unban`(재접속, 캐릭터 그대로)·`admin`/`unadmin`(파일 반영)·`time 22:30`·`save`(`world.dat` 시각 바뀜)·모르는 명령. 관리자 아닌 채팅 명령 거절, 관리자는 됨, 관리자는 관리자를 못 정하고 다른 관리자를 못 내보냄. 켜진 채로 파일을 고치면 차 9대·밤 2-4가 클라이언트에 오고, 파일의 차단이 접속 중인 사람을 내보내고, 이름 변경은 "needs a restart"만 남음. `stop`(종료 코드 0, 저장) 뒤 다시 켜면 같은 월드·캐릭터·새 이름·파일의 차단이 그대로.
+4. `RunPlay`(에디터 게임 + 가짜 클라이언트 하나): 전용 서버에 접속해 맵에 들어감, 차 7대·밤 0-6을 받음. 채팅 `/players`(관리자 전 거절 문구) → 콘솔에서 관리자 지정 → `/help`·`/players`·`/say`·`/kick`·`/ban`(재접속 거절)·`/unban`·`/admin`(서버 연 사람이 아니라 거절)·`/time 21`(게임 시계 21시)·`/save`가 모두 채팅에 결과를 냄. 콘솔에서 관리자로 만든 가짜 클라이언트의 공지가 에디터 채팅에 뜨고, 그 관리자는 다른 관리자를 못 내보냄. 콘솔 `kick`으로 에디터를 내보내면 채팅에 "관리자가 서버에서 내보냈습니다." 다시 접속해 `/stop` → 서버 종료(코드 0) → 다시 켜면 캐릭터 QA관리자가 그대로.
+5. `RunEos`: 전용 서버 콘솔에 서버 코드, 코드 검색과 공개 목록에 설정 이름·최대 10명·공개로 나옴, `stop` 뒤 세션 삭제(`removed: Success`).
+6. `RunLoad`: 가짜 클라이언트 50명, 60초, 초당 10회 위치. 받은 위치 1,470,000/1,470,000(100%), 서버 CPU 한 코어의 62.6%(사람 없이 켜 둔 것만 14.1%), 메모리 268MB, 보낸 양 5.88Mbps(초당 메시지 24,509), 왕복 p50 61ms·p95 93ms·최대 141ms(같은 PC에서 아무도 안 움직일 때 31ms).
+7. 스크린샷(`_temp/qa6/shots/`, 직접 확인): `D_chat_refused.png`(관리자 전 거절), `D_chat_players.png`(`/help` 결과), `D_chat_say.png`(접속자 목록과 `[공지] 공지 시험입니다`), `D_chat_admin.png`(`/players` 결과, 21:00), `D_kicked.png`(`/time`·`/save` 결과와 내보내짐 문구), `D_ingame.png`. 콘솔 창: `C_console_window.png`(실제 콘솔 창에 `help`·`players`·`time 21`의 답이 한국어로 찍힘).
+
+**설계와 달라진 점**
+- 콘솔은 **`-console`을 준 서버 프로세스만** 읽습니다(`StartServer.bat`가 줌). 처음에는 모든 배치 모드 서버가 표준 입력을 읽게 했더니, 다른 프로세스에서 물려받은 입력을 읽는 스레드가 종료를 막아 옛 QA의 서버 프로세스가 `stop.request` 뒤에 꺼지지 않았습니다(회귀에서 잡음).
+- `-logFile`을 주면 Unity가 표준 출력을 로그 파일로 돌려놓습니다. 그래서 콘솔 출력은 표준 출력이 파이프일 때만 거기로, 아니면 콘솔 창(`CONOUT$`)으로 씁니다. QA는 콘솔의 답을 서버 로그(`[Admin] …` 줄)에서 읽습니다.
+- 콘솔 창 입력은 `ReadConsoleW`(UTF-16)로 읽습니다. 한국어 입력이 깨지지 않게 하려는 것입니다(붙여넣은 "say 안녕하세요"가 그대로 들어오는 것을 확인).
+- 새 월드 id를 설정 파일에 다시 쓰는 것은 `-owner`가 없는 프로세스(전용 서버)만. PC "서버 열기"는 게임이 id를 정해서 넘기므로 쓰지 않습니다(처음 구현에서 `ServerOpenQA`가 깨졌음).
+- `stop.request`로 끌 때의 로그 문구("stop requested")는 그대로 두고, 관리자·Ctrl+C로 끌 때는 "stopping".
+- **부하 통과 기준을 바꿨습니다(기본값으로 정함).** CPU는 "한 코어의 50% 이하"에서 "100% 이하"(서버 루프가 한 스레드라 그 이상이면 못 따라감)로, 왕복은 "p95 100ms 이하"에서 "부하가 더하는 지연(p95 − 조용할 때 중앙값) 100ms 이하"로. 사람 없이 켜 둔 서버가 이미 한 코어의 14~18%를 쓰고, 같은 PC에서도 조용할 때 왕복이 31ms라 처음 기준이 서버 코드가 아닌 바탕값에 걸렸기 때문입니다. 잰 값은 위 그대로입니다.
+- 부하 시험 중 찾은 것: TCP 보내기 루프(`TcpTransport`)가 메시지마다 한 번씩 깨어났음(빈 깨어남이 초당 수만 번). 한 번 깨어날 때 쌓인 것을 다 보내고 남은 신호를 비우게 고침(CPU 65.7% → 59%대).
+- `AvatarSyncQA`의 걷기 검사가 실수 뺄셈(4초−1초가 2.9999998)으로 10.0000002 > 10이 되어 실패하던 것을 3초 상수로 고침(코드 문제 아님, 이번 회귀에서 처음 보임).
+- 내보내진 사람은 게임 화면에 남고 채팅에 문구가 뜹니다(연결이 끊길 때의 기존 처리).
+
+**남은 문제**
+- 서버를 사람 없이 켜 두기만 해도 한 코어의 14~18%를 쓰고, 같은 PC에서도 왕복이 31ms입니다. 배치 모드 Unity 플레이어의 프레임 속도(목표 60, 실제로는 약 30ms 간격으로 보임)와 매 프레임의 `ServerWorld` 일 때문으로 보이나 원인은 확인하지 않았습니다.
+- 콘솔 창을 X로 닫을 때와 Ctrl+C의 저장은 코드만 있고 시험하지 않았습니다(README에 `stop`을 쓰라고 적음).
+- 차 10대 상한은 시드 13개를 시험한 결과입니다. 드문 시드에서 안 닫힐 수 있고, 그때는 지금처럼 로그만 남습니다.
+- 채팅은 여전히 내 화면에만 찍힙니다(플레이어끼리 채팅 공유 없음). 채팅의 보낸 사람 표시는 캐릭터 이름이 아니라 "Player"입니다(기존).
+- 전용 서버 묶음에도 게임 빌드처럼 EOS 클라이언트 값이 들어 있습니다(2b-2 묶음과 같음).
+- 서버를 켠 Windows 사용자와 같은 사용자로 같은 PC에서 게임을 하면 PUID가 같아 목록·코드로는 못 들어오고 127.0.0.1로 들어와야 합니다(README에 적음).
+
+**확인 못 한 것**
+- 다른 PC에서 전용 서버에 접속(직접 IP·포트 포워딩·EOS P2P). 모두 같은 PC에서만 시험했습니다.
+- 실제 네트워크 지연이 있는 부하. 부하 수치는 같은 PC 안 TCP입니다.
+- 설치하지 않은 Dedicated Server 빌드 대상과 리눅스.
+
+### 12.16 세 모드로 나눔: 혼자 하기 / 서버 열기 / 전용 서버 (2026-10-19, 사용자 결정)
+
+사용자 요청으로 2장의 "서버 열기 하나로 통합"을 바꿨습니다. 서버 코드(`GameServer`, `SyncHost`)는 하나이고, 어디서 돌리느냐만 다릅니다.
+
+| 모드 | 서버가 도는 곳 | 언제까지 | 공개 목록·서버 코드 |
+| --- | --- | --- | --- |
+| 혼자 하기 | 게임 안(127.0.0.1만) | 게임을 끄면 저장하고 끝 | 없음 |
+| 서버 열기 | 게임 안(모든 주소) | 게임을 끄거나 타이틀로 나가면 저장하고 끝 | 있음 |
+| 전용 서버 | 같은 exe를 창 없는 별도 프로세스로(`LocalServerProcess`, Windows·macOS·Linux) | 게임을 꺼도 PC가 켜져 있는 동안. 전용 서버 메뉴의 "끄기"로 저장하고 끝 | 있음 |
+
+- **서버 열기**는 모든 플랫폼에서 앱 안 서버입니다(`TitleFlow.OpenServer`). 예전 PC는 별도 프로세스를 띄웠는데, 그 동작은 **전용 서버**(`TitleFlow.OpenDedicated`)로 옮겼습니다. 타이틀 메뉴: 혼자 하기 / 서버 열기 / 전용 서버 / 참가하기 / 설정.
+- 한 슬롯의 설정 파일·포트는 하나라서, 전용 서버가 돌고 있으면 서버 열기는 `dedicated_running`으로 거절합니다. 혼자 하기는 전용 서버와 다른 월드면 됩니다(같은 월드는 `world_in_use`, 예전과 같음).
+- 전용 서버 실행 파일: Windows·Linux는 지금 프로세스의 실행 파일, macOS는 `CompanyGame.app/Contents/MacOS/` 안의 실행 파일. macOS는 다른 프로세스의 경로를 믿을 수 없어 이름만으로 "우리 서버"인지 봅니다(`LocalServerProcess.IsOurs`, ponytail). 모바일·에디터는 전용 서버 없음(`dedicated_unavailable`).
+- 따로 내는 서버 묶음·`StartServer.bat`은 없습니다. 서버 컴퓨터에서도 게임을 켜서 전용 서버 메뉴로 시작하고 게임을 끄면 됩니다. 명령줄 실행(`-gameserver -serversettings … -console`)은 그대로 됩니다.
+- 시험: `ServerOpenQA.Run`(서버 열기, 앱 안), `ServerOpenQA.RunProcess`(전용 서버 메뉴로 실행 중 화면·접속·끄기), `TitleFlowQA.Run`. **맥 전용 서버는 맥에서 직접 해 봐야 합니다**(이 PC에서 확인 못 함). Linux 빌드는 만들지 않았습니다(모듈 없음).
+
+### 12.17 플레이어 채팅 공유 (2026-10-19)
+
+- 예전에는 일반 채팅이 내 화면에만 찍혔습니다(12.15 "하지 않는 것"). 이제 서버를 거쳐 그 서버의 모든 플레이어에게 갑니다.
+- 클라이언트: `WorldStateSync.SendChat` → Op `chat`. 서버: `ServerWorld.Chat`이 글자 수(최대 200)를 보고, **서버가 아는 캐릭터 이름**으로 월드 이벤트 6(`ChatEvent`: 이름, 글)을 모두에게 보냄. 보낸 사람도 서버에서 돌아온 줄로 봅니다(`WorldStateSync.Chatted` → `ChatUIManager`). 서식 태그는 `<noparse>`로 감싸 글자 그대로 보입니다. 도배는 연결별 메시지 속도 제한(GameServer)이 막습니다. 서버 로그에 `[Chat] 이름: 글`.
+- 프로토콜 버전 9(새 빌드끼리만 접속). 시험: `DedicatedServerQA.RunConsole`의 "player chat"(가짜 3명 모두 받음, 201자 거절).
+
+### 12.18 전용 서버 버튼 숨김, 월드 이름 (2026-10-19, 사용자 요청)
+
+- 타이틀 메인에서 **전용 서버 버튼을 숨김**. 지금 쓰는 모드는 혼자 하기와 서버 열기(게임을 끄면 서버도 끝)뿐. 전용 서버 화면(`TitleScreen.ShowDedicated`)과 `TitleFlow.OpenDedicated`는 코드에 그대로 있고 QA(`ServerOpenQA.RunProcess`)가 화면을 직접 열어 계속 시험함. 다시 켜려면 `ShowMain`에 버튼 한 줄.
+- **월드 이름**: "새 월드 만들기"가 이름을 묻고(기본값 "내 월드 N", 20자까지, `<` `>`·제어 문자 제거) 새 월드 id와 함께 월드 폴더의 `name.txt`(UTF-8)에 저장. 월드 목록·서버 열기의 "월드:" 줄이 이 이름을 보여 줌. 이름 없는 예전 월드는 지금처럼 만든 날짜("월드 yyyy-MM-dd HH:mm"). 서버 열기에서 월드를 고르지 않고 새 월드로 열면 서버 이름이 월드 이름이 됨. world.dat 형식은 그대로(버전 3).
+- 이름 바꾸기 화면은 아직 없음(`WorldStore.SetName`은 있음).

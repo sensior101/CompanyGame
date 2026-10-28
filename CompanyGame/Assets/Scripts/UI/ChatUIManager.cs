@@ -55,8 +55,16 @@ public class ChatUIManager : MonoBehaviour
         if (!cashSubscribed)
         {
             CashService.TransactionCompleted += OnCashTransaction;
+            WorldStateSync.Chatted += OnPlayerChat;
             cashSubscribed = true;
         }
+    }
+
+    // A player's line from the server (mine too: it comes back from the server).
+    private void OnPlayerChat(string senderName, string message)
+    {
+        AddChatMessage(senderName, message);
+        ShowPopup(senderName, message);
     }
 
     private void BindBank()
@@ -323,6 +331,16 @@ public class ChatUIManager : MonoBehaviour
 
         if (string.IsNullOrEmpty(message))
             return;
+        // "/kick name": an admin command for the server (12.15); the server answers in this chat.
+        if (message.StartsWith("/"))
+        {
+            AddChatMessage(playerName, message);
+            WorldStateSync.SendAdmin(message.Substring(1));
+            return;
+        }
+        // To everyone on the server; the line shows when the server sends it back (OnPlayerChat).
+        if (WorldStateSync.SendChat(message))
+            return;
 
         // Console Ãâ·Â
         Debug.Log($"[{playerName}] {message}");
@@ -469,7 +487,11 @@ public class ChatUIManager : MonoBehaviour
     {
         UnbindBank();
         UnbindReports();
-        if (cashSubscribed) CashService.TransactionCompleted -= OnCashTransaction;
+        if (cashSubscribed)
+        {
+            CashService.TransactionCompleted -= OnCashTransaction;
+            WorldStateSync.Chatted -= OnPlayerChat;
+        }
         cashSubscribed = false;
         IsChatting = false;
     }

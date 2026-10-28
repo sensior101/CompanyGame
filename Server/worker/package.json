@@ -1,0 +1,15 @@
+{
+  "name": "companygame-server-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --local --var JWT_SECRET:dev-only-local-secret-0123456789abcdef",
+    "check": "tsc --noEmit",
+    "test": "node run-tests.mjs"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261012.1",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.149.0"
+  }
+}

@@ -24,6 +24,55 @@ public class GameTimeTests
     {
         Object.DestroyImmediate(clock.gameObject);
         GameClock.Current = previous;
+        GameTime.ResetNightSkip();
+    }
+
+    [Test]
+    public void NightSkip_ChangedRange_SkipsThoseHours()
+    {
+        Assert.IsTrue(GameTime.SetNightSkip(2, 5));
+        Assert.AreEqual(new GameTime(3, 5, 0), new GameTime(3, 1, 59).NextMinute());
+        Assert.AreEqual(new GameTime(4, 0, 0), new GameTime(3, 23, 59).NextMinute(), "midnight is no longer skipped");
+        Assert.AreEqual(new GameTime(3, 5, 1), new GameTime(3, 5, 0).NextMinute());
+        Assert.AreEqual(new GameTime(3, 5, 0), new GameTime(3, 3, 30).SkipNight());
+    }
+
+    [Test]
+    public void NightSkip_StartEqualsEnd_SkipsNothing()
+    {
+        Assert.IsTrue(GameTime.SetNightSkip(4, 4));
+        Assert.AreEqual(new GameTime(1, 0, 0), new GameTime(0, 23, 59).NextMinute());
+        Assert.AreEqual(new GameTime(1, 4, 1), new GameTime(1, 4, 0).NextMinute());
+        Assert.IsFalse(new GameTime(1, 4, 0).InNightSkip);
+    }
+
+    [Test]
+    public void NightSkip_InvalidRanges_AreRefused()
+    {
+        Assert.IsFalse(GameTime.SetNightSkip(5, 2), "start after end (over midnight)");
+        Assert.IsFalse(GameTime.SetNightSkip(0, 25), "past 24");
+        Assert.IsFalse(GameTime.SetNightSkip(-1, 3), "negative");
+        Assert.IsFalse(GameTime.SetNightSkip(0, 24), "the whole day");
+        Assert.AreEqual(0, GameTime.NightSkipStart);
+        Assert.AreEqual(6, GameTime.NightSkipEnd, "a refused range changes nothing");
+        Assert.IsTrue(GameTime.SetNightSkip(22, 24));
+        Assert.AreEqual(new GameTime(1, 0, 0), new GameTime(0, 21, 59).NextMinute(), "22-24 skips to the next day's 00:00");
+    }
+
+    [Test]
+    public void NightSkipped_FiresOncePerNight()
+    {
+        var after = new List<GameTime>();
+        System.Action<GameTime> listen = t => after.Add(t);
+        GameClock.NightSkipped += listen;
+        try
+        {
+            clock.AdvanceMinutes(18 * 60 * 2); // two whole 18-hour days from 06:00
+            Assert.AreEqual(2, after.Count);
+            Assert.AreEqual(new GameTime(1, 6, 0), after[0]);
+            Assert.AreEqual(new GameTime(2, 6, 0), after[1]);
+        }
+        finally { GameClock.NightSkipped -= listen; }
     }
 
     [Test]

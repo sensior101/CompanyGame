@@ -29,8 +29,9 @@ public static partial class CashService
 
     static bool RequireAuthority(out string error)
     {
-        error = GameSession.IsAuthority ? null : "거래는 호스트의 승인이 필요합니다.";
-        return GameSession.IsAuthority;
+        // Wallet cash and bank trades are personal: every player settles on their own PC.
+        error = null;
+        return true;
     }
 
     /// <summary>A committed physical-cash change, with its inventory owner and purpose.</summary>

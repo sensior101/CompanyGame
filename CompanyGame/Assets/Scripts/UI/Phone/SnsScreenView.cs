@@ -78,7 +78,7 @@ public class SnsScreenView : MonoBehaviour
         switch (result)
         {
             case SnsPostResult.Success:
-                messageText.text = "게시했습니다.";
+                messageText.text = SharedWriteGate.InRoom ? "처리 중…" : "게시했습니다.";
                 postInput.text = string.Empty;
                 break;
             case SnsPostResult.EmptyText:

@@ -467,6 +467,7 @@ public sealed class InventoryState
         slots[inventoryIndex].Clear();
         Capacity = ExpandedCapacity;
         NotifyChanged();
+        InventoryLedgerRules.Send(this, "p.bag", new SharedOpArgs()); // my own bag only (12.10.4)
         return true;
     }
 

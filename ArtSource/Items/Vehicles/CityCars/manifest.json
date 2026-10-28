@@ -1,0 +1,103 @@
+{
+  "set": "CityCars",
+  "blender": "5.2",
+  "units": "m",
+  "axes": "Unity: x right, y up, z forward; wheel axis X, pivot hub centre; body pivot ground centre",
+  "hierarchy": "Car_<code> (empty) > Car_<code>_Body, Car_<code>_Wheel_FL/FR/RL/RR (shared mesh, left wheels rotated 180 deg about Y)",
+  "vehicles": [
+    {
+      "code": "C04",
+      "id": "Car_C04",
+      "name": "소나티네",
+      "base": "쏘나타급 중형 세단",
+      "kind": "sedan",
+      "dims": {
+        "length": 4.915,
+        "width": 1.86,
+        "height": 1.475,
+        "wheelbase": 2.84,
+        "spec_length": 4.9,
+        "spec_height": 1.445
+      },
+      "wheel": {
+        "radius": 0.334,
+        "width": 0.235,
+        "positions": {
+          "FL": [
+            -0.7775,
+            0.334,
+            1.505
+          ],
+          "FR": [
+            0.7775,
+            0.334,
+            1.505
+          ],
+          "RL": [
+            -0.7775,
+            0.334,
+            -1.335
+          ],
+          "RR": [
+            0.7775,
+            0.334,
+            -1.335
+          ]
+        }
+      },
+      "triangles": {
+        "body": 73100,
+        "wheel": 9092,
+        "total": 109468
+      },
+      "paint": "#EEF0EE",
+      "variants": [
+        {
+          "id": "White",
+          "name": "화이트",
+          "color": "#EEF0EE"
+        },
+        {
+          "id": "Silver",
+          "name": "실버",
+          "color": "#B9BEC4"
+        },
+        {
+          "id": "Navy",
+          "name": "네이비",
+          "color": "#2E4A6B"
+        },
+        {
+          "id": "Black",
+          "name": "블랙",
+          "color": "#1C1F23"
+        }
+      ],
+      "materials": [
+        "Car_Trim",
+        "Car_Paint_C04",
+        "Car_Glass",
+        "Car_LampGlass",
+        "Car_LightFront",
+        "Car_Chrome",
+        "Car_DarkChrome",
+        "Car_Plate",
+        "Car_LightRear",
+        "Car_Interior",
+        "Car_Headliner",
+        "Car_Seat"
+      ],
+      "wheel_materials": [
+        "Car_Rubber",
+        "Car_Alloy",
+        "Car_Chrome",
+        "Car_Steel",
+        "Car_Trim"
+      ],
+      "files": {
+        "fbx": "Car_C04.fbx",
+        "render": "Renders/Car_C04.png"
+      }
+    }
+  ]
+}

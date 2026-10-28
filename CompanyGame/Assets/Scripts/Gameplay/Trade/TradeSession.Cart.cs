@@ -32,8 +32,7 @@ public partial class TradeSession
     bool CanEditCart(out string error)
     {
         error = null;
-        if (!GameSession.IsAuthority) error = "거래는 호스트의 승인이 필요합니다.";
-        else if (HasCursorItem) error = "커서의 아이템을 먼저 놓아 주세요.";
+        if (HasCursorItem) error = "커서의 아이템을 먼저 놓아 주세요.";
         return error == null;
     }
 
@@ -88,8 +87,12 @@ public partial class TradeSession
         catch (OverflowException) { error = "금액이 처리 가능한 범위를 초과합니다."; return false; }
         long total = CartTotal;
         if (total == long.MaxValue) { error = "금액이 처리 가능한 범위를 초과합니다."; return false; }
+        var lines = new (int offer, int count)[cart.Count];
+        for (int i = 0; i < cart.Count; i++) lines[i] = (IndexOfOffer(cart[i].offer), cart[i].count);
         if (!CashService.TryPurchase(Inventory, total, items, out error)) return false;
-        ClearCart(); return true;
+        ClearCart();
+        SendTrade(lines, null);
+        return true;
     }
 
     void PruneCart() => cart.RemoveAll(l => { int i = IndexOfOffer(l.offer); return i < 0 || !IsCartable(i); });

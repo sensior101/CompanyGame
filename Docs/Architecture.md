@@ -1,13 +1,13 @@
 # 프로젝트 구조
 
-기준: 2026-10-04 `main`. 기획 정본은 노션 [기획안 (수정본)](https://mushroom00.notion.site/3e9f770a0fc780d5a8d8ff291b3fc30a).
+기준: 2026-10-04 `main`, 어셈블리 표와 멀티플레이 구조는 2026-10-19(6단계). 기획 정본은 노션 [기획안 (수정본)](https://mushroom00.notion.site/3e9f770a0fc780d5a8d8ff291b3fc30a).
 
 ## 저장소
 
 | 폴더 | 내용 |
 | --- | --- |
 | `CompanyGame/` | Unity 6000.4.5f1 프로젝트 |
-| `Server/` | Node 24 + Fastify + SQLite 서버. [Server.md](Server.md) |
+| `Server/` | 계정 서버(Node 24 + Fastify + SQLite, Cloudflare Worker 사본). 2b-2부터 게임은 쓰지 않음(계정은 EOS). 실시간 플레이는 Unity 안의 게임 서버가 맡음. [Server.md](Server.md) |
 | `Docs/` | 이 문서들 |
 | `ArtSource/` | Blender·이미지 원본과 생성 스크립트 (Unity가 직접 읽지 않음) |
 
@@ -17,18 +17,21 @@
 
 ```
 Core → Economy → Gameplay → World → Player → UI
-Core → Net → UI
+NetCore → Net → Player → UI      (NetCore는 아무것도 참조하지 않음: 프로토콜·전송·서버 본체·월드 파일)
+NetCore → Net.Eos → Net, UI     (Net.Eos: EOS 플러그인을 쓰는 곳은 여기뿐)
 Gameplay → NPC → UI
 ```
 
 | 폴더 | 어셈블리 | 담당 | 주요 파일 |
 | --- | --- | --- | --- |
 | Core | `CompanyGame.Core` | 시간, 키 입력, 세션, 공통 도우미 | `GameTime`, `SimpleGameClock`, `GameInput`, `GameSession`, `GameSystem<T>`, `InputFocus`, `UIEventSystem` |
-| Net | `CompanyGame.Net` | 서버·멀티 통신 | `PlayerData` (로그인 API 클라이언트, 아직 어떤 코드·씬에서도 쓰지 않음) |
+| NetCore | `CompanyGame.NetCore` | 게임 서버 본체와 프로토콜(Unity 게임 코드와 무관) | `GameServer`, `SyncProtocol`, `SyncTransport`(+`MultiTransport`, `PacketFraming`), `TcpTransport`, `WorldStore`(`world.dat`) |
+| Net | `CompanyGame.Net` | 접속·호스팅 | `SyncClient`, `SyncHost`, `NetEntity`, `NetBehaviour`, `NetTransform`, `ServerSettings`, `LocalServerProcess` |
+| Net/Eos | `CompanyGame.Net.Eos` | EOS 계정·P2P·세션 | `EosAccount`(Device ID 로그인, ID 토큰), `EosTransport`(P2P 서버·클라이언트), `EosSession`(공개 목록·서버 코드), `EosProbe`(12.4 시험) |
 | Economy | `CompanyGame.Economy` | 은행, 회사, 주식, 토지, 소유권, 세금 | `BankManager`, `CompanyManager`, `StockMarketManager`, `LandPlotManager`, `PropertyRegistry` |
 | Gameplay | `CompanyGame.Gameplay` | 아이템·인벤토리 상태, 현금, 핸드폰 앱, 신고, SNS | `InventoryManager`, `InventoryState`, `ItemData`, `CashService`, `PhoneManager`, `GameSystems` |
 | World | `CompanyGame.World` | 맵 이동, 포털, 정류장, 건물 출입문, 소유 구역, 계단 | `SceneLoadManager`, `MapSpawnPoint`, `MapPortal`, `TransitStop`, `StoreInteractionPoint`, `PropertyZone`, `FloorStairs` |
-| Player | `CompanyGame.Player` | 이동, 카메라, 스탯, 전투, 손 아이템, 생성 | `PlayerMovement`, `PlayerCameraController`, `PlayerStats`, `PlayerCombat`, `PlayerSpawner` |
+| Player | `CompanyGame.Player` | 이동, 카메라, 스탯, 전투, 손 아이템, 생성. 게임 서버의 게임 쪽(서버 월드·장부)과 동기화 | `PlayerMovement`, `PlayerCameraController`, `PlayerStats`, `PlayerCombat`, `PlayerSpawner`, `ServerWorld`, `ServerLedger`, `ServerAdmin`, `WorldStateSync`, `CharacterSync`, `AvatarSync` |
 | NPC | `CompanyGame.NPC` | NPC, NPC 거래 | `NpcTrader` |
 | UI | `CompanyGame.UI` | 인벤토리·상점·정류장 메뉴, 채팅, 돈 표시, 핸드폰 화면 | `UI/Inventory/*`, `UI/Interaction/*`, `UI/Phone/*` |
 | Editor | 에디터 전용 | 제작 도구 | [Git_Collaboration.md](Git_Collaboration.md#제작-도구-취급) |
@@ -139,12 +142,17 @@ Gameplay → NPC → UI
 - 프로젝트 C# 157개(런타임 141개, 기존 Editor 도구 16개)의 폴더 책임·호출부·직접 상태 변경·중복 공통 처리를 점검했습니다. 미구현 자리 잡기 클래스와 직렬화 호환 어댑터는 별도 대체 구현으로 판단하지 않았습니다.
 - 씬·프리팹·설정 에셋 1,845개의 스크립트 GUID와 157개 스크립트의 어셈블리 매핑을 검사합니다. 이동 GUID 8개를 이전 값과 대조합니다. 목록·해시는 `ArtSource/WorldDistricts/CivicLibraryV4/QA/ScriptArchitectureAudit.json`, 참조 검사는 `ScriptReferenceAudit.json`에 기록합니다.
 - `DefaultVolumeProfile.asset`에서 설치된 URP 템플릿의 누락된 샘플 참조도 확인했습니다. 미해결 GUID 4개와 빈 스크립트 참조 5개, 총 9개를 Unity의 `AssetDatabase.RemoveScriptableObjectsWithMissingScript`로 정리했습니다. 유효한 볼륨 컴포넌트 19개의 직렬화 값과 프로필 GUID는 전후 동일합니다(`QA/ProfileCleanup.json`).
-- 기존 `InventoryModelQA` 32개, `CashModelQA` 76개, 도서관 모델 64개, 입력 파이프라인을 통한 키보드·마우스 68개, 독립된 두 씬의 공통 거래 13개, 총 253개 검증이 통과했습니다. 입력 검증은 임시 Input System 장치를 사용하며 종료 시 원래 입력 장치와 플레이어 데이터를 복원합니다. 157개 파일의 모든 게임 동작을 실행 검증했다는 의미는 아닙니다. 실제 멀티플레이 전송·클라이언트 복제는 아직 구현되지 않았습니다.
+- 기존 `InventoryModelQA` 32개, `CashModelQA` 76개, 도서관 모델 64개, 입력 파이프라인을 통한 키보드·마우스 68개, 독립된 두 씬의 공통 거래 13개, 총 253개 검증이 통과했습니다. 입력 검증은 임시 Input System 장치를 사용하며 종료 시 원래 입력 장치와 플레이어 데이터를 복원합니다. 157개 파일의 모든 게임 동작을 실행 검증했다는 의미는 아닙니다. (멀티플레이는 이 점검 당시 미구현. 지금 구조는 아래 "멀티플레이 구조")
 
-## 멀티플레이 방향
+## 멀티플레이 구조 (5단계 기준, 2026-10-19)
 
-기본은 방장 호스트(스타듀밸리·마인크래프트 방식)입니다. 싱글, 방장 호스트, 온라인 랜덤 매칭을 나중에 고를 수 있게 해 두었습니다.
+정본은 [Multiplayer_Redesign.md](Multiplayer_Redesign.md)입니다. 요약:
 
-- `GameSession.Mode`: `Single`, `Host`(기본), `Client`. 랜덤 매칭도 방장을 찾는 방법일 뿐이라 Host/Client입니다.
-- `GameSession.IsAuthority`가 참인 쪽(싱글·방장)만 시간과 경제를 계산합니다. 지금은 게임 시계에 적용되어 있고, 주가·매출은 시계를 따라 움직입니다.
-- 네트워크 라이브러리는 아직 없습니다. 붙일 때는 `Net`에서 접속 시 `GameSession.Begin(Host/Client)`을 부르고, 방장이 보낸 상태를 참가자 화면에 반영합니다. 자세한 순서는 [Remaining_Work.md](Remaining_Work.md).
+- **게임 서버(동기화 계층)가 정본입니다.** 혼자 하기(1인 앱 안 서버), 서버 열기(앱 안 서버, 게임이 켜져 있는 동안), 전용 서버(같은 exe의 `-gameserver` 프로세스, 게임을 꺼도 계속) 셋 다 같은 `GameServer`를 씁니다. 월드와 캐릭터는 서버의 `worlds/<id>/world.dat`에 저장됩니다.
+- 서버에서 정하는 것: 시계·주가·회사·소유권·땅·SNS·신고(`ServerWorld`, 4c), 은행·주식·인벤토리·드롭·탈것·도서관(`ServerLedger` 등, 4d). 클라이언트는 요청(`SharedWriteGate` → `WorldStateSync`)을 보내고 결과로 화면을 맞춥니다.
+- `GameSession.Mode`는 `Host`(기본, 오프라인과 앱 안 서버의 주인)와 `Client`(다른 프로세스의 서버에 접속한 동안)뿐입니다. `GameSession.IsAuthority`는 이 PC가 시계·경제를 계산할 때(오프라인, 서버 프로세스, 앱 안 서버의 주인) 참입니다.
+- **오프라인 경로**: 에디터에서 맵 씬을 바로 플레이하면 세션 없이 이 PC가 계산하고 PC 파일(`world/world.json`, `player/<id>.json`)에 저장합니다(개발용).
+- **시민·교통(5단계, 12.14)**은 각 PC가 "시드 + 월드 시계"로 똑같이 계산합니다. `NpcClock`(월드 초, 서버에서는 월드 시계 그대로, 클라이언트는 시계 섹션으로 맞춤)과 시드(월드 id 해시)로, 교통은 신호 8바퀴(560초) 단위 주기 계획표(`TrafficPlan`), 시민은 560초짜리 일정표(`CitizenWalker.Plan`)를 맵을 열 때 만들어 그립니다. 신호등도 같은 시계라 PC마다 같고, 70초 한 바퀴에 차 초록·노랑·전체 빨강·보행 초록이 겹치지 않게 돕니다. 플레이어 앞에서 멈추는 반응은 각 PC의 그리기에서만 합니다. 전용 메시지는 없습니다.
+- 옛 방(Cloudflare·Steam 방, 방장 넘기기, `NetSession` 계열)은 4e에서 지웠습니다.
+- **전용 서버와 관리자(6단계, 12.15)**: 배포는 Windows·Mac 게임 빌드 두 개뿐이고 서버는 게임 타이틀의 "서버 열기"(게임 안)나 "전용 서버"(별도 프로세스)로 엽니다(따로 내는 서버 묶음 없음, 2026-10-19, 12.16). 서버 프로세스는 같은 exe를 `-batchmode -nographics -gameserver -serversettings <settings.json>`(콘솔 명령은 `-console`)으로 돌린 것입니다. 설정 파일(`ServerSettings`)에 관리자·차단 목록·밤 건너뛰기·NPC 차 수(최대 10, 시계 섹션으로 클라이언트에 감)가 있고, `ServerAdmin`(서버 쪽, `ServerWorld`가 만듦)이 서버 콘솔과 게임 채팅의 `/명령`을 받아 권한을 서버의 계정으로 판정합니다. 결과·공지는 월드 이벤트 `Notice`로 채팅에 찍힙니다. 프로토콜 버전 8(`Kicked`·`Banned` 거절, 시계 섹션의 차 수).
+- **계정과 접속(2b-2)**: 계정은 EOS PUID입니다(`EosAccount`, 시작할 때 Device ID 로그인. 설정 파일이 없거나 `-noeos`면 PC GUID). 혼자 하기가 아닌 서버는 TCP와 EOS P2P를 함께 받고(`MultiTransport`), EOS 세션으로 공개 목록과 서버 코드를 냅니다. 서버는 Hello의 계정을 EOS(P2P 상대 PUID 또는 ID 토큰)로 확인합니다.

@@ -3,6 +3,7 @@ import { promisify } from 'node:util';
 import type { DatabaseSync } from 'node:sqlite';
 import Fastify from 'fastify';
 import jwt from '@fastify/jwt';
+import { DEFAULT_LIMITS, WindowLimiter, type Limits } from './limit.ts';
 
 const scryptAsync = promisify(scrypt) as (pw: string, salt: Buffer, len: number) => Promise<Buffer>;
 
@@ -39,8 +40,13 @@ const profile = {
 
 type Row = { id: number; username: string; pw_hash: string; nickname: string | null; gender: string | null };
 
-export function buildApp(db: DatabaseSync, jwtSecret: string) {
-  const app = Fastify();
+export function buildApp(db: DatabaseSync, jwtSecret: string, over: Partial<Limits> = {}) {
+  const lim = { ...DEFAULT_LIMITS, ...over };
+  const regIp = new WindowLimiter(lim.registerPerIpPerMin, 60_000);
+  const loginIp = new WindowLimiter(lim.loginPerIpPerMin, 60_000);
+  const loginUser = new WindowLimiter(lim.loginPerUserPerMin, 60_000);
+  // behind a tunnel/proxy every client shares its IP: TRUST_PROXY=1 makes req.ip use X-Forwarded-For
+  const app = Fastify({ trustProxy: process.env.TRUST_PROXY === '1' });
   app.register(jwt, { secret: jwtSecret, sign: { expiresIn: '7d' } });
 
   const isUnique = (e: unknown) => String((e as Error).message).includes('UNIQUE');
@@ -50,6 +56,7 @@ export function buildApp(db: DatabaseSync, jwtSecret: string) {
 
   app.post('/auth/register', { schema: { body: credentials } }, async (req, reply) => {
     const { username, password } = req.body as { username: string; password: string };
+    if (!regIp.hit(req.ip)) return reply.code(429).send({ error: 'rate_limited' });
     try {
       const { lastInsertRowid } = db
         .prepare('INSERT INTO players (username, pw_hash) VALUES (?, ?)')
@@ -63,6 +70,7 @@ export function buildApp(db: DatabaseSync, jwtSecret: string) {
 
   app.post('/auth/login', { schema: { body: credentials } }, async (req, reply) => {
     const { username, password } = req.body as { username: string; password: string };
+    if (!loginIp.hit(req.ip) || !loginUser.hit(username)) return reply.code(429).send({ error: 'rate_limited' });
     const row = db.prepare('SELECT id, pw_hash FROM players WHERE username = ?').get(username) as Row | undefined;
     // same error for unknown user and wrong password, so usernames can't be probed
     if (!row || !(await verifyPassword(password, row.pw_hash))) {

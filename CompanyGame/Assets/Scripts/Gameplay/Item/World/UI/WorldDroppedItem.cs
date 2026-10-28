@@ -7,6 +7,11 @@ using UnityEngine.SceneManagement;
 /// <summary>
 /// A pickable world stack. Session records survive Single-scene travel; each visual
 /// and collider belongs only to its map. Pickup removes the record after an atomic transfer.
+/// On a sync-layer server (12.8) drops and placed vehicles are DropState entities: the record is keyed by the entity id,
+/// and this PC's own drops are hidden and never written. The server makes and removes them (12.10.5): dropping and placing
+/// take the item out of the bag first and ask (p.drop, p.vehicle.place: the drop shows when the server's Spawn comes);
+/// picking up puts it in the bag first, hides the drop and asks (p.pickup: a refusal shows it again and the Ledger puts the
+/// bag back); dismantling asks and waits (p.dismantle); riding is still the server's Claim.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class WorldDroppedItem : MonoBehaviour
@@ -18,9 +23,16 @@ public sealed class WorldDroppedItem : MonoBehaviour
         public Vector3 position;
         public Quaternion rotation = Quaternion.identity;
         public bool placedVehicle;
+        public string riderId; // another player driving this server car (a placed vehicle only)
         public InventoryState contents = new InventoryState();
         public TMP_FontAsset font;
         public WorldDroppedItem instance;
+        // Sync-layer server (12.8): the entity id (0 = a drop or car of this PC's offline world) and its state.
+        public ulong netId;
+        public DropState sync;
+        public bool riding; // my Claim to ride it is on its way
+        public bool picking; // put in my bag, hidden, p.pickup on its way (12.10.5)
+        public float nextSyncAt;
     }
     static readonly Dictionary<string, DropRecord> records = new Dictionary<string, DropRecord>();
     DropRecord record;
@@ -29,6 +41,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
     readonly List<Mesh> effectMeshes = new List<Mesh>();
     float floatPhase;
     RectTransform pickupPopup;
+    const float PromptScalePerMeter = .0036f; // same on-screen size for every item and vehicle prompt (.009 at 2.5 m)
     TMP_Text pickupText;
     GameObject vehicleModel;
     Collider vehicleCollider;
@@ -55,7 +68,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
     public string DropId => record?.id;
     public static int SessionDropCount => records.Count;
     public bool IsPlacedVehicle => record != null && record.placedVehicle;
-    public bool IsOccupied => rider && rider.IsRiding;
+    public bool IsOccupied => (rider && rider.IsRiding) || !string.IsNullOrEmpty(record?.riderId);
     public string VehicleOwnershipKey => record?.contents.GetSlot(0)?.OwnershipKey;
     public string VehicleOwner => PropertyRegistry.Instance ? PropertyRegistry.Instance.GetOwner(VehicleOwnershipKey) : null;
     public bool VehicleLocked => PropertyRegistry.Instance && PropertyRegistry.Instance.IsVehicleLocked(VehicleOwnershipKey);
@@ -86,6 +99,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
         if (!IsPlacedVehicle || IsOccupied) return false;
         if (!PropertyRegistry.Instance || !PropertyRegistry.Instance.CanDismantleVehicle(VehicleOwnershipKey,actor))
         { error="소유자가 해체를 허용하지 않았습니다."; return false; }
+        if (record.netId != 0) return Ask("p.dismantle", new SharedOpArgs { n = (long)record.netId }, out error); // the server answers for everyone
         record.placedVehicle=false;
         foreach (var collider in GetComponents<Collider>()) { collider.enabled=false; Destroy(collider); }
         foreach (Transform child in transform) { child.gameObject.SetActive(false); Destroy(child.gameObject); }
@@ -165,9 +179,17 @@ public sealed class WorldDroppedItem : MonoBehaviour
             InputFocus.GameplayBlocked() || source == null || source.IsEmpty || !source.Item.IsVehicle || !source.Item.vehiclePrefab)
         { error = "지금은 탈것을 설치할 수 없습니다."; return false; }
         if (SceneLoadManager.CurrentMap.path.Contains("/Interiors/"))
-        { error = "자전거는 실외에서 설치해 주세요."; return false; }
-        if (!TryFindVehiclePoint(owner, out var point, out var rotation))
-        { error = "앞쪽에 자전거를 설치할 평평한 공간이 부족합니다."; return false; }
+        { error = "탈것은 실외에서 설치해 주세요."; return false; }
+        if (!TryFindVehiclePoint(owner, source.Item, out var point, out var rotation))
+        { error = "앞쪽에 탈것을 설치할 평평한 공간이 부족합니다."; return false; }
+        if (OnServer)
+        {
+            // Out of the bag now; the car stands when the server's Spawn comes (a refusal: its Ledger puts it back).
+            var args = new SharedOpArgs { a = source.InstanceId, d = DropBlob.FormatPlace(point, rotation.eulerAngles.y) };
+            if (!SharedWriteGate.OnServer) { error = "지금은 탈것을 설치할 수 없습니다."; return false; }
+            if (!owner.Inventory.TryRemove(owner.Inventory.SelectedHotbarIndex, 1, out error)) return false;
+            return Ask("p.vehicle.place", args, out error);
+        }
         var drop = new DropRecord { id = Guid.NewGuid().ToString("N"), scenePath = SceneLoadManager.CurrentMap.path,
             position = point, rotation = rotation, placedVehicle = true, font = owner.uiFont };
         if (!owner.Inventory.TryTransferTo(drop.contents, owner.Inventory.SelectedHotbarIndex, 1, out error)) return false;
@@ -175,14 +197,18 @@ public sealed class WorldDroppedItem : MonoBehaviour
         return true;
     }
 
-    static bool TryFindVehiclePoint(PlayerInventory owner, out Vector3 point, out Quaternion rotation)
+    static bool TryFindVehiclePoint(PlayerInventory owner, ItemData item, out Vector3 point, out Quaternion rotation)
     {
         point = default; rotation = Quaternion.identity;
         var motor = owner.GetComponent<PlayerMovement>();
         var forward = Vector3.ProjectOnPlane(motor.viewCamera ? motor.viewCamera.transform.forward : owner.transform.forward, Vector3.up).normalized;
         if (forward.sqrMagnitude < .5f) forward = owner.transform.forward;
         rotation = Quaternion.LookRotation(forward);
-        var target = owner.transform.position + forward * 1.85f;
+        // The prefab pivot need not be the body centre (a car pivots at the driver's seat), so work from the measured body.
+        var bounds = VehicleBounds.Measure(item.vehiclePrefab);
+        float reach = bounds.extents.z + 1f, rise = -Mathf.Min(0f, bounds.min.y), top = bounds.max.y + rise;
+        var pivotToBody = rotation * new Vector3(bounds.center.x, 0f, bounds.center.z);
+        var target = owner.transform.position + forward * reach;
         var floors = Physics.RaycastAll(target + Vector3.up * 1.4f, Vector3.down, 2.8f, ~0, QueryTriggerInteraction.Ignore);
         Array.Sort(floors, (a,b) => a.distance.CompareTo(b.distance));
         foreach (var floor in floors)
@@ -190,16 +216,17 @@ public sealed class WorldDroppedItem : MonoBehaviour
             if (floor.transform.IsChildOf(owner.transform) || floor.normal.y < .94f || Mathf.Abs(floor.point.y-owner.transform.position.y) > .6f) continue;
             var candidate = floor.point + Vector3.up * .025f;
             bool blocked = false;
-            foreach (float end in new[] { -.72f, .72f })
+            foreach (float end in new[] { -(bounds.extents.z - .2f), bounds.extents.z - .2f })
             {
                 if (!Physics.Raycast(candidate + forward * end + Vector3.up * .4f, Vector3.down, out var support, .8f, ~0, QueryTriggerInteraction.Ignore) ||
                     support.normal.y < .94f || Mathf.Abs(support.point.y-floor.point.y) > .12f) { blocked = true; break; }
             }
-            foreach (var hit in Physics.OverlapBox(candidate + Vector3.up * .82f, new Vector3(.42f,.68f,1.03f), rotation, ~0, QueryTriggerInteraction.Ignore))
+            var half = new Vector3(bounds.extents.x + .05f, Mathf.Max(.1f, (top - .14f) * .5f), bounds.extents.z + .05f);
+            foreach (var hit in Physics.OverlapBox(candidate + Vector3.up * (.14f + half.y), half, rotation, ~0, QueryTriggerInteraction.Ignore))
                 if (!hit.transform.IsChildOf(owner.transform) && hit.bounds.max.y > candidate.y + .15f) { blocked = true; break; }
-            foreach (var hit in Physics.SphereCastAll(owner.transform.position + Vector3.up * .8f, .25f, forward, 1.85f, ~0, QueryTriggerInteraction.Ignore))
+            foreach (var hit in Physics.SphereCastAll(owner.transform.position + Vector3.up * .8f, .25f, forward, reach, ~0, QueryTriggerInteraction.Ignore))
                 if (!hit.transform.IsChildOf(owner.transform) && hit.normal.y < .7f) { blocked = true; break; }
-            if (!blocked) { point = candidate; return true; }
+            if (!blocked) { point = candidate - pivotToBody + Vector3.up * rise; return true; }
         }
         return false;
     }
@@ -224,11 +251,27 @@ public sealed class WorldDroppedItem : MonoBehaviour
         if (!PropertyRegistry.Instance || !PropertyRegistry.Instance.CanRideVehicle(VehicleOwnershipKey,GameSession.LocalPlayerName))
         { owner.SetStatus("잠긴 탈것입니다. 소유자만 탑승할 수 있습니다."); return false; }
         SetVehicleHover(false);
+        if (record.netId != 0) return TryClaimRide();
+        return MountLocal(driver);
+    }
+
+    bool MountLocal(PlayerVehicle driver)
+    {
+        if (!driver || !vehicleModel) return false;
         vehicleCollider.enabled = false;
         if (!driver.TryMount(Item, vehicleModel, ReturnVehicleToGround)) { vehicleCollider.enabled = true; return false; }
         rider = driver;
         if (pickupPopup) pickupPopup.gameObject.SetActive(false);
         return true;
+    }
+
+    // Another player drives this server car: their avatar shows it (RemoteAvatarView), so the parked copy hides.
+    void ShowParked(bool visible)
+    {
+        if (vehicleModel) vehicleModel.SetActive(visible);
+        if (vehicleCollider) vehicleCollider.enabled = visible;
+        if (!visible && pickupPopup) pickupPopup.gameObject.SetActive(false);
+        if (!visible) SetVehicleHover(false);
     }
 
     void ReturnVehicleToGround()
@@ -245,6 +288,24 @@ public sealed class WorldDroppedItem : MonoBehaviour
         rider = null;
         if (vehicleCollider) vehicleCollider.enabled = true;
         RebuildVehicleCollider();
+        // Server: where it stands now goes out before the car is given back (also on the way to another map).
+        if (record.sync && record.sync.IsOwner)
+        {
+            ShareRide(true);
+            SyncClient.Instance.Release(record.sync.Entity);
+        }
+    }
+
+    // While I drive a server car: its place goes out at most once a second, when it moved over 1 m.
+    void ShareRide(bool now)
+    {
+        var state = record.sync;
+        if (!state || !state.IsOwner) return;
+        if (!now && (Time.unscaledTime < record.nextSyncAt || (state.position - record.position).sqrMagnitude <= 1f)) return;
+        record.nextSyncAt = Time.unscaledTime + 1f;
+        state.position = record.position;
+        state.yaw = record.rotation.eulerAngles.y;
+        state.MarkDirty();
     }
 
     public static bool TryDropStorage(PlayerInventory owner, int index, out string error,int count=-1)
@@ -253,6 +314,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
         var source = owner ? owner.Inventory.GetSlot(index) : null;
         if (source == null || source.IsEmpty) { error = "내려놓을 아이템이 없습니다."; return false; }
         if (!Prepare(owner, out var drop, out error)) return false;
+        if (OnServer) return SendDrop(owner.Inventory, index, false, count < 0 ? source.Count : count, drop.position, out error);
         if (!owner.Inventory.TryTransferTo(drop.contents, index, count<0?source.Count:count, out error)) return false;
         Commit(drop, SceneLoadManager.CurrentMap);
         return true;
@@ -264,6 +326,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
         var source = owner ? owner.Inventory.GetEquipment(slot) : null;
         if (source == null || source.IsEmpty) { error = "내려놓을 장비가 없습니다."; return false; }
         if (!Prepare(owner, out var drop, out error)) return false;
+        if (OnServer) return SendDrop(owner.Inventory, (int)slot, true, source.Count, drop.position, out error);
         // Prepare the destination first. A failed removal leaves the actual equipment unchanged.
         if (!drop.contents.TryAdd(source.Item, source.Count, out error)) return false;
         if (!owner.Inventory.TryRemoveEquipment(slot, out error)) return false;
@@ -307,6 +370,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
         { error = "아이템에 조금 더 가까이 가 주세요."; return false; }
         int quantity = Count;
         if (quantity <= 0) { error = "이미 주운 아이템입니다."; return false; }
+        if (record.netId != 0) return RequestPickUp(owner.Inventory, out error);
         if (!record.contents.TryTransferTo(owner.Inventory, 0, quantity, out error)) return false;
         records.Remove(record.id);
         BookSaveService.RemoveWorldDrop(record.id);
@@ -387,7 +451,8 @@ public sealed class WorldDroppedItem : MonoBehaviour
 
     static void CreateVisual(DropRecord drop, Scene scene)
     {
-        if (!scene.IsValid() || !scene.isLoaded || drop.contents.GetSlot(0).IsEmpty) return;
+        if (!scene.IsValid() || !scene.isLoaded || drop.contents.GetSlot(0).IsEmpty || drop.picking) return;
+        if (drop.netId == 0 && OnServer) return; // this PC's own drops stay out of a server's world
         var host = new GameObject("DroppedItem_" + drop.id);
         host.transform.SetPositionAndRotation(drop.position,drop.rotation);
         SceneManager.MoveGameObjectToScene(host, scene);
@@ -395,7 +460,277 @@ public sealed class WorldDroppedItem : MonoBehaviour
         component.record = drop;
         drop.instance = component;
         component.BuildVisual();
+        if (drop.placedVehicle && !string.IsNullOrEmpty(drop.riderId)) component.ShowParked(false);
     }
+
+    // ---- placed vehicles in this PC's offline world (world save) ----
+
+    // WorldSave (Gameplay) cannot see this UI-assembly class, so it plugs itself in.
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+    static void InstallHooks()
+    {
+        WorldSave.CaptureVehicles = CaptureVehicles;
+        WorldSave.RestoreVehicles = RestoreVehicles;
+        SyncClient.ConnectionChanged -= OnServerConnection;
+        SyncClient.ConnectionChanged += OnServerConnection;
+        WorldStateSync.Answered -= OnAnswered;
+        WorldStateSync.Answered += OnAnswered;
+    }
+
+    static PlacedVehicleSave ToSave(DropRecord drop)
+    {
+        var stack = drop.contents.GetSlot(0);
+        var model = drop.instance ? drop.instance.vehicleModel : null;
+        // A car this PC is driving is wherever the player is now.
+        bool driving = model && drop.instance.rider;
+        return new PlacedVehicleSave { id = drop.id, item = stack.Item ? stack.Item.itemId : null, inst = stack.InstanceId,
+            scene = drop.scenePath,
+            pos = driving ? model.transform.position : drop.position,
+            ry = driving ? model.transform.eulerAngles.y : drop.rotation.eulerAngles.y };
+    }
+
+    static DropRecord FromSave(PlacedVehicleSave v)
+    {
+        var item = InventorySnapshot.Find(v.item);
+        if (!item || !item.IsVehicle || string.IsNullOrEmpty(v.id)) return null;
+        var drop = new DropRecord { id = v.id, scenePath = v.scene, position = v.pos, rotation = Quaternion.Euler(0, v.ry, 0),
+            placedVehicle = true, font = LocalFont() };
+        return drop.contents.TryAdd(item, 1, out _, v.inst) ? drop : null;
+    }
+
+    static TMP_FontAsset LocalFont()
+    {
+        var inventory = PlayerSpawner.Player ? PlayerSpawner.Player.GetComponent<PlayerInventory>() : null;
+        return inventory ? inventory.uiFont : null;
+    }
+
+    static void Add(DropRecord drop)
+    {
+        records[drop.id] = drop;
+        var scene = SceneManager.GetSceneByPath(drop.scenePath);
+        if (scene.IsValid() && scene.isLoaded) CreateVisual(drop, scene);
+    }
+
+    static void Remove(DropRecord drop)
+    {
+        records.Remove(drop.id);
+        if (drop.instance) Destroy(drop.instance.gameObject);
+        drop.instance = null;
+    }
+
+    static void Park(DropRecord drop, Vector3 position, float ry)
+    {
+        drop.riderId = null;
+        drop.position = position; drop.rotation = Quaternion.Euler(0, ry, 0);
+        if (!drop.instance) return;
+        drop.instance.transform.SetPositionAndRotation(position, drop.rotation);
+        drop.instance.ShowParked(true);
+        drop.instance.RebuildVehicleCollider();
+    }
+
+    public static List<PlacedVehicleSave> CaptureVehicles()
+    {
+        var list = new List<PlacedVehicleSave>();
+        // A server's cars live in the server's world file, never in this PC's.
+        foreach (var drop in records.Values) if (drop.placedVehicle && drop.netId == 0 && !drop.contents.GetSlot(0).IsEmpty) list.Add(ToSave(drop));
+        return list;
+    }
+
+    /// <summary>
+    /// Makes the placed vehicles equal to a saved world's. Unchanged cars are left alone and a car this PC is driving
+    /// keeps going; it is only left when the world no longer has it (another world).
+    /// </summary>
+    public static void RestoreVehicles(List<PlacedVehicleSave> list)
+    {
+        var keep = new HashSet<string>();
+        if (list != null)
+            foreach (var v in list)
+            {
+                if (string.IsNullOrEmpty(v.id)) continue;
+                keep.Add(v.id);
+                if (!records.TryGetValue(v.id, out var drop)) { drop = FromSave(v); if (drop != null) Add(drop); continue; }
+                if (drop.instance && drop.instance.rider) continue; // driving it here
+                if ((drop.position - v.pos).sqrMagnitude > 1e-4f) Park(drop, v.pos, v.ry);
+            }
+        foreach (var drop in new List<DropRecord>(records.Values))
+        {
+            if (!drop.placedVehicle || drop.netId != 0 || keep.Contains(drop.id)) continue;
+            if (drop.instance && drop.instance.rider && drop.instance.rider.IsRiding) drop.instance.rider.Dismount(false);
+            Remove(drop);
+        }
+    }
+
+    // ---- sync-layer server (12.8): DropState entities ----
+
+    static bool OnServer => SyncClient.Instance && SyncClient.Instance.Connected;
+    static string NetKey(ulong id) => "net:" + id;
+
+    static DropRecord RecordOf(DropState state) =>
+        state && state.Entity && state.Entity.IsSpawned && records.TryGetValue(NetKey(state.Entity.Id), out var drop) && drop.sync == state ? drop : null;
+
+    static void Status(string message)
+    {
+        var inventory = PlayerSpawner.Player ? PlayerSpawner.Player.GetComponent<PlayerInventory>() : null;
+        if (inventory) inventory.SetStatus(message);
+    }
+
+    // A request about the world's items (12.10.5), counted like every personal one; its answer comes in OnAnswered.
+    static bool Ask(string kind, SharedOpArgs args, out string error)
+    {
+        error = null;
+        if (!SharedWriteGate.OnServer) { error = "서버에 연결되어 있지 않습니다."; return false; }
+        SharedWriteGate.SendPersonal(kind, args);
+        return true;
+    }
+
+    // p.drop: out of my bag now (with a book's pages sent first); the drop shows when the server's Spawn comes.
+    static bool SendDrop(InventoryState bag, int slot, bool equipment, int count, Vector3 position, out string error)
+    {
+        error = null;
+        if (!SharedWriteGate.OnServer) { error = "지금은 내려놓을 수 없습니다."; return false; }
+        var source = equipment ? bag.GetEquipment((EquipmentSlot)slot) : bag.GetSlot(slot);
+        var args = new SharedOpArgs { a = source.Item.itemId, b = InventoryLedgerRules.IsUnique(source) ? source.InstanceId : null, n = count,
+            c = slot.ToString(System.Globalization.CultureInfo.InvariantCulture), f = equipment, d = DropBlob.FormatPlace(position, 0f) };
+        var taken = new InventoryState();
+        if (equipment ? !taken.TryAdd(source.Item, source.Count, out error) || !bag.TryRemoveEquipment((EquipmentSlot)slot, out error)
+            : !bag.TryTransferTo(taken, slot, count, out error)) return false;
+        WorldStateSync.UploadBooks(taken); // a book's pages reach the server before the drop that names it (12.10.3)
+        return Ask("p.drop", args, out error);
+    }
+
+    // p.pickup: into my bag now and hidden; the server's Despawn takes the record, a refusal shows it again (OnAnswered).
+    bool RequestPickUp(InventoryState bag, out string error)
+    {
+        error = null;
+        if (record.picking) { error = "이미 주운 아이템입니다."; return false; }
+        var copy = new InventoryState();
+        if (!SharedWriteGate.OnServer || !record.sync || !DropState.Unpack(record.sync.contents, copy)) { error = "지금은 주울 수 없습니다."; return false; }
+        if (!InventoryLedgerRules.TryPutAll(bag, copy, out error)) return false;
+        record.picking = true;
+        gameObject.SetActive(false);
+        return Ask("p.pickup", new SharedOpArgs { n = (long)record.netId }, out error);
+    }
+
+    // A refused request about the world's items: its words, and a refused pickup's drop is back (its Ledger puts the bag back).
+    static void OnAnswered(string kind, string json, string error)
+    {
+        if (!ServerDrops.Kinds.Contains(kind) || string.IsNullOrEmpty(error)) return;
+        Status(error);
+        if (kind != "p.pickup" || json == null) return;
+        var a = JsonUtility.FromJson<SharedOpArgs>(json);
+        if (a == null || !records.TryGetValue(NetKey((ulong)a.n), out var drop) || !drop.picking) return;
+        drop.picking = false;
+        if (drop.instance) { drop.instance.gameObject.SetActive(true); return; }
+        var scene = SceneManager.GetSceneByPath(drop.scenePath);
+        if (scene.IsValid() && scene.isLoaded) CreateVisual(drop, scene);
+    }
+
+    // Only a server-owned car can be claimed; while my own Release is on its way it is still mine here.
+    bool TryClaimRide()
+    {
+        var entity = record.sync ? record.sync.Entity : null;
+        if (!OnServer || !entity || entity.Owner != 0 || record.riding) { Status("잠시 후 다시 해 주세요."); return false; }
+        record.riding = true;
+        SyncClient.Instance.Claim(entity);
+        return true;
+    }
+
+    // Removes a server record and its entity copy (leaving the server: nothing goes out).
+    static void DestroyNet(DropRecord drop)
+    {
+        var go = drop.sync ? drop.sync.gameObject : null;
+        drop.sync = null;
+        Remove(drop);
+        if (go) Destroy(go);
+    }
+
+    /// <summary>A DropState got its state from the server: the record is made (id = entity id) or moved.</summary>
+    internal static void SyncState(DropState state)
+    {
+        var entity = state.Entity;
+        if (!entity || !entity.IsSpawned) return;
+        if (records.TryGetValue(NetKey(entity.Id), out var drop))
+        {
+            if (drop.instance && drop.instance.rider) return; // I drive it
+            if (drop.riderId == null) Park(drop, state.position, state.yaw);
+            else { drop.position = state.position; drop.rotation = Quaternion.Euler(0, state.yaw, 0); } // shown again when given back
+            return;
+        }
+        drop = new DropRecord { id = NetKey(entity.Id), netId = entity.Id, sync = state, scenePath = entity.Map, position = state.position,
+            rotation = Quaternion.Euler(0, state.yaw, 0), placedVehicle = state.kind == DropState.VehicleKind, font = LocalFont() };
+        var stack = drop.contents.GetSlot(0);
+        if (!DropState.Unpack(state.contents, drop.contents) || (stack = drop.contents.GetSlot(0)).IsEmpty || drop.placedVehicle && !stack.Item.IsVehicle)
+        { Debug.LogWarning("[WorldDroppedItem] server drop " + entity.Id + " has no usable item"); return; }
+        if (drop.placedVehicle && entity.Owner != 0 && !entity.IsMine) drop.riderId = Rider(entity.Owner);
+        Add(drop);
+    }
+
+    static string Rider(uint connection) => "sync:" + connection;
+
+    /// <summary>The owner changed (or a refused Claim was answered): finish my claim, hide or park a car someone drives.</summary>
+    internal static void SyncOwner(DropState state)
+    {
+        var drop = RecordOf(state);
+        if (drop == null) return;
+        uint owner = state.Entity.Owner, me = SyncClient.Instance ? SyncClient.Instance.MyConnection : 0;
+        bool riding = drop.riding;
+        drop.riding = false;
+        if (riding)
+        {
+            if (owner != 0 && owner == me) { Ride(drop); return; }
+            Status(owner == 0 ? "지금은 탑승할 수 없습니다." : "다른 사람이 사용 중인 탈것입니다.");
+        }
+        if (!drop.placedVehicle) return;
+        if (owner != 0 && owner != me) { drop.riderId = Rider(owner); if (drop.instance) drop.instance.ShowParked(false); }
+        else if (owner == 0 && drop.riderId != null) Park(drop, state.position, state.yaw); // got out or left: where it was last seen
+    }
+
+    // My Claim won: in I get, or the car goes back.
+    static void Ride(DropRecord drop)
+    {
+        var driver = PlayerSpawner.Player ? PlayerSpawner.Player.GetComponent<PlayerVehicle>() : null;
+        if (drop.instance && drop.instance.MountLocal(driver)) return;
+        Status("지금은 탑승할 수 없습니다.");
+        SyncClient.Instance.Release(drop.sync.Entity);
+    }
+
+    /// <summary>The entity is gone (picked up, dismantled, cleared at 06:00, or off my map): so is the record.</summary>
+    internal static void SyncGone(DropState state)
+    {
+        var drop = RecordOf(state);
+        if (drop == null) return;
+        drop.sync = null;
+        Remove(drop);
+    }
+
+    // Joining: this PC's own drops hide. Leaving: every server record goes and this PC's drops show again.
+    static void OnServerConnection(bool connected)
+    {
+        if (connected)
+        {
+            foreach (var drop in records.Values)
+                if (drop.netId == 0 && drop.instance) { Destroy(drop.instance.gameObject); drop.instance = null; }
+            return;
+        }
+        foreach (var drop in new List<DropRecord>(records.Values)) if (drop.netId != 0) DestroyNet(drop); // the connection is gone: no Despawn goes out
+        foreach (var drop in records.Values)
+        {
+            if (drop.instance) continue;
+            var scene = SceneManager.GetSceneByPath(drop.scenePath);
+            if (scene.IsValid() && scene.isLoaded) CreateVisual(drop, scene);
+        }
+    }
+
+    /// <summary>Server records (QA): count and how many of them are placed vehicles.</summary>
+    public static int ServerDropCount(bool vehicles)
+    {
+        int n = 0;
+        foreach (var drop in records.Values) if (drop.netId != 0 && drop.placedVehicle == vehicles) n++;
+        return n;
+    }
+
+    /// <summary>The server entity id of this drop (0 = this PC's own), for QA.</summary>
+    public ulong NetId => record?.netId ?? 0;
 
     void BuildVisual()
     {
@@ -409,7 +744,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
             vehicleCollider = gameObject.AddComponent<MeshCollider>();
             RebuildVehicleCollider();
             billboard = new GameObject("VehiclePrompt").transform;
-            billboard.SetParent(transform,false); billboard.localPosition = Vector3.up * 1.5f;
+            billboard.SetParent(transform,false); billboard.localPosition = Vector3.up * (VehicleBounds.Measure(vehicleModel).max.y + .45f);
             BuildPickupPopup();
             return;
         }
@@ -650,9 +985,11 @@ public sealed class WorldDroppedItem : MonoBehaviour
     {
         if (IsOccupied)
         {
+            if (!rider) return; // another player drives it: their avatar shows the car
             // Persist the last ridden position in the existing scene-drop record.
             record.position = rider.transform.position; record.rotation = rider.transform.rotation;
             transform.SetPositionAndRotation(record.position,record.rotation);
+            ShareRide(false);
             return;
         }
         var camera = Camera.main;
@@ -737,8 +1074,8 @@ public sealed class WorldDroppedItem : MonoBehaviour
         canvas.overrideSorting = true;
         canvas.sortingOrder = 25;
         pickupPopup = canvasObject.GetComponent<RectTransform>();
-        pickupPopup.sizeDelta = new Vector2(IsPlacedVehicle ? 380f : 240f, 42f);
-        pickupPopup.localScale = Vector3.one * (IsPlacedVehicle ? .003f : .009f);
+        pickupPopup.sizeDelta = new Vector2(320f, 42f);
+        pickupPopup.localScale = Vector3.one * .009f;
 
         var panelObject = new GameObject("Panel", typeof(RectTransform), typeof(InventoryRoundedGraphic));
         var panel = panelObject.GetComponent<RectTransform>();
@@ -795,6 +1132,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
             break;
         }
         if (pickupText && visible) pickupText.text = PickupPromptText();
+        if (visible && camera) pickupPopup.localScale = Vector3.one * (PromptScalePerMeter * Mathf.Max(1.5f, Vector3.Distance(camera.transform.position, pickupPopup.position)));
         if (pickupPopup.gameObject.activeSelf != visible) pickupPopup.gameObject.SetActive(visible);
     }
 
