@@ -16,11 +16,14 @@ public static class PlayerSpawner
 
     /// <summary>The one player, kept across map loads.</summary>
     public static PlayerMovement Player { get; private set; }
+    static bool hasPendingView;
+    static bool pendingFirstPerson;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     static void Hook()
     {
         Player = null;
+        hasPendingView = false;
         SceneLoadManager.MapReady -= Place;
         SceneLoadManager.MapReady += Place;
         SceneLoadManager.LoadStarted -= Pause;
@@ -36,13 +39,21 @@ public static class PlayerSpawner
         if (!Player) Place(SceneManager.GetActiveScene(), SceneLoadManager.DefaultSpawnId, false);
     }
 
-    static void Pause() { if (Player) Player.enabled = false; }
+    static void Pause()
+    {
+        if (!Player) return;
+        var camera = Player.viewCamera ? Player.viewCamera.GetComponent<PlayerCameraController>() : null;
+        hasPendingView = camera;
+        if (camera) pendingFirstPerson = camera.firstPerson;
+        Player.enabled = false;
+    }
     static void Resume() { if (Player) Player.enabled = true; }
 
     static void Place(Scene scene, string spawnId, bool spawnRequired)
     {
         if (scene.name == TitleSceneName)
         {
+            hasPendingView = false;
             if (Player) Player.gameObject.SetActive(false);
             return;
         }
@@ -64,7 +75,7 @@ public static class PlayerSpawner
             // Fix the ID in the portal/spawn Inspector.
             SceneLoadManager.Report(spawnError);
 
-        BindCamera(scene);
+        BindCamera(scene, spawnRequired);
     }
 
     /// <summary>Moves the player to a spawn point of the current map without loading a scene.</summary>
@@ -96,18 +107,22 @@ public static class PlayerSpawner
         Object.DontDestroyOnLoad(Player.gameObject);
     }
 
-    static void BindCamera(Scene scene)
+    static void BindCamera(Scene scene, bool arriving)
     {
         foreach (var root in scene.GetRootGameObjects())
         {
             var follow = root.GetComponentInChildren<PlayerCameraController>(true);
             if (!follow) continue;
-            // Each map's camera keeps its own view settings (the store is first person); the body it hides comes from the player.
+            // Preserve the player's chosen view across map transitions; direct scene starts keep the map default.
+            if (arriving && hasPendingView)
+                follow.firstPerson = pendingFirstPerson;
             var look = Player.GetComponent<DaldongnePlayerAppearance>();
             follow.Bind(Player.transform, look ? look.female : null, look ? look.male : null);
             Player.viewCamera = follow.GetComponent<Camera>();
+            hasPendingView = false;
             return;
         }
         Player.viewCamera = Camera.main;
+        hasPendingView = false;
     }
 }
