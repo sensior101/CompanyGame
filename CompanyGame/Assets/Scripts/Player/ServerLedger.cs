@@ -41,6 +41,11 @@ public sealed class ServerLedger
 
     /// <summary>A speeding fine the bank could not pay: the library's penalty point (ServerLibrary.Penalty, 12.10.6).</summary>
     public Action<string> UnpaidFine;
+    /// <summary>Server-owned health is merged through the existing character save owner.</summary>
+    public Func<string, float> CombatHealth;
+    /// <summary>Invoked only after the ledger actually consumed one food item; owns no inventory mutation.</summary>
+    public Action<string, ItemData> FoodConsumed;
+    public Func<string, bool> CanConsumeFood;
 
     readonly GameServer server;
     readonly ulong entity;
@@ -145,6 +150,11 @@ public sealed class ServerLedger
     {
         saved.personal = JsonUtility.ToJson(Book(account)); // the client's money and stocks are never kept
         saved.inventory = InventorySnapshot.Export(Bag(account), false); // nor its items, nor book pages
+        if (CombatHealth != null)
+        {
+            saved.hasCombatHealth = true;
+            saved.combatHealth = CombatHealth(account);
+        }
         return saved;
     }
 
@@ -183,7 +193,13 @@ public sealed class ServerLedger
                 if (kind == "p.cash.withdraw" ? CashService.LedgerWithdraw(wallet, bag, a.n, count, out error) : CashService.LedgerDeposit(wallet, bag, a.n, count, out error)) error = null;
                 break;
             case "p.eat":
-                if (InventoryLedgerRules.TryEat(bag, a.a, out error)) error = null;
+                if (CanConsumeFood != null && !CanConsumeFood(account)) { error = "지금은 음식을 먹을 수 없습니다."; break; }
+                var food = InventorySnapshot.Find(a.a);
+                if (InventoryLedgerRules.TryEat(bag, a.a, out error))
+                {
+                    FoodConsumed?.Invoke(account, food);
+                    error = null;
+                }
                 break;
             case "p.bag":
                 if (InventoryLedgerRules.TryBag(bag, out error)) error = null;

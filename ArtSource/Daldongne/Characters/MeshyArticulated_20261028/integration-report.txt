@@ -1,0 +1,182 @@
+CompanyGame — Meshy articulated avatar integration
+2026-10-28 / Unity 6000.4.5f1 / branch codex/articulated-avatars
+
+RESULT
+Female: 13,927 triangles. Male: 13,628 triangles.
+Each model: valid Humanoid Avatar, 54 skin bones, 30 weighted finger joints,
+1.8 m height, one skinned renderer and two reusable solid material slots.
+Meshy supplied the generated body, remesh, 24-bone rig and animations.
+Local Blender processing corrected fused hand surfaces and added 3 joints per finger.
+Original generated source files and editable .blend files are preserved here.
+Meshy consumed 86 credits total. See provenance.json for all task IDs and project names.
+
+1. EXISTING FILES MODIFIED
+  CompanyGame/Assets/Art/Daldongne/Players/FemaleVisual.prefab
+  CompanyGame/Assets/Art/Daldongne/Players/MaleVisual.prefab
+  CompanyGame/Assets/Art/WorldDistricts/HandaeHQ/Lobby/Prefabs/15_NPCs.prefab
+  CompanyGame/Assets/Resources/Citizens/CitizenFemale.prefab
+  CompanyGame/Assets/Resources/Citizens/CitizenMale.prefab
+  CompanyGame/Assets/Scenes/Interiors/CivicLibraryInterior.unity
+  CompanyGame/Assets/Scenes/Templates/SmallMap.scenetemplate
+  CompanyGame/Assets/Scripts/Editor/Characters/MeshyFemaleImporter.cs
+  CompanyGame/Assets/Scripts/Editor/Characters/MeshyMaleImporter.cs
+  CompanyGame/Assets/Scripts/Editor/Characters/ReferenceGirlImporter.cs
+  CompanyGame/Assets/Scripts/Editor/Citizens/CitizenPrefabBuilder.cs
+  CompanyGame/Assets/Scripts/Editor/Citizens/CitizenQA.cs
+  CompanyGame/Assets/Scripts/Editor/HandaeLobbyNPCBuilder.cs
+  CompanyGame/Assets/Scripts/Editor/Net/CharacterQA.cs
+  CompanyGame/Assets/Scripts/Editor/WorldMaps/SmallMapSceneBuilder.cs
+  CompanyGame/Assets/Scripts/NPC/Citizen/CitizenSpawner.cs
+  CompanyGame/Assets/Scripts/Player/PlayerHeldItem.cs
+  CompanyGame/Assets/Scripts/Player/RemoteAvatarView.cs
+  CompanyGame/Assets/Scripts/World/DaldongneAvatarMotion.cs
+
+2. NEW FILES AND PURPOSE
+  prepare_articulated.py: reproducible Blender source preparation, hand retopology,
+    finger weighting, Unity FBX export and motion-only FBX extraction. Existing
+    legacy generators could not preserve the generated full humanoid rig.
+  MeshyArticulated_20261028/: generation source GLBs, reference/preview PNGs,
+    downloaded motion sources, editable blends, local journal exclusion, provenance
+    and this integration report. Raw signed download URLs are ignored with meshy_output/.
+  Unity FemaleArticulated.fbx and MaleArticulated.fbx: imported game-ready models.
+  Animations/: Walk, Run and Dance FBX plus reusable Humanoid .anim files per sex.
+  Unity .meta files preserve import configuration and stable asset identity.
+  No new runtime manager or runtime C# script was created.
+
+3. REUSED CLASSES / METHODS
+  ReferenceGirlImporter.RebuildArticulated / ValidateArticulated
+  MeshyFemaleImporter.Rebuild, MeshyMaleImporter.Rebuild
+  DaldongneAvatarMotion.Pose / SetSeated / SetCycling
+  PlayerHeldItem.BuildArm / SynchronizeSkinnedArm
+  CitizenPrefabBuilder.Build, CitizenQA.RunCharacterChecks
+  HandaeLobbyNPCBuilder, SmallMapSceneBuilder, CharacterQA
+  Existing DaldongnePlayerAppearance.Select, PlayerSpawner and RemoteAvatarView.
+
+4. DATA FLOW
+  Meshy sources -> Blender articulated FBX -> Unity Humanoid import -> existing
+  FemaleVisual/MaleVisual prefab identities -> persistent player, gender presets,
+  remote avatar and fixed NPC references. CitizenPrefabBuilder reuses the same
+  source skinned meshes for CitizenFemale/CitizenMale.
+  DaldongneAvatarMotion owns procedural poses and optional Playable clip playback.
+  First-person hand copies retain bind poses and weights, showing only arm/hand triangles.
+  Dialogue head anchors resolve to the new Humanoid head; four library anchors repaired.
+  Two seated Handae reception staff and one standing guard retain their NPC identities.
+  SmallMap template dependency cache refreshed to remove stale model entries.
+
+5. DUPLICATION / COMPATIBILITY
+  No duplicate player spawner, animation manager, inventory or economic system.
+  Existing shared visual root GUIDs/fileIDs, public movement APIs and player selection
+  paths retained. Player/NPC appearance references continue to use the same prefabs.
+  Independent font, AvatarState and AvatarSync changes were excluded and preserved.
+
+6. OLD ASSET REMOVAL / CALLER IMPACT
+  Removed 17 obsolete geometry assets, 13 unused materials and 1 obsolete palette,
+  together with their 31 .meta files (62 deleted files).
+  Before deletion, AssetDatabase.GetDependencies across all Assets returned zero
+  external references to this set after refreshing SmallMap.scenetemplate.
+  Original authored ArtSource character sources are preserved.
+  Legacy importer fallback remains available; current Rebuild paths select the new FBX.
+
+7. VERIFICATION AND LIMITS
+  PASS: Unity compilation after final code changes (scriptCompilationFailed=false).
+  PASS: female and male Humanoid mapping, finite vertices/normals, normalized weights,
+    54 bind poses/bones and positive weight on all 30 finger joints; 1.800 m scale.
+  PASS: existing player prefab links and rebuilt citizen prefab structural QA.
+  PASS: 24 preview renders covering idle, procedural walking, sitting, cycling,
+    fist, pointing, both hands and first-person hand copies.
+  PASS: every right-hand finger transform, vertex weight and bind pose matches the
+    first-person copy. Preview uses baked geometry to avoid stale editor GPU skin poses.
+  PASS: six looping Human clips: Walk 1.03 s, Run 0.63 s, Dance 8.17 s per sex.
+  PASS: live Play frames advanced (961 -> 975 during server-side wait_for).
+  PASS: female dance across 2,554 frames moved the sampled left hand 0.907 m;
+    male dance across 4,915 frames moved it 0.583 m. StopClip returned ownership.
+  PASS: live gender selection and first-person hand visibility for both models,
+    including normal held-item display with the current selected item.
+  PASS: all eight live citizens used valid new Humanoid avatars and moved 10.7-25.8 m
+    through their existing time-based walking plans (NavMeshAgent intentionally disabled).
+  PASS: final edit-mode validation after old-asset deletion, clean active scene,
+    and git diff --check. Tool timeouts, a screenshot path validation and a temporary
+    missing using directive were corrected; no character runtime exception observed.
+  Game-save JSON snapshots were restored after Play testing (2 changed files restored,
+    9 checked, no unexpected new JSON files); temporary backup copies were removed.
+  Not verified: two-client network rendering/synchronization, full production build,
+    every map traversal, or every future imported animation. One female dance FBX
+    retains an animation-import warning, while its valid Humanoid clip visibly plays.
+  This adds motion-ready assets/APIs; it does not add an emote menu or new input bindings.
+  Work remains local on codex/articulated-avatars, uncommitted and unpushed.
+
+USAGE
+  Existing locomotion/seat/bicycle callers keep using their existing APIs.
+  For a gesture: motion.SetFingerPose(true, 1f, true); // right index pointing
+  Clear gesture: motion.SetFingerPose(true, 0f);
+  For a body clip: motion.PlayClip(clip, true); motion.StopClip();
+  Load the matching {Female|Male}{Walk|Run|Dance}.anim in the Animations folder.
+  Body clips own the pose while playing; held-item poses do not overwrite them.
+
+MODEL FILES
+  C:\서현\프로젝트\companyGame\CompanyGame\Assets\Art\Daldongne\Players\MeshyFemale\FemaleArticulated.fbx
+  C:\서현\프로젝트\companyGame\CompanyGame\Assets\Art\Daldongne\Players\MeshyMale\MaleArticulated.fbx
+
+DELETED FILE ALLOWLIST
+  CompanyGame/Assets/Art/Citizens/CitizenFemaleBody.asset
+  CompanyGame/Assets/Art/Citizens/CitizenFemaleBody.asset.meta
+  CompanyGame/Assets/Art/Citizens/CitizenMaleBody.asset
+  CompanyGame/Assets/Art/Citizens/CitizenMaleBody.asset.meta
+  CompanyGame/Assets/Art/Daldongne/Players/Beveled octagonal mesh.asset
+  CompanyGame/Assets/Art/Daldongne/Players/Beveled octagonal mesh.asset.meta
+  CompanyGame/Assets/Art/Daldongne/Players/Faceted portrait mesh.asset
+  CompanyGame/Assets/Art/Daldongne/Players/Faceted portrait mesh.asset.meta
+  CompanyGame/Assets/Art/Daldongne/Players/Materials/Brass.mat
+  CompanyGame/Assets/Art/Daldongne/Players/Materials/Brass.mat.meta
+  CompanyGame/Assets/Art/Daldongne/Players/Materials/Canvas shoe.mat
+  CompanyGame/Assets/Art/Daldongne/Players/Materials/Canvas shoe.mat.meta
+  CompanyGame/Assets/Art/Daldongne/Players/Materials/Chestnut hair.mat
+  CompanyGame/Assets/Art/Daldongne/Players/Materials/Chestnut hair.mat.meta
+  CompanyGame/Assets/Art/Daldongne/Players/Materials/Indigo denim.mat
+  CompanyGame/Assets/Art/Daldongne/Players/Materials/Indigo denim.mat.meta
+  CompanyGame/Assets/Art/Daldongne/Players/Materials/Ink.mat
+  CompanyGame/Assets/Art/Daldongne/Players/Materials/Ink.mat.meta
+  CompanyGame/Assets/Art/Daldongne/Players/Materials/Leather.mat
+  CompanyGame/Assets/Art/Daldongne/Players/Materials/Leather.mat.meta
+  CompanyGame/Assets/Art/Daldongne/Players/Materials/Oatmeal cotton.mat
+  CompanyGame/Assets/Art/Daldongne/Players/Materials/Oatmeal cotton.mat.meta
+  CompanyGame/Assets/Art/Daldongne/Players/Materials/Ochre jacket.mat
+  CompanyGame/Assets/Art/Daldongne/Players/Materials/Ochre jacket.mat.meta
+  CompanyGame/Assets/Art/Daldongne/Players/Materials/Rose.mat
+  CompanyGame/Assets/Art/Daldongne/Players/Materials/Rose.mat.meta
+  CompanyGame/Assets/Art/Daldongne/Players/Materials/Sage cardigan.mat
+  CompanyGame/Assets/Art/Daldongne/Players/Materials/Sage cardigan.mat.meta
+  CompanyGame/Assets/Art/Daldongne/Players/Materials/Terracotta trousers.mat
+  CompanyGame/Assets/Art/Daldongne/Players/Materials/Terracotta trousers.mat.meta
+  CompanyGame/Assets/Art/Daldongne/Players/Materials/Warm skin.mat
+  CompanyGame/Assets/Art/Daldongne/Players/Materials/Warm skin.mat.meta
+  CompanyGame/Assets/Art/Daldongne/Players/MeshyFemale/FemaleBody.asset
+  CompanyGame/Assets/Art/Daldongne/Players/MeshyFemale/FemaleBody.asset.meta
+  CompanyGame/Assets/Art/Daldongne/Players/MeshyFemale/FemaleBody.fbx
+  CompanyGame/Assets/Art/Daldongne/Players/MeshyFemale/FemaleBody.fbx.meta
+  CompanyGame/Assets/Art/Daldongne/Players/MeshyMale/MaleBody.asset
+  CompanyGame/Assets/Art/Daldongne/Players/MeshyMale/MaleBody.asset.meta
+  CompanyGame/Assets/Art/Daldongne/Players/MeshyMale/MaleBody.fbx
+  CompanyGame/Assets/Art/Daldongne/Players/MeshyMale/MaleBody.fbx.meta
+  CompanyGame/Assets/Art/Daldongne/Players/ReferenceGirl/GirlPalette.png
+  CompanyGame/Assets/Art/Daldongne/Players/ReferenceGirl/GirlPalette.png.meta
+  CompanyGame/Assets/Art/Daldongne/Players/ReferenceGirl/Hair.asset
+  CompanyGame/Assets/Art/Daldongne/Players/ReferenceGirl/Hair.asset.meta
+  CompanyGame/Assets/Art/Daldongne/Players/ReferenceGirl/Head.asset
+  CompanyGame/Assets/Art/Daldongne/Players/ReferenceGirl/Head.asset.meta
+  CompanyGame/Assets/Art/Daldongne/Players/ReferenceGirl/Hips.asset
+  CompanyGame/Assets/Art/Daldongne/Players/ReferenceGirl/Hips.asset.meta
+  CompanyGame/Assets/Art/Daldongne/Players/ReferenceGirl/LeftArm.asset
+  CompanyGame/Assets/Art/Daldongne/Players/ReferenceGirl/LeftArm.asset.meta
+  CompanyGame/Assets/Art/Daldongne/Players/ReferenceGirl/LeftKnee.asset
+  CompanyGame/Assets/Art/Daldongne/Players/ReferenceGirl/LeftKnee.asset.meta
+  CompanyGame/Assets/Art/Daldongne/Players/ReferenceGirl/LeftLeg.asset
+  CompanyGame/Assets/Art/Daldongne/Players/ReferenceGirl/LeftLeg.asset.meta
+  CompanyGame/Assets/Art/Daldongne/Players/ReferenceGirl/ReferenceGirl.mat
+  CompanyGame/Assets/Art/Daldongne/Players/ReferenceGirl/ReferenceGirl.mat.meta
+  CompanyGame/Assets/Art/Daldongne/Players/ReferenceGirl/RightArm.asset
+  CompanyGame/Assets/Art/Daldongne/Players/ReferenceGirl/RightArm.asset.meta
+  CompanyGame/Assets/Art/Daldongne/Players/ReferenceGirl/RightKnee.asset
+  CompanyGame/Assets/Art/Daldongne/Players/ReferenceGirl/RightKnee.asset.meta
+  CompanyGame/Assets/Art/Daldongne/Players/ReferenceGirl/RightLeg.asset
+  CompanyGame/Assets/Art/Daldongne/Players/ReferenceGirl/RightLeg.asset.meta
