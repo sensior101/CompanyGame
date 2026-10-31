@@ -231,6 +231,7 @@ public sealed class SyncClient : MonoBehaviour
     {
         var entity = behaviour.Entity;
         if (!Connected || !entity.IsSpawned) return;
+        if (entity.IsMine) SendDirty(entity); // an action observes the owner's newest pose/place on the same ordered stream.
         int index = Array.IndexOf(entity.Behaviours, behaviour);
         byte[] blob = Capture(w => write?.Invoke(w));
         if (index >= 0 && blob != null) transport.Send(SyncProtocol.Event(entity.Id, (byte)index, id, target, blob));

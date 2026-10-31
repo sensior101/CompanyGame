@@ -70,6 +70,25 @@ public class PlayerCameraController : MonoBehaviour
     float blendFromFov, dialogueStartedAt, gameplayFov, dialogueSide, dialogueShotFov;
     bool dialogueActive, dialogueReturning;
 
+    private float shakeUntil, shakeDuration, shakeDegrees;
+
+    public void AddCombatShake(float seconds, float degrees)
+    {
+        if (IsDialogueCameraActive || menuInputLocks > 0) return;
+        shakeDuration = Mathf.Max(.01f, seconds);
+        shakeUntil = Time.unscaledTime + shakeDuration;
+        shakeDegrees = Mathf.Max(shakeDegrees, degrees);
+    }
+
+    void ApplyCombatShake()
+    {
+        float remaining = shakeUntil - Time.unscaledTime;
+        if (remaining <= 0f) { shakeDegrees = 0f; return; }
+        float t = Time.unscaledTime * 93f;
+        float amount = shakeDegrees * Mathf.Clamp01(remaining / shakeDuration);
+        transform.rotation *= Quaternion.Euler(Mathf.Sin(t) * amount, Mathf.Cos(t * .81f) * amount * .6f, 0f);
+    }
+
     private float yaw;
     private float pitch = 25f;
     private Camera playerCamera;
@@ -259,6 +278,7 @@ public class PlayerCameraController : MonoBehaviour
                 RestoreAllObstacles();
             }
         }
+        if (!IsDialogueCameraActive) ApplyCombatShake();
     }
 
     public void HoldMenuInput()

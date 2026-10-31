@@ -47,6 +47,7 @@ namespace CompanyGame.Editor.Characters
         public static void RebuildMenu() => Debug.Log(Rebuild());
         public static string Rebuild()
         {
+            if (File.Exists(ReferenceGirlImporter.ArticulatedPath(false))) return ReferenceGirlImporter.RebuildArticulated(false);
             if (EditorApplication.isPlayingOrWillChangePlaymode || EditorUtility.scriptCompilationFailed)
                 throw new InvalidOperationException("Import requires edit mode and no compilation errors.");
             for (int i=0;i<UnityEngine.SceneManagement.SceneManager.sceneCount;i++)
@@ -145,6 +146,7 @@ namespace CompanyGame.Editor.Characters
         public static string Validate()
         {
             var prefab=AssetDatabase.LoadAssetAtPath<GameObject>(Visual);
+            if (ReferenceGirlImporter.IsArticulated(prefab)) return ReferenceGirlImporter.ValidateArticulated(prefab, true);
             var skin=prefab.GetComponentInChildren<SkinnedMeshRenderer>(true);
             if(!skin || !skin.sharedMesh || skin.bones.Length!=10 || skin.bones.Any(b=>!b))
                 throw new InvalidOperationException("Female skin or bones missing.");

@@ -1,0 +1,77 @@
+{
+  "created": "2026-10-28",
+  "generator": "Meshy API via meshy-cli 0.4.0",
+  "consumedCredits": 86,
+  "reference": "User-supplied female/male low-poly avatar sheet; isolated T-pose references prepared with imagegen.",
+  "localProcessing": "Original Meshy body preserved; remeshed, 24-bone autorig extended to 54 bones with 30 independently weighted finger joints. Fused hand surfaces retopologized locally. Unity Humanoid scale 1.8m, two solid material slots.",
+  "models": [
+    {
+      "sex": "Female",
+      "project": "20261028_190852_companygame-female-articulated_01a181fb",
+      "tasks": [
+        {
+          "resource": "image-to-3d",
+          "id": "01a181fb-a840-7008-b594-eead42c236ba",
+          "consumedCredits": 30
+        },
+        {
+          "resource": "remesh",
+          "id": "01a181fe-cc87-7016-b6fb-507849168796",
+          "consumedCredits": 5
+        },
+        {
+          "resource": "rigging",
+          "id": "01a18200-e793-7725-abda-4b42d4ba7a39",
+          "consumedCredits": 5
+        },
+        {
+          "resource": "animate",
+          "id": "01a18203-6560-738b-9e87-a17255d71c4d",
+          "actionId": 64,
+          "consumedCredits": 3
+        }
+      ],
+      "source": "FemaleSource.glb",
+      "rig": "FemaleRigged.glb",
+      "editable": "FemaleArticulated.blend",
+      "unityFbx": "CompanyGame/Assets/Art/Daldongne/Players/MeshyFemale/FemaleArticulated.fbx",
+      "triangles": 13927,
+      "bones": 54,
+      "weightedFingerJoints": 30
+    },
+    {
+      "sex": "Male",
+      "project": "20261028_190929_companygame-male-articulated_01a181fb",
+      "tasks": [
+        {
+          "resource": "image-to-3d",
+          "id": "01a181fb-f7ee-72bf-abc9-5b41ac8900b6",
+          "consumedCredits": 30
+        },
+        {
+          "resource": "remesh",
+          "id": "01a181fe-d5a9-71a2-ae69-2edce74fe105",
+          "consumedCredits": 5
+        },
+        {
+          "resource": "rigging",
+          "id": "01a18200-eada-7724-81bf-65ee07b3102c",
+          "consumedCredits": 5
+        },
+        {
+          "resource": "animate",
+          "id": "01a18203-74d9-705a-ba36-df5f89cb0d6a",
+          "actionId": 64,
+          "consumedCredits": 3
+        }
+      ],
+      "source": "MaleSource.glb",
+      "rig": "MaleRigged.glb",
+      "editable": "MaleArticulated.blend",
+      "unityFbx": "CompanyGame/Assets/Art/Daldongne/Players/MeshyMale/MaleArticulated.fbx",
+      "triangles": 13628,
+      "bones": 54,
+      "weightedFingerJoints": 30
+    }
+  ]
+}

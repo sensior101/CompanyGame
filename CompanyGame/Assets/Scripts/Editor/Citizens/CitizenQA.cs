@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Text;
 using CompanyGame.Daldongne;
+using CompanyGame.Editor.Characters;
 using Unity.AI.Navigation;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -43,6 +44,17 @@ namespace CompanyGame.Editor.Citizens
 
         static void Note(string level, string message) => Log.AppendLine(level + " " + message);
 
+        [MenuItem("Tools/Company Game/Citizens/Validate Character Prefabs")]
+        public static void RunCharacterChecks()
+        {
+            Log.Clear(); failures = 0;
+            CheckBodySize();
+            CheckPrefab("CitizenMale");
+            CheckPrefab("CitizenFemale");
+            Debug.Log("[CitizenQA Characters]\n" + Log);
+            if (failures > 0) throw new InvalidOperationException("Citizen character QA: " + failures + " failure(s), see log above.");
+        }
+
         static void CheckInfo()
         {
             Check(CitizenInfo.Names.Length >= 20 && CitizenInfo.Names.Distinct().Count() == CitizenInfo.Names.Length, "20+ distinct names");
@@ -63,14 +75,61 @@ namespace CompanyGame.Editor.Citizens
                 var visual = AssetDatabase.LoadAssetAtPath<GameObject>(path);
                 Check(visual, path + " exists");
                 if (!visual) continue;
+                if (ReferenceGirlImporter.IsArticulated(visual))
+                {
+                    CheckHumanoidBodySize(visual, path);
+                    continue;
+                }
                 foreach (var skin in visual.GetComponentsInChildren<SkinnedMeshRenderer>(true).Where(s => s.sharedMesh))
                 {
                     Vector3 size = Vector3.Scale(skin.sharedMesh.bounds.size, skin.transform.lossyScale);
                     half = Mathf.Max(half, Mathf.Abs(size.x) * .5f, Mathf.Abs(size.z) * .5f);
                 }
             }
-            Check(Mathf.Abs(half - BodySize.Radius) <= .03f, "BodySize.Radius " + BodySize.Radius.ToString("0.00") + " matches the widest avatar half-width " + half.ToString("0.00")
-                + " (within 3 cm; otherwise set BodySize.Radius to " + half.ToString("0.00") + ", rebuild citizen prefabs and re-bake navigation)");
+            if (half > 0f)
+                Check(Mathf.Abs(half - BodySize.Radius) <= .03f, "BodySize.Radius " + BodySize.Radius.ToString("0.00") + " matches the widest legacy avatar half-width " + half.ToString("0.00")
+                    + " (within 3 cm; otherwise set BodySize.Radius to " + half.ToString("0.00") + ", rebuild citizen prefabs and re-bake navigation)");
+        }
+
+        static void CheckHumanoidBodySize(GameObject visual, string path)
+        {
+            var animator = visual.GetComponent<DaldongneAvatarMotion>().rigAnimator;
+            var skin = visual.GetComponentInChildren<SkinnedMeshRenderer>(true);
+            if (!animator || !skin || !skin.sharedMesh || !skin.sharedMesh.isReadable)
+            {
+                Check(false, path + " readable humanoid skin for body-size check");
+                return;
+            }
+            // A Humanoid import has its arms spread in the reference pose. Collision follows the core body,
+            // while hands may reach past the capsule during pointing, waving or other animation.
+            var core = new[] { HumanBodyBones.Hips, HumanBodyBones.Spine, HumanBodyBones.Chest,
+                HumanBodyBones.UpperChest, HumanBodyBones.Neck, HumanBodyBones.Head }
+                .Select(animator.GetBoneTransform).Where(t => t).ToArray();
+            var coreIndices = Enumerable.Range(0, skin.bones.Length).Where(i => core.Contains(skin.bones[i])).ToArray();
+            float radius = 0f; int samples = 0;
+            var mesh = skin.sharedMesh; var vertices = mesh.vertices;
+            {
+                // NativeArray views are owned by Mesh, not by this validation pass.
+                var counts = mesh.GetBonesPerVertex();
+                var weights = mesh.GetAllBoneWeights();
+                if (counts.Length != vertices.Length) { Check(false, path + " has complete skin weights"); return; }
+                int offset = 0;
+                for (int v = 0; v < vertices.Length; v++)
+                {
+                    float influence = 0f;
+                    for (int w = 0; w < counts[v]; w++)
+                    {
+                        if (offset >= weights.Length) { Check(false, path + " has complete skin weights"); return; }
+                        var weight = weights[offset++];
+                        if (coreIndices.Contains(weight.boneIndex)) influence += weight.weight;
+                    }
+                    if (influence < .5f) continue;
+                    Vector3 point = visual.transform.InverseTransformPoint(skin.transform.TransformPoint(vertices[v]));
+                    radius = Mathf.Max(radius, new Vector2(point.x, point.z).magnitude); samples++;
+                }
+            }
+            Check(samples > 0 && radius <= BodySize.Radius + .03f, path + " core body radius " + radius.ToString("F3")
+                + " fits shared capsule " + BodySize.Radius.ToString("F2") + " (3 cm tolerance)");
         }
 
         static void CheckPrefab(string name)
@@ -80,8 +139,15 @@ namespace CompanyGame.Editor.Citizens
             if (!prefab) return;
             var skin = prefab.GetComponentInChildren<SkinnedMeshRenderer>(true);
             int triangles = skin && skin.sharedMesh ? skin.sharedMesh.triangles.Length / 3 : -1;
-            Check(triangles > 0 && triangles <= CitizenPrefabBuilder.TriangleBudget, name + " triangles " + triangles + " <= " + CitizenPrefabBuilder.TriangleBudget);
-            Check(skin && skin.bones.Length == 10 && skin.bones.All(b => b) && skin.sharedMesh.bindposes.Length == 10, name + " keeps the 10-bone rig");
+            int budget = CitizenPrefabBuilder.TriangleBudgetFor(prefab);
+            Check(triangles > 0 && triangles <= budget, name + " triangles " + triangles + " <= " + budget);
+            if (ReferenceGirlImporter.IsArticulated(prefab))
+            {
+                try { Note("PASS", ReferenceGirlImporter.ValidateArticulated(prefab)); }
+                catch (Exception ex) { Check(false, name + " articulated rig: " + ex.Message); }
+            }
+            else Check(skin && skin.sharedMesh && skin.bones.Length == 10 && skin.bones.All(b => b) && skin.sharedMesh.bindposes.Length == 10,
+                name + " keeps the legacy 10-bone rig");
             var motion = prefab.GetComponent<DaldongneAvatarMotion>();
             Check(motion && motion.hips && motion.leftLeg && motion.rightLeg && motion.leftKnee && motion.rightKnee && motion.leftArm && motion.rightArm,
                 name + " DaldongneAvatarMotion bones assigned");

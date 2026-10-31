@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using CompanyGame.Daldongne;
 using CompanyGame.World.Maps;
 using UnityEditor;
@@ -59,11 +60,52 @@ namespace CompanyGame.Editor.WorldMaps
                     dependency.instantiationMode = TemplateInstantiationMode.Reference;
                 EditorUtility.SetDirty(template);
             }
+            RefreshTemplateDependencies();
             AddBuildScene(VillageScenePath, true);
             AddBuildScene(ExampleScenePath, false);
             AssetDatabase.SaveAssets();
             SceneManager.SetActiveScene(village);
             Debug.Log("[World maps] Village hierarchy, pocket garden and Small Map scene template are ready.");
+        }
+
+        [MenuItem("Tools/Company Game/Maps/Refresh Small Map Template Dependencies")]
+        public static void RefreshTemplateDependenciesMenu() => Debug.Log(RefreshTemplateDependencies());
+
+        /// <summary>Refreshes Unity's serialized template cache after a shared character or other scene dependency changes.</summary>
+        public static string RefreshTemplateDependencies()
+        {
+            RequireCleanScenes();
+            if (EditorUtility.scriptCompilationFailed)
+                throw new InvalidOperationException("Resolve script compilation errors before refreshing the scene template.");
+            var template = AssetDatabase.LoadAssetAtPath<SceneTemplateAsset>(TemplateAssetPath);
+            if (!template || !template.isValid || AssetDatabase.GetAssetPath(template.templateScene) != TemplateScenePath)
+                throw new InvalidOperationException("Small Map template must reference the existing SmallMapTemplate scene.");
+            // Unity 6000.4 exposes the template data publicly, but its own dependency collector is internal.
+            // Reuse it instead of reproducing cloning/reference rules or recreating the template asset.
+            var update = typeof(SceneTemplateAsset).GetMethod("UpdateDependencies", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                null, Type.EmptyTypes, null);
+            if (update == null || update.ReturnType != typeof(bool))
+                throw new NotSupportedException("This Unity version has no supported SceneTemplateAsset.UpdateDependencies method.");
+            var before = new HashSet<string>((template.dependencies ?? Array.Empty<DependencyInfo>())
+                .Where(d => d.dependency).Select(d => AssetDatabase.GetAssetPath(d.dependency)));
+            try { update.Invoke(template, null); }
+            catch (TargetInvocationException ex) { throw new InvalidOperationException("Unity could not refresh the Small Map template dependency cache.", ex.InnerException ?? ex); }
+            var sceneDependencies = new HashSet<string>(AssetDatabase.GetDependencies(TemplateScenePath, true));
+            foreach (var dependency in template.dependencies)
+            {
+                if (!dependency.dependency) throw new InvalidOperationException("Template refresh produced a missing dependency.");
+                string path = AssetDatabase.GetAssetPath(dependency.dependency);
+                if (path.StartsWith("Assets/", StringComparison.Ordinal) && !sceneDependencies.Contains(path))
+                    throw new InvalidOperationException("Template still references an asset outside the source scene dependency graph: " + path);
+                if (path.StartsWith("Assets/Art/Daldongne/Players/", StringComparison.Ordinal) || path == "Assets/Resources/Player.prefab")
+                    dependency.instantiationMode = TemplateInstantiationMode.Reference;
+            }
+            var after = new HashSet<string>(template.dependencies.Select(d => AssetDatabase.GetAssetPath(d.dependency)));
+            // UpdateDependencies only marks new additions dirty; removals must also be persisted.
+            EditorUtility.SetDirty(template);
+            AssetDatabase.SaveAssetIfDirty(template);
+            return "Small Map template dependencies refreshed: " + before.Count + " -> " + after.Count
+                + "; removed " + before.Except(after).Count() + ", added " + after.Except(before).Count() + ".";
         }
 
         [MenuItem("Tools/Company Game/Maps/Create Small Map")]

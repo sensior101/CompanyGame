@@ -18,7 +18,7 @@ using UnityEngine;
 public sealed class CharacterSync : MonoBehaviour
 {
     const float SaveInterval = 30f;
-    const byte ContentVersion = 1;
+    const byte ContentVersion = 2; // v1 remains readable; v2 appends server-owned combat health.
 
     static CharacterSync instance;
     bool applied;
@@ -90,6 +90,8 @@ public sealed class CharacterSync : MonoBehaviour
         if (!string.IsNullOrEmpty(saved.inventory)) InventorySnapshot.Import(InventoryManager.Instance.State, saved.inventory);
         if (!string.IsNullOrEmpty(saved.personal)) PersonalSave.Import(saved.personal);
         var player = PlayerSpawner.Player;
+        if (saved.hasCombatHealth && player.TryGetComponent<PlayerStats>(out var stats))
+            stats.ApplyAuthoritativeHealth(saved.combatHealth);
         if (saved.map == SceneLoadManager.CurrentMap.path)
         {
             player.spawn = saved.position;
@@ -135,6 +137,8 @@ public sealed class CharacterSync : MonoBehaviour
         public string map, personal, inventory;
         public Vector3 position;
         public float yaw;
+        public bool hasCombatHealth;
+        public float combatHealth;
     }
 
     /// <summary>The content blob of the character as it is now (also used by QA to measure it).</summary>
@@ -164,6 +168,8 @@ public sealed class CharacterSync : MonoBehaviour
             w.Write(saved.yaw);
             w.Write(saved.personal ?? "");
             w.Write(saved.inventory ?? "");
+            w.Write(saved.hasCombatHealth);
+            w.Write(saved.combatHealth);
         }
         return stream.ToArray();
     }
@@ -177,12 +183,19 @@ public sealed class CharacterSync : MonoBehaviour
         {
             using var gzip = new GZipStream(new MemoryStream(content, false), CompressionMode.Decompress);
             using var r = new BinaryReader(gzip, Encoding.UTF8);
-            if (r.ReadByte() != ContentVersion) return false;
+            byte version = r.ReadByte();
+            if (version != 1 && version != ContentVersion) return false;
             saved.map = r.ReadString();
             saved.position = new Vector3(r.ReadSingle(), r.ReadSingle(), r.ReadSingle());
             saved.yaw = r.ReadSingle();
             saved.personal = r.ReadString();
             saved.inventory = r.ReadString();
+            if (version >= 2)
+            {
+                saved.hasCombatHealth = r.ReadBoolean();
+                saved.combatHealth = r.ReadSingle();
+                if (saved.hasCombatHealth && (float.IsNaN(saved.combatHealth) || float.IsInfinity(saved.combatHealth))) return false;
+            }
             return true;
         }
         catch (Exception e) { Debug.LogWarning("[CharacterSync] unreadable content: " + e.Message); return false; }

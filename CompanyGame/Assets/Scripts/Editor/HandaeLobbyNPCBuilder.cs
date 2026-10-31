@@ -26,7 +26,12 @@ public static class HandaeLobbyNPCBuilder
 
     public static void Place(Transform lobby)
     {
-        if (lobby.Find("15_NPCs")) { HandaeLobbyWorldSetup.BindStaffSeats(lobby); return; }
+        if (lobby.Find("15_NPCs"))
+        {
+            RebindStaffPoses(lobby.Find("15_NPCs"));
+            HandaeLobbyWorldSetup.BindStaffSeats(lobby);
+            return;
+        }
         var male = AssetDatabase.LoadAssetAtPath<GameObject>(MalePath);
         if (!male) throw new InvalidOperationException("Existing male avatar is missing.");
         var chairs = lobby.GetComponentsInChildren<Transform>().Where(t => t.name == "Lobby armchair").OrderBy(t => t.position.x).ToArray();
@@ -54,33 +59,94 @@ public static class HandaeLobbyNPCBuilder
         HandaeLobbyWorldSetup.BindStaffSeats(lobby);
     }
 
+    [MenuItem("CompanyGame/Setup/Rebind Handae Staff Avatar Poses")]
+    public static void RebindStaffPrefab()
+    {
+        if (EditorApplication.isPlayingOrWillChangePlaymode || EditorUtility.scriptCompilationFailed)
+            throw new InvalidOperationException("Staff pose rebinding requires Edit Mode and no compilation errors.");
+        var root = PrefabUtility.LoadPrefabContents(PrefabPath);
+        try
+        {
+            int count = RebindStaffPoses(root.transform);
+            if (count != 3) throw new InvalidOperationException("Expected two reception staff and one gate staff.");
+            PrefabUtility.SaveAsPrefabAsset(root, PrefabPath);
+        }
+        finally { PrefabUtility.UnloadPrefabContents(root); }
+        AssetDatabase.SaveAssets();
+    }
+
+    public static int RebindStaffPoses(Transform group)
+    {
+        var source = AssetDatabase.LoadAssetAtPath<GameObject>(MalePath);
+        if (!source) throw new InvalidOperationException("Existing male avatar is missing.");
+        int count = 0;
+        foreach (var data in group.GetComponentsInChildren<DialogueData>(true))
+        {
+            bool seated = data.npcId == "handae_reception_1" || data.npcId == "handae_reception_2";
+            if (!seated && data.npcId != "handae_gate_staff") continue;
+            var motion = data.GetComponentInChildren<DaldongneAvatarMotion>(true);
+            if (!motion || PrefabUtility.GetCorrespondingObjectFromSource(motion.gameObject) != source)
+                throw new InvalidOperationException("Staff must retain its existing MaleVisual connection: " + data.npcId);
+            var visual = motion.gameObject;
+            var position = visual.transform.localPosition; var rotation = visual.transform.localRotation;
+            var scale = visual.transform.localScale; bool active = visual.activeSelf;
+            // Old rigid-bone fileIDs cannot be carried to an imported skeleton. Revert only the nested
+            // visual instance; the staff root, dialogue, seat assignment and SpeechAnchor retain their IDs.
+            PrefabUtility.RevertPrefabInstance(visual, InteractionMode.AutomatedAction);
+            visual.transform.localPosition = position; visual.transform.localRotation = rotation;
+            visual.transform.localScale = scale; visual.SetActive(active);
+            float top = ApplyFixedPose(data.transform, visual, seated);
+            if (data.head && data.head.parent == data.transform && data.head.name == "SpeechAnchor")
+            {
+                data.head.localPosition = Vector3.up * (top + .15f);
+                EditorUtility.SetDirty(data.head);
+                if (PrefabUtility.IsPartOfPrefabInstance(data.head)) PrefabUtility.RecordPrefabInstancePropertyModifications(data.head);
+            }
+            count++;
+        }
+        return count;
+    }
+
+    static float ApplyFixedPose(Transform root, GameObject visual, bool seated)
+    {
+        var motion = visual.GetComponent<DaldongneAvatarMotion>();
+        if (!motion) throw new InvalidOperationException("Staff visual has no motion owner.");
+        // Disable before posing: OnDisable restores the cached neutral pose when called later.
+        motion.enabled = false;
+        if (motion.HasHumanoidRig) motion.ConfigureHumanoid(motion.rigAnimator);
+        motion.SetSeated(seated);
+        foreach (var bone in visual.GetComponentsInChildren<Transform>(true))
+            PrefabUtility.RecordPrefabInstancePropertyModifications(bone);
+        if (motion.rigAnimator) PrefabUtility.RecordPrefabInstancePropertyModifications(motion.rigAnimator);
+        PrefabUtility.RecordPrefabInstancePropertyModifications(motion);
+        float top = 0f;
+        foreach (var skin in visual.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+        {
+            var mesh = new Mesh();
+            try
+            {
+                skin.BakeMesh(mesh);
+                skin.localBounds = mesh.bounds; skin.updateWhenOffscreen = true;
+                for (int corner = 0; corner < 8; corner++)
+                {
+                    Vector3 point = mesh.bounds.center + Vector3.Scale(mesh.bounds.extents,
+                        new Vector3((corner & 1) == 0 ? -1 : 1, (corner & 2) == 0 ? -1 : 1, (corner & 4) == 0 ? -1 : 1));
+                    top = Mathf.Max(top, root.InverseTransformPoint(skin.transform.TransformPoint(point)).y);
+                }
+                PrefabUtility.RecordPrefabInstancePropertyModifications(skin);
+            }
+            finally { UnityEngine.Object.DestroyImmediate(mesh); }
+        }
+        return top > 0f ? top : seated ? 1.3f : 1.8f;
+    }
+
     static DialogueData Create(Transform parent, GameObject male, string name, Vector3 position, bool seated)
     {
         var root = new GameObject(name);
         root.transform.SetParent(parent, false); root.transform.position = position;
         root.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
         var visual = (GameObject)PrefabUtility.InstantiatePrefab(male, root.transform);
-        var motion = visual.GetComponent<DaldongneAvatarMotion>();
-        if (motion) motion.enabled = false;
-        if (seated && motion)
-        {
-            var hips = motion.hips.localPosition; hips.y = .54f; motion.hips.localPosition = hips;
-            motion.leftLeg.localRotation = motion.rightLeg.localRotation = Quaternion.Euler(-90f, 0f, 0f);
-            motion.leftKnee.localRotation = motion.rightKnee.localRotation = Quaternion.Euler(90f, 0f, 0f);
-            motion.leftArm.localRotation = motion.rightArm.localRotation = Quaternion.Euler(-25f, 0f, 0f);
-            motion.leftForearm.localRotation = motion.rightForearm.localRotation = Quaternion.Euler(-55f, 0f, 0f);
-            foreach (var t in visual.GetComponentsInChildren<Transform>()) PrefabUtility.RecordPrefabInstancePropertyModifications(t);
-        }
-        if (motion) PrefabUtility.RecordPrefabInstancePropertyModifications(motion);
-        float top = 1.8f;
-        foreach (var skin in visual.GetComponentsInChildren<SkinnedMeshRenderer>())
-        {
-            var mesh = new Mesh(); skin.BakeMesh(mesh);
-            skin.localBounds = mesh.bounds; skin.updateWhenOffscreen = true;
-            top = root.transform.InverseTransformPoint(skin.transform.TransformPoint(mesh.bounds.max)).y;
-            UnityEngine.Object.DestroyImmediate(mesh);
-            PrefabUtility.RecordPrefabInstancePropertyModifications(skin);
-        }
+        float top = ApplyFixedPose(root.transform, visual, seated);
         var anchor = new GameObject("SpeechAnchor").transform;
         anchor.SetParent(root.transform, false); anchor.localPosition = Vector3.up * (top + .15f);
         var collider = root.AddComponent<CapsuleCollider>();
