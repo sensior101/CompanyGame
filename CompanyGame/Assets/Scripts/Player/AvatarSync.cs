@@ -56,6 +56,12 @@ public sealed class AvatarSync : MonoBehaviour
         template.AddComponent<NetTransform>();
         template.AddComponent<AvatarState>();
         template.AddComponent<RemoteAvatarView>();
+        // Keep the authored remote body for local aiming; only ServerCombat may turn an intent into player damage.
+        if (!template.GetComponent<Collider>())
+        {
+            var body = template.AddComponent<CapsuleCollider>();
+            body.center = Vector3.up * .9f; body.height = 1.8f; body.radius = .35f;
+        }
         return template;
     }
 
@@ -98,6 +104,7 @@ public sealed class AvatarSync : MonoBehaviour
             proxy = Instantiate(template, player.position, Quaternion.Euler(0f, player.eulerAngles.y, 0f));
             proxy.name = "AvatarSync (mine)";
             DestroyImmediate(proxy.GetComponent<RemoteAvatarView>());
+            foreach (var collider in proxy.GetComponentsInChildren<Collider>(true)) DestroyImmediate(collider); // my own punches must not hit it
             foreach (Transform child in proxy.transform) child.gameObject.SetActive(false); // the looks: nothing to render here
             proxy.SetActive(true);
             DontDestroyOnLoad(proxy);
@@ -105,6 +112,7 @@ public sealed class AvatarSync : MonoBehaviour
             speed = 0f;
             Share(player);
             client.Spawn(PrefabKey, proxy, EntityFlags.FollowsOwnerMap);
+            WatchAttacks();
             return;
         }
         float dt = Time.deltaTime;
@@ -140,6 +148,16 @@ public sealed class AvatarSync : MonoBehaviour
 
     void OnAttack(bool shot)
     {
-        if (state) state.SendPunch();
+        if (state && combat)
+        {
+            var player = PlayerSpawner.Player;
+            if (player)
+            {
+                proxy.transform.SetPositionAndRotation(player.transform.position, Quaternion.Euler(0f, player.transform.eulerAngles.y, 0f));
+                Share(player.transform);
+            }
+            WorldStateSync.FlushBooks(); // an immediately moved hotbar item reaches the existing ledger before its attack intent.
+            state.SendAttack(combat);
+        }
     }
 }

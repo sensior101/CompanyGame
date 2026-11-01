@@ -119,6 +119,10 @@ public sealed class GameServer
     public Func<uint, ulong, bool> ClaimFilter;
     /// <summary>(connection, entity id, component, blob) → the blob to keep and send, or null to drop that State (12.10.5).</summary>
     public Func<uint, ulong, byte, byte[], byte[]> StateFilter;
+    /// <summary>Game policy for client events. False rejects both relays and server requests; exceptions fail closed.</summary>
+    public Func<uint, ulong, byte, byte, EventTarget, byte[], bool> EventFilter;
+    /// <summary>Read-only enumeration for server game services; do not mutate entities while enumerating.</summary>
+    public IEnumerable<ulong> EntityIds => entities.Keys;
     /// <summary>
     /// (connection, account) of a character entering the world, before its Character goes out (12.10.5): the game may
     /// change its content then (what it is given on entering).
@@ -479,6 +483,11 @@ public sealed class GameServer
         SyncProtocol.End(r);
         if (target > EventTarget.Server) throw new InvalidDataException("event target " + (byte)target);
         if (!entities.TryGetValue(id, out var e) || !Sees(c, e.map) || component >= e.blobs.Length) return;
+        if (EventFilter != null)
+        {
+            try { if (!EventFilter(c.number, id, component, eventId, target, blob)) return; }
+            catch (Exception ex) { Log?.Invoke("event filter failed (the Event is dropped): " + ex.Message); return; }
+        }
         if (e.byServer && target != EventTarget.Server) return; // a server entity talks only with the server (no relay to everyone)
         if (target == EventTarget.Server)
         {

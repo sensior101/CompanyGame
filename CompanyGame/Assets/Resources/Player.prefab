@@ -18,6 +18,8 @@ GameObject:
   - component: {fileID: 834722474874166248}
   - component: {fileID: 9116354131920623779}
   - component: {fileID: 2664952249881965256}
+  - component: {fileID: 2362567156158285077}
+  - component: {fileID: 9002657501989800292}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -181,9 +183,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerCombat
   punchDamage: 10
-  punchRange: 1.65
-  punchRadius: 0.24
+  punchRange: 0.52
+  punchRadius: 0.1
   punchesPerSecond: 2
+  comboWindow: 0.65
+  inputBufferSeconds: 0.18
+  contactNormalized: 0.36
+  attackHalfAngle: 65
+  attackingMoveMultiplier: 0.8
+  attackTurnSpeed: 720
   hitLayers:
     serializedVersion: 2
     m_Bits: 4294967295
@@ -212,6 +220,50 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b8386027d2e69a343ac99eee4b3ed03d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: CompanyGame.Player::PlayerVehicle
+--- !u!114 &2362567156158285077
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5520820012047566202}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5a0519eca70343c29853e8fa912c61e2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: CompanyGame.Player::PlayerHitReaction
+  faceStun: 0.26
+  bodyStun: 0.32
+  heavyStun: 0.5
+  knockdownSeconds: 0.85
+  getUpSeconds: 0.85
+  heavyHitsToKnockdown: 2
+  heavyChainWindow: 2
+  normalKnockback: 0.22
+  heavyKnockback: 0.65
+  knockbackSeconds: 0.18
+  collisionLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+--- !u!114 &9002657501989800292
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5520820012047566202}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 300ca4df679b42d6af257204ae83eb2c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: CompanyGame.Player::CombatFeedback
+  swingClips: []
+  hitClips: []
+  heavyHitClips: []
+  volume: 0.55
+  pitchVariation: 0.07
+  synthesizeWhenEmpty: 1
+  cameraShake: 1
 --- !u!1001 &3815670801338260312
 PrefabInstance:
   m_ObjectHideFlags: 0

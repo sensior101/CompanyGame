@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using CompanyGame.Daldongne;
+using CompanyGame.Editor.Characters;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.AI;
@@ -10,9 +11,9 @@ namespace CompanyGame.Editor.Citizens
 {
     /// <summary>
     /// Builds Resources/Citizens/CitizenMale|CitizenFemale from the player's MaleVisual/FemaleVisual.
-    /// The Meshy bodies have 212k-226k triangles, so the skinned mesh is simplified by vertex clustering
-    /// to at most TriangleBudget. The 10-bone rig, bind poses, materials and DaldongneAvatarMotion are kept,
-    /// so the walking pose still comes from position changes. Idempotent: the source prefabs are never touched.
+    /// Already budgeted skins are reused without changing their finger weights or material boundaries.
+    /// Legacy high-resolution skins are simplified; the complete rig, Avatar and motion owner are kept.
+    /// Idempotent: the source prefabs are never touched.
     /// </summary>
     public static class CitizenPrefabBuilder
     {
@@ -21,6 +22,9 @@ namespace CompanyGame.Editor.Citizens
         public const string MeshFolder = "Assets/Art/Citizens";
         public const string MaleVisual = "Assets/Art/Daldongne/Players/MaleVisual.prefab";
         public const string FemaleVisual = "Assets/Art/Daldongne/Players/FemaleVisual.prefab";
+
+        public static int TriangleBudgetFor(GameObject visual) => ReferenceGirlImporter.IsArticulated(visual)
+            ? ReferenceGirlImporter.ArticulatedTriangleBudget : TriangleBudget;
 
         [MenuItem("Tools/Company Game/Citizens/Build Citizen Prefabs")]
         public static void Build()
@@ -40,8 +44,15 @@ namespace CompanyGame.Editor.Citizens
             string visual = female ? FemaleVisual : MaleVisual;
             var source = AssetDatabase.LoadAssetAtPath<GameObject>(visual);
             if (!source) throw new InvalidOperationException("Missing " + visual);
-            var sourceMesh = source.GetComponentInChildren<SkinnedMeshRenderer>(true).sharedMesh;
-            var mesh = SaveMesh(Simplify(sourceMesh, TriangleBudget), MeshFolder + "/" + name + "Body.asset");
+            var sourceSkin = source.GetComponentInChildren<SkinnedMeshRenderer>(true);
+            if (!sourceSkin || !sourceSkin.sharedMesh) throw new InvalidOperationException("Missing skin in " + visual);
+            var sourceMesh = sourceSkin.sharedMesh;
+            int budget = TriangleBudgetFor(source);
+            if (ReferenceGirlImporter.IsArticulated(source) && sourceMesh.triangles.Length / 3 > budget)
+                throw new InvalidOperationException(visual + " exceeds the articulated " + budget + " triangle budget; reduce the source mesh while preserving finger deformation loops.");
+            // Clustering an already game-ready hand can merge adjacent fingers and erase their weights.
+            var mesh = sourceMesh.triangles.Length / 3 <= budget ? sourceMesh
+                : SaveMesh(Simplify(sourceMesh, budget), MeshFolder + "/" + name + "Body.asset");
             var root = PrefabUtility.LoadPrefabContents(visual);
             try
             {
@@ -51,6 +62,7 @@ namespace CompanyGame.Editor.Citizens
                 skin.updateWhenOffscreen = false;
                 if (!root.GetComponent<DaldongneAvatarMotion>()) throw new InvalidOperationException(visual + " has no DaldongneAvatarMotion.");
                 AddCitizenParts(root);
+                if (ReferenceGirlImporter.IsArticulated(root)) ReferenceGirlImporter.ValidateArticulated(root);
                 PrefabUtility.SaveAsPrefabAsset(root, PrefabFolder + "/" + name + ".prefab");
             }
             finally { PrefabUtility.UnloadPrefabContents(root); }
@@ -119,6 +131,9 @@ namespace CompanyGame.Editor.Citizens
 
         public static Mesh Simplify(Mesh source, int maxTriangles)
         {
+            if (!source) throw new ArgumentNullException(nameof(source));
+            if (maxTriangles < 1) throw new ArgumentOutOfRangeException(nameof(maxTriangles));
+            if (source.triangles.Length / 3 <= maxTriangles) return UnityEngine.Object.Instantiate(source);
             var positions = source.vertices;
             Vector3 min = source.bounds.min;
             float lo = source.bounds.size.magnitude / 4000f, hi = source.bounds.size.magnitude / 3f;

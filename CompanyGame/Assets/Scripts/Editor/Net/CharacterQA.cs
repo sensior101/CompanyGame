@@ -1,12 +1,16 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using TMPro;
+using CompanyGame.Daldongne;
+using CompanyGame.Editor.Characters;
 using UnityEditor;
 using UnityEditor.Build.Reporting;
 using UnityEditor.SceneManagement;
@@ -38,6 +42,295 @@ public static class CharacterQA
     static string root;
 
     static CharacterQA() => EditorApplication.playModeStateChanged += OnPlayState;
+
+    /// <summary>Visual-only QA in disposable preview scenes; never opens a player, profile or inventory.</summary>
+    public static void RunArticulatedPreview()
+    {
+        if (EditorApplication.isPlayingOrWillChangePlaymode)
+            throw new InvalidOperationException("Stop Play before character preview QA.");
+        string output = Path.GetFullPath(Path.Combine(Application.dataPath,
+            "../../ArtSource/Daldongne/Characters/MeshyArticulated_20261028/QA"));
+        Directory.CreateDirectory(output);
+        var report = new StringBuilder("Character articulated preview " + DateTime.Now.ToString("O") + "\n");
+        var scene = SceneManager.GetActiveScene();
+        bool dirty = scene.isDirty;
+        try
+        {
+            PreviewArticulated(false, output, report);
+            PreviewArticulated(true, output, report);
+            PreviewRequire(SceneManager.GetActiveScene() == scene && scene.isDirty == dirty,
+                "The user's active scene and dirty state must stay unchanged.");
+            report.AppendLine("PASS: both visual prefabs, six body poses, both hands and first-person skin copies.");
+            Debug.Log("[CharacterQA] articulated preview passed: " + output);
+        }
+        catch (Exception ex) { report.AppendLine("FAIL: " + ex); throw; }
+        finally { File.WriteAllText(Path.Combine(output, "UnityPreviewReport.txt"), report.ToString()); }
+    }
+
+    static void PreviewArticulated(bool male, string output, StringBuilder report)
+    {
+        string sex = male ? "Male" : "Female";
+        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(male ? ReferenceBoyImporter.VisualPath : ReferenceGirlImporter.VisualPath);
+        PreviewRequire(prefab, sex + " visual prefab missing.");
+        var preview = new PreviewRenderUtility();
+        PlayerHeldItem held = null;
+        GameObject visual = null;
+        try
+        {
+            // Instantiate directly into the preview scene, never the user's scene.
+            visual = (GameObject)PrefabUtility.InstantiatePrefab(prefab, preview.camera.scene);
+            preview.AddSingleGO(visual);
+            visual.SetActive(true);
+            var motion = visual.GetComponent<DaldongneAvatarMotion>();
+            PreviewRequire(motion && motion.HasHumanoidRig, sex + " needs a valid mapped Humanoid.");
+            motion.ConfigureHumanoid(motion.rigAnimator);
+            motion.enabled = false;
+            report.AppendLine(sex + ": " + ReferenceGirlImporter.ValidateArticulated(visual));
+            foreach (var skin in visual.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            {
+                PreviewRequire(skin.bones.Length == 54 && skin.sharedMesh.bindposes.Length == 54,
+                    sex + " must retain its 54-bone skin.");
+                skin.updateWhenOffscreen = true;
+            }
+            var camera = preview.camera;
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = new Color(.22f, .25f, .29f, 1f);
+            camera.nearClipPlane = .01f; camera.farClipPlane = 30f;
+            preview.lights[0].transform.rotation = Quaternion.Euler(35f, -35f, 0f);
+            preview.lights[0].intensity = 1.2f;
+            preview.lights[1].transform.rotation = Quaternion.Euler(20f, 140f, 0f);
+            preview.lights[1].intensity = .8f;
+            preview.ambientColor = new Color(.55f, .55f, .55f);
+
+            foreach (string pose in new[] { "Idle", "Walk", "Seated", "Cycling", "Fist", "Point" })
+            {
+                motion.SetCycling(false, 0f); motion.SetSeated(false);
+                motion.SetFingerPose(false, 0f); motion.SetFingerPose(true, 0f);
+                if (pose == "Walk") for (int i = 0; i < 17; i++) motion.Pose(3f, 1f / 60f);
+                else if (pose == "Seated") motion.SetSeated(true);
+                else if (pose == "Cycling") motion.SetCycling(true, .7f);
+                else if (pose == "Fist" || pose == "Point")
+                {
+                    motion.SetFingerPose(false, 1f, pose == "Point");
+                    motion.SetFingerPose(true, 1f, pose == "Point");
+                }
+                var bounds = PreviewBakedBounds(visual, sex + pose);
+                camera.cullingMask = ~(1 << 29);
+                PreviewFrame(camera, bounds, new Vector3(.8f, .25f, 1f), 900f / 1100f);
+                PreviewSave(preview, Path.Combine(output, "Unity" + sex + pose + ".png"), 900, 1100);
+                if (pose == "Fist" || pose == "Point")
+                    foreach (bool right in new[] { false, true })
+                    {
+                        var handBounds = PreviewHandBounds(motion, right);
+                        PreviewFrame(camera, handBounds, new Vector3(right ? 1f : -1f, .3f, 1f), 1f);
+                        PreviewSave(preview, Path.Combine(output, "Unity" + sex + (right ? "Right" : "Left") + pose + ".png"), 800, 800);
+                    }
+                report.AppendLine(sex + pose + ": finite baked vertices; bounds " + bounds.size.ToString("F3"));
+            }
+
+            // Use the real private build/sync path on a disabled, disposable component.
+            // Start/LateUpdate are never called, so no inventory singleton is touched.
+            motion.SetSeated(false); motion.SetCycling(false, 0f);
+            motion.SetFingerPose(false, 0f); motion.SetFingerPose(true, 0f);
+            held = visual.AddComponent<PlayerHeldItem>(); held.enabled = false;
+            var rig = EditorUtility.CreateGameObjectWithHideFlags("QA First Person", HideFlags.HideAndDontSave).transform;
+            rig.SetParent(camera.transform, false);
+            PreviewSet(held, "visualSource", visual.transform);
+            PreviewSet(held, "avatarMotion", motion);
+            PreviewSet(held, "arm", motion.rightArm);
+            PreviewSet(held, "viewRig", rig);
+            PreviewCall(held, "BuildArm");
+            var copies = (Dictionary<Transform, Transform>)PreviewGet(held, "viewBones");
+            PreviewRequire(copies.Count > 0 && held.FirstPersonArmRoot, sex + " articulated hand copy missing.");
+            foreach (var source in visual.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            {
+                PreviewRequire(copies.TryGetValue(source.transform, out var copied), "Skin renderer transform was not remapped.");
+                var copy = copied.GetComponent<SkinnedMeshRenderer>();
+                PreviewRequire(copy && copy.sharedMesh, "The overlay must stay skinned.");
+                var a = source.sharedMesh; var b = copy.sharedMesh;
+                PreviewRequire(a.vertexCount == b.vertexCount && a.bindposes.Length == b.bindposes.Length, "Skin vertex streams/bind poses changed.");
+                for (int i = 0; i < a.bindposes.Length; i++) PreviewRequire(a.bindposes[i] == b.bindposes[i], "Skin bind pose changed.");
+                var aw = a.GetAllBoneWeights(); var bw = b.GetAllBoneWeights();
+                PreviewRequire(aw.Length == bw.Length, "Skin influence count changed.");
+                for (int i = 0; i < aw.Length; i++)
+                    PreviewRequire(aw[i].boneIndex == bw[i].boneIndex && Mathf.Abs(aw[i].weight - bw[i].weight) < .00001f, "Skin weight changed.");
+                long triangles = 0;
+                for (int i = 0; i < b.subMeshCount; i++) triangles += b.GetIndexCount(i) / 3;
+                PreviewRequire(triangles > 0 && triangles < a.triangles.Length / 3, "Overlay must contain only an arm triangle subset.");
+            }
+            foreach (bool point in new[] { false, true })
+            {
+                motion.SetFingerPose(true, 1f, point);
+                motion.ApplyRightArmInteraction(0f, 0f, 0f);
+                PreviewCall(held, "SynchronizeSkinnedArm");
+                int matched = 0;
+                for (int i = 0; i < 15; i++)
+                {
+                    var source = motion.rigAnimator.GetBoneTransform((HumanBodyBones)((int)HumanBodyBones.RightThumbProximal + i));
+                    PreviewRequire(source && copies.TryGetValue(source, out var copy) &&
+                        Quaternion.Angle(source.localRotation, copy.localRotation) < .01f &&
+                        Vector3.Distance(source.localPosition, copy.localPosition) < .00001f,
+                        "First-person finger pose differs from source bone " + i);
+                    matched++;
+                }
+                PreviewRequire(motion.HasRightHandGesture, "An explicit empty-hand gesture must request first-person visibility.");
+                camera.orthographic = false; camera.fieldOfView = 85f; camera.aspect = 1.28f;
+                camera.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
+                camera.cullingMask = 1 << 29;
+                var arm = held.FirstPersonArmRoot;
+                arm.localScale = (Vector3)PreviewGet(held, "viewScale");
+                arm.localRotation = Quaternion.Euler(-125f, -10f, -18f);
+                Vector3 grip = (Vector3)PreviewGet(held, "handPoint");
+                float halfHeight = Mathf.Tan(85f * Mathf.Deg2Rad * .5f) * .65f;
+                arm.localPosition = new Vector3(halfHeight * 1.28f * .68f, halfHeight * -.62f, .65f)
+                    - arm.localRotation * Vector3.Scale(arm.localScale, grip);
+                rig.gameObject.SetActive(true);
+                PreviewBakedBounds(arm.gameObject, sex + " first-person hand");
+                PreviewSave(preview, Path.Combine(output, "Unity" + sex + "FirstPerson" + (point ? "Point" : "Fist") + ".png"), 1280, 1000);
+                report.AppendLine(sex + " first-person " + (point ? "point" : "fist") + ": " + matched + " finger transforms match; weights/bind poses preserved.");
+            }
+            motion.SetFingerPose(true, 0f);
+            PreviewRequire(!motion.HasRightHandGesture, "Clearing the gesture must restore idle hand visibility policy.");
+        }
+        finally
+        {
+            // PlayerHeldItem normally releases runtime objects with Destroy. In an
+            // editor preview release its owned meshes immediately before OnDestroy.
+            try
+            {
+                if (held)
+                {
+                    foreach (string name in new[] { "articulatedArmMeshes", "bakedMeshes" })
+                    {
+                        var meshes = (List<Mesh>)PreviewGet(held, name);
+                        foreach (var mesh in meshes) if (mesh) UnityEngine.Object.DestroyImmediate(mesh);
+                        meshes.Clear();
+                    }
+                    var legacy = (Mesh)PreviewGet(held, "firstPersonArmMesh");
+                    if (legacy) UnityEngine.Object.DestroyImmediate(legacy);
+                    PreviewSet(held, "firstPersonArmMesh", null);
+                    PreviewSet(held, "viewRig", null);
+                }
+            }
+            finally { preview.Cleanup(); }
+        }
+    }
+
+    static object PreviewGet(PlayerHeldItem held, string field) => typeof(PlayerHeldItem)
+        .GetField(field, BindingFlags.Instance | BindingFlags.NonPublic).GetValue(held);
+    static void PreviewSet(PlayerHeldItem held, string field, object value) => typeof(PlayerHeldItem)
+        .GetField(field, BindingFlags.Instance | BindingFlags.NonPublic).SetValue(held, value);
+    static void PreviewCall(PlayerHeldItem held, string method) => typeof(PlayerHeldItem)
+        .GetMethod(method, BindingFlags.Instance | BindingFlags.NonPublic).Invoke(held, null);
+    static void PreviewRequire(bool condition, string message)
+    { if (!condition) throw new InvalidOperationException("[Character preview] " + message); }
+
+    static Bounds PreviewBakedBounds(GameObject visual, string label)
+    {
+        var result = new Bounds(); bool found = false;
+        foreach (var skin in visual.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+        {
+            var baked = new Mesh();
+            try
+            {
+                skin.BakeMesh(baked);
+                PreviewRequire(baked.vertexCount > 0, label + " has no baked vertices.");
+                foreach (var vertex in baked.vertices)
+                {
+                    var point = skin.transform.TransformPoint(vertex);
+                    PreviewRequire(float.IsFinite(point.x) && float.IsFinite(point.y) && float.IsFinite(point.z), label + " has a non-finite baked vertex.");
+                    if (!found) { result = new Bounds(point, Vector3.zero); found = true; }
+                    else result.Encapsulate(point);
+                }
+            }
+            finally { UnityEngine.Object.DestroyImmediate(baked); }
+        }
+        PreviewRequire(found, label + " has no skin.");
+        return result;
+    }
+
+    static Bounds PreviewHandBounds(DaldongneAvatarMotion motion, bool right)
+    {
+        var hand = right ? motion.rightHand : motion.leftHand;
+        var bounds = new Bounds(hand.position, Vector3.one * .03f);
+        int first = (int)(right ? HumanBodyBones.RightThumbProximal : HumanBodyBones.LeftThumbProximal);
+        for (int i = 0; i < 15; i++) bounds.Encapsulate(motion.rigAnimator.GetBoneTransform((HumanBodyBones)(first + i)).position);
+        bounds.Expand(.08f);
+        return bounds;
+    }
+
+    static void PreviewFrame(Camera camera, Bounds bounds, Vector3 direction, float aspect)
+    {
+        camera.orthographic = true; camera.aspect = aspect;
+        camera.transform.position = bounds.center + direction.normalized * Mathf.Max(2f, bounds.size.magnitude * 2f);
+        camera.transform.LookAt(bounds.center);
+        float width = .01f, height = .01f;
+        for (int corner = 0; corner < 8; corner++)
+        {
+            var offset = Vector3.Scale(bounds.extents, new Vector3((corner & 1) == 0 ? -1 : 1,
+                (corner & 2) == 0 ? -1 : 1, (corner & 4) == 0 ? -1 : 1));
+            width = Mathf.Max(width, Mathf.Abs(Vector3.Dot(camera.transform.right, offset)));
+            height = Mathf.Max(height, Mathf.Abs(Vector3.Dot(camera.transform.up, offset)));
+        }
+        camera.orthographicSize = Mathf.Max(height, width / aspect) * 1.12f;
+    }
+
+    static void PreviewSave(PreviewRenderUtility preview, string path, int width, int height)
+    {
+        Texture2D image = null;
+        bool begun = false;
+        var previous = RenderTexture.active;
+        var proxies = new List<(SkinnedMeshRenderer source, bool hidden, GameObject proxy, Mesh mesh)>();
+        try
+        {
+            // Edit-mode GPU skinning can keep the import pose even after direct
+            // bone changes. Render the same current CPU-baked deformation instead.
+            foreach (var rootObject in preview.camera.scene.GetRootGameObjects())
+                foreach (var skin in rootObject.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+                {
+                    if (!skin.enabled || skin.forceRenderingOff || !skin.gameObject.activeInHierarchy ||
+                        (preview.camera.cullingMask & (1 << skin.gameObject.layer)) == 0) continue;
+                    var mesh = new Mesh { name = "Character QA posed skin", hideFlags = HideFlags.HideAndDontSave };
+                    var proxy = EditorUtility.CreateGameObjectWithHideFlags("QA posed skin", HideFlags.HideAndDontSave);
+                    proxies.Add((skin, skin.forceRenderingOff, proxy, mesh));
+                    skin.BakeMesh(mesh);
+                    proxy.layer = skin.gameObject.layer;
+                    proxy.transform.SetParent(skin.transform, false);
+                    proxy.AddComponent<MeshFilter>().sharedMesh = mesh;
+                    var renderer = proxy.AddComponent<MeshRenderer>();
+                    renderer.sharedMaterials = skin.sharedMaterials;
+                    renderer.shadowCastingMode = skin.shadowCastingMode;
+                    renderer.receiveShadows = skin.receiveShadows;
+                    skin.forceRenderingOff = true;
+                }
+            preview.BeginStaticPreview(new Rect(0, 0, width, height)); begun = true;
+            // Render(true) uses the current SRP and preview lighting, then Camera.Render.
+            preview.Render(true, false);
+            image = preview.EndStaticPreview(); begun = false;
+            PreviewRequire(image, "Preview rendering produced no image.");
+            File.WriteAllBytes(path, image.EncodeToPNG());
+            var pixels = image.GetPixels32();
+            var background = pixels[0]; int visible = 0;
+            foreach (var pixel in pixels)
+                if (Math.Abs(pixel.r - background.r) + Math.Abs(pixel.g - background.g) + Math.Abs(pixel.b - background.b) > 24) visible++;
+            PreviewRequire(visible > pixels.Length / 1000, "The preview is blank: " + path);
+        }
+        finally
+        {
+            try { if (begun) { var unfinished = preview.EndStaticPreview(); if (unfinished) UnityEngine.Object.DestroyImmediate(unfinished); } }
+            finally
+            {
+                if (image) UnityEngine.Object.DestroyImmediate(image);
+                RenderTexture.active = previous;
+                foreach (var proxy in proxies)
+                {
+                    if (proxy.source) proxy.source.forceRenderingOff = proxy.hidden;
+                    if (proxy.proxy) UnityEngine.Object.DestroyImmediate(proxy.proxy);
+                    if (proxy.mesh) UnityEngine.Object.DestroyImmediate(proxy.mesh);
+                }
+            }
+        }
+    }
 
     // ================= in memory =================
 

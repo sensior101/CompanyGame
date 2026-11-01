@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using CompanyGame.Daldongne;
 using CompanyGame.World.Maps;
 using UnityEngine;
 using UnityEngine.AI;
@@ -156,7 +157,8 @@ public sealed class CitizenSpawner : MonoBehaviour
         dialogue.npcId = "citizen:" + System.IO.Path.GetFileNameWithoutExtension(MapPath) + ":" + index;
         dialogue.displayName = CitizenInfo.NameFor(mapHash, index);
         dialogue.line = lines == null ? CitizenInfo.LineFor(mapHash, index) : CitizenInfo.LineFor(lines, mapHash, index);
-        dialogue.head = FindChild(citizen.transform, "Head");
+        var motion = citizen.GetComponentInChildren<DaldongneAvatarMotion>(true);
+        dialogue.head = motion && motion.head ? motion.head : FindChild(citizen.transform, "Head");
         var walker = citizen.GetComponent<CitizenWalker>();
         walker.Init(index, seed, seats);
         walker.SetRole(role);

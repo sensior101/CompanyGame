@@ -21,9 +21,13 @@ using QaMsg = SyncLayerQA.QaMsg;
 public static class AvatarSyncQA
 {
     const string PlayFlag = "AvatarSyncQA.play";
+    const string EditorPlayFlag = "AvatarSyncQA.editorPlay";
     const int Slot = 4;
     const string Key = AvatarSync.PrefabKey;
     static int checks;
+    static string editorWorld;
+    public static bool EditorRunning { get; private set; }
+    public static string EditorResult { get; private set; } = "not run";
 
     static AvatarSyncQA() => EditorApplication.playModeStateChanged += OnPlayState;
 
@@ -93,11 +97,96 @@ public static class AvatarSyncQA
         EditorApplication.EnterPlaymode();
     }
 
+    /// <summary>Runs the real TCP/SyncClient path and leaves this editor running, with the previous profile restored.</summary>
+    public static void StartEditorPlayTest()
+    {
+        if (EditorRunning || SyncHost.Instance) throw new InvalidOperationException("Stop the existing QA/server before starting AvatarSyncQA.");
+        if (EditorApplication.isPlaying) { DriveEditorPlay(); return; }
+        EditorSceneManager.OpenScene(TitleSceneBuilder.ScenePath, OpenSceneMode.Single);
+        SessionState.SetBool(EditorPlayFlag, true);
+        EditorApplication.EnterPlaymode();
+    }
+
     static void OnPlayState(PlayModeStateChange change)
     {
+        if (change == PlayModeStateChange.EnteredPlayMode && SessionState.GetBool(EditorPlayFlag, false))
+        {
+            SessionState.SetBool(EditorPlayFlag, false);
+            DriveEditorPlay();
+            return;
+        }
         if (change != PlayModeStateChange.EnteredPlayMode || !SessionState.GetBool(PlayFlag, false)) return;
         SessionState.SetBool(PlayFlag, false);
         DrivePlay();
+    }
+
+    static async void DriveEditorPlay()
+    {
+        int original = ProfileSlot.Slot;
+        bool hadProfilePreference = PlayerPrefs.HasKey("Profile.Slot");
+        int oldProfilePreference = PlayerPrefs.GetInt("Profile.Slot", 1);
+        string[] qaKeys = { "Session.LocalPlayerId.p" + Slot, "Session.AccountId.p" + Slot, "Session.AccountName.p" + Slot };
+        bool[] hadQaKeys = Array.ConvertAll(qaKeys, PlayerPrefs.HasKey);
+        string[] oldQaValues = Array.ConvertAll(qaKeys, key => PlayerPrefs.GetString(key, ""));
+        string oldPersonalDir = PersonalSave.DirOverride, oldWorldPath = WorldSave.PathOverride;
+        string oldPersonal = PersonalSave.Export(), oldWorld = WorldSave.ToJson(WorldSave.Capture());
+        string oldInventory = InventoryManager.Instance ? InventorySnapshot.Export(InventoryManager.Instance.State) : null;
+        string scratch = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "CompanyGame-AvatarTcpQA-" + Guid.NewGuid().ToString("N")));
+        PersonalSave.DirOverride = Path.Combine(scratch, "player");
+        WorldSave.PathOverride = Path.Combine(scratch, "world.json");
+        EditorRunning = true; EditorResult = "running"; editorWorld = null; checks = 0;
+        try
+        {
+            editorWorld = await PlayBody();
+            EditorResult = "passed, checks=" + checks;
+            Debug.Log("[AvatarSyncQA] EDITOR RESULT " + EditorResult);
+        }
+        catch (Exception e)
+        {
+            EditorResult = "FAILED: " + e.Message;
+            Debug.LogError("[AvatarSyncQA] EDITOR RESULT " + EditorResult + "\n" + e.StackTrace);
+        }
+        finally
+        {
+            try
+            {
+                if (SyncHost.Instance)
+                {
+                    editorWorld ??= SyncHost.Instance.Server.World.Folder;
+                    SyncHost.Instance.Stop();
+                }
+                if (!string.IsNullOrEmpty(editorWorld))
+                {
+                    string allowed = Path.GetFullPath(ServerSettings.WorldsFolder).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+                    string target = Path.GetFullPath(editorWorld);
+                    if (target.StartsWith(allowed, StringComparison.OrdinalIgnoreCase) && target.Length > allowed.Length && Directory.Exists(target))
+                        Directory.Delete(target, true); // exact new world from this run, never the profile itself.
+                }
+            }
+            catch (Exception e)
+            {
+                EditorResult += "; cleanup warning: " + e.Message;
+                Debug.LogWarning("[AvatarSyncQA] " + EditorResult);
+            }
+            finally
+            {
+                // Server exit can restore its scratch baseline; put the original in-memory state back before lifting overrides.
+                WorldSave.Restore(oldWorld);
+                PersonalSave.Import(oldPersonal);
+                if (oldInventory != null && InventoryManager.Instance) InventorySnapshot.Import(InventoryManager.Instance.State, oldInventory);
+                PersonalSave.DirOverride = oldPersonalDir; WorldSave.PathOverride = oldWorldPath;
+                for (int i = 0; i < qaKeys.Length; i++)
+                    if (hadQaKeys[i]) PlayerPrefs.SetString(qaKeys[i], oldQaValues[i]); else PlayerPrefs.DeleteKey(qaKeys[i]);
+                ProfileSlot.Set(original);
+                if (hadProfilePreference) PlayerPrefs.SetInt("Profile.Slot", oldProfilePreference); else PlayerPrefs.DeleteKey("Profile.Slot");
+                GameSession.ClearCharacter(); GameSession.ReloadAccount();
+                PlayerPrefs.Save(); EditorRunning = false;
+                string tempRoot = Path.GetFullPath(Path.GetTempPath()).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+                if (scratch.StartsWith(tempRoot, StringComparison.OrdinalIgnoreCase) &&
+                    Path.GetFileName(scratch).StartsWith("CompanyGame-AvatarTcpQA-", StringComparison.Ordinal) && Directory.Exists(scratch))
+                    Directory.Delete(scratch, true);
+            }
+        }
     }
 
     static async void DrivePlay()
@@ -126,6 +215,7 @@ public static class AvatarSyncQA
         var client = SyncClient.Instance;
         var host = SyncHost.StartInApp(new ServerSettings { name = "AvatarQA", maxPlayers = 4, port = 0 }, true);
         string world = host.Server.World.Folder;
+        if (EditorRunning) editorWorld = world;
         await WaitFor(() => client.Connected && client.CharacterKnown, 10, "the Unity client on the in-app server");
         Check(await TitleFlow.CreateServerCharacter("QA유니티", "male") == null, "the Unity player made its character");
         Check(TitleFlow.EnterServerWorld() == null, "entering the world");
@@ -136,6 +226,20 @@ public static class AvatarSyncQA
         Check(Array.TrueForAll(mine.GetComponentsInChildren<Renderer>(), r => !r.enabled || !r.gameObject.activeInHierarchy), "my own copy renders nothing here");
         string map = SceneLoadManager.CurrentMap.path;
         var player = PlayerSpawner.Player;
+        var motor = player.GetComponent<CharacterController>();
+
+        // A fresh scene's spawn is initially above the floor. Let the real controller finish falling and the
+        // regular state stream reach the server before testing the spawn snapshot delivered to a joining peer.
+        Vector3 settledPosition = player.transform.position;
+        float groundedSince = Time.realtimeSinceStartup;
+        await WaitFor(() =>
+        {
+            if (!motor.isGrounded || (player.transform.position - settledPosition).sqrMagnitude > .000025f)
+            { settledPosition = player.transform.position; groundedSince = Time.realtimeSinceStartup; return false; }
+            return Time.realtimeSinceStartup - groundedSince >= .5f &&
+                host.Server.TryGetEntity(mine.Id, out _, out _, out _, out _, out var blobs) && blobs.Length >= 1 &&
+                (SyncLayerQA.PosOf(blobs[0]) - player.transform.position).sqrMagnitude < .0004f;
+        }, 12, "a grounded stable player and its current server transform");
 
         // ---- the second player ----
         var socket = new TcpClientTransport();
@@ -145,12 +249,17 @@ public static class AvatarSyncQA
         fake.number = (await WaitMsg(fake, m => m.kind == ToClient.Welcome, "fake welcome")).number;
         fake.Send(SyncProtocol.CharacterCreate("QA영희", "female"));
         Check((await WaitMsg(fake, m => m.kind == ToClient.CharacterResult, "fake character")).result == CharacterResult.Ok, "the fake second player made QA영희");
+        var fakeBag = ServerWorld.Instance.Ledger.Bag("qa-avatar-fake");
+        var fakeSlot = fakeBag.GetSlot(InventoryState.HotbarSize - 1);
+        if (!fakeSlot.IsEmpty) fakeBag.TryRemove(InventoryState.HotbarSize - 1, fakeSlot.Count, out _);
 
         // reverse direction: the fake player gets the Unity player's avatar
         var got = await WaitMsg(fake, m => m.kind == ToClient.Spawn && m.id == mine.Id, "the Unity avatar at the fake client");
+        Vector3 receivedPosition = got.blobs.Length > 0 ? SyncLayerQA.PosOf(got.blobs[0]) : Vector3.positiveInfinity;
         Check(got.key == Key && got.owner == client.MyConnection && got.blobs.Length == 2 && (got.flags & EntityFlags.FollowsOwnerMap) != 0
-              && (SyncLayerQA.PosOf(got.blobs[0]) - player.transform.position).magnitude < .1f,
-            "the fake client got the Unity avatar: key, owner, 2 components, at the player (" + SyncLayerQA.PosOf(got.blobs[0]).ToString("F2") + ")");
+              && (receivedPosition - player.transform.position).magnitude < .1f,
+            "the fake client got the Unity avatar: key, owner, 2 components, at the player (received=" + receivedPosition.ToString("F3") +
+            ", current=" + player.transform.position.ToString("F3") + ", settled=" + settledPosition.ToString("F3") + ", grounded=" + motor.isGrounded + ")");
         var gotState = ReadState(got.blobs[1]);
         Check(!gotState.female && gotState.vehicle == "" && !gotState.seated, "its AvatarState says male, on foot, standing");
         Object.DestroyImmediate(gotState.gameObject);
@@ -193,30 +302,42 @@ public static class AvatarSyncQA
         var car = Resources.LoadAll<ItemData>("Inventory/Vehicles/Cars")[0];
         fake.Send(SyncProtocol.State(id, 1, StateBlob(true, car.itemId, 0f, false, "")));
         await WaitFor(() => HasChild(avatar, car.vehiclePrefab.name), 5, "the car model");
-        Check(!avatar.transform.Find("FemaleVisual").gameObject.activeSelf && avatar.GetComponentsInChildren<Collider>().Length == 0, "in a car the body hides, the car has no colliders");
+        Check(!avatar.transform.Find("FemaleVisual").gameObject.activeSelf && Array.TrueForAll(avatar.GetComponentsInChildren<Collider>(), c => !c.enabled), "in a car the body hides and its combat collider is disabled");
         await Shot("A_car.png");
         fake.Send(SyncProtocol.State(id, 1, StateBlob(true, "", 0f, false, "")));
         await WaitFor(() => !HasChild(avatar, car.vehiclePrefab.name) && avatar.transform.Find("FemaleVisual").gameObject.activeSelf, 5, "on foot again");
 
         // punch
         var motion = avatar.transform.Find("FemaleVisual").GetComponentInChildren<DaldongneAvatarMotion>();
-        var before = motion.rightArm.localRotation;
-        fake.Send(SyncProtocol.Event(id, 1, AvatarState.PunchEvent, EventTarget.Map, new byte[0]));
+        var before = motion.leftArm.localRotation;
+        void Punch(uint sequence) => fake.Send(SyncProtocol.Event(id, 1, AvatarState.AttackIntentEvent, EventTarget.Server,
+            AttackBlob(sequence, side)));
+        Punch(1);
         float swing = 0f, end = Time.realtimeSinceStartup + 1f;
-        while (Time.realtimeSinceStartup < end) { swing = Mathf.Max(swing, Quaternion.Angle(before, motion.rightArm.localRotation)); await Awaitable.NextFrameAsync(); }
-        Check(swing > 30f, "the Punch event swings the arm (" + (int)swing + "°)");
+        while (Time.realtimeSinceStartup < end) { swing = Mathf.Max(swing, Quaternion.Angle(before, motion.leftArm.localRotation)); await Awaitable.NextFrameAsync(); }
+        Check(swing > 30f, "the authenticated swing event moves the jab arm (" + (int)swing + "°)");
         await Awaitable.WaitForSecondsAsync(.5f);
-        fake.Send(SyncProtocol.Event(id, 1, AvatarState.PunchEvent, EventTarget.Map, new byte[0]));
-        await WaitFor(() => Quaternion.Angle(before, motion.rightArm.localRotation) > 40f, 2, "the second swing");
+        Punch(2);
+        await WaitFor(() => Quaternion.Angle(before, motion.leftArm.localRotation) > 40f, 2, "the second swing");
         await Shot("A_punch.png", 0f);
 
         // sitting
+        await WaitFor(() => string.IsNullOrEmpty(motion.CombatPoseState), 3, "the swing to recover before seating");
+        var remoteView = avatar.GetComponent<RemoteAvatarView>();
+        float StandingHipHeight() => motion.transform.InverseTransformPoint(motion.hips.position).y;
+        float standingHip = StandingHipHeight();
+        Quaternion standingThigh = motion.leftLeg.localRotation, standingKnee = motion.leftKnee.localRotation;
         fake.Send(SyncProtocol.State(id, 1, StateBlob(true, "", 0f, true, "")));
-        await WaitFor(() => Mathf.Abs(motion.hips.localPosition.y - .54f) < .01f, 3, "the seated pose");
-        Check(true, "seated: the same pose as a local player on a seat (hips at .54)");
+        await WaitFor(() => remoteView.seated && Mathf.Abs(StandingHipHeight() - .54f) < .015f &&
+            standingHip - StandingHipHeight() > .1f && Quaternion.Angle(standingThigh, motion.leftLeg.localRotation) > 60f &&
+            Quaternion.Angle(standingKnee, motion.leftKnee.localRotation) > 60f, 3, "the seated state and root-relative pelvis/leg pose");
+        Check(true, "seated: the shared seat pose lowers the pelvis in avatar space and bends thigh/knee (standing=" +
+            standingHip.ToString("F3") + ", seated=" + StandingHipHeight().ToString("F3") + ")");
         await Shot("A_seated.png");
         fake.Send(SyncProtocol.State(id, 1, StateBlob(true, "", 0f, false, "")));
-        await WaitFor(() => Mathf.Abs(motion.hips.localPosition.y - .54f) > .05f, 3, "standing again");
+        await WaitFor(() => !remoteView.seated && Mathf.Abs(StandingHipHeight() - standingHip) < .03f &&
+            Quaternion.Angle(standingThigh, motion.leftLeg.localRotation) < 15f &&
+            Quaternion.Angle(standingKnee, motion.leftKnee.localRotation) < 15f, 3, "standing pelvis and legs restored after seating");
 
         // held item
         ItemData held = null;
@@ -251,7 +372,6 @@ public static class AvatarSyncQA
         int still = Count(fake, mine.Id);
         Check(still == 0, "standing still for 2s: " + still + " States");
 
-        var motor = player.GetComponent<CharacterController>();
         fake.inbox.Clear();
         float walkStart = Time.realtimeSinceStartup, settleAt = walkStart + 1f, walkEnd = walkStart + 4f;
         int settled = -1;
@@ -281,12 +401,92 @@ public static class AvatarSyncQA
         while (free < inventory.Capacity - 1 && !inventory.GetSlot(free).IsEmpty) free++;
         Check(inventory.GetSlot(hand).IsEmpty || inventory.TryMove(hand, free, out _), "hotbar " + hand + " emptied for a bare-handed punch");
         inventory.SelectHotbar(hand);
+        WorldStateSync.FlushBooks();
+        await WaitFor(() => ServerWorld.Instance.Ledger.Bag(host.Server.AccountOf(client.MyConnection)).GetSlot(hand).IsEmpty,
+            5, "the existing inventory layout operation to empty the server hotbar");
         bool punched = false;
         combat.AttackPerformed += _ => punched = true;
         await WaitFor(() => combat.CanAttack, 3, "the player able to attack");
         Check(combat.TryAttack() && punched, "the Unity player punched");
-        var punch = await WaitMsg(fake, m => m.kind == ToClient.Event && m.id == mine.Id, "the Unity punch at the fake");
-        Check(punch.component == 1 && punch.eventId == AvatarState.PunchEvent && punch.sender == client.MyConnection, "the fake client got the Punch event of the Unity avatar");
+        var punch = await WaitMsg(fake, m => m.kind == ToClient.Event && m.id == mine.Id && m.eventId == AvatarState.SwingEvent, "the Unity punch at the fake");
+        Check(punch.component == 1 && punch.sender == 0, "the fake client got the server-authenticated swing of the Unity avatar");
+
+        // Real TCP peer -> ServerCombat -> SyncClient -> AvatarState -> local stats/reaction, and observer hit-stop.
+        await Awaitable.WaitForSecondsAsync(1f);
+        var collision = new ServerCombatCollision();
+        Vector3 targetPosition = player.transform.position, attackSpot = targetPosition;
+        bool clearSpot = false;
+        for (int i = 0; i < 8; i++)
+        {
+            Vector3 offset = Quaternion.Euler(0, i * 45f, 0) * Vector3.forward * .8f;
+            var candidate = targetPosition + offset;
+            if (!collision.TryCheck(map, candidate + Vector3.up * 1.3f, targetPosition + Vector3.up * 1.3f, .15f, out bool clear) || !clear) continue;
+            attackSpot = candidate; clearSpot = true; break;
+        }
+        collision.Dispose();
+        Check(clearSpot, "a clear real-map lane exists for the TCP contact check");
+        Vector3 strikeDirection = (targetPosition - attackSpot).normalized;
+        fake.Send(SyncProtocol.State(id, 0, SyncLayerQA.Pos(attackSpot, Quaternion.LookRotation(strikeDirection).eulerAngles.y)));
+        await WaitFor(() => (avatar.transform.position - attackSpot).magnitude < .08f, 3, "the attacker's avatar in range");
+        var stats = player.GetComponent<PlayerStats>();
+        var reaction = player.GetComponent<PlayerHitReaction>();
+        float beforeHealth = stats.Health;
+        Vector3 beforePosition = player.transform.position;
+        fake.inbox.Clear();
+        fake.Send(SyncProtocol.Event(id, 1, AvatarState.AttackIntentEvent, EventTarget.Server, AttackBlob(3, strikeDirection)));
+        bool sawReaction = false, sawRemoteStop = false, sawRemoteSwingAudio = false;
+        float deadline = Time.realtimeSinceStartup + 5f;
+        var frameDelta = typeof(RemoteAvatarView).GetField("combatFrameDelta", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        while (Time.realtimeSinceStartup < deadline)
+        {
+            sawReaction |= reaction && reaction.BlocksActions;
+            var remoteAudio = avatar.GetComponent<AudioSource>();
+            sawRemoteSwingAudio |= remoteAudio && remoteAudio.isPlaying && stats.Health == beforeHealth;
+            sawRemoteStop |= stats.Health < beforeHealth && frameDelta != null && (float)frameDelta.GetValue(avatar.GetComponent<RemoteAvatarView>()) == 0f;
+            if (stats.Health < beforeHealth && sawReaction && sawRemoteStop && (player.transform.position - beforePosition).magnitude > .03f) break;
+            await Awaitable.NextFrameAsync();
+        }
+        Check(stats.Health < beforeHealth && Mathf.Abs(ServerWorld.Instance.Combat.HealthOf(host.Server.AccountOf(client.MyConnection)) - stats.Health) < .001f,
+            "TCP contact updates the local PlayerStats to the server's exact health");
+        Check(sawReaction, "authenticated TCP contact enters local hit stun");
+        Check((player.transform.position - beforePosition).magnitude > .03f, "authenticated TCP contact produces collision-limited knockback");
+        Check(sawRemoteStop, "confirmed hit stops the remote attacker's pose clock on the observer");
+        Check(sawRemoteSwingAudio, "accepted TCP swing plays the remote attacker's spatial audio");
+        var confirmed = await WaitMsg(fake, m => m.kind == ToClient.Event && m.id == id && m.eventId == AvatarState.ResultEvent,
+            "the fake attacker's authenticated hit result");
+        using (var resultReader = SyncProtocol.Reader(confirmed.blob))
+            Check(confirmed.sender == 0 && resultReader.ReadUInt32() == 3 && resultReader.ReadBoolean(), "attacker receives a server-authenticated positive contact result");
+
+        // A second TCP actor hits the first while Unity observes the remote victim's impact audio.
+        var observerSocket = new TcpClientTransport();
+        await observerSocket.Connect("127.0.0.1", host.Port);
+        var aggressor = new QaPeer(observerSocket);
+        aggressor.Send(SyncProtocol.Hello("qa-avatar-aggressor", "QA공격자", map));
+        aggressor.number = (await WaitMsg(aggressor, m => m.kind == ToClient.Welcome, "second TCP attacker welcome")).number;
+        aggressor.Send(SyncProtocol.CharacterCreate("QA공격자", "male"));
+        await WaitMsg(aggressor, m => m.kind == ToClient.CharacterResult && m.result == CharacterResult.Ok, "second TCP attacker character");
+        var aggressorBag = ServerWorld.Instance.Ledger.Bag("qa-avatar-aggressor");
+        var aggressorSlot = aggressorBag.GetSlot(InventoryState.HotbarSize - 1);
+        if (!aggressorSlot.IsEmpty) aggressorBag.TryRemove(InventoryState.HotbarSize - 1, aggressorSlot.Count, out _);
+        ulong aggressorId = SyncProtocol.MakeId(aggressor.number, 1);
+        Vector3 aggressorSpot = attackSpot - strikeDirection * .8f;
+        aggressor.Send(SyncProtocol.Spawn(aggressorId, Key, map, EntityFlags.FollowsOwnerMap,
+            new[] { SyncLayerQA.Pos(aggressorSpot, Quaternion.LookRotation(strikeDirection).eulerAngles.y), StateBlob(false, "", 0f, false, "") }));
+        await WaitFor(() => client.Find(aggressorId), 3, "second TCP attacker avatar");
+        await Awaitable.WaitForSecondsAsync(.5f); // the victim's earlier swing sound has ended.
+        float remoteHealth = ServerWorld.Instance.Combat.HealthOf("qa-avatar-fake");
+        aggressor.Send(SyncProtocol.Event(aggressorId, 1, AvatarState.AttackIntentEvent, EventTarget.Server, AttackBlob(1, strikeDirection)));
+        bool sawRemoteImpactAudio = false;
+        deadline = Time.realtimeSinceStartup + 4f;
+        while (Time.realtimeSinceStartup < deadline)
+        {
+            var remoteAudio = avatar.GetComponent<AudioSource>();
+            sawRemoteImpactAudio |= ServerWorld.Instance.Combat.HealthOf("qa-avatar-fake") < remoteHealth && remoteAudio && remoteAudio.isPlaying;
+            if (sawRemoteImpactAudio) break;
+            await Awaitable.NextFrameAsync();
+        }
+        Check(sawRemoteImpactAudio, "TCP damage plays spatial impact audio on the remote victim seen by Unity");
+        observerSocket.Close();
 
         // leaving
         socket.Close();
@@ -300,6 +500,15 @@ public static class AvatarSyncQA
     }
 
     static int Count(QaPeer p, ulong id) => p.inbox.FindAll(m => m.kind == ToClient.State && m.id == id).Count;
+
+    static byte[] AttackBlob(uint sequence, Vector3 direction)
+    {
+        using var stream = new MemoryStream();
+        using var writer = new BinaryWriter(stream);
+        writer.Write(sequence); writer.Write((byte)0); writer.Write(false); writer.Write((byte)(InventoryState.HotbarSize - 1));
+        writer.Write(direction.x); writer.Write(direction.y); writer.Write(direction.z);
+        writer.Flush(); return stream.ToArray();
+    }
 
     static bool HasChild(GameObject go, string prefix) => Array.Exists(go.GetComponentsInChildren<Transform>(), t => t.name.StartsWith(prefix));
 

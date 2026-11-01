@@ -87,7 +87,7 @@ public class PlayerStats : MonoBehaviour, IDamageable
     {
         if (!isActiveAndEnabled || health <= 0f || amount <= 0f || float.IsNaN(amount) || float.IsInfinity(amount)) return false;
         float received = Mathf.Min(health, amount);
-        health -= received;
+        ApplyAuthoritativeHealth(health - received);
         var aggressor = attacker ? attacker.GetComponentInParent<PlayerStats>() : null;
         if (aggressor && aggressor != this && ReportManager.Instance)
         {
@@ -98,6 +98,25 @@ public class PlayerStats : MonoBehaviour, IDamageable
         }
         Damaged?.Invoke(received, attacker);
         return true;
+    }
+
+    /// <summary>Reconciles server health through the existing HUD/collapse events without fabricating a second hit.</summary>
+    public void ApplyAuthoritativeHealth(float value)
+    {
+        if (float.IsNaN(value) || float.IsInfinity(value)) return;
+        bool wasCollapsed = IsCollapsed;
+        float next = Mathf.Clamp(value, 0f, Max);
+        if (Mathf.Approximately(next, health)) return;
+        health = next;
+        Changed?.Invoke();
+        if (!wasCollapsed && IsCollapsed) Collapsed?.Invoke();
+    }
+
+    public void ApplyAuthoritativeDamage(float value, float received, GameObject attacker = null)
+    {
+        if (float.IsNaN(value) || float.IsInfinity(value) || float.IsNaN(received) || float.IsInfinity(received) || received <= 0f) return;
+        ApplyAuthoritativeHealth(value);
+        Damaged?.Invoke(Mathf.Clamp(received, 0f, Max), attacker);
     }
 
     public float Health => health;

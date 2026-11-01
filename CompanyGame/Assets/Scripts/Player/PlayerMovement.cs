@@ -18,6 +18,8 @@ public class PlayerMovement : MonoBehaviour
     private CharacterController motor;
     private PlayerVehicle vehicle;
     private PlayerStats stats;
+    private PlayerHitReaction hitReaction;
+    private PlayerCombat combat;
     private float verticalSpeed;
     private Vector3 lastSafePosition;
     private bool settling;
@@ -64,6 +66,7 @@ public class PlayerMovement : MonoBehaviour
         if (viewCamera && viewCamera.TryGetComponent<PlayerCameraController>(out var cameraController) &&
             cameraController.IsDialogueCameraActive)
         {
+            ApplyCombatKnockback();
             verticalSpeed = 0f;
             return;
         }
@@ -73,7 +76,9 @@ public class PlayerMovement : MonoBehaviour
         bool sprint = false;
         bool reset = false;
 
-        input = GameInput.Move;
+        if (!hitReaction) hitReaction = GetComponent<PlayerHitReaction>();
+        if (!combat) combat = GetComponent<PlayerCombat>();
+        input = hitReaction && hitReaction.BlocksMovement ? Vector2.zero : GameInput.Move;
         sprint = GameInput.SprintHeld;
         reset = GameInput.ResetPositionPressed;
 
@@ -107,6 +112,7 @@ public class PlayerMovement : MonoBehaviour
 
         // 이동 속도
         float speed = moveSpeed;
+        if (combat && combat.IsSwinging) speed *= combat.attackingMoveMultiplier;
 
         if (sprint)
             speed *= sprintMultiplier;
@@ -135,8 +141,17 @@ public class PlayerMovement : MonoBehaviour
 
 
         // 이동 방향으로 캐릭터 회전
-        if (!riding && motion.sqrMagnitude > 0.01f)
+        if (!riding && combat && combat.IsSwinging)
+        {
+            Vector3 facing = Vector3.ProjectOnPlane(combat.AttackDirection, Vector3.up);
+            if (facing.sqrMagnitude > .001f) transform.rotation = Quaternion.RotateTowards(transform.rotation,
+                Quaternion.LookRotation(facing), combat.attackTurnSpeed * Time.deltaTime);
+        }
+        else if (!riding && motion.sqrMagnitude > 0.01f)
             transform.rotation = Quaternion.LookRotation(motion);
+
+        // Applied after voluntary travel accounting: a hit never spends walking stamina.
+        if (!riding) ApplyCombatKnockback();
 
         // 안전한 위치 저장
         if (motor.isGrounded && transform.position.y > -2.2f)
@@ -145,6 +160,14 @@ public class PlayerMovement : MonoBehaviour
         // 맵 밖으로 떨어졌을 때 복귀
         if (transform.position.y < -7f)
             Teleport(lastSafePosition);
+    }
+
+    void ApplyCombatKnockback()
+    {
+        if (!hitReaction) hitReaction = GetComponent<PlayerHitReaction>();
+        if (!motor || !motor.enabled || !hitReaction) return;
+        Vector3 knockback = hitReaction.ConsumeKnockback(Time.deltaTime);
+        if (knockback.sqrMagnitude > 0f) motor.Move(hitReaction.SafeDisplacement(knockback));
     }
 
     public void ResetToSpawn()

@@ -55,6 +55,8 @@ public sealed class ServerWorld : MonoBehaviour
     public ServerLibrary Library { get; private set; }
     /// <summary>Admin commands, the console and the settings file of this server (12.15).</summary>
     public ServerAdmin Admin { get; private set; }
+    /// <summary>Server-timed combat, using the existing avatar entities and personal ledger.</summary>
+    public ServerCombat Combat { get; private set; }
 
     SyncHost host;
     GameServer server;
@@ -126,6 +128,7 @@ public sealed class ServerWorld : MonoBehaviour
         Books = new ServerBooks(server, EntityId, saved?.books);
         Ledger = new ServerLedger(server, EntityId, Books, saved?.startDeeds);
         Drops = new ServerDrops(server, Ledger, Books);
+        Combat = new ServerCombat(server, Ledger);
         Library = new ServerLibrary(Ledger, Books, saved?.library);
         Ledger.UnpaidFine = Library.Penalty;
         Library.AdvanceTo(Day((long)Math.Floor(world.WorldMinutes)));
@@ -142,6 +145,8 @@ public sealed class ServerWorld : MonoBehaviour
     {
         if (server != null) { server.ServerEvent -= OnServerEvent; server.WorldStateProvider = null; }
         Admin = null;
+        Combat?.End();
+        Combat = null;
         Drops?.End();
         Drops = null;
         Library = null;
@@ -174,6 +179,7 @@ public sealed class ServerWorld : MonoBehaviour
             for (int i = 0; i < MaxStepsPerFrame && clock.Now.TotalMinutes < target; i++) clock.AdvanceMinutes(1);
         }
         Library?.AdvanceTo(Day(target)); // the library's day follows the world clock (12.10.6)
+        Combat?.Tick();
         if (target != lastClockMinute || host.Settings.trafficCars != lastCars) SendClock(target);
         if (Time.unscaledTime >= nextSendAt) { SendSections(); Books?.DropGoneParts(); }
         Admin?.Tick(); // last: a stop destroys this object
@@ -269,6 +275,7 @@ public sealed class ServerWorld : MonoBehaviour
             catch (Exception e) { Debug.LogWarning("[ServerWorld] request '" + kind + "' failed: " + e.Message); error = "요청을 처리하지 못했습니다."; }
         }
         if (!book) SendSections(); // the change first, then the answer (one TCP stream keeps the order)
+        if (kind == "p.eat") Combat?.Reconcile(from);
         if (ServerLedger.Counts(kind)) Ledger.Answered(sender, from); // the requester's own book, before its answer
         Answer(sender, kind, error);
     }
