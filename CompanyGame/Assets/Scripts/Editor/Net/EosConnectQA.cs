@@ -414,18 +414,21 @@ public static class EosConnectQA
 
     // ================= the bundle for another PC (criterion 5) =================
 
+    /// <summary>Only Builds/Windows (+zip):  -executeMethod EosConnectQA.RunWindows  (with -quit)</summary>
+    public static void RunWindows()
+    {
+        checks = 0;
+        EosConfig.Write();
+        string winZip = BuildWindows(EditorBuildSettings.scenes.Where(s => s.enabled).Select(s => s.path).ToArray());
+        Debug.Log("[EosConnectQA] RESULT windows passed, checks=" + checks + " (" + winZip + " " + new FileInfo(winZip).Length / (1024 * 1024) + "MB)");
+    }
+
     public static void RunBundle()
     {
         checks = 0;
         EosConfig.Write();
         string[] scenes = EditorBuildSettings.scenes.Where(s => s.enabled).Select(s => s.path).ToArray();
-        string win = Path.GetFullPath(Path.Combine(Application.dataPath, "../Builds/Windows"));
-        if (Directory.Exists(win)) Directory.Delete(win, true);
-        var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions { scenes = scenes, locationPathName = Path.Combine(win, "CompanyGame.exe"), target = BuildTarget.StandaloneWindows64, options = BuildOptions.None });
-        Check(report.summary.result == BuildResult.Succeeded, "Windows game built (" + scenes.Length + " scenes)");
-        Check(File.Exists(Path.Combine(win, "CompanyGame_Data/StreamingAssets/EOS/eos_windows_config.json")), "the EOS config is in the Windows build");
-        EosTestQA.CopyTemplates(win, "README.txt");
-        string winZip = EosTestQA.Zip(win, "Windows", _ => false);
+        string winZip = BuildWindows(scenes);
 
         string mac = Path.GetFullPath(Path.Combine(Application.dataPath, "../Builds/Mac"));
         if (Directory.Exists(mac)) Directory.Delete(mac, true); // the plugin notes that building over an old .app misbehaves
@@ -438,6 +441,17 @@ public static class EosConnectQA
         string macZip = EosTestQA.Zip(mac, "Mac", rel => rel.StartsWith("CompanyGame.app/Contents/MacOS/"));
         Debug.Log("[EosConnectQA] RESULT bundle passed, checks=" + checks + " (" + winZip + " " + new FileInfo(winZip).Length / (1024 * 1024) + "MB, "
                   + macZip + " " + new FileInfo(macZip).Length / (1024 * 1024) + "MB)");
+    }
+
+    static string BuildWindows(string[] scenes)
+    {
+        string win = Path.GetFullPath(Path.Combine(Application.dataPath, "../Builds/Windows"));
+        if (Directory.Exists(win)) Directory.Delete(win, true);
+        var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions { scenes = scenes, locationPathName = Path.Combine(win, "CompanyGame.exe"), target = BuildTarget.StandaloneWindows64, options = BuildOptions.None });
+        Check(report.summary.result == BuildResult.Succeeded, "Windows game built (" + scenes.Length + " scenes)");
+        Check(File.Exists(Path.Combine(win, "CompanyGame_Data/StreamingAssets/EOS/eos_windows_config.json")), "the EOS config is in the Windows build");
+        EosTestQA.CopyTemplates(win, "README.txt");
+        return EosTestQA.Zip(win, "Windows", _ => false);
     }
 
     // ================= helpers =================
