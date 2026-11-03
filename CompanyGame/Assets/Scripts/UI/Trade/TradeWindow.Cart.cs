@@ -9,7 +9,7 @@ using UnityEngine.UI;
 public sealed partial class TradeWindow
 {
     class CartRow {public RectTransform root;public Image icon;public TMP_Text name,subtotal;public CartLine line;}
-    static readonly Color Warn=new Color(.64f,.23f,.2f);
+    static readonly Color Warn=UITheme.Danger;
     readonly System.Collections.Generic.List<CartRow> cartRows=new System.Collections.Generic.List<CartRow>();
     RectTransform cartView,withdrawModal;
     Graphic cartButtonImage;
@@ -37,41 +37,41 @@ public sealed partial class TradeWindow
     }
     static void NoRay(RectTransform r){r.GetComponent<Image>().raycastTarget=false;}
     // Inventory-style rounded widgets (same look as InventoryUI.Panel/MakeButton/Icon).
-    static readonly Color Brown=new Color(.29f,.205f,.19f);
-    static readonly Color HintColor=new Color(.54f,.46f,.425f);
+    static readonly Color Brown=UITheme.Ink;
+    static readonly Color HintColor=UITheme.Brown;
     static RectTransform RPanel(string name,Transform parent,Vector2 size,Color color,float large,float small)
     {
         var go=new GameObject(name,typeof(RectTransform),typeof(InventoryRoundedGraphic));var r=(RectTransform)go.transform;r.SetParent(parent,false);r.sizeDelta=size;
-        var g=go.GetComponent<InventoryRoundedGraphic>();g.color=color;g.largeRadius=large;g.smallRadius=small;g.borderWidth=large>0?1.5f:0f;g.raycastTarget=false;return r;
+        var g=go.GetComponent<InventoryRoundedGraphic>();g.color=color;g.largeRadius=g.smallRadius=Mathf.Min(large,UITheme.Radius*1.4f);g.borderWidth=large>0?1.5f:0f;g.borderColor=UITheme.Slate;g.raycastTarget=false;return r;
     }
     static Button RButton(RectTransform r,Action action)
     {
         var g=r.GetComponent<InventoryRoundedGraphic>();g.raycastTarget=true;
         var b=r.gameObject.AddComponent<Button>();b.targetGraphic=g;
-        var c=b.colors;c.normalColor=Color.white;c.highlightedColor=new Color(1,.975f,.92f);c.selectedColor=Color.white;c.pressedColor=new Color(.89f,.83f,.75f);c.disabledColor=new Color(.76f,.76f,.76f,.68f);b.colors=c;
+        var c=b.colors;c.normalColor=Color.white;c.highlightedColor=UITheme.Ivory;c.selectedColor=Color.white;c.pressedColor=UITheme.Slate;c.disabledColor=new Color(.76f,.76f,.76f,.68f);b.colors=c;
         var n=b.navigation;n.mode=Navigation.Mode.None;b.navigation=n;b.onClick.AddListener(()=>action());return b;
     }
     static void At(RectTransform r,bool top,float x,float y){r.anchorMin=r.anchorMax=new Vector2(.5f,top?1:0);r.anchoredPosition=new Vector2(x,y);}
     Button TextButton(string name,Transform parent,string text,Vector2 size,Vector2 position,Action action,float fontSize=13)
     {
-        var r=RPanel(name,parent,size,new Color(.9f,.865f,.82f,.85f),15,7);r.anchoredPosition=position;
+        var r=RPanel(name,parent,size,UITheme.Sand,15,7);r.anchoredPosition=position;
         var b=RButton(r,action);Label("Text",r,text,fontSize,Brown,size,Vector2.zero);return b;
     }
     TMP_Text Left(TMP_Text t){t.alignment=TextAlignmentOptions.MidlineLeft;return t;}
 
     void BuildCart()
     {
-        var cartButton=RPanel("CartButton",window,new Vector2(230,51),new Color(1,.99f,.96f,.66f),24,12);cartButton.anchoredPosition=new Vector2(-147.5f,327);
+        var cartButton=RPanel("CartButton",window,new Vector2(230,51),UITheme.Sand,24,12);cartButton.anchoredPosition=new Vector2(-147.5f,327);
         RButton(cartButton,ToggleCartView);cartButtonImage=cartButton.GetComponent<InventoryRoundedGraphic>();
         var cart=Panel("CartIcon",cartButton,new Vector2(30,30),Color.clear);cart.anchoredPosition=new Vector2(-90,0);NoRay(cart);
         foreach(var (size,pos) in new[]{(new Vector2(9,3),new Vector2(-11,10)),(new Vector2(20,13),new Vector2(3,2)),(new Vector2(4,4),new Vector2(-2,-10)),(new Vector2(4,4),new Vector2(10,-10))})
         {var part=Panel("Part",cart,size,Brown);part.anchoredPosition=pos;NoRay(part);}
         cartLabel=Label("Text",cartButton,"",20,Brown,new Vector2(160,43),new Vector2(20,0));cartLabel.fontStyle=FontStyles.Bold;cartLabel.enableAutoSizing=true;cartLabel.fontSizeMin=12;cartLabel.fontSizeMax=20;
         // Same wallet pill as the inventory (InventoryUI.BuildWalletDisplay).
-        walletButton=RPanel("BankBalanceButton",window,new Vector2(285,51),new Color(1,.99f,.96f,.66f),24,12);walletButton.anchoredPosition=new Vector2(120,327);
+        walletButton=RPanel("BankBalanceButton",window,new Vector2(285,51),UITheme.Sand,24,12);walletButton.anchoredPosition=new Vector2(120,327);
         RButton(walletButton,OpenWithdraw);
         var coin=new GameObject("BankCoin",typeof(RectTransform),typeof(InventoryGlyphGraphic)).GetComponent<InventoryGlyphGraphic>();
-        coin.kind=InventoryGlyphGraphic.Glyph.Coin;coin.color=new Color(.94f,.65f,.18f);coin.raycastTarget=false;
+        coin.kind=InventoryGlyphGraphic.Glyph.Coin;coin.color=UITheme.Selected;coin.raycastTarget=false;
         coin.rectTransform.SetParent(walletButton,false);coin.rectTransform.sizeDelta=new Vector2(30,30);coin.rectTransform.anchoredPosition=new Vector2(-113,0);
         walletLabel=Label("BankBalance",walletButton,"",23,Brown,new Vector2(218,43),new Vector2(20,0));walletLabel.fontStyle=FontStyles.Bold;walletLabel.enableAutoSizing=true;walletLabel.fontSizeMin=12;walletLabel.fontSizeMax=23;
         statusLabel=Label("Status",window,"",13,Ink,new Vector2(620,22),new Vector2(0,-314));
@@ -79,7 +79,7 @@ public sealed partial class TradeWindow
     }
     void BuildCartView()
     {
-        cartView=Panel("CartView",window,new Vector2(672,416),new Color(1,1,1,.97f));cartView.anchoredPosition=new Vector2(0,90);Border(cartView);
+        cartView=RPanel("CartView",window,new Vector2(672,416),UITheme.A(UITheme.Ivory,.97f),UITheme.Radius*1.4f,UITheme.Radius*1.4f);cartView.GetComponent<InventoryRoundedGraphic>().raycastTarget=true;cartView.anchoredPosition=new Vector2(0,90);
         for(int i=0;i<TradeSession.CartMaxLines;i++)
         {
             var row=new CartRow{root=Panel("CartRow_"+i,cartView,new Vector2(640,30),Color.clear)};NoRay(row.root);row.root.anchoredPosition=new Vector2(0,170-i*32);
@@ -104,7 +104,7 @@ public sealed partial class TradeWindow
     {
         withdrawModal=UIRect("WithdrawModal",window,new Vector2(720,720));
         var blocker=RPanel("Blocker",withdrawModal,new Vector2(720,720),Color.clear,0,0);RButton(blocker,CloseWithdraw);
-        var card=RPanel("WithdrawalWindow",withdrawModal,new Vector2(320,234),new Color(.995f,.982f,.955f,.99f),30,14);
+        var card=RPanel("WithdrawalWindow",withdrawModal,new Vector2(320,234),UITheme.A(UITheme.Ivory,.97f),30,14);
         card.GetComponent<InventoryRoundedGraphic>().raycastTarget=true;card.pivot=new Vector2(.5f,1);
         card.anchoredPosition=walletButton.anchoredPosition+new Vector2(0,-walletButton.sizeDelta.y*.5f-8);
         var title=Label("WithdrawalTitle",card,"출금",23,Brown,new Vector2(288,40),Vector2.zero);title.fontStyle=FontStyles.Bold;card.GetComponent<RectTransform>();TopAt(title.rectTransform,0,-25);
@@ -118,7 +118,7 @@ public sealed partial class TradeWindow
         var cancel=TextButton("CancelWithdrawal",card,"취소",new Vector2(100,38),Vector2.zero,CloseWithdraw,15);BottomAt(cancel.GetComponent<RectTransform>(),-79,31);
         withdrawConfirm=TextButton("ConfirmWithdrawal",card,"확인 (Enter)",new Vector2(137,38),Vector2.zero,SubmitWithdraw,14);
         var confirmRect=withdrawConfirm.GetComponent<RectTransform>();BottomAt(confirmRect,54,31);
-        confirmRect.GetComponent<InventoryRoundedGraphic>().color=new Color(.72f,.49f,.33f,1);
+        confirmRect.GetComponent<InventoryRoundedGraphic>().color=UITheme.Selected;
         confirmRect.Find("Text").GetComponent<TMP_Text>().color=Color.white;
         withdrawModal.gameObject.SetActive(false);
     }
@@ -128,7 +128,7 @@ public sealed partial class TradeWindow
     {var r=(RectTransform)new GameObject(name,typeof(RectTransform)).transform;r.SetParent(parent,false);r.sizeDelta=size;return r;}
     TMP_InputField NumberField(string name,Transform parent,Vector2 size,string placeholder,int limit)
     {
-        var rect=RPanel(name,parent,size,new Color(1,1,1,.97f),19,8);rect.GetComponent<InventoryRoundedGraphic>().raycastTarget=true;
+        var rect=RPanel(name,parent,size,UITheme.Ivory,19,8);rect.GetComponent<InventoryRoundedGraphic>().raycastTarget=true;
         var viewport=UIRect("TextViewport",rect,size-new Vector2(24,10));viewport.gameObject.AddComponent<RectMask2D>();
         var text=Left(Label("Text",viewport,"",18,Brown,size-new Vector2(24,10),Vector2.zero));text.overflowMode=TextOverflowModes.Overflow;
         var hint=Left(Label("Placeholder",viewport,placeholder,15,HintColor,size-new Vector2(24,10),Vector2.zero));
@@ -136,7 +136,7 @@ public sealed partial class TradeWindow
         var input=rect.gameObject.AddComponent<TMP_InputField>();
         input.targetGraphic=rect.GetComponent<InventoryRoundedGraphic>();input.textViewport=viewport;input.textComponent=(TextMeshProUGUI)text;input.placeholder=hint;
         input.contentType=TMP_InputField.ContentType.IntegerNumber;input.lineType=TMP_InputField.LineType.SingleLine;
-        input.caretColor=Brown;input.customCaretColor=true;input.selectionColor=new Color(.84f,.68f,.46f,.45f);
+        input.caretColor=Brown;input.customCaretColor=true;input.selectionColor=UITheme.A(UITheme.Selected,.45f);
         input.characterValidation=TMP_InputField.CharacterValidation.Digit;input.characterLimit=limit;
         input.onValueChanged.AddListener(_=>ValidateWithdraw());input.onSubmit.AddListener(_=>SubmitWithdraw());
         return input;
@@ -205,7 +205,7 @@ public sealed partial class TradeWindow
         var s=Session;
         cartLabel.text=s.CartItemCount+"개 · "+s.CartTotal.ToString("N0")+"원";
         walletLabel.text="지갑  "+CashService.BankBalance.ToString("N0")+"원";
-        cartButtonImage.color=cartView.gameObject.activeSelf?new Color(.85f,.78f,.65f,.85f):new Color(1,.99f,.96f,.66f);
+        cartButtonImage.color=cartView.gameObject.activeSelf?UITheme.Slate:UITheme.Sand;
         if(Time.unscaledTime>statusUntil && statusLabel.text.Length>0)statusLabel.text="";
         if(cartView.gameObject.activeSelf)RefreshCartView();
     }

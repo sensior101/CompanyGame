@@ -27,8 +27,8 @@ public sealed partial class TradeWindow : MonoBehaviour
     Action onClose;
     int page,lastDropFrame=-1;
     readonly List<RaycastResult> hits=new List<RaycastResult>();
-    static readonly Color Ink=new Color(.13f,.18f,.17f);
-    static readonly Color Paper=new Color(1f,1f,1f,.68f);
+    static readonly Color Ink=UITheme.Ink;
+    static readonly Color Paper=UITheme.A(UITheme.Ivory,.93f);
     class Slot {public RectTransform rect;public UnityEngine.UI.Image image;public TMP_Text count;public TradePointer pointer;}
 
     public static TradeWindow Create(TradeSession session,TMP_FontAsset font,Action close)
@@ -44,8 +44,7 @@ public sealed partial class TradeWindow : MonoBehaviour
         var shade=Panel("Shade",transform,Vector2.zero,new Color(.16f,.13f,.13f,.12f));shade.anchorMin=Vector2.zero;shade.anchorMax=Vector2.one;shade.offsetMin=shade.offsetMax=Vector2.zero;
         window=Panel("TradeLayout",shade,new Vector2(680,600),Color.clear);
         window.GetComponent<UnityEngine.UI.Image>().raycastTarget=false;
-        var trades=Panel("TradeWindow",window,new Vector2(672,416),Paper);trades.anchoredPosition=new Vector2(0,90);
-        Border(trades);
+        var trades=RPanel("TradeWindow",window,new Vector2(672,416),Paper,UITheme.Radius*1.4f,UITheme.Radius*1.4f);trades.GetComponent<InventoryRoundedGraphic>().raycastTarget=true;trades.anchoredPosition=new Vector2(0,90);
         SymbolButton("Close",window,new Vector2(351,282),()=>onClose(),0);
         BuildCart();
         previousOffers=SymbolButton("PreviousOffers",window,new Vector2(-288,316),()=>ChangeOfferPage(-1),-1);
@@ -61,7 +60,7 @@ public sealed partial class TradeWindow : MonoBehaviour
             payment.image.enabled=available;
             outputViews.Add(MakeSlot("Output_"+i,row,new Vector2(36,0),TradePointer.Kind.Output,i,56));
         }
-        var storage=Panel("Inventory",window,new Vector2(672,162),Paper);storage.anchoredPosition=new Vector2(0,-211);Border(storage);
+        var storage=RPanel("Inventory",window,new Vector2(672,162),Paper,UITheme.Radius*1.4f,UITheme.Radius*1.4f);storage.GetComponent<InventoryRoundedGraphic>().raycastTarget=true;storage.anchoredPosition=new Vector2(0,-211);
         for(int i=0;i<16;i++)inventoryViews.Add(MakeSlot("Slot_"+i,storage,new Vector2(-259+(i%8)*74,37-(i/8)*74),TradePointer.Kind.Inventory,i,66));
         if(Session.Inventory.Capacity>16)
         {SymbolButton("Previous",window,new Vector2(-351,-211),()=>ChangePage(-1),-1);SymbolButton("Next",window,new Vector2(351,-211),()=>ChangePage(1),1);}
@@ -69,11 +68,11 @@ public sealed partial class TradeWindow : MonoBehaviour
         ghost.gameObject.AddComponent<CanvasGroup>().blocksRaycasts=false;
         ghostCount=Label("Amount",ghost,"",15,Color.white,new Vector2(52,20),new Vector2(0,-20));ghostCount.alignment=TextAlignmentOptions.BottomRight;
         ghost.gameObject.SetActive(false);
-        tooltip=Panel("ItemTooltip",transform,new Vector2(180,36),new Color(.16f,.12f,.10f,.96f));
+        tooltip=Panel("ItemTooltip",transform,new Vector2(180,36),UITheme.A(UITheme.Ivory,.96f));
         tooltip.GetComponent<UnityEngine.UI.Image>().raycastTarget=false;
-        tooltipText=Label("Name",tooltip,"",15,Color.white,new Vector2(164,30),Vector2.zero);
+        tooltipText=Label("Name",tooltip,"",15,Ink,new Vector2(164,30),Vector2.zero);
         tooltipText.richText=false;tooltipText.textWrappingMode=TextWrappingModes.Normal;
-        tooltipDetails=Label("Details",tooltip,"",12,new Color(.88f,.88f,.88f),new Vector2(164,20),Vector2.zero);
+        tooltipDetails=Label("Details",tooltip,"",12,UITheme.Brown,new Vector2(164,20),Vector2.zero);
         tooltipDetails.richText=false;tooltipDetails.textWrappingMode=TextWrappingModes.Normal;
         tooltipDetails.gameObject.SetActive(false);
         tooltip.gameObject.SetActive(false);
@@ -83,8 +82,8 @@ public sealed partial class TradeWindow : MonoBehaviour
     Slot MakeSlot(string name,Transform parent,Vector2 position,TradePointer.Kind kind,int index,float size)
     {
         bool payment=kind==TradePointer.Kind.Payment;
-        var r=Panel(name,parent,new Vector2(size,size),payment?Color.clear:new Color(1,1,1,.8f));r.anchoredPosition=position;
-        var inside=Panel("Recess",r,new Vector2(size-4,size-4),kind==TradePointer.Kind.Output?new Color(.23f,.24f,.25f,.96f):payment?Color.clear:new Color(1,1,1,.28f));inside.GetComponent<UnityEngine.UI.Image>().raycastTarget=false;
+        var r=Panel(name,parent,new Vector2(size,size),payment?Color.clear:UITheme.Slate);r.anchoredPosition=position;
+        var inside=Panel("Recess",r,new Vector2(size-4,size-4),kind==TradePointer.Kind.Output?UITheme.Brown:payment?Color.clear:UITheme.A(UITheme.Sand,.85f));inside.GetComponent<UnityEngine.UI.Image>().raycastTarget=false;
         var icon=Panel("Icon",inside,new Vector2(size-13,size-13),Color.white).GetComponent<UnityEngine.UI.Image>();icon.preserveAspect=true;icon.useSpriteMesh=true;icon.raycastTarget=false;
         var count=Label("Amount",r,"",15,kind==TradePointer.Kind.Output?Color.white:Ink,new Vector2(size-6,20),new Vector2(0,-size*.32f));count.alignment=TextAlignmentOptions.BottomRight;
         return new Slot{rect=r,image=icon,count=count,pointer=Pointer(r,kind,index)};
@@ -238,7 +237,7 @@ public sealed partial class TradeWindow : MonoBehaviour
     static void Border(RectTransform parent)
     {
         foreach(bool horizontal in new[]{true,false})foreach(int side in new[]{-1,1})
-        {var line=Panel("Border",parent,horizontal?new Vector2(parent.sizeDelta.x,2):new Vector2(2,parent.sizeDelta.y),new Color(1,1,1,.85f));line.anchoredPosition=horizontal?new Vector2(0,side*parent.sizeDelta.y*.5f):new Vector2(side*parent.sizeDelta.x*.5f,0);line.GetComponent<UnityEngine.UI.Image>().raycastTarget=false;}
+        {var line=Panel("Border",parent,horizontal?new Vector2(parent.sizeDelta.x,2):new Vector2(2,parent.sizeDelta.y),UITheme.Slate);line.anchoredPosition=horizontal?new Vector2(0,side*parent.sizeDelta.y*.5f):new Vector2(side*parent.sizeDelta.x*.5f,0);line.GetComponent<UnityEngine.UI.Image>().raycastTarget=false;}
     }
     RectTransform SymbolButton(string name,Transform parent,Vector2 position,Action action,int direction)
     {
