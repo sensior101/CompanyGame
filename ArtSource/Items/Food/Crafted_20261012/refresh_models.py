@@ -1,5 +1,7 @@
-"""Rebuild selected menu IDs in the existing library without touching other model files."""
+"""Rebuild selected menu IDs in the existing library without touching other model files.
+IDs present in menu.json but not yet in the library are added after their category's last entry."""
 import bpy,sys,json,importlib.util
+from mathutils import Vector
 from pathlib import Path
 ROOT=Path(__file__).resolve().parent
 spec=importlib.util.spec_from_file_location('food_builder',ROOT/'build_crafted.py');builder=importlib.util.module_from_spec(spec);spec.loader.exec_module(builder)
@@ -10,13 +12,26 @@ items=[x for x in builder.MENU if x['id'] in ids or x['builder'] in families]
 assert items,'Pass at least one exact menu ID'
 bpy.ops.wm.open_mainfile(filepath=str(ROOT/'CraftedFood_134.blend'))
 catalog=json.loads((ROOT/'catalog.json').read_text(encoding='utf8'));rows={x['id']:x for x in catalog['items']}
+for item in items:
+    if item['id'] not in rows:
+        name='Food_'+item['id'];family=item['builder'] if item['builder'] in builder.SHARED else item['id']
+        row={**item,'family':family,'vertices':0,'triangles':0,'geometryHash':'','materialSlots':0,'fbx':'Models/FBX/'+name+'.fbx','glb':'Models/GLB/'+name+'.glb','render':'Renders/'+name+'.png'}
+        last=max(i for i,x in enumerate(catalog['items']) if x['category']==item['category'])
+        catalog['items'].insert(last+1,row);rows[item['id']]=row
+catalog['count']=len(catalog['items']);catalog['uniqueGeometry']=len({x['family'] for x in catalog['items']})
+def library_slot(item):
+    # Same grid as finalize_library.py: rows of ten per category, 0.43 m apart.
+    group=[x['id'] for x in catalog['items'] if x['category']==item['category']];i=group.index(item['id'])
+    return bpy.data.objects['Food_'+group[0]].location+Vector(((i%10)*.43,(i//10)*.43,0))
 for obj in list(bpy.data.collections['Studio'].objects):bpy.data.objects.remove(obj,do_unlink=True)
 bpy.data.collections.remove(bpy.data.collections['Studio']);builder.setup_studio()
 for obj in bpy.data.objects:
     if obj.name.startswith('Food_'):obj.hide_render=True
 cache={}
 for item in items:
-    name='Food_'+item['id'];old=bpy.data.objects[name];position=old.location.copy();bpy.data.objects.remove(old,do_unlink=True)
+    name='Food_'+item['id'];old=bpy.data.objects.get(name)
+    if old:position=old.location.copy();bpy.data.objects.remove(old,do_unlink=True)
+    else:position=library_slot(item)
     family=item['builder'] if item['builder'] in builder.SHARED else item['id']
     if family not in cache:
         geo=builder.Geo();getattr(builder,'build_'+item['builder'])(geo,item['style']);builder.finish_food(geo,item)
@@ -36,5 +51,5 @@ for obj in bpy.data.objects:
 bpy.context.preferences.filepaths.save_version=0
 bpy.ops.file.pack_all()
 bpy.ops.wm.save_as_mainfile(filepath=str(ROOT/'CraftedFood_134.blend'))
-(ROOT/'catalog.json').write_text(json.dumps(catalog,ensure_ascii=False,indent=2),encoding='utf8')
+(ROOT/'catalog.json').write_text(json.dumps(catalog,ensure_ascii=False,indent=2),encoding='utf8',newline='\n')
 print('REFRESH_COMPLETE',len(items),flush=True)

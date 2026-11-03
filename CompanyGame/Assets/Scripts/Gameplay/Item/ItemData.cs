@@ -38,15 +38,22 @@ public class ItemData : ScriptableObject
     [Min(1)] public int maxStack = 1;
     [SerializeField] private long currencyValue;
 
-    [Header("Food effects (per item)")]
+    [Header("Food effects (per item, in HUD points: each bar is 20)")]
+    [Tooltip("Old 0-100 health restore. Food no longer heals; kept so old assets load.")]
     [Min(0f)] public float healthRestore;
+    [Min(0f)] public float fullnessRestore;
     [Min(0f)] public float staminaRestore;
     [Min(0f)] public float stressRelief;
+    [Tooltip("A restaurant meal (Korean, Chinese, Japanese, Western, Southeast Asian): eating it gives 든든함.")]
+    public bool restaurantMeal;
     public bool IsConsumable => itemType == ItemType.Consumable &&
-        (healthRestore > 0f || staminaRestore > 0f || stressRelief > 0f);
+        (fullnessRestore > 0f || staminaRestore > 0f || stressRelief > 0f || restaurantMeal);
 
     [Header("Held appearance")]
     public GameObject heldPrefab;
+    [Tooltip("Resources path of the held model when heldPrefab is empty, loaded only once someone holds the item, " +
+        "so a big catalog (the food library) does not load every model with the item list.")]
+    public string heldResource;
     public Vector3 heldLocalPosition = Vector3.zero;
     public Vector3 heldLocalEulerAngles = Vector3.zero;
     public Vector3 heldLocalScale = Vector3.one;
@@ -71,6 +78,8 @@ public class ItemData : ScriptableObject
     public string propertyName;
 
     public string DisplayName => string.IsNullOrWhiteSpace(displayName) ? name : displayName;
+    /// <summary>The model shown in the hand: heldPrefab, else the heldResource model (loaded on first use).</summary>
+    public GameObject HeldPrefab => heldPrefab ? heldPrefab : string.IsNullOrEmpty(heldResource) ? null : Resources.Load<GameObject>(heldResource);
     public bool IsBook => isBook || legacyCategory == ItemCategory.Book;
     public int StackLimit => IsBook ? 99 : IsStackable ? Mathf.Max(1, maxStack) : 1;
     bool IsStackable => IsCurrency || category == ItemCategory.General || category == ItemCategory.Food ||
