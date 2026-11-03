@@ -92,6 +92,7 @@ public sealed class PlayerInventory : MonoBehaviour
         if (!GetComponent<EmployeeCardPrompt>()) gameObject.AddComponent<EmployeeCardPrompt>();
         if (!GetComponent<SeatInteraction>()) gameObject.AddComponent<SeatInteraction>();
         if (!GetComponent<FurnitureLightInteraction>()) gameObject.AddComponent<FurnitureLightInteraction>();
+        if (!GetComponent<FridgeInteraction>()) gameObject.AddComponent<FridgeInteraction>();
         if (!GetComponent<BookReader>()) gameObject.AddComponent<BookReader>();
     }
 
@@ -223,7 +224,7 @@ public sealed class PlayerInventory : MonoBehaviour
     public bool CanUseHeldItem() => !PromptOwnsSpace && CanDepositCurrency() && !DialogueManager.OwnsInput &&
         !(PhoneManager.Instance && PhoneManager.Instance.IsPhoneOpen) && !(PlayerSeating.Local && PlayerSeating.Local.IsSeated);
 
-    bool CanDepositCurrency() => !SeatInteraction.HasNearbySeat && !FurnitureLightInteraction.HasNearbyLight && !DialogueManager.HasNearbyNpc && !DialogueManager.IsDialogueOpen && Application.isPlaying && isActiveAndEnabled && Inventory != null && !restorePending &&
+    bool CanDepositCurrency() => !SeatInteraction.HasNearbySeat && !FurnitureLightInteraction.HasNearbyLight && !FridgeInteraction.HasNearbyFridge && !FridgeInteraction.IsOpen && !DialogueManager.HasNearbyNpc && !DialogueManager.IsDialogueOpen && Application.isPlaying && isActiveAndEnabled && Inventory != null && !restorePending &&
         closedFrame != Time.frameCount && !IsDragging && !SceneLoadManager.IsLoading && !ChatUIManager.IsChatting &&
         !UIEventSystem.IsEditingText() && !(ui && ui.IsWithdrawalOpen) && !(interaction && interaction.IsInteractionMenuOpen) &&
         (IsOpen || (movement && movement.isActiveAndEnabled));
