@@ -41,7 +41,6 @@ public sealed class WorldDroppedItem : MonoBehaviour
     readonly List<Mesh> effectMeshes = new List<Mesh>();
     float floatPhase;
     RectTransform pickupPopup;
-    const float PromptScalePerMeter = .0036f; // same on-screen size for every item and vehicle prompt (.009 at 2.5 m)
     TMP_Text pickupText;
     GameObject vehicleModel;
     Collider vehicleCollider;
@@ -1076,7 +1075,7 @@ public sealed class WorldDroppedItem : MonoBehaviour
         canvas.overrideSorting = true;
         canvas.sortingOrder = 25;
         pickupPopup = canvasObject.GetComponent<RectTransform>();
-        pickupPopup.sizeDelta = new Vector2(320f, 42f);
+        pickupPopup.sizeDelta = new Vector2(240f, 36f);
         pickupPopup.localScale = Vector3.one * .009f;
 
         var panelObject = new GameObject("Panel", typeof(RectTransform), typeof(InventoryRoundedGraphic));
@@ -1087,10 +1086,10 @@ public sealed class WorldDroppedItem : MonoBehaviour
         panel.offsetMin = Vector2.zero;
         panel.offsetMax = Vector2.zero;
         var graphic = panelObject.GetComponent<InventoryRoundedGraphic>();
-        graphic.color = new Color(.08f, .07f, .065f, .70f);
-        graphic.borderColor = new Color(1f, .96f, .88f, .42f);
-        graphic.largeRadius = 18f;
-        graphic.smallRadius = 9f;
+        graphic.color = UITheme.Hex(0x29231E, .78f);
+        graphic.borderColor = UITheme.Hex(0x9A826A, .5f);
+        graphic.largeRadius = 10f;
+        graphic.smallRadius = 10f;
         graphic.borderWidth = 1.5f;
         graphic.raycastTarget = false;
 
@@ -1103,8 +1102,8 @@ public sealed class WorldDroppedItem : MonoBehaviour
         textRect.offsetMax = new Vector2(-8f, -3f);
         pickupText = textObject.GetComponent<TextMeshProUGUI>();
         if (record.font) pickupText.font = record.font;
-        pickupText.fontSize = 19f;
-        pickupText.color = new Color(1f, .98f, .93f, .98f);
+        pickupText.fontSize = 16f;
+        pickupText.color = UITheme.Ivory;
         pickupText.alignment = TextAlignmentOptions.Center;
         pickupText.textWrappingMode = TextWrappingModes.NoWrap;
         pickupText.overflowMode = TextOverflowModes.Ellipsis;
@@ -1134,7 +1133,19 @@ public sealed class WorldDroppedItem : MonoBehaviour
             break;
         }
         if (pickupText && visible) pickupText.text = PickupPromptText();
-        if (visible && camera) pickupPopup.localScale = Vector3.one * (PromptScalePerMeter * Mathf.Max(1.5f, Vector3.Distance(camera.transform.position, pickupPopup.position)));
+        if (visible && camera)
+        {
+            // Match screen pixels, compensating for vehicle/model ancestor scale and camera FOV.
+            float depth = Vector3.Dot(pickupPopup.position - camera.transform.position, camera.transform.forward);
+            visible = depth > camera.nearClipPlane;
+            float worldPerPixel = camera.orthographic
+                ? 2f * camera.orthographicSize / Mathf.Max(1, camera.pixelHeight)
+                : 2f * Mathf.Max(camera.nearClipPlane, depth) * Mathf.Tan(camera.fieldOfView * Mathf.Deg2Rad * .5f) / Mathf.Max(1, camera.pixelHeight);
+            var parent = pickupPopup.parent;
+            float xScale = parent ? parent.TransformVector(pickupPopup.localRotation * Vector3.right).magnitude : 1f;
+            float yScale = parent ? parent.TransformVector(pickupPopup.localRotation * Vector3.up).magnitude : 1f;
+            pickupPopup.localScale = new Vector3(worldPerPixel / Mathf.Max(.0001f, xScale), worldPerPixel / Mathf.Max(.0001f, yScale), worldPerPixel);
+        }
         if (pickupPopup.gameObject.activeSelf != visible) pickupPopup.gameObject.SetActive(visible);
     }
 
