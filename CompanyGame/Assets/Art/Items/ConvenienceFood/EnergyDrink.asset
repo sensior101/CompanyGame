@@ -15,11 +15,12 @@ MonoBehaviour:
   itemId: food:energy-drink
   displayName: "\uC5D0\uB108\uC9C0\uB4DC\uB9C1\uD06C"
   icon: {fileID: 1998309641, guid: 0cc68b0da27ee7a458261abf25f110ad, type: 3}
+  price: 2500
   itemType: 0
   legacyCategory: 10
   classificationVersion: 1
-  consumableType: 0
-  shelfLifeHours: 0
+  consumableType: 1
+  shelfLifeHours: 240
   clothingSlot: 0
   isBag: 0
   furnitureFunctions: 0
@@ -28,7 +29,8 @@ MonoBehaviour:
   maxStack: 20
   currencyValue: 0
   healthRestore: 0
-  staminaRestore: 10
+  fullnessRestore: 0
+  staminaRestore: 3
   stressRelief: 0
   heldPrefab: {fileID: 2409069734509614886, guid: 5636c52990f3428439e54703df23c7bc, type: 3}
   heldLocalPosition: {x: 0, y: 0.09, z: 0}

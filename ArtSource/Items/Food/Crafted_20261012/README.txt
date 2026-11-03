@@ -81,3 +81,16 @@ menu.json의 메뉴·레시피와 References의 첨부 원본은 변경하지 �
 - 데이터 흐름: 기존 메뉴 정의 → 기존 생성기 확장 → 동일 경로의 모델/텍스처/렌더 → 재불러오기 검증. 게임 시스템 데이터 흐름 변경 없음.
 - 중복 공통 기능 및 신규 관리자 없음. 기존 게임 API, 저장 데이터, 이벤트, UI, 호출부 변경 없음.
 - Unity 적용과 게임 내 검증은 수행하지 않았습니다.
+
+8. 추가 메뉴 (2026-11-01): 그릭요거트
+- GreekYogurt(그릭요거트, 디저트) 1종 추가. 전체 135종, 고유 메시 121개. 기존 경로를 유지하려고 원본 파일명 CraftedFood_134.blend는 그대로 둠.
+- 구성: 나무 그릇에 꾸덕한 요거트를 수북이 담고 가운데를 스쿱(말린 스쿱 결 3겹)으로 올림. 토핑은 모두 그 요거트 위에 얹었고, 스쿱 둘레부터 그릇 벽까지 빈틈없이 덮어 보이는 요거트는 스쿱뿐임. 왼쪽 겹쳐 세운 바나나 10조각, 뒤쪽 그래놀라(귀리 송이·플레이크·호박씨), 오른쪽 블루베리, 앞쪽 반 자른 딸기. 사용자가 준 카페식 그릭요거트 볼 사진의 구성을 따름. 그릇에 평평하게 깔린 묽은 요거트 층은 없음.
+- 토핑 배치 후 위에서 내려다봐서 요거트가 드러나는 자리를 찾아, 그 구역의 토핑(딸기·블루베리·그래놀라)으로 한 번 더 덮음. 최종 딸기 반쪽 15·블루베리 29.
+- 삼각형 21,526 · 재질 슬롯 15 · 크기 약 0.21 × 0.21 × 0.12 m. 기존 재질(wood, dough, baked, toast, berry, yellow, blueberry 등)을 재사용하고 전용 색 5개(yogurt, oat, strawflesh, strawcore, banana)만 추가. yogurt 노멀 강도는 잔결이 보이도록 고기·잎과 같은 수준으로 둠.
+- 조합법 "우유 + 블루베리 + 바나나 + 설탕"은 기존 재료 이름으로 정한 임시값.
+- 수정 파일: build_crafted.py(build_yogurt, yogurt_scoop, berry_half, banana_slice, 전용 색, yogurt 노멀 강도, fruitberry에 해상도 인자 추가 — 기본값이 기존과 같아 다른 메뉴 형상은 그대로), menu.json(1행 추가), refresh_models.py(라이브러리에 없는 ID를 해당 카테고리 끝에 추가, catalog.json 줄바꿈 LF 고정), catalog.json, CraftedFood_134.blend, QA/validation.json, QA/views.json.
+- 신규 파일: Models/FBX·GLB/Food_GreekYogurt, Renders/Food_GreekYogurt.png, QA/Views/GreekYogurt_side·back.png, Textures의 전용 색 BaseColor/Normal 10장.
+- 재현: Blender --background --factory-startup --addons cycles,io_scene_fbx,io_scene_gltf2 --python refresh_models.py -- GreekYogurt
+- 검증: validate_crafted.py --views --view-id GreekYogurt. 135종 메시 검사, FBX·GLB 재불러오기 270/270, 내장 텍스처 이식성 통과.
+- 갱신하지 않음: index.html, quality_review.*, Previews 모음, checksums.json, V3 ZIP은 134종 납품본 기준 그대로. package_assets.py가 134종을 전제로 하므로 다시 패키징하려면 개수 검사부터 바꿔야 함.
+- Unity 적용과 게임 내 검증은 하지 않음.
