@@ -14,13 +14,16 @@ public sealed class FloorStairsMenu : MonoBehaviour
     static bool shown;
     static int enterFrame = -1;
 
-    static readonly Color Ink = new Color(.075f, .12f, .17f, .92f);
-    static readonly Color Paper = new Color(.94f, .96f, .97f);
-    static readonly Color Mint = new Color(.3f, .88f, .72f);
-    static readonly Color Idle = new Color(.19f, .25f, .3f);
+    static readonly Color Ink = UITheme.A(UITheme.Ivory, .93f); // panel
+    static readonly Color Paper = UITheme.Ink; // text
+    static readonly Color Mint = UITheme.Selected; // highlight
+    static readonly Color Idle = UITheme.Sand;
 
     GameObject root;
     FloorStairs stairs;
+    ElevatorController elevator;
+    bool inElevator;
+    int callFloor;
     int selected;
     readonly List<int> targets = new List<int>();
     readonly List<Image> rows = new List<Image>();
@@ -32,6 +35,20 @@ public sealed class FloorStairsMenu : MonoBehaviour
 
     void Update()
     {
+        if (CanShow(PlayerInteraction.Local))
+        {
+            var lift = ElevatorController.FindNearest(transform, out bool inside, out int call);
+            if (lift)
+            {
+                if (lift != elevator || inside != inElevator || call != callFloor || !shown) ShowElevator(lift, inside, call);
+                if (GameInput.NavUpPressed) selected = Mathf.Max(0, selected - 1);
+                if (GameInput.NavDownPressed) selected = Mathf.Min(targets.Count - 1, selected + 1);
+                Refresh();
+                if (hint) hint.text = lift.StatusText + "  ·  ↑↓ 선택 / Enter";
+                if (GameInput.SubmitPressed) { enterFrame = Time.frameCount; Go(selected); }
+                return;
+            }
+        }
         var near = CanShow(PlayerInteraction.Local) ? FloorStairs.FindNearest(transform) : null;
         if (!near) { Hide(); return; }
         if (near != stairs || !shown) Show(near);
@@ -56,6 +73,12 @@ public sealed class FloorStairsMenu : MonoBehaviour
     void Go(int index)
     {
         if (index < 0 || index >= targets.Count) return;
+        if (elevator)
+        {
+            elevator.TryRequestFloor(targets[index], transform, out string message);
+            if (hint) hint.text = message;
+            return;
+        }
         if (stairs && !string.IsNullOrWhiteSpace(stairs.targetScenePath))
         {
             if (!Application.CanStreamedLevelBeLoaded(stairs.targetScenePath))
@@ -71,12 +94,14 @@ public sealed class FloorStairsMenu : MonoBehaviour
 
     void Show(FloorStairs near)
     {
+        elevator = null;
         stairs = near;
         targets.Clear();
         if (near.floor < near.topFloor) targets.Add(near.floor + 1);
         if (near.floor > 1) targets.Add(near.floor - 1);
         selected = 0;
         if (!root) Build();
+        LayoutRows(false);
         for (int i = 0; i < rows.Count; i++)
         {
             rows[i].gameObject.SetActive(i < targets.Count);
@@ -91,7 +116,36 @@ public sealed class FloorStairsMenu : MonoBehaviour
     {
         shown = false;
         stairs = null;
+        elevator = null;
         if (root) root.SetActive(false);
+    }
+
+    void LayoutRows(bool lift)
+    {
+        var panel = (RectTransform)rows[0].transform.parent;
+        panel.sizeDelta = new Vector2(lift ? 360 : 320, lift ? 220 : 130);
+        for (int i = 0; i < rows.Count; i++)
+            rows[i].rectTransform.anchoredPosition = new Vector2(0, (lift ? 76 : 34) - i * (lift ? 43 : 50));
+        hint.rectTransform.anchoredPosition = new Vector2(0, lift ? -92 : -53);
+        hint.fontSize = lift ? 13 : 15;
+        hint.rectTransform.sizeDelta = new Vector2(lift ? 340 : 300, lift ? 32 : 24);
+    }
+
+    void ShowElevator(ElevatorController lift, bool inside, int call)
+    {
+        stairs = null; elevator = lift; inElevator = inside; callFloor = call;
+        targets.Clear();
+        if (inside) for (int i = 0; i < lift.FloorCount; i++) targets.Add(i);
+        else targets.Add(call);
+        selected = 0;
+        if (!root) Build();
+        LayoutRows(true);
+        for (int i = 0; i < rows.Count; i++)
+        {
+            rows[i].gameObject.SetActive(i < targets.Count);
+            if (i < targets.Count) labels[i].text = inside ? lift.GetFloorLabel(targets[i]) + " 이동" : lift.GetFloorLabel(call) + " 엘리베이터 호출";
+        }
+        root.SetActive(true); shown = true;
     }
 
     void Refresh()
@@ -99,7 +153,7 @@ public sealed class FloorStairsMenu : MonoBehaviour
         for (int i = 0; i < targets.Count; i++)
         {
             rows[i].color = i == selected ? Mint : Idle;
-            labels[i].color = i == selected ? Ink : Paper;
+            labels[i].color = i == selected ? Color.white : Paper;
         }
     }
 
@@ -123,8 +177,8 @@ public sealed class FloorStairsMenu : MonoBehaviour
         panel.gameObject.AddComponent<Image>().color = Ink;
         var interaction = PlayerInteraction.Local;
         var font = interaction && interaction.uiFont ? interaction.uiFont : TMP_Settings.defaultFontAsset;
-        for (int i = 0; i < 2; i++) BuildRow(panel, font, i);
-        hint = Text("Hint", panel, font, "↑↓ 선택   Enter 이동", 15f, new Color(.72f, .79f, .83f), new Vector2(0f, -53f), new Vector2(300f, 24f));
+        for (int i = 0; i < 4; i++) BuildRow(panel, font, i);
+        hint = Text("Hint", panel, font, "↑↓ 선택   Enter 이동", 15f, UITheme.Brown, new Vector2(0f, -53f), new Vector2(300f, 24f));
         hint.raycastTarget = false;
     }
 
