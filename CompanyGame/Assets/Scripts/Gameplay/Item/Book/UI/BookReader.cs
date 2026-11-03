@@ -416,8 +416,8 @@ public sealed class BookReader : MonoBehaviour
         dismissPermissions.transition = UnityEngine.UI.Selectable.Transition.None;
         dismissPermissions.navigation = new UnityEngine.UI.Navigation { mode = UnityEngine.UI.Navigation.Mode.None };
         dismissPermissions.onClick.AddListener(() => { if (permissionsOpen) ForceClose(); });
-        bookFrame = Panel("BookFrame", root.transform, new Vector2(960, 620), new Color(.32f, .15f, .075f, 1f));
-        var gold = new Color(.78f, .59f, .29f, 1f);
+        bookFrame = Panel("BookFrame", root.transform, new Vector2(960, 620), UITheme.Brown);
+        var gold = UITheme.Slate;
         foreach (float y in new[] { -299f, 299f })
             PanelAt("GoldHorizontal", bookFrame, new Vector2(934, 2), new Vector2(0, y), gold).GetComponent<UnityEngine.UI.Image>().raycastTarget = false;
         foreach (float x in new[] { -469f, 469f })
@@ -429,10 +429,10 @@ public sealed class BookReader : MonoBehaviour
             corner.localRotation = Quaternion.Euler(0, 0, 45);
             corner.GetComponent<UnityEngine.UI.Image>().raycastTarget = false;
         }
-        PanelAt("LeftPage", bookFrame, new Vector2(450, 568), new Vector2(-229, 0), new Color(.975f, .952f, .892f));
-        PanelAt("RightPage", bookFrame, new Vector2(450, 568), new Vector2(229, 0), new Color(.99f, .973f, .921f));
-        PanelAt("SpineShade", bookFrame, new Vector2(16, 568), Vector2.zero, new Color(.40f, .29f, .18f, .42f));
-        titlePage = PanelAt("TitlePage", bookFrame, new Vector2(410, 410), new Vector2(229, 0), new Color(.99f, .973f, .921f));
+        PanelAt("LeftPage", bookFrame, new Vector2(450, 568), new Vector2(-229, 0), UITheme.Ivory);
+        PanelAt("RightPage", bookFrame, new Vector2(450, 568), new Vector2(229, 0), UITheme.Ivory);
+        PanelAt("SpineShade", bookFrame, new Vector2(16, 568), Vector2.zero, UITheme.A(UITheme.Brown, .25f));
+        titlePage = PanelAt("TitlePage", bookFrame, new Vector2(410, 410), new Vector2(229, 0), UITheme.Ivory);
         Label("TitleLabel", titlePage, new Vector2(370, 50), new Vector2(0, 118), 30).text = "제목";
         titleInput = Input("Title", titlePage, new Vector2(370, 90), new Vector2(0, 25), "제목", 27, false);
         titleInput.GetComponent<UnityEngine.UI.Image>().color = new Color(.85f, .78f, .63f, .5f);
@@ -483,7 +483,7 @@ public sealed class BookReader : MonoBehaviour
         var rect = UIBuild.Rect(name, parent, size); rect.anchoredPosition = position;
         var text = rect.gameObject.AddComponent<TextMeshProUGUI>();
         text.font = playerInventory.uiFont ? playerInventory.uiFont : TMP_Settings.defaultFontAsset;
-        text.fontSize = fontSize; text.color = new Color(.20f, .12f, .07f);
+        text.fontSize = fontSize; text.color = UITheme.Ink;
         text.alignment = TextAlignmentOptions.Center; text.raycastTarget = false; text.richText = false;
         return text;
     }
@@ -500,7 +500,7 @@ public sealed class BookReader : MonoBehaviour
         value.textWrappingMode = TextWrappingModes.Normal;
         var placeholder = Label("Placeholder", viewport, Vector2.zero, Vector2.zero, fontSize);
         UIBuild.Stretch(placeholder.rectTransform); placeholder.alignment = TextAlignmentOptions.TopLeft;
-        placeholder.text = hint; placeholder.color = new Color(.45f, .38f, .30f, .7f);
+        placeholder.text = hint; placeholder.color = UITheme.Brown;
         var field = frame.gameObject.AddComponent<TMP_InputField>();
         field.textViewport = viewport; field.textComponent = (TextMeshProUGUI)value;
         field.placeholder = placeholder; field.targetGraphic = frame.GetComponent<UnityEngine.UI.Image>();
@@ -512,10 +512,10 @@ public sealed class BookReader : MonoBehaviour
 
     void Button(string name, Transform parent, Vector2 size, Vector2 position, string caption, UnityEngine.Events.UnityAction action, float fontSize = 25)
     {
-        var frame = PanelAt(name, parent, size, position, new Color(.42f, .25f, .12f, .88f));
+        var frame = PanelAt(name, parent, size, position, UITheme.Selected);
         var button = frame.gameObject.AddComponent<UnityEngine.UI.Button>(); button.onClick.AddListener(action);
         button.navigation = new UnityEngine.UI.Navigation { mode = UnityEngine.UI.Navigation.Mode.None };
         var text = Label("Label", frame, Vector2.zero, Vector2.zero, fontSize);
-        UIBuild.Stretch(text.rectTransform); text.text = caption; text.color = new Color(1f, .96f, .84f);
+        UIBuild.Stretch(text.rectTransform); text.text = caption; text.color = UITheme.Ink;
     }
 }

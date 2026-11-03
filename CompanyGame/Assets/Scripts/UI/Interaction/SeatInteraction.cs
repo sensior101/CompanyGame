@@ -52,10 +52,10 @@ public sealed class SeatInteraction : MonoBehaviour
             scaler.referenceResolution = new Vector2(1280f,720f); scaler.matchWidthOrHeight = .5f;
             var panel = UIBuild.Rect("Panel", canvasRoot.transform, new Vector2(340f,48f));
             panel.anchorMin = panel.anchorMax = new Vector2(.5f,0f); panel.pivot = new Vector2(.5f,0f); panel.anchoredPosition = new Vector2(0f,148f);
-            var image = panel.gameObject.AddComponent<UnityEngine.UI.Image>(); image.color = new Color(.075f,.12f,.17f,.92f); image.raycastTarget = false;
+            UITheme.Rounded(panel, UITheme.A(UITheme.Ivory, .93f), UITheme.Radius, 1.5f);
             var rect = UIBuild.Rect("Label",panel,Vector2.zero); UIBuild.Stretch(rect);
             label = rect.gameObject.AddComponent<TextMeshProUGUI>(); label.font = PlayerInteraction.Local.uiFont;
-            label.fontSize = 20f; label.color = new Color(.94f,.96f,.97f); label.alignment = TextAlignmentOptions.Center; label.raycastTarget = false;
+            label.fontSize = 20f; label.color = UITheme.Ink; label.alignment = TextAlignmentOptions.Center; label.raycastTarget = false;
         }
         label.text = text; canvasRoot.SetActive(true);
     }
