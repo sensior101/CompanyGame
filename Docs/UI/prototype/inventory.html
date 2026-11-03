@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>UI 시안 · 인벤토리</title>
+<style>
+@font-face { font-family: "NotoKR"; src: url("/CompanyGame/Assets/Art/font/NotoSansKR-Regular.ttf") format("truetype"); }
+:root {
+  /* Palette (given) */
+  --ivory: #F5EEDF; --sand: #E9DDC8; --slot: #DCCCB4; --brown: #8A7258;
+  --orange: #E6A24C; --orange-press: #C97B3D; --green: #8FAE8A;
+  /* Added (reasons on the token sheet) */
+  --ink: #3B2F25; --ink-2: #6E5A45; --red: #B0473B; --blue: #5A7891;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #1e1e1e; font-family: "NotoKR", sans-serif; color: var(--ink); }
+.chrome { width: 1280px; margin: 0 auto; padding: 18px 0 8px; color: #cfc7b8; font-size: 13px; }
+.frame { position: relative; width: 1280px; height: 720px; margin: 0 auto; overflow: hidden; background-size: cover; background-position: center; }
+.frame.interior { background-image: url("/ArtSource/ConvenienceInterior/Previews/04_Unity.png"); }
+.frame.town { background-image: url("/ArtSource/Daldongne/TerracedExpansion/OriginalShopsAndSteps.png"); }
+button { font-family: inherit; color: var(--ink); background: none; border: 0; cursor: default; }
+
+/* Faceted shapes: [data-c] elements get an SVG polygon behind their content (see facet() below).
+   Unity: InventoryRoundedGraphic with one segment per corner. */
+[data-c] { position: relative; isolation: isolate; }
+[data-c] > svg.bg { position: absolute; left: 0; top: 0; z-index: -1; pointer-events: none; }
+[data-c] > :not(svg.bg) { position: relative; }
+
+.cap { font-size: 12px; color: var(--ink-2); }
+.sec { font-size: 12px; font-weight: 700; color: var(--ink-2); white-space: nowrap; }
+
+/* Window */
+.inv { position: absolute; right: 16px; top: 64px; width: 508px; }
+.win-h { height: 48px; display: flex; align-items: center; justify-content: space-between; padding: 0 9px 0 16px; }
+.win-h h1 { font-size: 18px; font-weight: 700; }
+.h-right { display: flex; align-items: center; gap: 6px; }
+.rule { height: 1px; background: rgba(138, 114, 88, .26); margin: 0 1px; }
+.btn { height: 32px; padding: 0 16px; font-size: 14px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.btn.pri { min-width: 84px; font-weight: 700; }
+.btn.sm { height: 28px; padding: 0 10px; font-size: 13px; }
+.wallet b { font-size: 13px; }
+.icon-btn { width: 30px; height: 30px; display: grid; place-items: center; }
+.win-b { padding: 14px 16px 6px; }
+.sec-row { display: flex; justify-content: space-between; align-items: baseline; height: 18px; }
+.grid { display: grid; grid-template-columns: repeat(8, 56px); gap: 4px; margin-top: 8px; }
+.equip { margin-bottom: 16px; }
+.slot { width: 56px; height: 56px; }
+.slot img { position: absolute !important; left: 8px; top: 8px; width: 40px; height: 40px; object-fit: contain; }
+.slot .n { position: absolute !important; left: 5px; top: 2px; font-size: 11px; font-weight: 700; color: var(--ink-2); }
+.slot .c { position: absolute !important; right: 5px; bottom: 2px; font-size: 12px; font-weight: 700; color: var(--ink);
+  text-shadow: 1px 0 var(--slot), -1px 0 var(--slot), 0 1px var(--slot), 0 -1px var(--slot); }
+.slot.eq { display: grid; place-items: center; }
+.slot.eq svg.g { width: 26px; height: 26px; fill: var(--brown); opacity: .5; }
+.slot.spoiled img { filter: grayscale(.75); opacity: .6; }
+.hint { height: 30px; display: flex; align-items: center; justify-content: center; font-size: 12px; color: var(--ink-2); }
+
+.detail { padding: 12px 16px 16px; }
+.d-top { display: flex; gap: 12px; align-items: center; }
+.d-icon { width: 56px; height: 56px; flex: none; display: grid; place-items: center; }
+.d-icon img { width: 44px; height: 44px; object-fit: contain; }
+.d-name { font-size: 15px; font-weight: 700; }
+.d-actions { margin-left: auto; display: flex; gap: 6px; }
+.kv { display: grid; grid-template-columns: 60px 1fr; row-gap: 4px; margin: 10px 0 0 68px; font-size: 13px; align-items: baseline; }
+.kv dt { font-size: 12px; color: var(--ink-2); }
+.sq { display: inline-block; width: 8px; height: 8px; margin-right: 6px; vertical-align: 1px; }
+
+/* HUD */
+.clock { position: absolute; left: 16px; top: 16px; height: 32px; padding: 0 12px; display: flex; align-items: center; gap: 8px; }
+.clock b { font-size: 15px; }
+.vitals { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); padding: 8px 12px 9px; }
+.hearts { display: flex; gap: 2px; }
+.hearts svg { width: 18px; height: 16px; display: block; }
+.bars { display: flex; gap: 16px; margin-top: 7px; }
+.bar { display: flex; align-items: center; gap: 6px; }
+.cells { display: flex; gap: 2px; }
+.cell { width: 8px; height: 12px; background: rgba(138, 114, 88, .24); position: relative; overflow: hidden; }
+.cell i { position: absolute; left: 0; top: 0; bottom: 0; }
+
+/* Token sheet */
+.sheet { width: 1280px; margin: 0 auto 40px; background: var(--ivory); padding: 28px 32px 36px; }
+.sheet h2 { font-size: 18px; font-weight: 700; margin: 22px 0 10px; }
+.sheet h2:first-child { margin-top: 0; }
+.sw { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+.sw div { font-size: 12px; color: var(--ink-2); }
+.sw span { display: block; height: 44px; border: 1px solid rgba(138, 114, 88, .26); margin-bottom: 6px; }
+.sw b { display: block; font-size: 13px; color: var(--ink); }
+.row { display: flex; gap: 28px; align-items: flex-end; flex-wrap: wrap; }
+.row .cap { margin-top: 6px; }
+</style>
+</head>
+<body>
+
+<template id="inventory">
+  <div class="clock" data-c="4" data-fill="rgba(245,238,223,.86)" data-stroke="rgba(138,114,88,.5)"><span class="cap">봄 3일차</span><b>14:20</b></div>
+  <div class="inv" data-c="6" data-fill="rgba(245,238,223,.92)" data-stroke="rgba(138,114,88,.5)">
+    <header class="win-h">
+      <h1>가방</h1>
+      <div class="h-right">
+        <button class="btn sm wallet" data-c="3" data-fill="rgba(245,238,223,.7)" data-stroke="rgba(138,114,88,.5)"><span class="cap">지갑</span><b>128,500원</b></button>
+        <button class="icon-btn" aria-label="닫기"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M2 2l10 10M12 2L2 12" stroke="#6E5A45" stroke-width="1.8"/></svg></button>
+      </div>
+    </header>
+    <div class="rule"></div>
+    <div class="win-b">
+      <section class="equip">
+        <div class="sec-row"><span class="sec">착용</span></div>
+        <div class="grid">
+          <div class="slot eq" data-c="3" data-fill="#E9DDC8" title="상의"><svg class="g" viewBox="0 0 24 24"><path d="M8 3 3 6l2 4 2-1v12h10V9l2 1 2-4-5-3c-.6 1.6-2.2 2.6-4 2.6S8.6 4.6 8 3z"/></svg></div>
+          <div class="slot eq" data-c="3" data-fill="#E9DDC8" title="하의"><svg class="g" viewBox="0 0 24 24"><path d="M6 3h12l1.2 18h-5L12 10l-2.2 11h-5z"/></svg></div>
+          <div class="slot eq" data-c="3" data-fill="#E9DDC8" title="양말"><svg class="g" viewBox="0 0 24 24"><path d="M8 2h7v10l3.2 3.8c1.5 1.9-.6 5.2-2.9 4.1L9 16.4C8.2 15.8 8 15 8 14z"/></svg></div>
+          <div class="slot eq" data-c="3" data-fill="#E9DDC8" title="신발"><svg class="g" viewBox="0 0 24 24"><path d="M3 18v-4l1.2-6h5l2.3 3.2 6 1.8c2 .6 3.5 1.8 3.5 3.6V18z"/></svg></div>
+          <div class="slot eq" data-c="3" data-fill="#E9DDC8" title="펫"><svg class="g" viewBox="0 0 24 24"><circle cx="6.5" cy="10" r="2.2"/><circle cx="10" cy="6" r="2.2"/><circle cx="14" cy="6" r="2.2"/><circle cx="17.5" cy="10" r="2.2"/><path d="M12 11c3 0 6 4.5 6 7 0 1.8-1.6 2.5-3 2.1-1-.3-2-.8-3-.8s-2 .5-3 .8c-1.4.4-3-.3-3-2.1 0-2.5 3-7 6-7z"/></svg></div>
+        </div>
+      </section>
+      <div class="sec-row"><span class="sec">소지품</span><span class="cap">13 / 16</span></div>
+      <div class="grid">
+        <div class="slot sel" data-c="3"><span class="n">1</span><img src="/CompanyGame/Assets/Art/Items/Food/Food_RiceBall.png" alt=""><span class="c">4</span></div>
+        <div class="slot" data-c="3"><span class="n">2</span><img src="/CompanyGame/Assets/Art/Items/Food/Food_Ramen.png" alt=""><span class="c">2</span></div>
+        <div class="slot" data-c="3"><span class="n">3</span><img src="/CompanyGame/Assets/Art/Items/Food/Food_Water.png" alt=""><span class="c">3</span></div>
+        <div class="slot" data-c="3"><span class="n">4</span><img src="/CompanyGame/Assets/Art/Items/Food/Food_Cola.png" alt=""></div>
+        <div class="slot" data-c="3"><span class="n">5</span><img src="/CompanyGame/Assets/Art/Items/Food/Food_Chocolate.png" alt=""><span class="c">2</span></div>
+        <div class="slot" data-c="3"><span class="n">6</span><img src="/CompanyGame/Assets/Art/Items/Food/Food_GummyBear.png" alt=""></div>
+        <div class="slot" data-c="3"><span class="n">7</span><img src="/CompanyGame/Assets/Art/Items/Food/Food_Kimbap.png" alt=""></div>
+        <div class="slot" data-c="3"><span class="n">8</span></div>
+        <div class="slot" data-c="3"><img src="/CompanyGame/Assets/Art/Items/Food/Food_Apple.png" alt=""><span class="c">6</span></div>
+        <div class="slot" data-c="3"><img src="/CompanyGame/Assets/Art/Items/Food/Food_Bread.png" alt=""></div>
+        <div class="slot spoiled" data-c="3"><img src="/CompanyGame/Assets/Art/Items/Food/Food_Milk.png" alt=""></div>
+        <div class="slot" data-c="3"><img src="/CompanyGame/Assets/Art/Items/Food/Food_Egg.png" alt=""><span class="c">10</span></div>
+        <div class="slot" data-c="3"><img src="/CompanyGame/Assets/Art/Items/Food/Food_Coffee.png" alt=""></div>
+        <div class="slot" data-c="3"><img src="/CompanyGame/Assets/Art/Items/Deeds/deed_house.png" alt=""></div>
+        <div class="slot" data-c="3"></div>
+        <div class="slot" data-c="3"></div>
+      </div>
+      <div class="hint">가방을 사면 8칸을 더 쓸 수 있어요</div>
+    </div>
+    <div class="rule"></div>
+    <section class="detail">
+      <div class="d-top">
+        <div class="d-icon" data-c="3" data-fill="#DCCCB4"><img src="/CompanyGame/Assets/Art/Items/Food/Food_RiceBall.png" alt=""></div>
+        <div><div class="d-name">삼각김밥</div><div class="cap">음식 · 4개</div></div>
+        <div class="d-actions">
+          <button class="btn" data-c="4" data-fill="rgba(245,238,223,.7)" data-stroke="rgba(138,114,88,.5)">버리기</button>
+          <button class="btn pri" data-c="4" data-fill="#E6A24C" data-lip="#C97B3D">먹기</button>
+        </div>
+      </div>
+      <dl class="kv">
+        <dt>효과</dt><dd><i class="sq" style="background:var(--green)"></i>포만감 +2</dd>
+        <dt>유통기한</dt><dd>봄 4일차 06:00 <span class="cap">· 냉장 보관하면 3일</span></dd>
+      </dl>
+    </section>
+  </div>
+  <div class="vitals" data-c="4" data-fill="rgba(245,238,223,.86)" data-stroke="rgba(138,114,88,.5)">
+    <div class="hearts" data-value="15"></div>
+    <div class="bars">
+      <div class="bar"><span class="sec">포만감</span><div class="cells" data-value="14" data-color="var(--green)"></div></div>
+      <div class="bar"><span class="sec">기력</span><div class="cells" data-value="11" data-color="var(--blue)"></div></div>
+      <div class="bar"><span class="sec">스트레스</span><div class="cells" data-value="4" data-color="var(--orange-press)"></div></div>
+    </div>
+  </div>
+</template>
+
+<div class="chrome">A · 편의점 실내 (밝은 배경) — 실제 Unity 렌더 위, 1280×720 기준</div>
+<section class="frame interior" id="a"></section>
+<div class="chrome">B · 동네 전경 (베이지 배경) — 같은 UI, 다른 배경</div>
+<section class="frame town" id="b"></section>
+<div class="chrome">C · 토큰과 컴포넌트</div>
+<section class="sheet" id="c">
+  <h2>색</h2>
+  <div class="sw">
+    <div><span style="background:var(--ivory)"></span><b>아이보리 #F5EEDF</b>창 92% · HUD 86% 불투명</div>
+    <div><span style="background:var(--sand)"></span><b>샌드베이지 #E9DDC8</b>장비 칸·보조 버튼</div>
+    <div><span style="background:var(--slot)"></span><b>슬롯베이지 #DCCCB4</b>아이템 칸 (불투명)</div>
+    <div><span style="background:var(--brown)"></span><b>브라운 #8A7258</b>테두리·구분선·빈 칸 그림 (글자 X)</div>
+    <div><span style="background:var(--orange)"></span><b>선택 오렌지 #E6A24C</b>선택 테두리·주 버튼</div>
+    <div><span style="background:var(--orange-press)"></span><b>클릭 브라운오렌지 #C97B3D</b>누름·버튼 아랫면·스트레스</div>
+    <div><span style="background:var(--green)"></span><b>보조 그린 #8FAE8A</b>포만감·좋은 효과</div>
+    <div><span style="background:var(--ink)"></span><b>추가 · 잉크 #3B2F25</b>본문 글자 (아이보리 대비 11.2:1)</div>
+    <div><span style="background:var(--ink-2)"></span><b>추가 · 잉크2 #6E5A45</b>보조 글자 (5.7:1)</div>
+    <div><span style="background:var(--red)"></span><b>추가 · 레드 #B0473B</b>체력·상함·위험</div>
+    <div><span style="background:var(--blue)"></span><b>추가 · 블루 #5A7891</b>기력</div>
+  </div>
+  <h2>글자 (Noto Sans KR, 1280×720 기준 px)</h2>
+  <div class="row">
+    <div style="font-size:18px;font-weight:700">창 제목 18 굵게</div>
+    <div style="font-size:15px;font-weight:700">아이템 이름 15 굵게</div>
+    <div style="font-size:14px">본문·버튼 14</div>
+    <div style="font-size:13px">값 13</div>
+    <div class="sec">구역 이름 12 굵게</div>
+    <div class="cap">설명 12 (최소)</div>
+    <div class="cap">칸 번호 11 (숫자만)</div>
+  </div>
+  <h2>모양 (깎은 모서리, 층마다 크기가 다름)</h2>
+  <div class="row">
+    <div><div data-c="6" data-fill="rgba(245,238,223,.86)" data-stroke="rgba(138,114,88,.5)" style="width:96px;height:56px"></div><div class="cap">창 6</div></div>
+    <div><div data-c="4" data-fill="#E6A24C" data-lip="#C97B3D" style="width:96px;height:32px"></div><div class="cap">버튼·HUD 4</div></div>
+    <div><div data-c="3" data-fill="#DCCCB4" style="width:56px;height:56px"></div><div class="cap">칸 3</div></div>
+    <div><div style="width:8px;height:12px;background:var(--green)"></div><div class="cap">게이지 0</div></div>
+    <div><div style="width:96px;height:56px;border-radius:10px;background:#fff;border:1px solid rgba(138,114,88,.5)"></div><div class="cap">말풍선만 둥글게 10</div></div>
+    <div class="cap" style="padding-bottom:4px">간격 4 · 8 · 12 · 16 · 24</div>
+  </div>
+  <h2>칸과 버튼 상태</h2>
+  <div class="row">
+    <div><div class="slot" data-c="3"></div><div class="cap">빈 칸</div></div>
+    <div><div class="slot" data-c="3"><img src="/CompanyGame/Assets/Art/Items/Food/Food_Apple.png" alt=""><span class="c">6</span></div><div class="cap">기본</div></div>
+    <div><div class="slot hover" data-c="3"><img src="/CompanyGame/Assets/Art/Items/Food/Food_Apple.png" alt=""></div><div class="cap">마우스 위</div></div>
+    <div><div class="slot sel" data-c="3"><img src="/CompanyGame/Assets/Art/Items/Food/Food_Apple.png" alt=""></div><div class="cap">선택</div></div>
+    <div><div class="slot spoiled" data-c="3"><img src="/CompanyGame/Assets/Art/Items/Food/Food_Milk.png" alt=""></div><div class="cap">상함</div></div>
+    <div><div class="slot eq" data-c="3" data-fill="#E9DDC8"><svg class="g" viewBox="0 0 24 24"><path d="M8 3 3 6l2 4 2-1v12h10V9l2 1 2-4-5-3c-.6 1.6-2.2 2.6-4 2.6S8.6 4.6 8 3z"/></svg></div><div class="cap">장비 칸</div></div>
+    <div><button class="btn pri" data-c="4" data-fill="#E6A24C" data-lip="#C97B3D">먹기</button><div class="cap">주 버튼</div></div>
+    <div><button class="btn pri" data-c="4" data-fill="#C97B3D">먹기</button><div class="cap">누름</div></div>
+    <div><button class="btn" data-c="4" data-fill="rgba(245,238,223,.7)" data-stroke="rgba(138,114,88,.5)">버리기</button><div class="cap">보조 버튼</div></div>
+  </div>
+</section>
+
+<script>
+const tpl = document.getElementById('inventory');
+for (const id of ['a', 'b']) document.getElementById(id).appendChild(tpl.content.cloneNode(true));
+const only = new URLSearchParams(location.search).get('only');
+if (only) {
+  document.querySelectorAll('.chrome, .frame, .sheet').forEach(e => { if (e.id !== only) e.style.display = 'none'; });
+  document.getElementById(only).style.margin = '0';
+}
+
+// Slot fills by state. Item slots are opaque so the world never shows through an icon.
+const SLOT = '#DCCCB4', SLOT_SEL = '#EBCB97', ORANGE = '#E6A24C', HOVER = 'rgba(138,114,88,.75)', RED = '#B0473B';
+const poly = (w, h, c, i = 0) => {
+  // Octagon with corners cut by c, inset by i (for strokes drawn inside the edge).
+  const a = c + i * .41, x0 = i, y0 = i, x1 = w - i, y1 = h - i;
+  return `${x0 + a},${y0} ${x1 - a},${y0} ${x1},${y0 + a} ${x1},${y1 - a} ${x1 - a},${y1} ${x0 + a},${y1} ${x0},${y1 - a} ${x0},${y0 + a}`;
+};
+function facet(el) {
+  const w = el.offsetWidth, h = el.offsetHeight, c = +el.dataset.c;
+  let fill = el.dataset.fill, stroke = el.dataset.stroke, sw = 1, extra = '';
+  if (el.classList.contains('slot') && !el.classList.contains('eq')) {
+    fill = el.classList.contains('sel') ? SLOT_SEL : SLOT;
+    if (el.classList.contains('sel')) { stroke = ORANGE; sw = 2; }
+    if (el.classList.contains('hover')) { stroke = HOVER; sw = 1; }
+    if (el.classList.contains('spoiled')) extra = `<polygon points="${w - 13},0 ${w - c},0 ${w},${c} ${w},13" fill="${RED}"/>`;
+  }
+  let s = '';
+  if (el.dataset.lip) s += `<polygon points="${poly(w, h, c)}" fill="${el.dataset.lip}"/><polygon points="${poly(w, h - 2, c)}" fill="${fill}"/>`;
+  else s += `<polygon points="${poly(w, h, c)}" fill="${fill}"/>`;
+  s += extra;
+  if (stroke) s += `<polygon points="${poly(w, h, c, sw / 2)}" fill="none" stroke="${stroke}" stroke-width="${sw}"/>`;
+  el.insertAdjacentHTML('afterbegin', `<svg class="bg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${s}</svg>`);
+}
+
+const HEART = 'M6 1h4l1 1 1-1h4l5 5v5l-10 8-10-8V6z';
+function heart(f, id) {
+  const empty = `<path d="${HEART}" fill="rgba(245,238,223,.6)" stroke="#8A7258" stroke-width="1.2" stroke-linejoin="round"/>`;
+  const body = `<path d="${HEART}" fill="#B0473B"/><path d="M1 6l5-5h4l1 1-2 2.5H6.5L4 6z" fill="#CF7468"/><path d="M21 11l-10 8v-3l8-6.5z" fill="#8C352B"/><path d="${HEART}" fill="none" stroke="#7A2E25" stroke-width="1.2" stroke-linejoin="round"/>`;
+  if (f === 0) return `<svg viewBox="0 0 22 20">${empty}</svg>`;
+  if (f === 1) return `<svg viewBox="0 0 22 20">${body}</svg>`;
+  return `<svg viewBox="0 0 22 20"><defs><clipPath id="${id}"><rect width="11" height="20"/></clipPath></defs>${empty}<g clip-path="url(#${id})">${body}</g></svg>`;
+}
+let n = 0;
+document.querySelectorAll('.hearts').forEach(h => {
+  const v = +h.dataset.value; let s = '';
+  for (let i = 0; i < 10; i++) s += heart(Math.max(0, Math.min(1, (v - i * 2) / 2)), 'hc' + (n++));
+  h.innerHTML = s;
+});
+document.querySelectorAll('.cells').forEach(c => {
+  const v = +c.dataset.value; let s = '';
+  for (let i = 0; i < 10; i++) {
+    const f = Math.max(0, Math.min(1, (v - i * 2) / 2));
+    s += `<div class="cell">${f ? `<i style="width:${f * 100}%;background:${c.dataset.color}"></i>` : ''}</div>`;
+  }
+  c.innerHTML = s;
+});
+document.fonts.ready.then(() => document.querySelectorAll('[data-c]').forEach(facet));
+</script>
+</body>
+</html>
