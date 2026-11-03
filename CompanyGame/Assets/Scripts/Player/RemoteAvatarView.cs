@@ -14,6 +14,7 @@ public sealed class RemoteAvatarView : MonoBehaviour, DaldongneAvatarMotion.ICom
     public bool female, seated;
     /// <summary>Item ids ("" = none).</summary>
     public string vehicle = "", held = "";
+    public bool heldSpoiled;
     /// <summary>Ground speed in m/s (bicycle pedals).</summary>
     public float speed;
     /// <summary>Shown on the NameTag as it is: pass it through <see cref="CleanName"/>.</summary>
@@ -181,6 +182,7 @@ public sealed class RemoteAvatarView : MonoBehaviour, DaldongneAvatarMotion.ICom
     // The same model the local hand shows (PlayerHeldItem), built by a disabled PlayerHeldItem of this avatar.
     void UpdateHeld()
     {
+        if (heldRoot && FoodShelfLife.IsPerishable(InventorySnapshot.Find(heldItem))) FoodSpoilageVisual.Set(heldRoot, heldSpoiled);
         if (held == heldItem) return;
         heldItem = held;
         if (heldRoot) Destroy(heldRoot.gameObject);

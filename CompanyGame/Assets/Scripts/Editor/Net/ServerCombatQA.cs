@@ -8,6 +8,96 @@ using QaPeer = SyncLayerQA.QaPeer;
 /// <summary>Deterministic real-protocol combat checks. Uses throwaway peers, ledgers and an unsaved temporary wall.</summary>
 public static class ServerCombatQA
 {
+    sealed class FoodClock : IGameClock
+    {
+        public GameTime Now { get; private set; }
+        public event Action<GameTime> HourChanged { add { } remove { } }
+        public event Action<GameTime> DayChanged { add { } remove { } }
+        public void SetNow(GameTime value) => Now = value;
+    }
+
+    public static string RunFoodPoisoning()
+    {
+        int checks = 0;
+        void Check(bool ok, string label) { if (!ok) throw new Exception("FoodPoisonQA: " + label); checks++; }
+        var previousClock = GameClock.Current;
+        var foodClock = new FoodClock(); foodClock.SetNow(new GameTime(0, 10)); GameClock.Current = foodClock;
+        var loop = new LoopbackTransport();
+        var server = new GameServer(loop, 2);
+        var books = new ServerBooks(server, 0, null);
+        var ledger = new ServerLedger(server, 0, books);
+        double realtime = 1000;
+        var combat = new ServerCombat(server, ledger, () => realtime);
+        GameObject host = null;
+        try
+        {
+            string map = SceneManager.GetActiveScene().path;
+            var peer = new QaPeer(loop.Connect());
+            peer.Send(SyncProtocol.Hello("poison-qa", "음식검증", map)); server.Tick();
+            peer.number = peer.Take(m => m.kind == ToClient.Welcome).number;
+            peer.Send(SyncProtocol.CharacterCreate("음식검증", "male")); server.Tick(); peer.Pump();
+            ulong id = SyncProtocol.MakeId(peer.number, 1);
+            peer.Send(SyncProtocol.Spawn(id, AvatarSync.PrefabKey, map, EntityFlags.FollowsOwnerMap,
+                new[] { SyncLayerQA.Pos(new Vector3(10000, 1000, 10000), 0), Bytes(w => { w.Write((byte)4); w.Write((byte)0); w.Write(""); w.Write("food:gimbap"); }) }));
+            void Step(int minute)
+            {
+                server.Tick(); server.World.WorldMinutes = minute; foodClock.SetNow(GameTime.FromTotalMinutes(minute));
+                realtime = 1000 + (minute - 600) * 5; combat.Tick(); peer.Pump();
+            }
+            Step(600);
+            var food = InventorySnapshot.Find("food:gimbap");
+            var bag = ledger.Bag("poison-qa");
+            for (int i = 0; i < bag.Capacity; i++) if (!bag.GetSlot(i).IsEmpty) bag.TryRemove(i, bag.GetSlot(i).Count, out _);
+            bag.TryAdd(food, 4, out _, expiresAt: 2000);
+            bag.TryAdd(food, 3, out _, expiresAt: 590);
+            string Eat(long expiry) => ledger.Apply(peer.number, "poison-qa", "p.eat",
+                JsonUtility.ToJson(new SharedOpArgs { a = food.itemId, b = "expiry", n = expiry }));
+            var forged = new InventoryState();
+            forged.TryAdd(food, 4, out _, expiresAt: 2000); forged.TryAdd(food, 3, out _, expiresAt: 2001);
+            Check(!InventoryLedgerRules.SameContents(bag, forged), "layout cannot turn spoiled food fresh");
+            string before = InventorySnapshot.Export(bag);
+            Check(Eat(591) != null && before == InventorySnapshot.Export(bag) && combat.FoodPoisonUntil("poison-qa") == 0, "forged expiry refuses consumption and illness");
+            Check(Eat(590) == null, "spoiled food is edible even when full");
+            Check(bag.GetSlot(0).Count == 4 && bag.GetSlot(1).Count == 2, "exact expired stack consumed, fresh stack preserved");
+            Check(combat.FullnessOf("poison-qa") == 0 && combat.FoodPoisonUntil("poison-qa") == 660, "server applies zero fullness and 60 game minutes");
+            float hp = combat.HealthOf("poison-qa");
+            Step(630);
+            Check(Mathf.Abs(combat.HealthOf("poison-qa") - (hp - PlayerStats.Point)) < .01f, "existing starvation loses one HUD health per 30 minutes");
+            Check(Eat(2000) == null && combat.FullnessOf("poison-qa") == 0, "fresh food is consumed but cannot refill fullness");
+            Step(659);
+            Check(combat.FoodPoisonUntil("poison-qa") == 660 && Eat(2000) == null && combat.FullnessOf("poison-qa") == 0, "59 minute boundary still poisoned");
+            Step(660);
+            Check(combat.FoodPoisonUntil("poison-qa") == 0 && Mathf.Abs(combat.HealthOf("poison-qa") - (hp - 2 * PlayerStats.Point)) < .01f, "60 minute expiry and two HUD health lost");
+            Check(Eat(2000) == null && combat.FullnessOf("poison-qa") == food.fullnessRestore * PlayerStats.Point, "normal eating resumes on expiry");
+            Check(Eat(590) == null && combat.FoodPoisonUntil("poison-qa") == 720, "new spoiled meal re-applies illness");
+            Step(670); Check(Eat(590) == null && combat.FoodPoisonUntil("poison-qa") == 730, "repeat spoiled meal refreshes timer");
+            combat.Reconcile("poison-qa"); peer.Pump();
+            Check(peer.inbox.Exists(m => m.kind == ToClient.Event && m.eventId == AvatarState.HealthEvent && m.blob.Length == 16), "health payload includes illness timer");
+
+            var coffee = InventorySnapshot.Find("item_coffee");
+            bag.TryAdd(coffee, 1, out _, expiresAt: 590);
+            Check(ledger.Apply(peer.number, "poison-qa", "p.eat", JsonUtility.ToJson(new SharedOpArgs { a = coffee.itemId, b = "expiry", n = 590 })) == null,
+                "spoiled zero-effect food is edible and causes illness");
+            host = new GameObject("FoodPoisonLocalQA"); var stats = host.AddComponent<PlayerStats>();
+            var local = new InventoryState(); local.TryAdd(food, 2, out _, expiresAt: 590); local.TryAdd(food, 2, out _, expiresAt: 2000);
+            Check(stats.TryConsume(local, 0, out _) && stats.IsFoodPoisoned && stats.fullness == 0, "local spoiled consumption predicts poison");
+            Check(stats.TryConsume(local, 1, out _) && stats.fullness == 0, "local fresh food cannot refill poisoned player");
+            stats.ApplyAuthoritativeFullness(100); Check(stats.fullness == 0, "stale fullness cannot override poison");
+            stats.ApplyAuthoritativeFoodPoisoning(0); stats.ApplyAuthoritativeFullness(100);
+            Check(!stats.IsFoodPoisoned && stats.fullness == 100, "rejected prediction is reconciled");
+            stats.ApplyAuthoritativeFoodPoisoning(730); foodClock.SetNow(GameTime.FromTotalMinutes(730));
+            Check(!stats.IsFoodPoisoned && stats.TryConsume(local, 1, out _) && stats.fullness > 0, "local timer ends at exact minute");
+            var cafe = new InventoryState(); cafe.TryAdd(coffee, 1, out _, expiresAt: 590);
+            Check(cafe.GetSlot(0).CanConsume && stats.TryConsume(cafe, 0, out _) && stats.IsFoodPoisoned, "local zero-effect spoiled drink is edible");
+            return "FoodPoisonQA passed " + checks + " checks";
+        }
+        finally
+        {
+            if (host) UnityEngine.Object.DestroyImmediate(host);
+            combat.End(); ledger.End(); server.Stop(); GameClock.Current = previousClock;
+        }
+    }
+
     [MenuItem("CompanyGame/QA/Server Combat")]
     public static void Run()
     {

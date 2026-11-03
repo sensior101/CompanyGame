@@ -1,12 +1,12 @@
 {
   "status": "PASS",
-  "menuCount": 134,
-  "uniqueGeometry": 120,
+  "menuCount": 135,
+  "uniqueGeometry": 121,
   "triangles": {
     "min": 164,
     "max": 35508,
-    "median": 6455.0,
-    "total": 1104524
+    "median": 6502,
+    "total": 1126050
   },
   "sharedFamilies": {
     "pasta": {
@@ -30,8 +30,8 @@
       "distinctColorSets": 5
     }
   },
-  "exportRoundTrips": 268,
-  "passedRoundTrips": 268,
+  "exportRoundTrips": 270,
+  "passedRoundTrips": 270,
   "errors": [],
   "meshes": [
     {
@@ -1364,6 +1364,18 @@
       ],
       "degenerateFaces": 0,
       "textureNodes": 6,
+      "uvLayers": 1
+    },
+    {
+      "id": "GreekYogurt",
+      "triangles": 21526,
+      "dimensionsMeters": [
+        0.20800000429153442,
+        0.20800000429153442,
+        0.12473095208406448
+      ],
+      "degenerateFaces": 0,
+      "textureNodes": 30,
       "uvLayers": 1
     },
     {
@@ -2977,6 +2989,18 @@
       "dimensionErrorMeters": 0.0
     },
     {
+      "id": "GreekYogurt",
+      "format": "glb",
+      "passed": true,
+      "dimensionErrorMeters": 0.0
+    },
+    {
+      "id": "GreekYogurt",
+      "format": "fbx",
+      "passed": true,
+      "dimensionErrorMeters": 0.0
+    },
+    {
       "id": "IcedAmericano",
       "format": "glb",
       "passed": true,
@@ -4584,6 +4608,18 @@
       "id": "OrangeSoftServe",
       "format": "fbx",
       "embeddedImages": 6,
+      "passed": true
+    },
+    {
+      "id": "GreekYogurt",
+      "format": "glb",
+      "embeddedImages": 30,
+      "passed": true
+    },
+    {
+      "id": "GreekYogurt",
+      "format": "fbx",
+      "embeddedImages": 30,
       "passed": true
     },
     {
