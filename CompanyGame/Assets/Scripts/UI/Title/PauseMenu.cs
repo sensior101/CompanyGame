@@ -89,7 +89,7 @@ public sealed class PauseMenu : MonoBehaviour
     void Begin(float width)
     {
         if (canvas) { for (int i = canvas.transform.childCount - 1; i >= 0; i--) Destroy(canvas.transform.GetChild(i).gameObject); }
-        var dim = TitleUi.Full(canvas.transform, "Dim", new Color(0.05f, 0.05f, 0.12f, 0.6f));
+        var dim = TitleUi.Full(canvas.transform, "Dim", UITheme.A(UITheme.Ink, .45f));
         dim.GetComponent<Image>().raycastTarget = true;
         panel = TitleUi.Column(dim, "Panel", width, 14, TitleUi.Panel, 32);
         panel.anchorMin = panel.anchorMax = new Vector2(0.5f, 0.5f);
