@@ -27,6 +27,7 @@ public static class GameInput
     public static bool QuestPressed => Pressed(Key.Q);
     public static bool InventoryPressed => Pressed(Key.E);
     public static bool PhonePressed => Pressed(Key.R);
+    public static bool MapPressed => Pressed(Key.M);
     public static bool ViewTogglePressed => Pressed(Key.Tab);
     public static bool PickupPressed => Pressed(Key.F);
     public static bool ResetPositionPressed => Pressed(Key.Home);

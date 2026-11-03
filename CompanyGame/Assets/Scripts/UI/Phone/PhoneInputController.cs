@@ -29,6 +29,7 @@ public class PhoneInputController : MonoBehaviour
 
     private void Update()
     {
+        if (WorldMapView.Instance && WorldMapView.Instance.IsOpen) return;
         if (phone == null) return;
         if (ChatUIManager.IsChatting || DialogueManager.OwnsInput) return;
 
