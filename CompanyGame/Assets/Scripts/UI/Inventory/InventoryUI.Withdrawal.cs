@@ -29,7 +29,7 @@ public sealed partial class InventoryUI
         UIBuild.Stretch(blocker);
         MakeButton(blocker, CloseWithdrawal);
         withdrawalModal = blocker.gameObject;
-        var card = Panel("WithdrawalWindow", blocker, new Vector2(320f, 234f), new Color(.995f, .982f, .955f, .99f), 30f, 14f);
+        var card = Panel("WithdrawalWindow", blocker, new Vector2(320f, 234f), UITheme.A(UITheme.Ivory, .93f), 30f, 14f);
         withdrawalWindow = card;
         card.GetComponent<InventoryRoundedGraphic>().raycastTarget = true;
         card.anchorMin = card.anchorMax = new Vector2(.5f, .5f);
@@ -61,14 +61,14 @@ public sealed partial class InventoryUI
         quantityInput.navigation = quantityNavigation;
         denominationInput.onValueChanged.AddListener(_ => ValidateWithdrawal());
         quantityInput.onValueChanged.AddListener(_ => ValidateWithdrawal());
-        withdrawalError = Label("WithdrawalError", card, "", 12f, new Color(.64f, .23f, .2f), new Vector2(288f, 40f));
+        withdrawalError = Label("WithdrawalError", card, "", 12f, UITheme.Danger, new Vector2(288f, 40f));
         withdrawalError.textWrappingMode = TextWrappingModes.Normal;
         AtTop(withdrawalError.rectTransform, 0f, -151f);
-        var cancel = Panel("CancelWithdrawal", card, new Vector2(100f, 38f), new Color(.9f, .865f, .82f, .85f), 15f, 7f);
+        var cancel = Panel("CancelWithdrawal", card, new Vector2(100f, 38f), UITheme.Sand, 15f, 7f);
         AtBottom(cancel, -79f, 31f);
         MakeButton(cancel, CloseWithdrawal);
         Label("CancelText", cancel, "취소", 15f, Ink, new Vector2(92f, 31f));
-        var confirm = Panel("ConfirmWithdrawal", card, new Vector2(137f, 38f), new Color(.72f, .49f, .33f, 1f), 15f, 7f);
+        var confirm = Panel("ConfirmWithdrawal", card, new Vector2(137f, 38f), UITheme.Selected, 15f, 7f);
         AtBottom(confirm, 54f, 31f);
         withdrawButton = MakeButton(confirm, SubmitWithdrawal);
         Label("ConfirmText", confirm, "확인 (Enter)", 14f, Color.white, new Vector2(128f, 31f));
@@ -77,7 +77,7 @@ public sealed partial class InventoryUI
 
     TMP_InputField InputField(string name, Transform parent, Vector2 size, string placeholder)
     {
-        var rect = Panel(name, parent, size, new Color(1f, 1f, 1f, .97f), 19f, 8f);
+        var rect = Panel(name, parent, size, UITheme.Ivory, 19f, 8f);
         var background = rect.GetComponent<InventoryRoundedGraphic>();
         background.raycastTarget = true;
         var viewport = UIBuild.Rect("TextViewport", rect, size - new Vector2(24f, 10f));
@@ -93,7 +93,7 @@ public sealed partial class InventoryUI
         input.contentType = TMP_InputField.ContentType.IntegerNumber;
         input.lineType = TMP_InputField.LineType.SingleLine;
         input.caretColor = Ink; input.customCaretColor = true;
-        input.selectionColor = new Color(.84f, .68f, .46f, .45f);
+        input.selectionColor = UITheme.A(UITheme.Selected, .45f);
         input.characterValidation = TMP_InputField.CharacterValidation.Digit;
         return input;
     }

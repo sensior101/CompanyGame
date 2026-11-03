@@ -239,7 +239,10 @@ public sealed class InventoryCharacterPreview : MonoBehaviour
         additional.volumeLayerMask = 0;
         additional.requiresColorOption = CameraOverrideOption.Off;
         additional.requiresDepthOption = CameraOverrideOption.Off;
-        texture = new RenderTexture(384, 432, 24, RenderTextureFormat.ARGB32)
+        // Match the tall wardrobe viewport, avoiding a squeezed full-body portrait.
+        int portraitHeight = 768;
+        int portraitWidth = Mathf.RoundToInt(portraitHeight * image.rectTransform.rect.width / Mathf.Max(1f, image.rectTransform.rect.height));
+        texture = new RenderTexture(portraitWidth, portraitHeight, 24, RenderTextureFormat.ARGB32)
         {
             name = "InventoryCharacterPortrait",
             antiAliasing = 2,

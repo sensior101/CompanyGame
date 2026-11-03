@@ -8,8 +8,8 @@ public sealed partial class InventoryUI
     // The full inventory and item selector build the same wallet widget.
     RectTransform BuildWalletDisplay(Transform parent, out TMP_Text value)
     {
-        var bank=Panel("BankBalanceButton",parent,new Vector2(285,51),new Color(1f,.99f,.96f,.66f),24,12);
-        Icon("BankCoin",bank,InventoryGlyphGraphic.Glyph.Coin,new Vector2(30,30),new Color(.94f,.65f,.18f)).anchoredPosition=new Vector2(-113,0);
+        var bank=Panel("BankBalanceButton",parent,new Vector2(285,51),UITheme.Sand,24,12);
+        Icon("BankCoin",bank,InventoryGlyphGraphic.Glyph.Coin,new Vector2(30,30),UITheme.Selected).anchoredPosition=new Vector2(-113,0);
         value=Label("BankBalance",bank,"지갑  0원",23,Ink,new Vector2(218,43));
         value.fontStyle=FontStyles.Bold;AutoSize(value,12,23);value.rectTransform.anchoredPosition=new Vector2(20,0);
         return bank;
