@@ -1,0 +1,114 @@
+{
+  "units": "metres",
+  "basicParcel": {
+    "width": 32,
+    "depth": 32,
+    "area": 1024
+  },
+  "buildingFootprint": {
+    "width": 24,
+    "depth": "24 * original short side / original long side",
+    "maximumDepth": 24,
+    "height": "preserved",
+    "measurement": "active building structure and roof including eaves; excludes named site paving, landscaping and detached outdoor furnishings",
+    "orientation": "longer source dimension along world X; depth-long sources rotate 90 degrees",
+    "minimumInset": 4
+  },
+  "rectangularBuildings": "Preserve source X/Z proportions; spare land remains open for access. No square stretching.",
+  "occupiedParcels": "Virtual 32 x 32 layout reservation, centred on measured building geometry. No new occupied-parcel ground mesh or purchase component.",
+  "mapFootprints": {
+    "NightlifeDistrict": {
+      "width": 144,
+      "depth": 144,
+      "buildings": 24,
+      "vacantParcels": 4,
+      "applicationStatus": "Restored to the pre-normalization 2026-10-28 backup. Requested parcel/building normalization is not applied."
+    },
+    "CivicDistrict": {
+      "width": 201.6,
+      "depth": 201.6,
+      "buildings": 6,
+      "vacantParcels": 6,
+      "applicationStatus": "Restored to the pre-normalization 2026-10-28 backup. Requested parcel/building normalization is not applied."
+    },
+    "CoastalResidentialDistrict": {
+      "width": 144,
+      "depth": 144,
+      "buildings": 11,
+      "vacantParcels": 5,
+      "applicationStatus": "Restored to the pre-normalization 2026-10-28 backup. Requested parcel/building normalization is not applied."
+    },
+    "LuxuryResidentialDistrict": {
+      "width": 144,
+      "depth": 144,
+      "buildings": 14,
+      "vacantParcels": 5,
+      "applicationStatus": "Restored to the pre-normalization 2026-10-28 backup. Requested parcel/building normalization is not applied."
+    },
+    "daldongnaemap": {
+      "width": 144,
+      "depth": 140.4,
+      "buildings": 22,
+      "vacantParcels": 0,
+      "applicationStatus": "Restored to the pre-normalization 2026-10-28 backup. Requested parcel/building normalization is not applied."
+    }
+  },
+  "excludedScenes": [
+    "BusinessDistrict",
+    "DaldongnePocketGarden"
+  ],
+  "preservation": [
+    "company assets",
+    "source Blender and FBX geometry",
+    "building heights",
+    "107 gameplay component serialized values",
+    "scene GUIDs",
+    "parcel counts"
+  ],
+  "existingOwners": [
+    "WorldMapTools.MeasureFootprint",
+    "WorldMapTools.NormalizeBuildingFootprint",
+    "LandPlot.StandardParcelSize",
+    "LandPlot.StandardBuildingFootprint",
+    "MapColliderRebuilder",
+    "CitizenNavBuilder.Build",
+    "MapSpawnPoint",
+    "StoreInteractionPoint",
+    "TransitStop"
+  ],
+  "constructionIntegration": "Shared dimensional constants only. LandPlot purchase IDs/prices and save/network contracts unchanged; no new construction placement system implemented.",
+  "verification": {
+    "buildingWidthAndSourceAspect": 77,
+    "squareVacantParcels": 20,
+    "floorSamplesPassed": 1566,
+    "parcelOverlaps": 0,
+    "spawnsWithFloor": 94,
+    "spawnNavigationIssues": 0,
+    "completeTransitNavRoutes": 2,
+    "totalTransitNavRoutes": 15,
+    "playArrivalCasesPassed": 14,
+    "approvedSpawnRepairPlayCasesPassed": 3,
+    "coastalBusBoardingDistance": 1.55555725,
+    "scopeNotice": "Historical pre-rollback results only. Current restoration evidence: _temp/map-scale-repair-20261030/all-restored.json and all-protected-after.json. Play-mode travel not re-tested."
+  },
+  "approvedPositionRepairs": {
+    "spawnPositions": 11,
+    "busBoardingPositions": 1,
+    "scenes": [
+      "NightlifeDistrict",
+      "CivicDistrict",
+      "LuxuryResidentialDistrict",
+      "CoastalResidentialDistrict"
+    ],
+    "changedFields": "Twelve Transform positions only; gameplay component data, references, geometry and NavMesh assets unchanged.",
+    "runtimeReuse": [
+      "MapSpawnPoint.TryFind",
+      "SceneLoadManager.TryLoadMap",
+      "PlayerSpawner.Player",
+      "TransitStop.FindNearest",
+      "TransitStop.IsInRange"
+    ]
+  },
+  "applicationStatus": "All five affected map scenes and NavMeshes restored on 2026-10-30 to verified backups from before the 2026-10-28 normalization. Five server collision snapshots and their manifest entries rebuilt. No redesign, parcel-space creation or new normalization applied. Unrelated avatar/combat code and other scenes preserved.",
+  "evidence": "_temp/land-standard-20261029/applied.json, validation.json, validation-summary.json, play-validation.json, spawn-repairs-applied.json, spawn-repair-play-validation.json, coastal-bus-approved.png"
+}
