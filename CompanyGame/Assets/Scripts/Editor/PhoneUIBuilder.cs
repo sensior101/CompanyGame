@@ -13,20 +13,20 @@ public static class PhoneUIBuilder
     private const float PhoneHeight = 860f;
     private const float HeaderHeight = 64f;
 
-    private static readonly Color PhoneBg = new Color(0.09f, 0.10f, 0.13f, 0.97f);
-    private static readonly Color HeaderBg = new Color(0.14f, 0.16f, 0.21f, 1f);
-    private static readonly Color ScreenBg = new Color(0.12f, 0.13f, 0.17f, 1f);
-    private static readonly Color RowBg = new Color(0.17f, 0.19f, 0.25f, 1f);
-    private static readonly Color ListBg = new Color(0f, 0f, 0f, 0.25f);
-    private static readonly Color InputBg = new Color(0.07f, 0.08f, 0.11f, 1f);
-    private static readonly Color ButtonBlue = new Color(0.25f, 0.42f, 0.86f, 1f);
-    private static readonly Color ButtonGreen = new Color(0.20f, 0.60f, 0.42f, 1f);
-    private static readonly Color ButtonPurple = new Color(0.50f, 0.36f, 0.82f, 1f);
-    private static readonly Color ButtonOrange = new Color(0.90f, 0.55f, 0.22f, 1f);
-    private static readonly Color ButtonPink = new Color(0.88f, 0.34f, 0.55f, 1f);
-    private static readonly Color ButtonRed = new Color(0.82f, 0.30f, 0.30f, 1f);
-    private static readonly Color TextMain = new Color(0.93f, 0.94f, 0.97f, 1f);
-    private static readonly Color TextDim = new Color(0.62f, 0.66f, 0.74f, 1f);
+    private static readonly Color PhoneBg = UITheme.A(UITheme.Brown, .94f);
+    private static readonly Color HeaderBg = UITheme.Slate;
+    private static readonly Color ScreenBg = UITheme.Ivory;
+    private static readonly Color RowBg = UITheme.Sand;
+    private static readonly Color ListBg = UITheme.A(UITheme.Slate, .4f);
+    private static readonly Color InputBg = UITheme.Ivory;
+    private static readonly Color ButtonBlue = UITheme.Selected;
+    private static readonly Color ButtonGreen = UITheme.Green;
+    private static readonly Color ButtonPurple = UITheme.Brown;
+    private static readonly Color ButtonOrange = UITheme.Selected;
+    private static readonly Color ButtonPink = UITheme.Slate;
+    private static readonly Color ButtonRed = UITheme.Pressed;
+    private static readonly Color TextMain = UITheme.Ink;
+    private static readonly Color TextDim = UITheme.Brown;
 
     private static TMP_FontAsset font;
 
