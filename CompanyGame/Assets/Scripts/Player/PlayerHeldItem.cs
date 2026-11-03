@@ -46,6 +46,7 @@ public sealed class PlayerHeldItem : MonoBehaviour
     readonly List<Mesh> bakedMeshes = new List<Mesh>();
 
     public ItemData HeldItem => heldItem;
+    public bool HeldSpoiled { get; private set; }
     public Transform WorldItemRoot => worldItem;
     public Transform FirstPersonItemRoot => firstPersonItem;
     public Transform FirstPersonArmRoot => viewArm;
@@ -150,12 +151,15 @@ public sealed class PlayerHeldItem : MonoBehaviour
         }
         var stack = inventory.GetSlot(inventory.SelectedHotbarIndex);
         ItemData selected = stack != null && !stack.IsEmpty ? stack.Item : null;
+        HeldSpoiled = stack != null && stack.IsSpoiled;
         if (heldItem != selected || changedArm)
         {
             heldItem = selected;
             RebuildItems();
         }
 
+        UpdateSpoilage(worldItem);
+        UpdateSpoilage(firstPersonItem);
         var vehicle = GetComponent<PlayerVehicle>();
         if (vehicle && vehicle.IsRiding)
         {
@@ -597,6 +601,12 @@ public sealed class PlayerHeldItem : MonoBehaviour
         return false;
     }
 
+    void UpdateSpoilage(Transform root)
+    {
+        if (root && FoodShelfLife.IsPerishable(heldItem))
+            FoodSpoilageVisual.Set(root, HeldSpoiled);
+    }
+
     void RebuildItems()
     {
         Remove(ref worldItem); Remove(ref firstPersonItem);
@@ -626,8 +636,9 @@ public sealed class PlayerHeldItem : MonoBehaviour
     void BuildItem(Transform parent, int layer)
     {
         Transform model;
-        if (heldItem.heldPrefab)
-            model = CopyRenderers(heldItem.heldPrefab.transform, parent, layer);
+        var prefab = heldItem.HeldPrefab;
+        if (prefab)
+            model = CopyRenderers(prefab.transform, parent, layer);
         else
         {
             model = new GameObject("HeldModel").transform;

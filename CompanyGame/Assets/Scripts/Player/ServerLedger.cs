@@ -45,6 +45,7 @@ public sealed class ServerLedger
     public Func<string, float> CombatHealth;
     /// <summary>Invoked only after the ledger actually consumed one food item; owns no inventory mutation.</summary>
     public Action<string, ItemData> FoodConsumed;
+    public Action<string, ItemStack> FoodStackConsumed;
     public Func<string, bool> CanConsumeFood;
 
     readonly GameServer server;
@@ -195,8 +196,9 @@ public sealed class ServerLedger
             case "p.eat":
                 if (CanConsumeFood != null && !CanConsumeFood(account)) { error = "지금은 음식을 먹을 수 없습니다."; break; }
                 var food = InventorySnapshot.Find(a.a);
-                if (InventoryLedgerRules.TryEat(bag, a.a, out error))
+                if (InventoryLedgerRules.TryEat(bag, a.a, a.b == "expiry" ? (long?)a.n : null, out var consumed, out error))
                 {
+                    FoodStackConsumed?.Invoke(account, consumed);
                     FoodConsumed?.Invoke(account, food);
                     error = null;
                 }

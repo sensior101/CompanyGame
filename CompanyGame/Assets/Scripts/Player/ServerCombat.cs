@@ -23,6 +23,17 @@ public sealed class ServerCombat
     readonly Func<uint, ulong, byte, byte, EventTarget, byte[], bool> previousEvent;
     readonly Dictionary<uint, Fighter> fighters = new Dictionary<uint, Fighter>();
     readonly Dictionary<string, float> health = new Dictionary<string, float>();
+    // Fullness per account (0..PlayerStats.Max), kept for this server run; a new run starts everyone full.
+    readonly Dictionary<string, float> fullness = new Dictionary<string, float>();
+    readonly Dictionary<string, long> foodPoisonUntil = new Dictionary<string, long>();
+    readonly Dictionary<string, Hunger> hunger = new Dictionary<string, Hunger>();
+    // A game minute is 5 real seconds (300 s a game hour).
+    const double RealSecondsPerGameMinute = 5d;
+    // Fullness drops 15 points every 5.5 game hours; full heals 1 point a game minute; empty loses 1 point every 30.
+    const float FullnessPerMinute = 15f * PlayerStats.Point / 330f;
+    const float HealPerMinute = PlayerStats.Point, StarvePerMinute = PlayerStats.Point / 30f;
+
+    sealed class Hunger { public double last = -1; }
     readonly List<uint> gone = new List<uint>();
     readonly HashSet<string> warnedMaps = new HashSet<string>();
     readonly float punchDamage, punchRange, punchRate;
@@ -81,7 +92,7 @@ public sealed class ServerCombat
         server.ServerEvent += OnIntent;
         ledger.CombatHealth = HealthOf;
         ledger.CanConsumeFood = account => HealthOf(account) > 0f;
-        ledger.FoodConsumed += OnFood;
+        ledger.FoodStackConsumed += OnFood;
     }
 
     public void End()
@@ -92,7 +103,7 @@ public sealed class ServerCombat
         server.EventFilter = previousEvent;
         ledger.CombatHealth = null;
         ledger.CanConsumeFood = null;
-        ledger.FoodConsumed -= OnFood;
+        ledger.FoodStackConsumed -= OnFood;
         collision.Dispose();
         fighters.Clear();
     }
@@ -107,11 +118,38 @@ public sealed class ServerCombat
         return value;
     }
 
-    void OnFood(string account, ItemData food)
+    public long FoodPoisonUntil(string account) => foodPoisonUntil.TryGetValue(account, out long until) &&
+        until > server.World.WorldMinutes ? until : 0;
+
+    void OnFood(string account, ItemStack consumed)
     {
-        float before = HealthOf(account);
-        // Local consumption already rejects a collapsed player. The server must enforce that rule too.
-        if (food && before > 0f) health[account] = Mathf.Clamp(before + Mathf.Max(0f, food.healthRestore), 0f, PlayerStats.Max);
+        if (consumed == null || !consumed.Item || HealthOf(account) <= 0f) return;
+        UpdateHunger(account, now());
+        if (consumed.ExpiresAt > 0 && server.World.WorldMinutes >= consumed.ExpiresAt)
+            foodPoisonUntil[account] = (long)Math.Floor(server.World.WorldMinutes) + PlayerStats.FoodPoisonMinutes;
+        fullness[account] = FoodPoisonUntil(account) > 0 ? 0f : Mathf.Clamp(FullnessOf(account) +
+            Mathf.Max(0f, consumed.Item.fullnessRestore) * PlayerStats.Point, 0f, PlayerStats.Max);
+    }
+
+    public float FullnessOf(string account) => fullness.TryGetValue(account, out float value) ? value : fullness[account] = PlayerStats.Max;
+
+    // Online players get hungry with time; a full stomach heals, an empty one starves (but never kills below 0).
+    void UpdateHunger(string account, double time)
+    {
+        if (!hunger.TryGetValue(account, out var h)) hunger[account] = h = new Hunger();
+        if (h.last < 0) { h.last = time; return; }
+        float minutes = (float)((time - h.last) / RealSecondsPerGameMinute);
+        if (minutes < 1f / 60f) return;
+        h.last = time;
+        float hp = HealthOf(account);
+        if (hp <= 0f) return; // collapsed: the hospital (not built yet) takes it from here
+        float before = FoodPoisonUntil(account) > 0 ? 0f : FullnessOf(account);
+        float after = Mathf.Max(0f, before - FullnessPerMinute * minutes);
+        fullness[account] = after;
+        // "Full" is what the HUD shows as 20/20 (it rounds up), about 22 game minutes after topping up.
+        if (before > PlayerStats.Max - PlayerStats.Point) hp += HealPerMinute * minutes;
+        else if (after <= 0f) hp -= StarvePerMinute * minutes;
+        health[account] = Mathf.Clamp(hp, 0f, PlayerStats.Max);
     }
 
     /// <summary>Reconciles predicted eating even when the inventory request failed.</summary>
@@ -129,7 +167,7 @@ public sealed class ServerCombat
             string account = server.AccountOf(owner);
             if (account == null || server.World.Find(account) == null || server.MapOf(owner) != map) continue;
             if (!fighters.TryGetValue(owner, out var f))
-                fighters[owner] = f = new Fighter { owner = owner, account = account };
+            { fighters[owner] = f = new Fighter { owner = owner, account = account }; hunger.Remove(account); } // no hunger while away
             if (f.seen) continue; // one combat body per connection, even for an old pre-filter spawn.
             f.seen = true;
             if (f.entity != id || f.map != map)
@@ -137,6 +175,7 @@ public sealed class ServerCombat
                 Cancel(f);
                 f.entity = id; f.map = map; f.lastStep = -1; f.nextHealth = 0;
             }
+            UpdateHunger(account, now());
             if (now() >= f.nextHealth) SendHealth(f);
         }
         gone.Clear();
@@ -329,7 +368,7 @@ public sealed class ServerCombat
         if (fighter.entity == 0) return;
         fighter.nextHealth = now() + 2f;
         server.SendServerEvent(fighter.entity, AvatarComponent, AvatarState.HealthEvent, 0,
-            ServerWorld.Bytes(w => w.Write(HealthOf(fighter.account))));
+            ServerWorld.Bytes(w => { w.Write(HealthOf(fighter.account)); w.Write(FullnessOf(fighter.account)); w.Write(FoodPoisonUntil(fighter.account)); }));
     }
 
     bool ReadAvatar(ulong id, out uint owner, out string map, out Vector3 position, out float yaw, out bool seated, out string vehicle)
@@ -374,7 +413,7 @@ public sealed class ServerCombat
             using var r = SyncProtocol.Reader(blob);
             byte bits = r.ReadByte(); r.ReadByte(); seated = (bits & 2) != 0;
             vehicle = r.ReadString(); string held = r.ReadString(); SyncProtocol.End(r);
-            return bits <= 3 && vehicle.Length <= 128 && held.Length <= 128;
+            return bits <= 7 && vehicle.Length <= 128 && held.Length <= 128;
         }
         catch (Exception) { return false; }
     }
