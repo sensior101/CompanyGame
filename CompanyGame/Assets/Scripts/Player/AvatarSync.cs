@@ -132,7 +132,7 @@ public sealed class AvatarSync : MonoBehaviour
         var hand = player.GetComponent<PlayerHeldItem>();
         state.Set(look && look.selected == DaldongnePlayerAppearance.Variant.Female,
             vehicle && vehicle.IsRiding && vehicle.CurrentItem ? vehicle.CurrentItem.itemId : "",
-            speed, seating && seating.IsSeated, hand && hand.HeldItem ? hand.HeldItem.itemId : "");
+            speed, seating && seating.IsSeated, hand && hand.HeldItem ? hand.HeldItem.itemId : "", hand && hand.HeldSpoiled);
     }
 
     // The player object is replaced on scene travel; follow whichever PlayerCombat is current.

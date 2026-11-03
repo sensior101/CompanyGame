@@ -1002,6 +1002,8 @@ public sealed class WorldDroppedItem : MonoBehaviour
             var forward = Vector3.ProjectOnPlane(camera.transform.forward, Vector3.up);
             if (forward.sqrMagnitude > .001f) glowBeam.rotation = Quaternion.LookRotation(forward, Vector3.up);
         }
+        if (floatingItem && FoodShelfLife.IsPerishable(Item))
+            FoodSpoilageVisual.Set(floatingItem, record.contents.GetSlot(0).IsSpoiled);
         UpdatePickupPopup(camera);
     }
 

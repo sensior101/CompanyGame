@@ -151,7 +151,7 @@ public sealed class PlayerCombat : MonoBehaviour
             return used;
         }
         if (vehicle && vehicle.IsRiding) return false;
-        if (selected != null && !selected.IsEmpty && selected.Item.IsConsumable)
+        if (selected != null && selected.CanConsume)
         {
             var stats = GetComponent<PlayerStats>();
             string foodName = selected.Item.DisplayName;

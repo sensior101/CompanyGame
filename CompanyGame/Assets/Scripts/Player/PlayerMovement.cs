@@ -79,7 +79,8 @@ public class PlayerMovement : MonoBehaviour
         if (!hitReaction) hitReaction = GetComponent<PlayerHitReaction>();
         if (!combat) combat = GetComponent<PlayerCombat>();
         input = hitReaction && hitReaction.BlocksMovement ? Vector2.zero : GameInput.Move;
-        sprint = GameInput.SprintHeld;
+        if (!stats) stats = GetComponent<PlayerStats>();
+        sprint = GameInput.SprintHeld && (!stats || stats.CanSprint); // 5 stamina points or less: walk only
         reset = GameInput.ResetPositionPressed;
 
         // Home 키: 플레이어 위치 초기화
