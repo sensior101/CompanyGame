@@ -14,7 +14,7 @@ public sealed partial class InventoryUI
 
     void BuildDragVisual()
     {
-        dragVisual = Panel("DraggedItem", transform, Vector2.one * 82f, new Color(1f, .97f, .89f, .95f), 25f, 9f);
+        dragVisual = Panel("DraggedItem", transform, Vector2.one * 82f, UITheme.A(UITheme.Ivory, .93f), 25f, 9f);
         dragVisual.gameObject.AddComponent<CanvasGroup>().blocksRaycasts = false;
         var iconRect = UIBuild.Rect("Icon", dragVisual, Vector2.one * 58f);
         iconRect.anchoredPosition = new Vector2(0f, 3f);
@@ -28,17 +28,17 @@ public sealed partial class InventoryUI
     void BuildTooltip()
     {
         tooltipPanel = Panel("ItemTooltip", transform, new Vector2(218f, 44f),
-            new Color(.16f, .12f, .10f, .96f), 16f, 7f);
+            UITheme.A(UITheme.Ivory, .93f), 16f, 7f);
         tooltipPanel.GetComponent<InventoryRoundedGraphic>().raycastTarget = false;
         var canvas = tooltipPanel.gameObject.AddComponent<Canvas>();
         canvas.overrideSorting = true; canvas.sortingOrder = 200;
-        tooltipText = Label("Text", tooltipPanel, "", 15f, Color.white, new Vector2(202f, 35f));
+        tooltipText = Label("Text", tooltipPanel, "", 15f, UITheme.Ink, new Vector2(202f, 35f));
         tooltipText.alignment = TextAlignmentOptions.Midline;
         tooltipText.richText = false;
         tooltipText.textWrappingMode = TextWrappingModes.Normal;
         tooltipText.overflowMode = TextOverflowModes.Overflow;
         tooltipDetails = Label("Details", tooltipPanel, "", 12f,
-            new Color(.88f, .88f, .88f), new Vector2(202f, 20f));
+            UITheme.Brown, new Vector2(202f, 20f));
         tooltipDetails.richText = false;
         tooltipDetails.textWrappingMode = TextWrappingModes.Normal;
         tooltipDetails.overflowMode = TextOverflowModes.Overflow;

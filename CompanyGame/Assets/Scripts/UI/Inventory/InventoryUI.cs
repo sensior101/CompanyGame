@@ -8,12 +8,12 @@ using UnityEngine.EventSystems;
 /// <summary>Square inventory slots, separated outfit/pet equipment, and account withdrawals.</summary>
 public sealed partial class InventoryUI : MonoBehaviour
 {
-    static readonly Color WindowColor = new Color(.985f, .98f, .96f, .78f);
-    static readonly Color SurfaceColor = new Color(1f, .985f, .96f, .44f);
-    static readonly Color SlotColor = new Color(.96f, .935f, .895f, .56f);
-    static readonly Color Ink = new Color(.29f, .205f, .19f);
-    static readonly Color Muted = new Color(.54f, .46f, .425f);
-    static readonly Color Accent = new Color(.73f, .47f, .28f);
+    static readonly Color WindowColor = UITheme.A(UITheme.Ivory, .98f);
+    static readonly Color SurfaceColor = UITheme.A(UITheme.Sand, .6f);
+    static readonly Color SlotColor = UITheme.A(UITheme.Sand, .85f);
+    static readonly Color Ink = UITheme.Ink;
+    static readonly Color Muted = UITheme.Brown;
+    static readonly Color Accent = UITheme.Selected;
     static readonly EquipmentSlot[] ClothingSlots =
         { EquipmentSlot.Top, EquipmentSlot.Bottom, EquipmentSlot.Socks, EquipmentSlot.Shoes };
     readonly List<SlotView> storage = new List<SlotView>();
@@ -23,7 +23,6 @@ public sealed partial class InventoryUI : MonoBehaviour
     PlayerInteraction interaction;
     RectTransform quickSlots;
     PlayerStats playerStats;
-    readonly RectTransform[] statusFills = new RectTransform[3];
     TMP_FontAsset font;
     GameObject modal;
     RectTransform window, grid, storageCard, withdrawalWindow, bankButton;
@@ -44,8 +43,13 @@ public sealed partial class InventoryUI : MonoBehaviour
     TMP_Text statusText;
     float statusUntil;
     int submittedFrame = -1;
+    long lastFoodMinute = -1;
     long lastBank = long.MinValue;
-    float windowHeight = 750f;
+    const float WindowWidth = 740f;
+    const float BaseWindowHeight = 448f;
+    const float StorageCellSize = 72f;
+    const float StorageCellStep = 80f;
+    float windowHeight = BaseWindowHeight;
 
     sealed class SlotView
     {
@@ -53,6 +57,7 @@ public sealed partial class InventoryUI : MonoBehaviour
         public UnityEngine.UI.Image icon;
         public TMP_Text count, number, emptyLabel;
         public UnityEngine.UI.Button button;
+        public bool flatSurface;
     }
 
     public bool IsOpen => modal && modal.activeSelf;
@@ -94,40 +99,51 @@ public sealed partial class InventoryUI : MonoBehaviour
         var shade = Panel("InventoryModal", transform, Vector2.zero, new Color(.16f, .13f, .13f, .12f), 0f, 0f);
         UIBuild.Stretch(shade);
         modal = shade.gameObject;
-        window = Panel("InventoryWindow", shade, new Vector2(1100f, windowHeight), WindowColor, 64f, 27f);
+        window = Panel("InventoryWindow", shade, new Vector2(WindowWidth, windowHeight), WindowColor, 12f, 12f);
+        var windowGraphic = window.GetComponent<InventoryRoundedGraphic>();
+        windowGraphic.chamfered = true;
+        windowGraphic.bevelEdges = true;
+        windowGraphic.borderWidth = 2f;
+        windowGraphic.edgeTopColor = UITheme.Ivory;
+        windowGraphic.edgeBottomColor = UITheme.Slate;
         window.GetComponent<InventoryRoundedGraphic>().raycastTarget = true;
-        var title = Label("Title", window, "인벤토리", 36f, Ink, new Vector2(310f, 54f));
+        var title = Label("Title", window, "인벤토리", 20f, Ink, new Vector2(210f, 32f));
         title.fontStyle = FontStyles.Bold;
         title.alignment = TextAlignmentOptions.MidlineLeft;
-        AtTop(title.rectTransform, -331f, -44f);
-        AtTop(Icon("BagIcon", window, InventoryGlyphGraphic.Glyph.Bag, new Vector2(43f, 48f), Accent), -504f, -44f);
+        AtTop(title.rectTransform, -202f, -30f);
+        AtTop(Icon("BagIcon", window, InventoryGlyphGraphic.Glyph.Bag, new Vector2(22f, 26f), UITheme.Brown), -331f, -30f);
         var bank = BuildWalletDisplay(window, out bankLabel);
-        bankButton = bank; AtTop(bank, 218f, -38f); MakeButton(bank, OpenWithdrawal);
-        var close = Panel("CloseInventory", window, new Vector2(127f, 51f), new Color(1f, .99f, .96f, .66f), 22f, 10f);
-        AtTop(close, 448f, -38f);
+        bankButton = bank; AtTop(bank, 182f, -30f); bank.localScale = Vector3.one * .72f; MakeButton(bank, OpenWithdrawal);
+        bank.GetComponent<InventoryRoundedGraphic>().borderWidth = 0f;
+        bank.GetComponent<InventoryRoundedGraphic>().color = Color.clear;
+        bankLabel.fontStyle = FontStyles.Normal;
+        var close = Panel("CloseInventory", window, new Vector2(30f, 30f), UITheme.Slate, 6f, 6f);
+        close.GetComponent<InventoryRoundedGraphic>().borderWidth = 0f;
+        close.GetComponent<InventoryRoundedGraphic>().chamfered = true;
+        AtTop(close, 336f, -30f);
         MakeButton(close, owner.CloseInventory);
-        Label("CloseLabel", close, "×  닫기", 24f, Ink, new Vector2(117f, 42f));
+        Label("CloseLabel", close, "×", 18f, Ink, new Vector2(30f, 30f));
         BuildPortrait(); BuildEquipment(); BuildPet();
-        storageCard = Panel("Storage", window, new Vector2(1036f, 274f), new Color(1f, 1f, 1f, .25f), 34f, 17f);
+        storageCard = UIBuild.Rect("Storage", window, new Vector2(312f, 352f));
         storageCard.anchorMin = storageCard.anchorMax = new Vector2(.5f, 1f);
         storageCard.pivot = new Vector2(.5f, 1f);
-        storageCard.anchoredPosition = new Vector2(0f, -438f);
-        var storageTitle = Label("StorageHeading", storageCard, "소지품", 24f, Ink, new Vector2(210f, 38f));
+        storageCard.anchoredPosition = new Vector2(182f, -66f);
+        var storageTitle = Label("StorageHeading", storageCard, "소지품", 16f, Ink, new Vector2(180f, 24f));
         storageTitle.fontStyle = FontStyles.Bold;
         storageTitle.alignment = TextAlignmentOptions.MidlineLeft;
-        AtTop(storageTitle.rectTransform, -384f, -24f);
-        capacityLabel = Label("Capacity", storageCard, "0 / 16", 24f, Ink, new Vector2(155f, 38f));
+        AtTop(storageTitle.rectTransform, -66f, -12f);
+        capacityLabel = Label("Capacity", storageCard, "0 / 16", 13f, Muted, new Vector2(90f, 24f));
         capacityLabel.alignment = TextAlignmentOptions.MidlineRight;
-        AtTop(capacityLabel.rectTransform, 411f, -24f);
-        grid = UIBuild.Rect("StorageSlots", storageCard, new Vector2(976f, 222f));
+        AtTop(capacityLabel.rectTransform, 111f, -12f);
+        grid = UIBuild.Rect("StorageSlots", storageCard, new Vector2(312f, 312f));
         grid.anchorMin = grid.anchorMax = new Vector2(.5f, 1f);
         grid.pivot = new Vector2(.5f, 1f);
-        grid.anchoredPosition = new Vector2(0f, -48f);
+        grid.anchoredPosition = new Vector2(0f, -32f);
         var layout = grid.gameObject.AddComponent<UnityEngine.UI.GridLayoutGroup>();
-        layout.cellSize = new Vector2(106f, 106f);
-        layout.spacing = new Vector2(16f, 10f);
+        layout.cellSize = Vector2.one * StorageCellSize;
+        layout.spacing = Vector2.one * 8f;
         layout.constraint = UnityEngine.UI.GridLayoutGroup.Constraint.FixedColumnCount;
-        layout.constraintCount = 8;
+        layout.constraintCount = 4;
         layout.childAlignment = TextAnchor.UpperCenter;
         BuildWithdrawal(); BuildDragVisual(); BuildTooltip(); BuildStatusFeedback();
         modal.SetActive(false);
@@ -136,6 +152,7 @@ public sealed partial class InventoryUI : MonoBehaviour
     public void SetOpen(bool value)
     {
         modal.SetActive(value);
+        if (quickSlots) quickSlots.gameObject.SetActive(!value && !InventoryItemSelector.IsOpen && (!interaction || !interaction.IsTradeOpen));
         preview.SetVisible(value);
         if (!value) { CloseWithdrawal(); EndDragVisual(); HideItemTooltip(); }
         else { Refresh(); FitWindow(); if (EventSystem.current) EventSystem.current.SetSelectedGameObject(null); }
@@ -143,11 +160,21 @@ public sealed partial class InventoryUI : MonoBehaviour
     void Update()
     {
         UpdateStatusBars();
+        long foodMinute = FoodShelfLife.Now.TotalMinutes;
+        if (lastFoodMinute != foodMinute)
+        {
+            lastFoodMinute = foodMinute;
+            if (owner && owner.Inventory != null)
+            {
+                for (int i = 0; i < storage.Count; i++) SetFoodTint(storage[i], owner.Inventory.GetSlot(i));
+                for (int i = 0; i < hotbar.Count; i++) SetFoodTint(hotbar[i], owner.Inventory.GetSlot(i));
+            }
+        }
         if (statusPanel && statusPanel.gameObject.activeSelf && Time.unscaledTime >= statusUntil)
             statusPanel.gameObject.SetActive(false);
         if (quickSlots)
         {
-            bool visible = !InventoryItemSelector.IsOpen && (!interaction || !interaction.IsTradeOpen);
+            bool visible = !IsOpen && !InventoryItemSelector.IsOpen && (!interaction || !interaction.IsTradeOpen);
             if (quickSlots.gameObject.activeSelf != visible) quickSlots.gameObject.SetActive(visible);
         }
         if (!IsOpen) return;
@@ -172,7 +199,7 @@ public sealed partial class InventoryUI : MonoBehaviour
         {
             var item = state.GetSlot(i);
             if (item != null && !item.IsEmpty) used++;
-            ApplySlot(storage[i], item, owner.SelectedInventorySlot == i, "+");
+            ApplySlot(storage[i], item, owner.SelectedInventorySlot == i, "");
         }
         for (int i = 0; i < hotbar.Count; i++) ApplySlot(hotbar[i], state.GetSlot(i), state.SelectedHotbarIndex == i, "");
         foreach (var pair in equipment) ApplySlot(pair.Value, state.GetEquipment(pair.Key), false, EquipmentName(pair.Key));
@@ -182,11 +209,11 @@ public sealed partial class InventoryUI : MonoBehaviour
 
     void BuildStatusFeedback()
     {
-        statusPanel = Panel("ItemStatus", transform, new Vector2(740f, 40f), new Color(.16f, .12f, .10f, .94f), 15f, 7f);
+        statusPanel = Panel("ItemStatus", transform, new Vector2(740f, 40f), UITheme.A(UITheme.Ivory, .93f), 15f, 7f);
         statusPanel.anchorMin = statusPanel.anchorMax = new Vector2(.5f, 1f);
         statusPanel.pivot = new Vector2(.5f, 1f);
         statusPanel.anchoredPosition = new Vector2(0f, -12f);
-        statusText = Label("Message", statusPanel, "", 18f, Color.white, new Vector2(708f, 34f));
+        statusText = Label("Message", statusPanel, "", 18f, UITheme.Ink, new Vector2(708f, 34f));
         AutoSize(statusText, 12f, 18f);
         statusPanel.gameObject.SetActive(false);
     }
@@ -219,31 +246,43 @@ public sealed partial class InventoryUI : MonoBehaviour
         for (int i = storage.Count; i < count; i++)
         {
             int index = i;
-            var view = CreateSlot("StorageSlot_" + (i + 1).ToString("00"), grid, 106f,
+            var view = CreateSlot("StorageSlot_" + (i + 1).ToString("00"), grid, StorageCellSize,
                 i < 8 ? (i + 1).ToString() : "", () => owner.ClickInventorySlot(index));
             InventorySlotPointer.AttachStorage(view.background.gameObject, owner, index);
+            StyleWardrobeSlot(view);
             storage.Add(view);
         }
-        int rows = Mathf.CeilToInt(count / 8f);
-        float added = Mathf.Max(0, rows - 2) * 116f;
-        windowHeight = 750f + added;
-        window.sizeDelta = new Vector2(1100f, windowHeight);
-        storageCard.sizeDelta = new Vector2(1036f, 274f + added);
-        grid.sizeDelta = new Vector2(976f, rows * 116f - 10f);
+        int rows = Mathf.CeilToInt(count / 4f);
+        float added = Mathf.Max(0, rows - 4) * StorageCellStep;
+        windowHeight = BaseWindowHeight + added;
+        window.sizeDelta = new Vector2(WindowWidth, windowHeight);
+        storageCard.sizeDelta = new Vector2(312f, 352f + added);
+        grid.sizeDelta = new Vector2(312f, rows * StorageCellStep - 8f);
         FitWindow();
+    }
+    static void SetFoodTint(SlotView view, ItemStack stack)
+    {
+        view.icon.color = stack != null && stack.IsSpoiled ? new Color(.72f, .9f, .55f) : Color.white;
     }
     static void ApplySlot(SlotView view, ItemStack stack, bool selected, string empty)
     {
         bool hasItem = stack != null && !stack.IsEmpty;
-        view.background.color = selected ? new Color(.99f, .87f, .68f, .93f) : SlotColor;
-        view.background.borderColor = selected ? Accent : new Color(1f, 1f, 1f, .95f);
+        bool wardrobeSlot = view.flatSurface;
+        view.background.color = selected ? UITheme.A(UITheme.Selected, .55f) : wardrobeSlot ? UITheme.Sand : SlotColor;
+        if (wardrobeSlot)
+        {
+            view.background.borderWidth = selected ? 2f : 1.25f;
+            view.background.bevelEdges = !selected;
+        }
+        view.background.borderColor = selected ? Accent : UITheme.Brown;
         view.background.SetVerticesDirty();
+        SetFoodTint(view, stack);
         view.icon.sprite = hasItem ? stack.Item.icon : null;
         view.icon.enabled = hasItem && view.icon.sprite;
         view.count.text = hasItem && stack.Count > 1 ? stack.Count.ToString() : "";
         view.emptyLabel.gameObject.SetActive(!hasItem || !view.icon.enabled);
         view.emptyLabel.text = hasItem ? "" : empty;
-        view.emptyLabel.color = hasItem ? Ink : new Color(.51f, .43f, .4f, .65f);
+        view.emptyLabel.color = hasItem ? Ink : UITheme.A(UITheme.Brown, wardrobeSlot ? 1f : .6f);
         view.number.color = selected ? Ink : Muted;
         var silhouette = view.background.transform.Find("EquipmentSilhouette");
         if (silhouette) silhouette.gameObject.SetActive(!hasItem);

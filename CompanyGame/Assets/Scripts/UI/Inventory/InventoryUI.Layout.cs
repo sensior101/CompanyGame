@@ -7,70 +7,9 @@ using UnityEngine.EventSystems;
 
 public sealed partial class InventoryUI
 {
-    void BuildStatusBars()
-    {
-        playerStats = owner.GetComponent<PlayerStats>();
-        if (!playerStats) playerStats = owner.gameObject.AddComponent<PlayerStats>();
-        var row = UIBuild.Rect("PlayerStatusBars", quickSlots, new Vector2(618f, 36f));
-        row.anchorMin = row.anchorMax = new Vector2(.5f, 1f);
-        row.pivot = new Vector2(.5f, 0f);
-        row.anchoredPosition = new Vector2(0f, 10f);
-        var layout = row.gameObject.AddComponent<UnityEngine.UI.HorizontalLayoutGroup>();
-        layout.spacing = 12f;
-        layout.childControlWidth = layout.childControlHeight = false;
-        layout.childForceExpandWidth = layout.childForceExpandHeight = false;
-        string[] names = { "Health", "Stamina", "Stress" };
-        var colors = new[] { new Color(.91f,.19f,.25f), new Color(.36f,.36f,.94f), new Color(1f,.49f,.13f) };
-        var glyphs = new[] { InventoryGlyphGraphic.Glyph.Heart, InventoryGlyphGraphic.Glyph.Energy, InventoryGlyphGraphic.Glyph.Stress };
-        for (int i = 0; i < 3; i++)
-        {
-            var card = Panel(names[i], row, new Vector2(198f,36f), WindowColor, 15f, 15f);
-            Icon("Icon", card, glyphs[i], new Vector2(24f,24f), colors[i]).anchoredPosition = new Vector2(-77f,0f);
-            if (i == 2)
-            {
-                // Dark eyes/brows and mouth are geometry, never font characters.
-                var face = card.Find("Icon");
-                foreach (float x in new[] { -4.5f, 4.5f })
-                {
-                    var brow = Panel("Brow", face, new Vector2(6f,2f), Ink, 0f, 0f);
-                    brow.anchoredPosition = new Vector2(x,3f);
-                    brow.localRotation = Quaternion.Euler(0f,0f,x < 0 ? -20f : 20f);
-                }
-                var mouth = Panel("Mouth", face, new Vector2(8f,2f), Ink, 1f, 1f);
-                mouth.GetComponent<InventoryRoundedGraphic>().borderWidth = 0f;
-                mouth.anchoredPosition = new Vector2(0f,-4f);
-            }
-            var track = Panel("Track", card, new Vector2(140f,12f), new Color(.16f,.17f,.22f,.22f), 6f, 6f);
-            track.anchoredPosition = new Vector2(17f,0f);
-            var fill = Panel("Fill", track, Vector2.zero, colors[i], 5f, 5f);
-            fill.GetComponent<InventoryRoundedGraphic>().borderWidth = 0f;
-            fill.anchorMin = Vector2.zero; fill.anchorMax = Vector2.one;
-            fill.offsetMin = fill.offsetMax = Vector2.zero;
-            statusFills[i] = fill;
-        }
-        UpdateStatusBars();
-    }
-
-    void UpdateStatusBars()
-    {
-        if (!playerStats) return;
-        SetStatusFill(0, playerStats.health);
-        SetStatusFill(1, playerStats.stamina);
-        SetStatusFill(2, playerStats.stress);
-    }
-
-    void SetStatusFill(int index, float value)
-    {
-        var fill = statusFills[index];
-        if (!fill) return;
-        float ratio = float.IsNaN(value) ? 0f : Mathf.Clamp01(value / 100f);
-        if (!Mathf.Approximately(fill.anchorMax.x, ratio)) fill.anchorMax = new Vector2(ratio,1f);
-        if (fill.gameObject.activeSelf != (ratio > 0f)) fill.gameObject.SetActive(ratio > 0f);
-    }
-
     void BuildHotbar()
     {
-        var bar = Panel("QuickSlots", transform, new Vector2(618f, 78f), new Color(.985f, .976f, .945f, .82f), 25f, 11f);
+        var bar = Panel("QuickSlots", transform, new Vector2(618f, 78f), UITheme.A(UITheme.Ivory, .93f), 25f, 11f);
         quickSlots = bar;
         interaction = owner.GetComponent<PlayerInteraction>();
         bar.GetComponent<InventoryRoundedGraphic>().raycastTarget = true;
@@ -97,11 +36,19 @@ public sealed partial class InventoryUI
 
     void BuildPortrait()
     {
-        var card = Panel("CurrentPlayer", window, new Vector2(312f, 336f), SurfaceColor, 34f, 15f);
-        AtTop(card, -362f, -257f);
-        Heading(card, "플레이어", InventoryGlyphGraphic.Glyph.Person, -111f);
-        var portraitRect = UIBuild.Rect("CharacterPortrait", card, new Vector2(235.556f, 265f));
-        portraitRect.anchoredPosition = new Vector2(0f, -11f);
+        var card = Panel("CurrentPlayer", window, new Vector2(344f, 368f), UITheme.Slate, 10f, 10f);
+        card.GetComponent<InventoryRoundedGraphic>().borderWidth = 0f;
+        card.GetComponent<InventoryRoundedGraphic>().chamfered = true;
+        AtTop(card, -180f, -246f);
+        var caption = Label("Caption", card, "착용", 16f, Ink, new Vector2(100f, 24f));
+        caption.alignment = TextAlignmentOptions.MidlineLeft;
+        caption.fontStyle = FontStyles.Bold;
+        AtTop(caption.rectTransform, -104f, -18f);
+        var ground = Icon("PortraitGround", card, InventoryGlyphGraphic.Glyph.Coin,
+            new Vector2(94f, 13f), UITheme.A(UITheme.Brown, .18f));
+        ground.anchoredPosition = new Vector2(-44f, -137f);
+        var portraitRect = UIBuild.Rect("CharacterPortrait", card, new Vector2(210f, 344f));
+        portraitRect.anchoredPosition = new Vector2(-44f, -3f);
         var portraitImage = portraitRect.gameObject.AddComponent<UnityEngine.UI.RawImage>();
         portraitImage.raycastTarget = false;
         portraitImage.color = Color.white;
@@ -111,19 +58,20 @@ public sealed partial class InventoryUI
 
     void BuildEquipment()
     {
-        var group = Panel("Clothing", window, new Vector2(374f, 336f), SurfaceColor, 34f, 15f);
-        AtTop(group, -3f, -257f);
-        Heading(group, "착용", InventoryGlyphGraphic.Glyph.Top, -142f);
+        var group = UIBuild.Rect("Clothing", window, new Vector2(344f, 368f));
+        AtTop(group, -180f, -246f);
+        // Preserve the original single vertical column: top, bottom, socks, shoes.
         for (int i = 0; i < ClothingSlots.Length; i++)
         {
             EquipmentSlot slot = ClothingSlots[i];
-            var view = CreateSlot("Equipment_" + slot, group, 128f, "", () => owner.ClickEquipmentSlot(slot));
-            view.background.rectTransform.anchoredPosition = new Vector2(i % 2 == 0 ? -73f : 73f, 51f - i / 2 * 142f);
+            var view = CreateSlot("Equipment_" + slot, group, 60f, "", () => owner.ClickEquipmentSlot(slot));
+            StyleWardrobeSlot(view);
+            view.background.rectTransform.anchoredPosition = new Vector2(124f, 132f - i * 66f);
             view.emptyLabel.text = EquipmentName(slot);
-            view.emptyLabel.fontSize = 18f;
-            view.emptyLabel.rectTransform.anchoredPosition = new Vector2(0f, -43f);
-            var glyph = Icon("EquipmentSilhouette", view.background.transform, (InventoryGlyphGraphic.Glyph)(i + 1), new Vector2(67f, 67f), new Color(.62f, .53f, .48f, .42f));
-            glyph.anchoredPosition = new Vector2(0f, 9f);
+            view.emptyLabel.fontSize = 11f;
+            view.emptyLabel.rectTransform.anchoredPosition = new Vector2(0f, -18f);
+            var glyph = Icon("EquipmentSilhouette", view.background.transform, (InventoryGlyphGraphic.Glyph)(i + 1), new Vector2(30f, 30f), UITheme.A(UITheme.Brown, .65f));
+            glyph.anchoredPosition = new Vector2(0f, 6f);
             InventorySlotPointer.AttachEquipment(view.background.gameObject, owner, slot);
             equipment.Add(slot, view);
         }
@@ -131,28 +79,39 @@ public sealed partial class InventoryUI
 
     void BuildPet()
     {
-        var group = Panel("CompanionPet", window, new Vector2(318f, 336f), SurfaceColor, 34f, 15f);
-        AtTop(group, 359f, -257f);
-        Heading(group, "동행 펫", InventoryGlyphGraphic.Glyph.Pet, -113f);
-        var view = CreateSlot("Equipment_Pet", group, 228f, "", () => owner.ClickEquipmentSlot(EquipmentSlot.Pet));
-        view.background.rectTransform.anchoredPosition = new Vector2(0f, -4f);
-        view.emptyLabel.text = "펫";
-        view.emptyLabel.fontSize = 21f;
-        view.emptyLabel.rectTransform.anchoredPosition = new Vector2(0f, -139f);
+        var group = UIBuild.Rect("CompanionPet", window, new Vector2(60f, 60f));
+        AtTop(group, -56f, -378f);
+        var view = CreateSlot("Equipment_Pet", group, 60f, "", () => owner.ClickEquipmentSlot(EquipmentSlot.Pet));
+        StyleWardrobeSlot(view);
+        view.emptyLabel.fontSize = 11f;
+        view.emptyLabel.rectTransform.anchoredPosition = new Vector2(0f, -18f);
         Icon("EquipmentSilhouette", view.background.transform, InventoryGlyphGraphic.Glyph.Pet,
-            new Vector2(92f, 92f), new Color(.62f, .53f, .48f, .27f));
+            new Vector2(30f, 30f), UITheme.A(UITheme.Brown, .65f)).anchoredPosition = new Vector2(0f, 6f);
         InventorySlotPointer.AttachEquipment(view.background.gameObject, owner, EquipmentSlot.Pet);
         equipment.Add(EquipmentSlot.Pet, view);
     }
 
+    static void StyleWardrobeSlot(SlotView view)
+    {
+        view.flatSurface = true;
+        var graphic = view.background;
+        graphic.chamfered = true;
+        graphic.largeRadius = graphic.smallRadius = 7f;
+        graphic.bevelEdges = true;
+        graphic.borderWidth = 1.25f;
+        // A shallow matte recess; no dark outline around every pocket.
+        graphic.edgeTopColor = Color.Lerp(UITheme.Sand, UITheme.Brown, .28f);
+        graphic.edgeBottomColor = UITheme.Ivory;
+    }
+
     void Heading(RectTransform card, string text, InventoryGlyphGraphic.Glyph glyph, float left)
     {
-        var icon = Icon("HeadingIcon", card, glyph, new Vector2(29f, 29f), Ink);
-        icon.anchoredPosition = new Vector2(left, 140f);
-        var label = Label("Caption", card, text, 23f, Ink, new Vector2(card.sizeDelta.x - 84f, 37f));
+        var icon = Icon("HeadingIcon", card, glyph, new Vector2(19f, 19f), Ink);
+        icon.anchoredPosition = new Vector2(left, card.sizeDelta.y * .5f - 14f);
+        var label = Label("Caption", card, text, 15f, Ink, new Vector2(card.sizeDelta.x - 40f, 24f));
         label.fontStyle = FontStyles.Bold;
         label.alignment = TextAlignmentOptions.MidlineLeft;
-        label.rectTransform.anchoredPosition = new Vector2(27f, 140f);
+        label.rectTransform.anchoredPosition = new Vector2(12f, card.sizeDelta.y * .5f - 14f);
     }
 
     SlotView CreateSlot(string name, Transform parent, float size, string key, Action onClick)
@@ -176,7 +135,7 @@ public sealed partial class InventoryUI
         view.number.rectTransform.anchorMin = view.number.rectTransform.anchorMax = new Vector2(0f, 1f);
         view.number.rectTransform.pivot = new Vector2(0f, 1f);
         view.number.rectTransform.anchoredPosition = new Vector2(8f, -4f);
-        view.emptyLabel = Label("Empty", rect, "+", size < 80 ? 20f : 28f, new Color(.61f, .57f, .54f, .64f), new Vector2(size - 10f, Mathf.Min(size - 10f, 64f)));
+        view.emptyLabel = Label("Empty", rect, "+", size < 80 ? 20f : 28f, UITheme.A(UITheme.Brown, .6f), new Vector2(size - 10f, Mathf.Min(size - 10f, 64f)));
         return view;
     }
 
@@ -185,8 +144,8 @@ public sealed partial class InventoryUI
         var canvasRect = (RectTransform)transform;
         float width = Mathf.Max(1f, canvasRect.rect.width - 36f);
         float height = Mathf.Max(1f, canvasRect.rect.height - 112f);
-        window.localScale = Vector3.one * Mathf.Min(1f, width / 1100f, height / windowHeight);
-        window.anchoredPosition = new Vector2(0f, 43f);
+        window.localScale = Vector3.one * Mathf.Min(1f, width / WindowWidth, height / windowHeight);
+        window.anchoredPosition = Vector2.zero;
         PositionWithdrawal();
     }
 
@@ -208,8 +167,8 @@ public sealed partial class InventoryUI
         var graphic = rect.GetComponent<InventoryRoundedGraphic>(); graphic.raycastTarget = true;
         var button = rect.gameObject.AddComponent<UnityEngine.UI.Button>(); button.targetGraphic = graphic;
         var colors = button.colors;
-        colors.normalColor = Color.white; colors.highlightedColor = new Color(1f, .975f, .92f);
-        colors.selectedColor = Color.white; colors.pressedColor = new Color(.89f, .83f, .75f);
+        colors.normalColor = Color.white; colors.highlightedColor = UITheme.Ivory;
+        colors.selectedColor = Color.white; colors.pressedColor = UITheme.Slate;
         colors.disabledColor = new Color(.76f, .76f, .76f, .68f); button.colors = colors;
         button.onClick.AddListener(() => onClick());
         var navigation = button.navigation; navigation.mode = UnityEngine.UI.Navigation.Mode.None; button.navigation = navigation;
@@ -220,8 +179,10 @@ public sealed partial class InventoryUI
     {
         var rect = UIBuild.Rect(name, parent, size);
         var graphic = rect.gameObject.AddComponent<InventoryRoundedGraphic>();
-        graphic.color = color; graphic.largeRadius = large; graphic.smallRadius = small;
-        graphic.borderWidth = large > 0f ? 1.5f : 0f; graphic.raycastTarget = false; return rect;
+        // Theme corners: soft but never pill-like, whatever radius the caller asked for.
+        graphic.color = color; graphic.largeRadius = graphic.smallRadius = Mathf.Min(large, UITheme.Radius * 1.4f);
+        graphic.borderColor = UITheme.Brown;
+        graphic.borderWidth = large > 0f ? 2f : 0f; graphic.raycastTarget = false; return rect;
     }
 
     static RectTransform Icon(string name, Transform parent, InventoryGlyphGraphic.Glyph kind, Vector2 size, Color color)
