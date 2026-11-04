@@ -46,6 +46,35 @@ public class ChatUIManager : MonoBehaviour
     private void Awake()
     {
         IsChatting = false;
+        if (chatPanel && chatInput)
+        {
+            var font = chatInput.textComponent.font;
+            var title = UITheme.Text(chatPanel.transform, "채팅", 28, UITheme.Ink, font);
+            title.rectTransform.anchoredPosition = new Vector2(-135, 148);
+            title.fontStyle = FontStyles.Bold;
+            title.rectTransform.sizeDelta = new Vector2(160, 50);
+            var close = UITheme.Button(chatPanel.transform, "×", new Vector2(40, 40), false, font, CloseChat);
+            ((RectTransform)close.transform).anchoredPosition = new Vector2(205, 148);
+            var minimize = UITheme.Button(chatPanel.transform, "－", new Vector2(40, 40), false, font, CloseChat);
+            ((RectTransform)minimize.transform).anchoredPosition = new Vector2(155, 148);
+            var send = UITheme.Button(chatPanel.transform, "전송", new Vector2(70, 50), true, font, SendChatMessage);
+            ((RectTransform)send.transform).anchoredPosition = new Vector2(190, -135);
+            var input = (RectTransform)chatInput.transform;
+            input.offsetMin = new Vector2(20, 20); input.offsetMax = new Vector2(-100, 70);
+            chatInput.textComponent.fontSize = 19;
+            if (chatInput.placeholder is TMP_Text hint) { hint.fontSize = 18; hint.color = UITheme.Brown; }
+            var history = (RectTransform)chatScrollRect.transform;
+            history.offsetMin = new Vector2(18, 84); history.offsetMax = new Vector2(-18, -65);
+            chatScrollRect.GetComponent<UnityEngine.UI.Image>().color = Color.clear;
+            chatMessagePrefab.gameObject.SetActive(false);
+            chatPanel.GetComponent<UnityEngine.UI.Image>().color = Color.clear;
+            var surface = UITheme.Panel("ChatSurface", chatPanel.transform, Vector2.zero, UITheme.Hex(0xF7EAD4, .98f), 16);
+            UIBuild.Stretch(surface); surface.SetAsFirstSibling();
+            chatInput.GetComponent<UnityEngine.UI.Image>().color = Color.clear;
+            var inputSurface = UITheme.Panel("InputSurface", input, Vector2.zero, UITheme.Hex(0xFAF1E3), 12, false);
+            UIBuild.Stretch(inputSurface); inputSurface.SetAsFirstSibling();
+            if (chatInput.placeholder is TMP_Text placeholder) { placeholder.fontStyle = FontStyles.Normal; placeholder.text = "메시지를 입력하세요..."; }
+        }
     }
 
     private void OnEnable()
@@ -205,7 +234,38 @@ public class ChatUIManager : MonoBehaviour
 
         // 닉네임과 메시지 표시
         newMessage.richText = true;
-        newMessage.text = FormatMessage(senderName, message, crime);
+        newMessage.text = "";
+        newMessage.gameObject.SetActive(true);
+        newMessage.fontSize = 19;
+        newMessage.color = UITheme.Ink;
+        float width = Mathf.Max(180, ((RectTransform)chatContent).rect.width - 170);
+        float height = Mathf.Max(48, chatMessagePrefab.GetPreferredValues(Literal(message), width, 0).y + 24);
+        var layout = newMessage.GetComponent<UnityEngine.UI.LayoutElement>();
+        if (!layout) layout = newMessage.gameObject.AddComponent<UnityEngine.UI.LayoutElement>();
+        layout.preferredHeight = height;
+        var row = newMessage.rectTransform;
+        var badge = UITheme.Panel("Sender", row, Vector2.zero, senderName == "시스템" ? UITheme.Slate : UITheme.Pressed, 9, false);
+        badge.anchorMin = badge.anchorMax = new Vector2(0, 1);
+        badge.pivot = new Vector2(0, 1);
+        badge.anchoredPosition = new Vector2(0, -3);
+        badge.sizeDelta = new Vector2(96, 40);
+        var sender = UITheme.Text(badge, Literal(senderName), 18, senderName == "시스템" ? UITheme.Ink : Color.white, newMessage.font);
+        UIBuild.Stretch(sender.rectTransform); sender.enableAutoSizing = true; sender.fontSizeMin = 10; sender.fontSizeMax = 18;
+        sender.fontStyle = FontStyles.Bold;
+        var bubble = UITheme.Panel("Bubble", row, Vector2.zero, UITheme.Hex(0xEFDFC6), 10, false);
+        UIBuild.Stretch(bubble); bubble.offsetMin = new Vector2(104, 3); bubble.offsetMax = new Vector2(-48, -3);
+        var body = UITheme.Text(bubble, Literal(message), 18, crime.HasValue ? UITheme.Danger : UITheme.Ink, newMessage.font);
+        UIBuild.Stretch(body.rectTransform); body.margin = new Vector4(12, 8, 12, 8); body.alignment = TextAlignmentOptions.TopLeft;
+        body.textWrappingMode = TextWrappingModes.Normal;
+        body.overflowMode = TextOverflowModes.Masking;
+        // Measure the actual body font and usable bubble width, not the hidden template.
+        float contentWidth = ((RectTransform)chatPanel.transform).rect.width - 36 - 17 - 10;
+        float bodyWidth = Mathf.Max(80, contentWidth - 104 - 48);
+        layout.preferredHeight = Mathf.Max(48, body.GetPreferredValues(body.text, bodyWidth, Mathf.Infinity).y + 12);
+        layout.minHeight = layout.preferredHeight;
+        layout.flexibleHeight = 0;
+        var time = UITheme.Text(row, System.DateTime.Now.ToString("HH:mm"), 12, UITheme.Brown, newMessage.font);
+        UIBuild.Stretch(time.rectTransform); time.rectTransform.anchorMin = new Vector2(1, 0); time.rectTransform.offsetMin = new Vector2(-44, 0); time.rectTransform.offsetMax = Vector2.zero;
 
         // 레이아웃 갱신 후 가장 아래로 스크롤
         StartCoroutine(ScrollToBottom());
@@ -218,9 +278,34 @@ public class ChatUIManager : MonoBehaviour
         if (chatScrollRect != null)
         {
             Canvas.ForceUpdateCanvases();
+            ResizeMessageRows();
 
             chatScrollRect.verticalNormalizedPosition = 0f;
         }
+    }
+    private void ResizeMessageRows()
+    {
+        if (!chatContent) return;
+        var content = (RectTransform)chatContent;
+        UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(content);
+        foreach (Transform child in content)
+        {
+            if (!child.gameObject.activeSelf) continue;
+            var bubble = child.Find("Bubble") as RectTransform;
+            var layout = child.GetComponent<UnityEngine.UI.LayoutElement>();
+            if (!bubble || !layout) continue;
+            var body = bubble.GetComponentInChildren<TMP_Text>();
+            if (!body) continue;
+            // Measure only after the layout system assigns the actual available width.
+            float available = Mathf.Max(40, bubble.rect.width - body.margin.x - body.margin.z);
+            Vector4 margins = body.margin;
+            body.margin = Vector4.zero;
+            float textHeight = body.GetPreferredValues(body.text, available, Mathf.Infinity).y;
+            body.margin = margins;
+            layout.minHeight = layout.preferredHeight = Mathf.Max(46, Mathf.Ceil(textHeight) + margins.y + margins.w + 6);
+            layout.flexibleHeight = 0;
+        }
+        UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(content);
     }
     private void Start()
     {
@@ -291,6 +376,8 @@ public class ChatUIManager : MonoBehaviour
         if (chatPanel != null)
         {
             chatPanel.SetActive(true);
+            Canvas.ForceUpdateCanvases();
+            ResizeMessageRows();
         }
 
         // 입력창 활성화
