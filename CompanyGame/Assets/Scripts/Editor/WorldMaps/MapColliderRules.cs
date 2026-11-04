@@ -39,7 +39,18 @@ namespace CompanyGame.Editor.WorldMaps
             var s = b.size;
             if (Mathf.Max(s.x, s.y, s.z) < TinyExtent) return ColliderKind.Skip;
             if (MarkingRx.IsMatch(name)) return ColliderKind.Skip;
+            // Dald's original terrain contains stair cutouts and angled retaining caps.
+            // A mostly-filled bounding box closes those openings. Its existing short ramp
+            // connections also need their sloped mesh, rather than a box with a vertical lip.
+            if (path.StartsWith("Map_daldongnaemap/10_World/Surface Connections/Repair_", System.StringComparison.Ordinal) ||
+                path.Contains("/Daldongne Warm Village/00_Terrain/") &&
+                (name.StartsWith("Terrain_", System.StringComparison.Ordinal) || name.StartsWith("WallCap_", System.StringComparison.Ordinal)))
+                return ColliderKind.Floor;
             if (Mathf.Max(s.x, s.z) > MergedExtent && s.y > FloorMaxThickness) return ColliderKind.Merged;
+            // This modeled doorstep is concrete despite "GlassDoor" in its name.
+            // Keep its actual 0.257m height instead of inflating it to a 1.1m glass barrier.
+            if (path == "Map_daldongnaemap/10_World/Daldongne Warm Village/10_Buildings/Cafe/20_DoorsAndWindows/Cafe_GlassDoor_sill")
+                return ColliderKind.Floor;
             if (GlassRx.IsMatch(name)) return ColliderKind.Glass;
             if (RailRx.IsMatch(name)) return ColliderKind.Rail;
             if (CurbRx.IsMatch(name)) return ColliderKind.Curb;

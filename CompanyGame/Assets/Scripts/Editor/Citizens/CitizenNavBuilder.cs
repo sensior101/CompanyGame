@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using CompanyGame.Editor.WorldMaps;
 using CompanyGame.World.Maps;
 using Unity.AI.Navigation;
 using UnityEditor;
@@ -16,8 +17,10 @@ namespace CompanyGame.Editor.Citizens
 {
     /// <summary>
     /// Bakes the walkable NavMesh for the citizens: every outdoor map and the interiors that have citizens.
-    /// Outdoors: everything with a render mesh is walkable except roads and water (Not Walkable modifiers) in ALL maps,
-    /// whether or not cars drive there; citizens only cross where a Crosswalk object gives a NavMeshLink.
+    /// Outdoors normally use render meshes; Daldongne uses the player's physical floors and original stair ramps,
+    /// so decorative foliage cannot close paths and visual steps cannot disagree with the walking surface.
+    /// Roads and water are Not Walkable in ALL maps, whether or not cars drive there; citizens only cross
+    /// where a Crosswalk object gives a NavMeshLink. Daldongne marks collider owners as well as renderers.
     /// Indoors: physics colliders (what the player walks on).
     /// The bake uses the citizen's own size (radius .3, height 1.8) on the default agent type, so ProjectSettings stay untouched
     /// (the project's Humanoid radius .5 closed every gap under about 1.1 m). A start-point list of real ground
@@ -31,6 +34,8 @@ namespace CompanyGame.Editor.Citizens
         public const float AgentClimb = BodySize.StepHeight;
         const int NotWalkable = 1;
         const string BusinessPath = "Assets/Scenes/Maps/BusinessDistrict.unity";
+        const string DaldongnePath = "Assets/Scenes/daldongnaemap.unity";
+        static readonly string[] GeneratedColliderPrefixes = Enum.GetNames(typeof(ColliderKind)).Select(kind => kind + "_").ToArray();
         static readonly Regex Road = new Regex("(street|road|perimeter|asphalt)", RegexOptions.IgnoreCase);
         static readonly Regex Water = new Regex("(water|ocean|^sea|lake|pond|canal|riversurface|riverbed)", RegexOptions.IgnoreCase);
         // Small props named Street*, and walkways that merely contain "road" in their name.
@@ -74,7 +79,8 @@ namespace CompanyGame.Editor.Citizens
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene);
             return Path.GetFileName(scenePath) + ": " + (triangulation.indices.Length / 3) + " NavMesh triangles, "
-                + roads + " not-walkable renderers, " + links + " new crosswalk links, " + starts + " start points.";
+                + roads + (scenePath == DaldongnePath ? " not-walkable objects, " : " not-walkable renderers, ")
+                + links + " new crosswalk links, " + starts + " start points.";
         }
 
         static NavMeshSurface EnsureSurface(Scene scene, bool interior)
@@ -85,7 +91,8 @@ namespace CompanyGame.Editor.Citizens
             if (!surface) surface = root.AddComponent<NavMeshSurface>();
             surface.agentTypeID = 0;
             surface.collectObjects = CollectObjects.All;
-            surface.useGeometry = interior ? NavMeshCollectGeometry.PhysicsColliders : NavMeshCollectGeometry.RenderMeshes;
+            surface.useGeometry = interior || scene.path == DaldongnePath
+                ? NavMeshCollectGeometry.PhysicsColliders : NavMeshCollectGeometry.RenderMeshes;
             surface.layerMask = ~0;
             surface.defaultArea = 0;
             surface.minRegionArea = 0f; // keep small sidewalk pieces
@@ -96,19 +103,40 @@ namespace CompanyGame.Editor.Citizens
         static int MarkNotWalkable(Scene scene)
         {
             int count = 0;
+            bool physicalOutdoor = scene.path == DaldongnePath;
             // Start clean: modifiers from an earlier bake may now be wrong.
             foreach (var old in UnityEngine.Object.FindObjectsByType<NavMeshModifier>(FindObjectsInactive.Include, FindObjectsSortMode.None))
-                if (old.gameObject.scene == scene && old.overrideArea && old.area == NotWalkable && old.GetComponent<MeshRenderer>()) UnityEngine.Object.DestroyImmediate(old);
-            foreach (var renderer in UnityEngine.Object.FindObjectsByType<MeshRenderer>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+                if (old.gameObject.scene == scene && old.overrideArea && old.area == NotWalkable &&
+                    (old.GetComponent<MeshRenderer>() || physicalOutdoor && old.GetComponent<Collider>()))
+                    UnityEngine.Object.DestroyImmediate(old);
+            IEnumerable<GameObject> owners = UnityEngine.Object.FindObjectsByType<MeshRenderer>(FindObjectsInactive.Exclude, FindObjectsSortMode.None)
+                .Where(renderer => renderer.gameObject.scene == scene).Select(renderer => renderer.gameObject);
+            if (physicalOutdoor)
+                owners = owners.Concat(UnityEngine.Object.FindObjectsByType<Collider>(FindObjectsInactive.Exclude, FindObjectsSortMode.None)
+                    .Where(collider => collider.gameObject.scene == scene && collider.enabled && !collider.isTrigger &&
+                        !(collider is WheelCollider) && collider.gameObject.activeInHierarchy).Select(collider => collider.gameObject));
+            foreach (var owner in owners.Distinct())
             {
-                if (renderer.gameObject.scene != scene || !IsNotWalkable(renderer.gameObject.name)) continue;
-                var modifier = renderer.GetComponent<NavMeshModifier>();
-                if (!modifier) modifier = renderer.gameObject.AddComponent<NavMeshModifier>();
+                if (!IsNotWalkableOwner(owner, physicalOutdoor)) continue;
+                var modifier = owner.GetComponent<NavMeshModifier>();
+                if (!modifier) modifier = owner.AddComponent<NavMeshModifier>();
                 modifier.overrideArea = true;
                 modifier.area = NotWalkable;
                 count++;
             }
             return count;
+        }
+
+        static bool IsNotWalkableOwner(GameObject owner, bool physicalOutdoor)
+        {
+            if (IsNotWalkable(owner.name)) return true;
+            if (!physicalOutdoor || owner.transform.root.name != MapColliderRebuilder.GroupName) return false;
+            // Generated colliders live outside the source renderer hierarchy. Remove only their known
+            // kind prefix so anchored rules such as ^sea still match; saved modifiers also serve Inspector bakes.
+            foreach (string prefix in GeneratedColliderPrefixes)
+                if (owner.name.StartsWith(prefix, StringComparison.Ordinal))
+                    return IsNotWalkable(owner.name.Substring(prefix.Length));
+            return false;
         }
 
         // Crosswalk (NPC/Traffic, bundle F) says where two sidewalks meet; give it a link if F did not.
@@ -142,6 +170,10 @@ namespace CompanyGame.Editor.Citizens
             var collect = typeof(NavMeshSurface).GetMethod("CollectSources", BindingFlags.Instance | BindingFlags.NonPublic);
             if (collect == null) throw new InvalidOperationException("NavMeshSurface.CollectSources not found (package changed).");
             var sources = (List<NavMeshBuildSource>)collect.Invoke(surface, null);
+            // Empty dynamic text meshes have no navigation geometry. Unity reports an error for each
+            // one even though the bake skips it; exclude them before handing sources to the builder.
+            sources.RemoveAll(source => source.shape == NavMeshBuildSourceShape.Mesh &&
+                source.sourceObject is Mesh mesh && mesh.vertexCount < 3);
             var settings = surface.GetBuildSettings();
             settings.agentRadius = AgentRadius;
             settings.agentHeight = AgentHeight;
