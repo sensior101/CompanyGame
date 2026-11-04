@@ -6,9 +6,9 @@ using UnityEngine;
 [DisallowMultipleComponent]
 public sealed class EmployeeCardPrompt : MonoBehaviour
 {
-    static readonly Color Ink = new Color(.075f, .12f, .17f, .92f);
-    static readonly Color Paper = new Color(.94f, .96f, .97f);
-    static readonly Color Mint = new Color(.3f, .88f, .72f);
+    static readonly Color Ink = UITheme.A(UITheme.Ivory, .93f); // panel
+    static readonly Color Paper = UITheme.Ink; // text
+    static readonly Color Mint = UITheme.Selected; // highlight
 
     GameObject root;
     EmployeeCardPickup pickup;
@@ -66,7 +66,7 @@ public sealed class EmployeeCardPrompt : MonoBehaviour
         var badge = key.gameObject.AddComponent<UnityEngine.UI.Image>();
         badge.color = Mint;
         badge.raycastTarget = false;
-        keyLabel = Text("Key", key, "F", 20f, Ink, Vector2.zero, new Vector2(40f, 36f));
+        keyLabel = Text("Key", key, "F", 20f, Paper, Vector2.zero, new Vector2(40f, 36f));
         label = Text("Label", panel, "", 20f, Paper, new Vector2(25f, 0f), new Vector2(284f, 44f));
         label.enableAutoSizing = true;
         label.fontSizeMin = 16f;

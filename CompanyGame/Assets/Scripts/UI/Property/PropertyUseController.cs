@@ -169,14 +169,14 @@ public sealed class PropertyUseController : MonoBehaviour
         back.anchorMin = back.anchorMax = new Vector2(.5f, 0f);
         back.pivot = new Vector2(.5f, 0f);
         back.anchoredPosition = new Vector2(0f, 148f);
-        gauge.AddComponent<Image>().color = new Color(.075f, .12f, .17f, .92f);
+        gauge.AddComponent<Image>().color = UITheme.A(UITheme.Ivory, .93f);
         var bar = UIBuild.Rect("Bar", back, new Vector2(276f, 8f));
         bar.anchoredPosition = new Vector2(0f, -16f);
-        bar.gameObject.AddComponent<Image>().color = new Color(.19f, .25f, .3f);
+        bar.gameObject.AddComponent<Image>().color = UITheme.Sand;
         var fillRect = UIBuild.Rect("Amount", bar, Vector2.zero);
         UIBuild.Stretch(fillRect);
         fill = fillRect;
-        fillRect.gameObject.AddComponent<Image>().color = new Color(.3f, .88f, .72f);
+        fillRect.gameObject.AddComponent<Image>().color = UITheme.Selected;
         var label = UIBuild.Rect("Label", back, new Vector2(276f, 30f));
         label.anchoredPosition = new Vector2(0f, 8f);
         var text = label.gameObject.AddComponent<TextMeshProUGUI>();
@@ -184,7 +184,7 @@ public sealed class PropertyUseController : MonoBehaviour
         text.font = interaction && interaction.uiFont ? interaction.uiFont : TMP_Settings.defaultFontAsset;
         text.text = "소유권 포기 중…";
         text.fontSize = 20f;
-        text.color = new Color(.94f, .96f, .97f);
+        text.color = UITheme.Ink;
         text.alignment = TextAlignmentOptions.Center;
         foreach (var graphic in host.GetComponentsInChildren<Graphic>()) graphic.raycastTarget = false;
         gauge.SetActive(false);

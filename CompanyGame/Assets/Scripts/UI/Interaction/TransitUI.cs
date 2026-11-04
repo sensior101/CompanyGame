@@ -30,9 +30,9 @@ public sealed class TransitUI : MonoBehaviour
     public bool IsVehicleMenuOpen => vehiclePopup && vehiclePopup.gameObject.activeSelf;
     public WorldDroppedItem MenuVehicle => menuVehicle;
     readonly List<UnityEngine.UI.Button> destinationButtons = new List<UnityEngine.UI.Button>();
-    static readonly Color Ink = new Color(.075f, .12f, .17f);
-    static readonly Color Paper = new Color(.94f, .96f, .97f);
-    static readonly Color Mint = new Color(.3f, .88f, .72f);
+    static readonly Color Ink = UITheme.A(UITheme.Ivory, .95f); // panel
+    static readonly Color Paper = UITheme.Ink; // text
+    static readonly Color Mint = UITheme.Selected; // highlight
 
     public static TransitUI Create(TMP_FontAsset font, Action onClose)
     {
@@ -63,15 +63,15 @@ public sealed class TransitUI : MonoBehaviour
         stripe.anchoredPosition = new Vector2(-164f, 0f);
         promptLabel = Label("Action", promptRect, "", 23f, Paper, new Vector2(214f, 52f));
         promptLabel.rectTransform.anchoredPosition = new Vector2(-44f, 0f);
-        var cap = Panel("SpaceKeycap", promptRect, new Vector2(88f, 34f), new Color(.86f, .91f, .94f));
+        var cap = Panel("SpaceKeycap", promptRect, new Vector2(88f, 34f), UITheme.Sand);
         cap.anchoredPosition = new Vector2(110f, 0f);
-        var key = Label("Space", cap, "SPACE", 16f, Ink, new Vector2(88f, 32f));
+        var key = Label("Space", cap, "SPACE", 16f, Paper, new Vector2(88f, 32f));
         key.fontStyle = FontStyles.Bold;
-        var capEdge = Panel("KeycapEdge", cap, new Vector2(74f, 2f), new Color(.4f, .5f, .57f));
+        var capEdge = Panel("KeycapEdge", cap, new Vector2(74f, 2f), UITheme.Slate);
         capEdge.anchoredPosition = new Vector2(0f, -13f);
         prompt.SetActive(false);
 
-        var shade = Panel("TransitModal", transform, Vector2.zero, new Color(.015f, .025f, .04f, .78f));
+        var shade = Panel("TransitModal", transform, Vector2.zero, UITheme.A(UITheme.Brown, .35f));
         UIBuild.Stretch(shade);
         shade.GetComponent<UnityEngine.UI.Image>().raycastTarget = true;
         modal = shade.gameObject;
@@ -82,11 +82,11 @@ public sealed class TransitUI : MonoBehaviour
         title = Label("Title", panel, "", 30f, Paper, new Vector2(430f, 46f));
         title.alignment = TextAlignmentOptions.MidlineLeft;
         title.rectTransform.anchoredPosition = new Vector2(-48f, 257f);
-        subtitle = Label("Subtitle", panel, "", 17f, new Color(.68f, .76f, .82f), new Vector2(530f, 42f));
+        subtitle = Label("Subtitle", panel, "", 17f, UITheme.Brown, new Vector2(530f, 42f));
         subtitle.alignment = TextAlignmentOptions.MidlineLeft;
         subtitle.rectTransform.anchoredPosition = new Vector2(0f, 207f);
 
-        var closeRect = Panel("Close", panel, new Vector2(68f, 40f), new Color(.19f, .25f, .3f));
+        var closeRect = Panel("Close", panel, new Vector2(68f, 40f), UITheme.Sand);
         closeRect.anchoredPosition = new Vector2(231f, 257f);
         close = closeRect.gameObject.AddComponent<UnityEngine.UI.Button>();
         close.onClick.AddListener(() => onClose());
@@ -102,7 +102,7 @@ public sealed class TransitUI : MonoBehaviour
         layout.childForceExpandHeight = false;
         layout.childForceExpandWidth = true;
         status = Label("Status", panel, "목적지를 선택하세요.   ESC  닫기", 16f,
-            new Color(.72f, .79f, .83f), new Vector2(530f, 62f));
+            UITheme.Brown, new Vector2(530f, 62f));
         status.rectTransform.anchoredPosition = new Vector2(0f, -270f);
         status.textWrappingMode = TextWrappingModes.Normal;
         modal.SetActive(false);
@@ -127,7 +127,7 @@ public sealed class TransitUI : MonoBehaviour
     {
         if(visible && !ridingHints)
         {
-            var rect=Panel("VehicleRidingHints",transform,new Vector2(190,72),new Color(.045f,.065f,.075f,.86f));
+            var rect=Panel("VehicleRidingHints",transform,new Vector2(190,72),UITheme.A(UITheme.Ivory,.93f));
             rect.anchorMin=rect.anchorMax=rect.pivot=Vector2.zero;
             rect.anchoredPosition=new Vector2(22,22);
             var label=Label("Controls",rect,"Shift : 가속\nSpace : 내리기",20,Paper,new Vector2(162,58));
@@ -163,7 +163,7 @@ public sealed class TransitUI : MonoBehaviour
                 RefreshVehicleMenu();
             },out vehicleDismantleLockText);
             vehicleDismantleButton=VehicleButton("Dismantle",()=>dismantleVehicle?.Invoke(menuVehicle),out vehicleDismantleText);
-            var exit=Panel("Close",vehiclePopup,new Vector2(28,28),new Color(.2f,.27f,.3f));
+            var exit=Panel("Close",vehiclePopup,new Vector2(28,28),UITheme.Sand);
             exit.anchorMin=exit.anchorMax=new Vector2(.5f,1f);exit.pivot=new Vector2(.5f,1f);
             exit.anchoredPosition=new Vector2(137,-12);
             exit.GetComponent<UnityEngine.UI.Image>().raycastTarget=true;
@@ -219,7 +219,7 @@ public sealed class TransitUI : MonoBehaviour
     }
     UnityEngine.UI.Button VehicleButton(string name, Action action, out TMP_Text label)
     {
-        var row=Panel(name,vehiclePopup,new Vector2(286,40),new Color(.18f,.31f,.33f));
+        var row=Panel(name,vehiclePopup,new Vector2(286,40),UITheme.Sand);
         row.GetComponent<UnityEngine.UI.Image>().raycastTarget=true;
         var button=row.gameObject.AddComponent<UnityEngine.UI.Button>();
         button.onClick.AddListener(()=>action());
@@ -263,24 +263,24 @@ public sealed class TransitUI : MonoBehaviour
         foreach (var destination in destinations)
         {
             var selectedDestination = destination;
-            var row = Panel("Destination_" + destination.displayName, cards, new Vector2(530f, 70f), new Color(.15f, .21f, .27f));
+            var row = Panel("Destination_" + destination.displayName, cards, new Vector2(530f, 70f), UITheme.Sand);
             var element = row.gameObject.AddComponent<UnityEngine.UI.LayoutElement>();
             element.preferredHeight = 70f;
             var button = row.gameObject.AddComponent<UnityEngine.UI.Button>();
             row.GetComponent<UnityEngine.UI.Image>().raycastTarget = true;
             var colors = button.colors;
             colors.normalColor = Color.white;
-            colors.highlightedColor = new Color(.65f, 1f, .89f);
-            colors.selectedColor = new Color(.65f, 1f, .89f);
-            colors.pressedColor = new Color(.45f, .78f, .69f);
-            colors.disabledColor = new Color(.55f, .6f, .64f);
+            colors.highlightedColor = UITheme.Selected;
+            colors.selectedColor = UITheme.Selected;
+            colors.pressedColor = UITheme.Pressed;
+            colors.disabledColor = UITheme.Slate;
             button.colors = colors;
             button.onClick.AddListener(() => onChoose(selectedDestination));
             var name = Label("Name", row, destination.displayName, 22f, Paper, new Vector2(438f, 42f));
             name.alignment = TextAlignmentOptions.MidlineLeft;
             name.rectTransform.anchoredPosition = new Vector2(-23f, 12f);
             var detail = Label("Description", row, destination.description, 14f,
-                new Color(.7f, .8f, .86f), new Vector2(438f, 23f));
+                UITheme.Brown, new Vector2(438f, 23f));
             detail.alignment = TextAlignmentOptions.MidlineLeft;
             detail.rectTransform.anchoredPosition = new Vector2(-23f, -17f);
             var arrow = Label("Arrow", row, ">", 24f, Mint, new Vector2(32f, 50f));
