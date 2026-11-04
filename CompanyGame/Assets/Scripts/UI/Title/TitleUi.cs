@@ -10,13 +10,13 @@ using UnityEngine.UI;
 /// </summary>
 public static class TitleUi
 {
-    public static readonly Color Ink = new Color32(0x3B, 0x2A, 0x20, 255);
-    public static readonly Color Cream = new Color32(0xFF, 0xF1, 0xD6, 255);
-    public static readonly Color Amber = new Color32(0xFF, 0xC8, 0x57, 255);
-    public static readonly Color Panel = new Color32(0x1B, 0x1D, 0x3A, 235);
-    public static readonly Color Muted = new Color32(0xC9, 0xC3, 0xD9, 255);
-    public static readonly Color Warn = new Color32(0xFF, 0x9A, 0x8A, 255);
-    public static readonly Color Good = new Color32(0xA8, 0xE6, 0xA1, 255);
+    public static readonly Color Ink = UITheme.Ink;
+    public static readonly Color Cream = UITheme.Ivory;
+    public static readonly Color Amber = UITheme.Selected;
+    public static readonly Color Panel = UITheme.A(UITheme.Ink, .9f);
+    public static readonly Color Muted = UITheme.Sand;
+    public static readonly Color Warn = UITheme.Selected;
+    public static readonly Color Good = UITheme.Green;
 
     public static TMP_FontAsset Font
     {
@@ -139,11 +139,11 @@ public static class TitleUi
         var button = go.GetComponent<Button>();
         button.targetGraphic = image;
         // Keyboard focus (Selected) must look like mouse hover, otherwise arrow-key navigation is invisible.
-        Color tint = primary ? Cream : (Color)new Color32(0xB9, 0xB3, 0xCC, 255);
+        Color tint = primary ? UITheme.Selected : UITheme.Sand;
         button.colors = new ColorBlock
         {
             normalColor = tint, highlightedColor = Amber, selectedColor = Amber,
-            pressedColor = new Color32(0xE0, 0xA0, 0x30, 255), disabledColor = new Color32(0x6A, 0x68, 0x80, 255),
+            pressedColor = UITheme.Pressed, disabledColor = UITheme.Brown,
             colorMultiplier = 1f, fadeDuration = 0.08f
         };
         var label = Label(go.transform, text, fontSize, Ink);
@@ -159,7 +159,7 @@ public static class TitleUi
         go.transform.SetParent(parent, false);
         go.GetComponent<LayoutElement>().preferredHeight = height;
         var image = go.GetComponent<Image>();
-        image.sprite = Rounded; image.type = Image.Type.Sliced; image.color = new Color32(0xF7, 0xF3, 0xFF, 255);
+        image.sprite = Rounded; image.type = Image.Type.Sliced; image.color = UITheme.Ivory;
 
         var area = new GameObject("Text Area", typeof(RectTransform), typeof(RectMask2D));
         area.transform.SetParent(go.transform, false);
@@ -167,7 +167,7 @@ public static class TitleUi
         areaRt.anchorMin = Vector2.zero; areaRt.anchorMax = Vector2.one; areaRt.offsetMin = new Vector2(16, 6); areaRt.offsetMax = new Vector2(-16, -6);
 
         var text = Label(area.transform, "", 28, Ink, TextAlignmentOptions.MidlineLeft);
-        var hint = Label(area.transform, placeholder, 28, new Color32(0x8A, 0x84, 0x9C, 255), TextAlignmentOptions.MidlineLeft, FontStyles.Italic);
+        var hint = Label(area.transform, placeholder, 28, UITheme.Brown, TextAlignmentOptions.MidlineLeft, FontStyles.Normal);
         foreach (var t in new[] { text, hint })
         {
             var rt = (RectTransform)t.transform;
