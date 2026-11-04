@@ -46,6 +46,7 @@ public static class InventoryLedgerRules
         {
             if (stack.Item.IsCurrency) { cash = unchecked(cash + stack.Item.CurrencyValue * stack.Count); continue; }
             string key = IsUnique(stack) ? "u:" + stack.Item.itemId + "/" + stack.InstanceId : "i:" + stack.Item.itemId;
+            if (FoodShelfLife.IsPerishable(stack.Item)) key += ":expiry:" + stack.ExpiresAt + ":made:" + stack.MadeDay;
             tally.TryGetValue(key, out long n);
             tally[key] = n + stack.Count;
         }
@@ -166,11 +167,21 @@ public static class InventoryLedgerRules
 
     /// <summary>p.eat: one <paramref name="itemId"/> that can be eaten goes.</summary>
     public static bool TryEat(InventoryState inventory, string itemId, out string error)
+        => TryEat(inventory, itemId, null, out _, out error);
+
+    // The expiry stamp selects the actual stack even if client/server slot layouts differ.
+    public static bool TryEat(InventoryState inventory, string itemId, long? expiresAt, out ItemStack consumed, out string error)
     {
+        consumed = null;
         for (int i = 0; inventory != null && i < inventory.Capacity; i++)
         {
             var stack = inventory.GetSlot(i);
-            if (!stack.IsEmpty && stack.Item.IsConsumable && stack.Item.itemId == itemId) return inventory.TryRemove(i, 1, out error);
+            if (!stack.CanConsume || stack.Item.itemId != itemId ||
+                (expiresAt.HasValue && stack.ExpiresAt != expiresAt.Value)) continue;
+            var copy = stack.Copy();
+            if (!inventory.TryRemove(i, 1, out error)) return false;
+            consumed = copy;
+            return true;
         }
         return Fail("먹을 음식이 없습니다.", out error);
     }

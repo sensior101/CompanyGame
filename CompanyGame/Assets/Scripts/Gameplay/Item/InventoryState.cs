@@ -7,17 +7,34 @@ public sealed class ItemStack
     public int Count { get; internal set; }
     public string InstanceId { get; internal set; }
     public BookInstanceData BookData { get; internal set; }
+    /// <summary>Game minute this food spoils at (FoodShelfLife); 0 for items that never spoil.</summary>
+    public long ExpiresAt { get; internal set; }
+    /// <summary>Game day the food was made or bought; a fridge counts its keeping days from it.</summary>
+    public int MadeDay { get; internal set; }
+    public bool IsSpoiled => !IsEmpty && ExpiresAt > 0 && FoodShelfLife.Now.TotalMinutes >= ExpiresAt;
+    public bool CanConsume => !IsEmpty && (Item.IsConsumable || (IsSpoiled && FoodShelfLife.IsPerishable(Item)));
     public string OwnershipKey => Item && Item.IsVehicle && !string.IsNullOrEmpty(InstanceId) ? "vehicle:" + InstanceId : null;
     public bool IsEmpty => !Item || Count <= 0;
     public bool IsUniqueBook => !IsEmpty && Item.IsBook && BookData != null &&
         (BookData.isPublished || BookData.HasContent || !string.IsNullOrEmpty(InstanceId));
     public int StackLimit => IsUniqueBook ? 1 : IsEmpty ? 0 : Item.StackLimit;
     public bool CanMerge(ItemStack other) => other != null && !IsEmpty && !other.IsEmpty &&
-        Item == other.Item && !IsUniqueBook && !other.IsUniqueBook;
+        Item == other.Item && ExpiresAt == other.ExpiresAt && !IsUniqueBook && !other.IsUniqueBook;
     public string Tooltip => !IsEmpty && Item.IsBook && BookData != null
         ? BookData.Tooltip(Item.DisplayName) : DisplayName;
     public string TooltipDetails => !IsEmpty && Item.IsBook && BookData != null
-        ? BookData.TooltipDetails : "";
+        ? BookData.TooltipDetails : ExpiresAt > 0 ? ExpiryText : "";
+    string ExpiryText
+    {
+        get
+        {
+            if (IsSpoiled) return "상함 · 먹으면 식중독 (1시간)";
+            long minutes = Math.Max(0L, ExpiresAt - FoodShelfLife.Now.TotalMinutes);
+            if (minutes < GameTime.MinutesPerHour) return "유통기한 1시간 미만 남음";
+            long hours = minutes / GameTime.MinutesPerHour;
+            return $"유통기한 {hours / GameTime.HoursPerDay}일 {hours % GameTime.HoursPerDay}시간 남음";
+        }
+    }
     public string DisplayName => !IsEmpty && Item.IsBook && !string.IsNullOrWhiteSpace(BookData?.title)
         ? BookData.title : IsEmpty ? "" : Item.DisplayName;
 
@@ -27,9 +44,12 @@ public sealed class ItemStack
         Item = item; Count = count;
         InstanceId = item && item.IsVehicle ? (string.IsNullOrEmpty(instanceId) ? Guid.NewGuid().ToString("N") : instanceId) : item && item.IsBook ? instanceId : null;
         BookData = null;
+        // Not in a fridge: spoils the next morning (fridges are not containers yet).
+        ExpiresAt = FoodShelfLife.IsPerishable(item) ? FoodShelfLife.ExpiresAt(item, FoodShelfLife.Now, false) : 0;
+        MadeDay = FoodShelfLife.Now.absoluteDay;
     }
-    internal ItemStack Copy() => new ItemStack(Item, Count, InstanceId) { BookData = BookData?.Clone() };
-    internal void Clear() { Item = null; Count = 0; InstanceId = null; BookData = null; }
+    internal ItemStack Copy() => new ItemStack(Item, Count, InstanceId) { BookData = BookData?.Clone(), ExpiresAt = ExpiresAt, MadeDay = MadeDay };
+    internal void Clear() { Item = null; Count = 0; InstanceId = null; BookData = null; ExpiresAt = 0; }
 }
 
 /// <summary>
@@ -81,16 +101,16 @@ public sealed class InventoryState
     }
 
     /// <summary>Adds the entire requested quantity or leaves the inventory unchanged.</summary>
-    public bool CanAdd(ItemData item, int count, out string error)
+    public bool CanAdd(ItemData item, int count, out string error, long expiresAt = -1)
     {
         error = null;
         if (!item || count <= 0) return Fail("아이템과 수량을 확인해 주세요.", out error);
-        long room = 0;
+        long room = 0, expires = expiresAt >= 0 ? expiresAt : FreshExpiry(item);
         for (int i = 0; i < Capacity; i++)
         {
             ItemStack stack = slots[i];
             if (stack.IsEmpty) room += item.StackLimit;
-            else if (stack.Item == item && !stack.IsUniqueBook) room += Math.Max(0, item.StackLimit - stack.Count);
+            else if (stack.Item == item && stack.ExpiresAt == expires && !stack.IsUniqueBook) room += Math.Max(0, item.StackLimit - stack.Count);
         }
         if (room < count) return Fail("인벤토리가 가득 찼습니다.", out error);
         if (item.IsCurrency)
@@ -101,25 +121,26 @@ public sealed class InventoryState
         return true;
     }
 
-    public bool TryAdd(ItemData item, int count, out string error, string instanceId = null)
+    /// <summary><paramref name="expiresAt"/> keeps a moved food's spoil time; -1 stamps it fresh.</summary>
+    public bool TryAdd(ItemData item, int count, out string error, string instanceId = null, long expiresAt = -1, int madeDay = -1)
     {
-        if (!CanAdd(item, count, out error)) return false;
+        if (!CanAdd(item, count, out error, expiresAt)) return false;
         if (item.IsVehicle && !string.IsNullOrEmpty(instanceId))
         {
             if (count != 1) return Fail("탈것은 한 대씩 이동해 주세요.",out error);
             for (int i=0;i<Capacity;i++)
                 if (!slots[i].IsEmpty && slots[i].InstanceId == instanceId) return Fail("이미 보관 중인 탈것입니다.",out error);
         }
-        int remaining = count;
+        int remaining = count; long expires = expiresAt >= 0 ? expiresAt : FreshExpiry(item);
         // Fill existing stacks first, without needlessly occupying empty slots.
         for (int pass = 0; pass < 2 && remaining > 0; pass++)
         for (int i = 0; i < Capacity && remaining > 0; i++)
         {
             ItemStack stack = slots[i];
-            if (pass == 0 ? stack.IsEmpty || stack.Item != item || stack.IsUniqueBook : !stack.IsEmpty) continue;
+            if (pass == 0 ? stack.IsEmpty || stack.Item != item || stack.ExpiresAt != expires || stack.IsUniqueBook : !stack.IsEmpty) continue;
             int amount = Math.Min(remaining, item.StackLimit - (stack.IsEmpty ? 0 : stack.Count));
             if (amount <= 0) continue;
-            if (stack.IsEmpty) stack.Assign(item,0,instanceId);
+            if (stack.IsEmpty) { stack.Assign(item,0,instanceId); stack.ExpiresAt = expires; if (madeDay >= 0) stack.MadeDay = madeDay; }
             stack.Count += amount;
             remaining -= amount;
         }
@@ -319,7 +340,7 @@ public sealed class InventoryState
         var source=slots[fromIndex];var target=slots[toIndex];
         if(!target.IsEmpty && (!source.CanMerge(target) || target.Count+count>target.StackLimit))
             return Fail("빈 칸이나 같은 아이템 칸에 놓아 주세요.",out error);
-        if(target.IsEmpty){target.Item=source.Item;target.Count=0;}
+        if(target.IsEmpty){target.Item=source.Item;target.Count=0;target.ExpiresAt=source.ExpiresAt;target.MadeDay=source.MadeDay;}
         target.Count+=count;source.Count-=count;NotifyChanged();return true;
     }
 
@@ -393,7 +414,7 @@ public sealed class InventoryState
             if (moving.BookData.IsLibraryLoan) return Fail("대여한 책은 양도할 수 없습니다. 도서관에서 반납해 주세요.", out error);
             if (count != 1 || !destinationDraft.TryAddBookInstance(moving.Item, moving.InstanceId, moving.BookData, out error)) return false;
         }
-        else if (!destinationDraft.TryAdd(moving.Item, count, out error, moving.InstanceId)) return false;
+        else if (!destinationDraft.TryAdd(moving.Item, count, out error, moving.InstanceId, moving.ExpiresAt, moving.MadeDay)) return false;
         if (!sourceDraft.TryRemove(sourceIndex, count, out error)) return false;
         ReplaceWith(sourceDraft);
         destination.ReplaceWith(destinationDraft);
@@ -471,6 +492,7 @@ public sealed class InventoryState
         return true;
     }
 
+    static long FreshExpiry(ItemData item) => FoodShelfLife.IsPerishable(item) ? FoodShelfLife.ExpiresAt(item, FoodShelfLife.Now, false) : 0;
     bool IsSlot(int index) => index >= 0 && index < Capacity;
     static bool IsEquipment(EquipmentSlot slot) => slot != EquipmentSlot.Accessory && (int)slot >= 0 && (int)slot < 6;
     static bool Fail(string message, out string error) { error = message; return false; }

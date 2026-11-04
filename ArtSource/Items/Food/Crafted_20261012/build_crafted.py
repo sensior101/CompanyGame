@@ -33,6 +33,7 @@ COLORS.update(steamedegg='f5cc4e',pajeon='dda448',pajeonedge='ad692e',
               sushisalmon='ed895a',sushituna='c94e59',sushishrimp='f1bb91',
               shrimptail='d86836',eggwhite='f6edda',yolk='f4b529',
               spinach='426638',sprout='e9d5a0',carrot='e88b32',beef='75452c')
+COLORS.update(yogurt='ebe5d8',oat='dfc68f',strawflesh='ea8486',strawcore='f2bfb8',banana='eedb9b')
 
 def linear(v):return v/12.92 if v<.04045 else ((v+.055)/1.055)**2.4
 
@@ -89,7 +90,7 @@ def surface_maps(key,color):
         pattern=(fine-.5)*.1+band*.07
     albedo=HERE/'Textures'/('V2_'+key+'_'+color+'_BaseColor.png');normal=HERE/'Textures'/('V2_'+key+'_Normal.png')
     png_array(albedo,(arr*255+.5).astype(np.uint8))
-    h=pattern*(.8 if baked else .35 if flesh or leaves else .08)
+    h=pattern*(.8 if baked else .35 if flesh or leaves or key=='yogurt' else .08)
     dx=(np.roll(h,-1,1)-np.roll(h,1,1))*5;dy=(np.roll(h,-1,0)-np.roll(h,1,0))*5
     nv=np.stack((-dx,dy,np.ones_like(dx)),axis=2);nv/=np.linalg.norm(nv,axis=2,keepdims=True)
     png_array(normal,((nv*.5+.5)*255+.5).astype(np.uint8))
@@ -368,7 +369,7 @@ def saucezig(g,at,width=.7,length=1.1,color='cream',r=.025):
     for i in range(51):
         x=at[0]+sin(i/50*9*pi)*width/2;yy=at[1]+(i/50-.5)*length;pts.append((x,yy,surface_height(g,x,yy,at[2])+r*.65))
     g.tube(color,pts,r,6)
-def fruitberry(g,at,s=.17,kind='strawberry'):
+def fruitberry(g,at,s=.17,kind='strawberry',seg=14,rings=7):
     if kind=='strawberry':
         k=g.mark()
         profile=[(0,0),(.60*s,.08*s),(.94*s,.48*s),(.84*s,1.05*s),(.56*s,1.55*s),(.13*s,1.92*s),(0,1.96*s)]
@@ -384,7 +385,7 @@ def fruitberry(g,at,s=.17,kind='strawberry'):
         for i in range(3):leaf(g,(0,0,.01),s*.65,s*.3,i*2*pi/3)
         g.transform(k,at)
     else:
-        g.organic('blueberry',at,(s,s,s*.85),seed=3,rough=.04,seg=14,rings=7)
+        g.organic('blueberry',at,(s,s,s*.85),seed=3,rough=.04,seg=seg,rings=rings)
         poly=geo['star'](5,s*.24,s*.12)
         g.prism('darkbrown',poly,.008,(at[0],at[1],at[2]+s*.80))
 def swirl(g,at=(0,0,0),r=.4,height=.6,mat='cream',turns=2.7):
@@ -1478,6 +1479,121 @@ def build_pastry(g,style):
             for j in range(8):
                 a=j*pi/4;g.tube('baked',[(x+.072*cos(a),-.66,y+.10+.072*sin(a)),(x+.072*cos(a),.60,y+.10+.072*sin(a))],.007,4)
         k=g.mark();bowl(g,'whiteplate',r=.27,h=.25);soup(g,'chocolate',.24,.235);g.transform(k,(.56,.5,y))
+
+def berry_half(g,at,s=.15,rot=(0,0,0)):
+    # Hulled strawberry halved lengthwise: seeded red skin, and a pink cut face with a red rim and pale heart.
+    prof=[(r,z) for r,z,_ in smooth_path([(0,-.95*s,0),(.55*s,-.89*s,0),(.92*s,-.50*s,0),(.86*s,.07*s,0),(.58*s,.57*s,0),(.16*s,.95*s,0),(0,1.01*s,0)],2)]
+    k=g.mark();v=[];f=[];n=8
+    for r,z in prof:
+        for i in range(n+1):a=pi*i/n;v.append((r*cos(a),r*sin(a),z))
+    for j in range(len(prof)-1):
+        for i in range(n):b=j*(n+1)+i;f.append((b,b+1,b+n+2,b+n+1))
+    g.add(v,f,'berry',smooth=True)
+    for j,z in enumerate([-.40*s,.25*s]):
+        q=next(q for q in range(len(prof)-1) if prof[q][1]<=z<=prof[q+1][1]);t=(z-prof[q][1])/(prof[q+1][1]-prof[q][1]);rr=prof[q][0]*(1-t)+prof[q+1][0]*t+.003
+        for i in range(2):a=(i+.7+.6*(j%2))*pi/3.2;g.ell('yellow',(rr*cos(a),rr*sin(a),z),(.006,.006,.012),seg=4,rings=2)
+    poly=[(r,z) for r,z in prof]+[(-r,z) for r,z in reversed(prof[1:-1])]
+    g.prism('berry',poly,.005,rot=(pi/2,0,0))
+    g.prism('strawflesh',[(x*.84,z*.90+.02*s) for x,z in poly],.005,(0,-.003,0),(pi/2,0,0))
+    g.ell('strawcore',(0,-.0085,.03*s),(.12*s,.002,.55*s),seg=8,rings=3)
+    g.transform(k,at,rot=rot)
+def banana_slice(g,at,r=.12,rot=(0,0,0),th=.058):
+    k=g.mark();g.lathe('banana',[(0,0),(r,0),(r*1.03,th/2),(r,th),(0,th)],sides=20,smooth=True)
+    for i in range(3):a=.4+i*2*pi/3;g.ell('brown',(.25*r*cos(a),.25*r*sin(a),th+.001),(.012,.006,.003),seg=5,rings=3,rot=(0,0,a))
+    g.transform(k,at,rot=rot)
+def yogurt_scoop(g,at,rad=.34,lip=5.6,seed=23):
+    # Strained yogurt thick enough to hold a scoop shape: lumpy dense dome, rolled scoop folds and a torn lip.
+    rng=random.Random(seed);bumps=[(Vector((rng.uniform(-1,1),rng.uniform(-1,1),rng.uniform(-.3,1))).normalized(),rng.uniform(.14,.26),rng.uniform(-.05,.05)) for i in range(40)]
+    v=[];f=[];seg=40;rings=24
+    for j in range(rings+1):
+        t=pi*j/rings
+        for i in range(seg):
+            a=2*pi*i/seg;n=Vector((sin(t)*cos(a),sin(t)*sin(a),cos(t)))
+            k=1+.035*sin(3*a+seed)*sin(t)+sum(h*math.exp(-((n-c).length/w)**2) for c,w,h in bumps)
+            k+=(.08+.025*sin(9*a))*math.exp(-((t-1.92-.10*sin(2*a))/.11)**2)*max(0,cos(a-lip))**.6
+            v.append((at[0]+rad*k*n.x,at[1]+rad*k*n.y,at[2]+rad*.85*k*n.z))
+    for j in range(rings):
+        for i in range(seg):f.append((j*seg+i,j*seg+(i+1)%seg,(j+1)*seg+(i+1)%seg,(j+1)*seg+i))
+    g.add(v,f,'yogurt',smooth=True)
+    # Scoop folds: half-buried rolls curling around a point high on the front right, like layers left by the scoop.
+    roll=Vector((cos(lip+.6),sin(lip+.6),.68)).normalized();front=Vector((cos(lip-.3),sin(lip-.3),.84)).normalized()
+    e1=(front-front.dot(roll)*roll).normalized();e2=roll.cross(e1)
+    def arc(c,phi):return c*roll+sqrt(1-c*c)*(cos(phi)*e1+sin(phi)*e2)
+    def shown(p):return p.z>-.4 and p.dot(front)>-.15
+    for c,thick in ((.80,.08),(.55,.10),(.25,.115)):
+        lo=hi=0
+        while lo>-2.4 and shown(arc(c,lo-.05)):lo-=.05
+        while hi<2.4 and shown(arc(c,hi+.05)):hi+=.05
+        pts=[];radii=[]
+        for i in range(36):
+            u=i/35;p=arc(c+.03*sin(3*u*pi),lo+(hi-lo)*u);sink=.965-.035*(1-sin(pi*u))
+            pts.append((at[0]+rad*sink*p.x,at[1]+rad*sink*p.y,at[2]+rad*.85*sink*p.z));radii.append(rad*thick*sin(pi*u)**.6*(1+.15*sin(5*pi*u+c*7))+.003)
+        g.tube('yogurt',pts,radii=radii,sides=6)
+def build_yogurt(g,style):
+    # Cafe-style Greek yogurt: thick yogurt heaped in the bowl, a scoop on top, toppings covering the rest of the yogurt.
+    r=.80;y=bowl(g,'wood',r=r,h=.50);R=.915*r;rng=random.Random(131);sc=(-.03,.05)
+    lumps=[(rng.uniform(-.65,.65),rng.uniform(-.65,.65),rng.uniform(.10,.18),rng.uniform(-.02,.025)) for i in range(24)]
+    def top(x,yy):
+        # Strained yogurt is heaped rather than poured: a lumpy mound that dips at the wall under the outer toppings.
+        t=min(sqrt(x*x+yy*yy)/R,1)
+        return y+.25*(1-t*t)**.6+(1-t**4)*sum(h*math.exp(-((x-lx)**2+(yy-ly)**2)/w**2) for lx,ly,w,h in lumps)
+    def drop(x,yy,lift):return surface_height(g,x,yy,top(x,yy))+lift
+    def rest(k,x,yy,sink=.010,base=False):
+        # Lower a piece built at the origin onto the yogurt (base) or onto whatever already lies below (x, yy).
+        g.transform(k,(x,yy,(top(x,yy) if base else drop(x,yy,0))-min(p[2] for p in g.v[k:])-sink))
+    def clear(x,yy,gap=.31):return (x-sc[0])**2+(yy-sc[1])**2>gap*gap
+    def granola(x,yy,i):
+        # A chunky low-poly oat cluster with one flake stuck to it.
+        ss=rng.uniform(.040,.058);z=drop(x,yy,ss*.35)
+        g.organic(['dough','baked','dough','dough','toast'][i%5],(x,yy,z),(ss,ss*.8,ss*.6),i,rough=.32,exponent=.7,seg=6,rings=3,rot=(rng.uniform(-.4,.4),rng.uniform(-.4,.4),rng.random()*pi))
+        b=rng.random()*2*pi;g.ell('oat',(x+ss*.75*cos(b),yy+ss*.65*sin(b),z+ss*.25),(.032,.022,.006),seg=5,rings=2,rot=(rng.uniform(-.7,.7),rng.uniform(-.7,.7),b))
+    v=[];f=[];n=32;m=8
+    for j in range(m+1):
+        for i in range(n):a=i*2*pi/n;rr=R*j/m;v.append((rr*cos(a),rr*sin(a),top(rr*cos(a),rr*sin(a))))
+    for j in range(m):
+        for i in range(n):f.append((j*n+i,j*n+(i+1)%n,(j+1)*n+(i+1)%n,(j+1)*n+i))
+    g.add(v,f,'yogurt',smooth=True)
+    yogurt_scoop(g,(sc[0],sc[1],top(*sc)+.04),.30)
+    # Granola behind and left of the scoop: oat clusters, loose flakes and pumpkin seeds.
+    placed=0
+    while placed<60:
+        a=rng.uniform(1.00,3.35);rr=rng.uniform(.30,.70);x=rr*cos(a);yy=rr*sin(a)
+        if clear(x,yy):placed+=1;granola(x,yy,placed)
+    # A little granola also spills along the wall behind the banana row so no yogurt edge shows beneath it.
+    for i in range(12):a=3.40+i*.11;granola(.69*cos(a),.69*sin(a),70+i)
+    placed=0
+    while placed<12:
+        a=rng.uniform(1.00,3.35);rr=rng.uniform(.30,.70);x=rr*cos(a);yy=rr*sin(a)
+        if not clear(x,yy):continue
+        placed+=1;g.ell('oat' if placed%4 else 'lightgreen',(x,yy,drop(x,yy,.005)),(.036,.025,.006) if placed%4 else (.032,.015,.008),seg=6,rings=2,rot=(rng.uniform(-.6,.6),rng.uniform(-.6,.6),rng.random()*pi))
+    # Banana slices stand on the yogurt in a leaning row along the left, faces turned toward the front.
+    for i in range(10):
+        a=3.40+i*.135;k=g.mark();banana_slice(g,(0,0,0),.15,(1.13,0,a+pi),.06);rest(k,.61*cos(a),.61*sin(a),.02,base=True)
+    # Halved strawberries on the yogurt in two rows across the front, the outer row reaching the bowl wall.
+    for a,rr,rot in [(4.72,.65,(pi/2,0,1.0)),(4.99,.65,(-1.0,0,.45)),(5.26,.65,(pi/2,.3,2.6)),(5.53,.65,(-1.0,0,.65)),(5.80,.65,(pi/2,-.2,1.9)),(6.05,.64,(-1.0,0,.85)),
+                     (4.82,.45,(-pi/2+.25,0,1.4)),(5.12,.45,(pi/2,0,.3)),(5.42,.45,(-1.05,0,.55)),(5.72,.45,(pi/2,.2,2.2)),(6.00,.44,(-1.0,0,.7))]:
+        k=g.mark();berry_half(g,(0,0,0),.13,rot);rest(k,rr*cos(a),rr*sin(a),.015)
+    # Blueberries in three rows on the yogurt at the right, with a few resting on top.
+    for i,(a,rr,layer) in enumerate([(-.08,.66,0),(.13,.66,0),(.34,.66,0),(.55,.66,0),(.76,.66,0),(.03,.53,0),(.25,.53,0),(.47,.53,0),(.69,.53,0),(.90,.53,0),
+                                     (.12,.40,0),(.42,.40,0),(.72,.40,0),(.25,.595,1),(.53,.595,1),(.38,.465,1)]):
+        x=rr*cos(a);yy=rr*sin(a);s=.068+.006*(i%3)/2
+        fruitberry(g,(x,yy,top(x,yy)+s*.62+layer*.092),s,'blueberry',10,5)
+    # Cover any yogurt still showing between the scoop and the rim with that sector's topping, so only the scoop reads as yogurt.
+    dish={'ceramic','whiteplate','wood','woodedge','metal','rim','glass','glassrim','paper'}
+    def cover(x,yy,i):
+        a=math.atan2(yy,x)%(2*pi)
+        if 4.65<=a<6.15:k=g.mark();berry_half(g,(0,0,0),.11,(pi/2 if i%2 else -1.0,0,rng.random()*2*pi));rest(k,x,yy,.015)
+        elif a>=6.15 or a<.95:fruitberry(g,(x,yy,drop(x,yy,.042)),.066,'blueberry',10,5)
+        else:granola(x,yy,i)
+    for sweep in range(2):
+        faces=[(f,mat) for f,mat in zip(g.f,g.m) if mat not in dish];tree=BVHTree.FromPolygons(g.v,[f for f,mat in faces],all_triangles=False);spots=[]
+        for gx in range(-12,13):
+            for gy in range(-12,13):
+                x=gx*.06;yy=gy*.06
+                if x*x+yy*yy>.72**2 or not clear(x,yy,.33):continue
+                hit,_,i,_=tree.ray_cast(Vector((x,yy,4)),Vector((0,0,-1)),5)
+                if hit is not None and faces[i][1]=='yogurt' and all((x-p)**2+(yy-q)**2>.075**2 for p,q in spots):spots.append((x,yy))
+        for i,(x,yy) in enumerate(spots):cover(x,yy,100+sweep*50+i)
 
 SHARED={'pasta','latte','bingsu','softserve'}
 def flavor_colors(item):

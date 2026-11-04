@@ -24,6 +24,8 @@ public static class InventorySnapshot
         public bool hasBook;
         public BookInstanceData book;
         public bool bodyless; // the pages were left out (12.10.3)
+        public long expires; // game minute a food spoils at, 0 = never (FoodShelfLife)
+        public int made = -1; // game day the food was made, -1 = unknown
     }
 
     [Serializable]
@@ -100,7 +102,7 @@ public static class InventorySnapshot
         data.items.Add(new Entry
         {
             itemId = stack.Item.itemId, count = stack.Count, instanceId = stack.InstanceId,
-            slot = slot, equip = equip, hasBook = book != null, book = book, bodyless = bodyless
+            slot = slot, equip = equip, hasBook = book != null, book = book, bodyless = bodyless, expires = stack.ExpiresAt, made = stack.MadeDay
         });
     }
 
@@ -130,7 +132,11 @@ public static class InventorySnapshot
         if (!item || entry.count <= 0) return null;
         var book = entry.hasBook ? entry.book?.Clone() : null;
         if (book != null) book.bodyLoaded = !entry.bodyless;
-        return new ItemStack(item, entry.count, entry.instanceId) { BookData = book };
+        var stack = new ItemStack(item, entry.count, entry.instanceId) { BookData = book };
+        // Older saves have no stamp; their food keeps the fresh stamp from now.
+        if (entry.expires > 0 && stack.ExpiresAt > 0) stack.ExpiresAt = entry.expires;
+        if (entry.made >= 0) stack.MadeDay = entry.made;
+        return stack;
     }
 
     public static ItemData Find(string itemId)

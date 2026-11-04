@@ -15,11 +15,12 @@ MonoBehaviour:
   itemId: food:cola
   displayName: "\uCF5C\uB77C"
   icon: {fileID: -1184581237, guid: 0cc68b0da27ee7a458261abf25f110ad, type: 3}
+  price: 2000
   itemType: 0
   legacyCategory: 10
   classificationVersion: 1
-  consumableType: 0
-  shelfLifeHours: 0
+  consumableType: 1
+  shelfLifeHours: 480
   clothingSlot: 0
   isBag: 0
   furnitureFunctions: 0
@@ -28,8 +29,9 @@ MonoBehaviour:
   maxStack: 20
   currencyValue: 0
   healthRestore: 0
-  staminaRestore: 0
-  stressRelief: 2
+  fullnessRestore: 0
+  staminaRestore: 2
+  stressRelief: 0
   heldPrefab: {fileID: 1886044168991599451, guid: e5c54f3b1485cb642b8cd5167ef13e6c, type: 3}
   heldLocalPosition: {x: 0, y: 0.09, z: 0}
   heldLocalEulerAngles: {x: 0, y: 0, z: 0}

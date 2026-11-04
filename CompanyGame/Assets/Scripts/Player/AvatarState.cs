@@ -16,20 +16,20 @@ public sealed class AvatarState : NetBehaviour, IDamageable
     public const byte AttackIntentEvent = 3, SwingEvent = 4, ResultEvent = 5, ReactionEvent = 6, HealthEvent = 7;
     const float SpeedStep = 1f, Stopped = .05f;
 
-    public bool female, seated;
+    public bool female, seated, heldSpoiled;
     public string vehicle = "", held = "";
     public float speed;
 
     RemoteAvatarView view;
     int lastSwingStep;
 
-    public void Set(bool female, string vehicle, float speed, bool seated, string held)
+    public void Set(bool female, string vehicle, float speed, bool seated, string held, bool heldSpoiled = false)
     {
         vehicle ??= ""; held ??= "";
-        bool changed = female != this.female || seated != this.seated || vehicle != this.vehicle || held != this.held
+        bool changed = heldSpoiled != this.heldSpoiled || female != this.female || seated != this.seated || vehicle != this.vehicle || held != this.held
                        || Mathf.Abs(speed - this.speed) >= SpeedStep || (speed < Stopped) != (this.speed < Stopped);
         if (!changed) return;
-        this.female = female; this.seated = seated; this.vehicle = vehicle; this.held = held; this.speed = speed;
+        this.heldSpoiled = heldSpoiled; this.female = female; this.seated = seated; this.vehicle = vehicle; this.held = held; this.speed = speed;
         MarkDirty();
     }
 
@@ -61,7 +61,7 @@ public sealed class AvatarState : NetBehaviour, IDamageable
     // u8 bits (1 female, 2 seated), u8 speed in 0.1 m/s, str vehicle, str held
     public override void Write(BinaryWriter w)
     {
-        w.Write((byte)((female ? 1 : 0) | (seated ? 2 : 0)));
+        w.Write((byte)((female ? 1 : 0) | (seated ? 2 : 0) | (heldSpoiled ? 4 : 0)));
         w.Write((byte)Mathf.Clamp(Mathf.RoundToInt(speed * 10f), 0, 255));
         w.Write(vehicle);
         w.Write(held);
@@ -70,7 +70,7 @@ public sealed class AvatarState : NetBehaviour, IDamageable
     public override void Read(BinaryReader r)
     {
         byte bits = r.ReadByte();
-        female = (bits & 1) != 0; seated = (bits & 2) != 0;
+        female = (bits & 1) != 0; seated = (bits & 2) != 0; heldSpoiled = (bits & 4) != 0;
         speed = r.ReadByte() / 10f;
         vehicle = r.ReadString();
         held = r.ReadString(); // unknown ids show nothing (InventorySnapshot.Find)
@@ -106,6 +106,14 @@ public sealed class AvatarState : NetBehaviour, IDamageable
         else if (id == HealthEvent)
         {
             float health = r.ReadSingle();
+            // Servers since the fullness stat append it; older ones send health only.
+            if (IsOwner && player && r.BaseStream.Length - r.BaseStream.Position >= 4 &&
+                player.TryGetComponent<PlayerStats>(out var fed))
+            {
+                float fullness = r.ReadSingle();
+                if (r.BaseStream.Length - r.BaseStream.Position >= 8) fed.ApplyAuthoritativeFoodPoisoning(r.ReadInt64());
+                fed.ApplyAuthoritativeFullness(fullness);
+            }
             if (combat) combat.ReceiveServerHealth(health);
             else if (IsOwner && player && player.TryGetComponent<PlayerStats>(out var stats)) stats.ApplyAuthoritativeHealth(health);
             else if (view) view.SynchronizeCombatHealth(health);
@@ -145,7 +153,7 @@ public sealed class AvatarState : NetBehaviour, IDamageable
     void Update()
     {
         if (!view || IsOwner) return;
-        view.female = female; view.seated = seated; view.vehicle = vehicle; view.held = held; view.speed = speed;
+        view.female = female; view.seated = seated; view.vehicle = vehicle; view.held = held; view.heldSpoiled = heldSpoiled; view.speed = speed;
         view.playerName = AvatarSync.NameOf(Entity.Owner);
     }
 }
