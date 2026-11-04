@@ -9,6 +9,10 @@ public sealed class InventoryRoundedGraphic : UnityEngine.UI.MaskableGraphic
     public float smallRadius = 11f;
     public float borderWidth = 1.5f;
     public Color borderColor = new Color(1f, 1f, 1f, .9f);
+    public bool chamfered;
+    public bool bevelEdges;
+    public Color edgeTopColor = Color.white;
+    public Color edgeBottomColor = Color.gray;
     readonly List<Vector2> outer = new List<Vector2>(52);
     readonly List<Vector2> inner = new List<Vector2>(52);
 
@@ -31,6 +35,12 @@ public sealed class InventoryRoundedGraphic : UnityEngine.UI.MaskableGraphic
         edge.a *= color.a;
         for (int i = 0; i < outer.Count; i++)
         {
+            if (bevelEdges)
+            {
+                float height = Mathf.InverseLerp(rect.yMin, rect.yMax, outer[i].y);
+                edge = Color.Lerp(edgeBottomColor, edgeTopColor, height);
+                edge.a *= color.a;
+            }
             mesh.AddVert(outer[i], edge, Vector2.zero);
             mesh.AddVert(inner[i], edge, Vector2.zero);
         }
@@ -42,7 +52,7 @@ public sealed class InventoryRoundedGraphic : UnityEngine.UI.MaskableGraphic
         }
     }
 
-    static void Outline(Rect rect, float large, float small, List<Vector2> points)
+    void Outline(Rect rect, float large, float small, List<Vector2> points)
     {
         points.Clear();
         Arc(points, new Vector2(rect.xMax - small, rect.yMax - small), small, 0f);
@@ -51,9 +61,9 @@ public sealed class InventoryRoundedGraphic : UnityEngine.UI.MaskableGraphic
         Arc(points, new Vector2(rect.xMax - large, rect.yMin + large), large, 270f);
     }
 
-    static void Arc(List<Vector2> points, Vector2 centre, float radius, float start)
+    void Arc(List<Vector2> points, Vector2 centre, float radius, float start)
     {
-        const int segments = 12;
+        int segments = chamfered ? 1 : 12;
         for (int i = 0; i <= segments; i++)
         {
             float angle = (start + i * 90f / segments) * Mathf.Deg2Rad;
