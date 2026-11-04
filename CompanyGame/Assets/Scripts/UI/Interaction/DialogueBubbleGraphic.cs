@@ -10,11 +10,11 @@ public sealed class DialogueBubbleGraphic : UnityEngine.UI.MaskableGraphic
         helper.Clear();
         Rect bounds = rectTransform.rect;
         var body = new Rect(bounds.x, bounds.y + 14f, bounds.width, bounds.height - 14f);
-        Color outline = new Color(.10f, .12f, .13f, .88f);
+        Color outline = UITheme.Slate;
         Triangle(helper, new Vector2(-17f, body.y + 3f), new Vector2(0f, bounds.y), new Vector2(17f, body.y + 3f), outline);
-        Rounded(helper, body, 20f, outline);
+        Rounded(helper, body, 14f, outline);
         Rect inside = new Rect(body.x + 2.5f, body.y + 2.5f, body.width - 5f, body.height - 5f);
-        Rounded(helper, inside, 18f, color);
+        Rounded(helper, inside, 12f, color);
         Triangle(helper, new Vector2(-12f, inside.y + 2f), new Vector2(0f, bounds.y + 4f), new Vector2(12f, inside.y + 2f), color);
     }
 
