@@ -80,6 +80,45 @@ ArtSource/**/comparison_result.json
 /ArtSource/WorldDistricts/CompanyBuildings/OfficeSet_ABCD/Comparison_ABCD.png
 /ArtSource/Items/Vehicles/CityBicycle/Preview.png
 
+# Heavy art sources (Blender/model files, archives, renders, video) are kept outside Git; see ArtSource/README.md.
+# Build scripts, READMEs and small json stay in Git. Files committed before this rule stay tracked.
+ArtSource/**/*.[bB][lL][eE][nN][dD]
+ArtSource/**/*.[bB][lL][eE][nN][dD][0-9]
+ArtSource/**/*.[fF][bB][xX]
+ArtSource/**/*.[gG][lL][bB]
+ArtSource/**/*.[gG][lL][tT][fF]
+ArtSource/**/*.[oO][bB][jJ]
+ArtSource/**/*.[zZ][iI][pP]
+ArtSource/**/*.[pP][nN][gG]
+ArtSource/**/*.[jJ][pP][gG]
+ArtSource/**/*.[jJ][pP][eE][gG]
+ArtSource/**/*.[wW][eE][bB][pP]
+ArtSource/**/*.[gG][iI][fF]
+ArtSource/**/*.[mM][pP]4
+ArtSource/**/*.[eE][xX][rR]
+ArtSource/**/*.[pP][sS][dD]
+ArtSource/**/*.[tT][gG][aA]
+ArtSource/**/*.[bB][iI][nN]
+
+# AI work records next to art sources: pre-edit code copies, scene backups, validation output, review pages,
+# hash/evidence files and superseded script versions. They stay on disk; files committed before this rule stay tracked.
+ArtSource/**/Baseline/
+ArtSource/**/Before/
+ArtSource/**/_History/
+ArtSource/**/History/
+ArtSource/**/Review/
+ArtSource/**/UnityIntegration/
+ArtSource/**/CookingIntegration/
+ArtSource/**/CharacterScaleAudit_*/
+ArtSource/**/*[hH]ashes.json
+ArtSource/**/*sha256*
+ArtSource/**/*[eE]vidence.json
+ArtSource/**/*summary.json
+ArtSource/**/restore_*.json
+ArtSource/**/export_report.json
+ArtSource/**/preview_manifest.json
+ArtSource/**/RoundTripReport*.json
+
 # EOS credentials (local only)
 CompanyGame/eos.local.json
 # EOS plugin config made from eos.local.json by EosTestQA.WriteConfig (holds the client secret)
