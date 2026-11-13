@@ -20,6 +20,9 @@ public sealed class WorldSaveData
     public ReportServiceState reports;
     public SnsFeedState sns;
     public List<PlacedVehicleSave> vehicles;
+    public List<PlacedFurnitureSave> furniture;
+    public List<PlacedWallSave> interiorWalls;
+    public List<FurnitureStorageRules.Saved> furnitureStorage;
     /// <summary>Book bodies by instance id: a sync-layer server's world only (ServerBooks, 12.10.3). A PC world leaves it empty.</summary>
     public List<BookSave> books;
     /// <summary>The goshiwon deed the server gave each account (ServerLedger, 12.10.5). A PC world leaves it empty.</summary>
@@ -51,6 +54,22 @@ public sealed class PlacedVehicleSave
     public float ry;
 }
 
+[Serializable]
+public sealed class PlacedFurnitureSave
+{
+    public string id, item, scene, property;
+    public Vector3 position;
+    public float yaw;
+}
+
+[Serializable]
+public sealed class PlacedWallSave
+{
+    public string id, scene, property;
+    public Vector3 start, end;
+    public float height = 2.6f, thickness = .12f;
+}
+
 public static class WorldSave
 {
     public const int CurrentVersion = 1;
@@ -61,6 +80,10 @@ public static class WorldSave
     /// <summary>Placed vehicles live in the UI assembly (WorldDroppedItem), which installs these.</summary>
     public static Func<List<PlacedVehicleSave>> CaptureVehicles;
     public static Action<List<PlacedVehicleSave>> RestoreVehicles;
+    public static Func<List<PlacedFurnitureSave>> CaptureFurniture;
+    public static Action<List<PlacedFurnitureSave>> RestoreFurniture;
+    public static Func<List<PlacedWallSave>> CaptureInteriorWalls;
+    public static Action<List<PlacedWallSave>> RestoreInteriorWalls;
 
     public static string Path => PathOverride ?? System.IO.Path.Combine(ProfileSlot.DataRoot, "world", "world.json");
 
@@ -126,6 +149,9 @@ public static class WorldSave
         if (ReportManager.Instance) data.reports = ReportManager.Instance.Service.CaptureState();
         if (SnsManager.Instance) data.sns = SnsManager.Instance.Feed.CaptureState();
         data.vehicles = CaptureVehicles?.Invoke();
+        data.furniture = CaptureFurniture?.Invoke();
+        data.interiorWalls = CaptureInteriorWalls?.Invoke();
+        data.furnitureStorage = FurnitureStorageRules.CaptureOffline();
         return data;
     }
 
@@ -229,6 +255,9 @@ public static class WorldSave
         Apply(failed, "reports", () => { if (d.reports != null && ReportManager.Instance) ReportManager.Instance.Service.RestoreState(d.reports); });
         Apply(failed, "sns", () => { if (d.sns != null && SnsManager.Instance) SnsManager.Instance.Feed.RestoreState(d.sns); });
         Apply(failed, "vehicles", () => RestoreVehicles?.Invoke(d.vehicles));
+        Apply(failed, "furnitureStorage", () => FurnitureStorageRules.RestoreOffline(d.furnitureStorage));
+        Apply(failed, "furniture", () => RestoreFurniture?.Invoke(d.furniture));
+        Apply(failed, "interiorWalls", () => RestoreInteriorWalls?.Invoke(d.interiorWalls));
         LastJson = json;
         if (!string.IsNullOrEmpty(d.worldId)) WorldId = d.worldId;
         if (failed.Count > 0) Debug.LogWarning("WorldSave: failed to restore " + string.Join(", ", failed));

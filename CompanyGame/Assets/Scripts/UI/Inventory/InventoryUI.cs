@@ -154,7 +154,7 @@ public sealed partial class InventoryUI : MonoBehaviour
         modal.SetActive(value);
         if (quickSlots) quickSlots.gameObject.SetActive(!value && !InventoryItemSelector.IsOpen && (!interaction || !interaction.IsTradeOpen));
         preview.SetVisible(value);
-        if (!value) { CloseWithdrawal(); EndDragVisual(); HideItemTooltip(); }
+        if (!value) { HideContainer(); CloseWithdrawal(); EndDragVisual(); HideItemTooltip(); }
         else { Refresh(); FitWindow(); if (EventSystem.current) EventSystem.current.SetSelectedGameObject(null); }
     }
     void Update()
@@ -168,6 +168,7 @@ public sealed partial class InventoryUI : MonoBehaviour
             {
                 for (int i = 0; i < storage.Count; i++) SetFoodTint(storage[i], owner.Inventory.GetSlot(i));
                 for (int i = 0; i < hotbar.Count; i++) SetFoodTint(hotbar[i], owner.Inventory.GetSlot(i));
+                if (IsContainerOpen) ApplyContainerFilter();
             }
         }
         if (statusPanel && statusPanel.gameObject.activeSelf && Time.unscaledTime >= statusUntil)
@@ -204,6 +205,7 @@ public sealed partial class InventoryUI : MonoBehaviour
         for (int i = 0; i < hotbar.Count; i++) ApplySlot(hotbar[i], state.GetSlot(i), state.SelectedHotbarIndex == i, "");
         foreach (var pair in equipment) ApplySlot(pair.Value, state.GetEquipment(pair.Key), false, EquipmentName(pair.Key));
         capacityLabel.text = used + " / " + state.Capacity;
+        RefreshContainer();
         RefreshBalances();
     }
 
@@ -252,13 +254,7 @@ public sealed partial class InventoryUI : MonoBehaviour
             StyleWardrobeSlot(view);
             storage.Add(view);
         }
-        int rows = Mathf.CeilToInt(count / 4f);
-        float added = Mathf.Max(0, rows - 4) * StorageCellStep;
-        windowHeight = BaseWindowHeight + added;
-        window.sizeDelta = new Vector2(WindowWidth, windowHeight);
-        storageCard.sizeDelta = new Vector2(312f, 352f + added);
-        grid.sizeDelta = new Vector2(312f, rows * StorageCellStep - 8f);
-        FitWindow();
+        LayoutStorage(count);
     }
     static void SetFoodTint(SlotView view, ItemStack stack)
     {

@@ -53,8 +53,8 @@ public sealed partial class InventoryUI
             HideItemTooltip();
             return;
         }
-        ItemStack stack = slot.IsEquipment
-            ? owner.Inventory.GetEquipment(slot.Equipment)
+        ItemStack stack = slot.IsContainer ? containerState?.GetSlot(slot.InventoryIndex)
+            : slot.IsEquipment ? owner.Inventory.GetEquipment(slot.Equipment)
             : owner.Inventory.GetSlot(slot.InventoryIndex);
         if (stack == null || stack.IsEmpty || !stack.Item)
         {

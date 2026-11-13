@@ -13,6 +13,7 @@ public sealed class SeatInteraction : MonoBehaviour
     void Update()
     {
         HasNearbySeat = false;
+        if (FurniturePlacementController.OwnsInput) { Hide(); return; }
         var vehicle = GetComponent<PlayerVehicle>();
         if (vehicle && vehicle.IsRiding) { Hide(); return; }
         if (seating.IsSeated)
@@ -27,11 +28,14 @@ public sealed class SeatInteraction : MonoBehaviour
             }
             return;
         }
-        if (SceneLoadManager.IsLoading || DialogueManager.HasNearbyNpc || DialogueManager.OwnsInput || BookReader.BlocksInventoryInput ||
+        if (CookingInteraction.IsOpen || FridgeInteraction.IsOpen || SceneLoadManager.IsLoading || DialogueManager.HasNearbyNpc || DialogueManager.OwnsInput || BookReader.BlocksInventoryInput ||
             PlayerInventory.IsAnyOpen || ChatUIManager.IsChatting || UIEventSystem.IsEditingText() ||
             (PhoneManager.Instance && PhoneManager.Instance.IsPhoneOpen) ||
             (PlayerInteraction.Local && PlayerInteraction.Local.IsInteractionMenuOpen)) { Hide(); return; }
         var seat = Seat.FindNearest(transform);
+        // Chairs sit beside cabinets in every room: whichever is closer owns Space, not always the chair.
+        var storage = FridgeStorage.FindNearest(transform);
+        if (seat && storage && (storage.transform.position - transform.position).sqrMagnitude < (seat.transform.position - transform.position).sqrMagnitude) seat = null;
         HasNearbySeat = seat;
         if (!seat) { Hide(); return; }
         Show("앉기  (스페이스바)");

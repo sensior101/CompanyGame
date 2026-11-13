@@ -49,8 +49,27 @@ public class InventoryManager : MonoBehaviour
     public void GrantCityBicycles()
     {
         if (InventoryLedgerRules.OnServer) return;
-        InventoryLedgerRules.GrantStartVehicles(State);
+        foreach (string itemId in DevelopmentKit)
+        {
+            var item = InventorySnapshot.Find(itemId);
+            if (!item) { Debug.LogWarning("[InventoryManager] Unknown development kit item " + itemId); continue; }
+            bool owned = false;
+            for (int i = 0; i < State.Capacity && !owned; i++) owned = State.GetSlot(i).Item == item;
+            if (!owned && !State.TryAdd(item, 1, out string error)) Debug.LogWarning(error);
+        }
     }
+
+    // Furniture placement test kit: one bicycle, the fastest car, five varied floor furniture items.
+    static readonly string[] DevelopmentKit =
+    {
+        "vehicle:city_bicycle:00:mint",
+        "vehicle:car:4:bentler_continental",
+        "furniture:household:chicblack:armchair",
+        "furniture:household:whitewood:singlebed",
+        "furniture:household:eclectic:islandtable",
+        "furniture:household:marblegold:wardrobe",
+        "furniture:household:whitewood:fridge",
+    };
 
     void SaveBooks() => BookSaveService.SaveInventory(state);
     void OnApplicationQuit() { quitting = true; if (instance == this) SaveBooks(); }

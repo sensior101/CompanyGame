@@ -20,11 +20,13 @@ public sealed class PlayerInventory : MonoBehaviour
     public ItemData DraggedItem => draggedItem;
     public int DraggedCount => draggedCount;
     public InventoryUI UserInterface => ui;
-    public bool CanPickUpWorldItems => isActiveAndEnabled && !restorePending && !IsDragging &&
+    public bool CanPickUpWorldItems => isActiveAndEnabled && !FridgeInteraction.IsOpen && !CookingInteraction.IsOpen && !restorePending && !IsDragging &&
         !SceneLoadManager.IsLoading && !ChatUIManager.IsChatting && !UIEventSystem.IsEditingText() &&
         !(ui && ui.IsWithdrawalOpen) && !(interaction && interaction.IsInteractionMenuOpen) &&
         (IsOpen || (movement && movement.isActiveAndEnabled));
     public event Action UiChanged;
+    /// <summary>Set while furniture storage is open: (bag slot, amount) moves that stack into it.</summary>
+    public Func<int, int, bool> ContainerDeposit;
     public static bool IsAnyOpen => activeInventory && (activeInventory.IsOpen || activeInventory.restorePending);
     public static bool SpaceConsumedThisFrame => spaceConsumedFrame == Time.frameCount;
     public static bool CurrencyScrollCapturedThisFrame => currencyScrollCapturedFrame == Time.frameCount;
@@ -42,6 +44,7 @@ public sealed class PlayerInventory : MonoBehaviour
     PlayerMovement movement;
     PlayerInteraction interaction;
     InventoryUI ui;
+    FurniturePlacementController furniturePlacement;
     readonly ControlLock controls = new ControlLock();
     bool restorePending;
     int closedFrame = -1;
@@ -67,10 +70,11 @@ public sealed class PlayerInventory : MonoBehaviour
         activeInventory = local = null;
         spaceConsumedFrame = currencyScrollCapturedFrame = hotbarScrollCapturedFrame = -1;
         // Player scripts sit below the UI layer and read menu state through InputFocus.
-        InputFocus.InventoryOpen = () => IsAnyOpen;
+        InputFocus.InventoryOpen = () => IsAnyOpen || CookingInteraction.IsOpen || FridgeInteraction.IsOpen;
         InputFocus.ChatOpen = () => ChatUIManager.IsChatting;
-        InputFocus.ScrollCaptured = () => CurrencyScrollCapturedThisFrame || HotbarScrollCapturedThisFrame;
-        InputFocus.GameplayBlocked = () => BookReader.BlocksInventoryInput || DialogueManager.OwnsInput || IsAnyOpen || SpaceConsumedThisFrame || PlayerInteraction.WorldClickConsumedThisFrame || ChatUIManager.IsChatting ||
+        InputFocus.FurnitureAiming = () => FurniturePlacementController.IsAiming;
+        InputFocus.ScrollCaptured = () => CurrencyScrollCapturedThisFrame || HotbarScrollCapturedThisFrame || FurniturePlacementController.OwnsInput;
+        InputFocus.GameplayBlocked = () => FurniturePlacementController.OwnsInput || CookingInteraction.IsOpen || FridgeInteraction.IsOpen || BookReader.BlocksInventoryInput || DialogueManager.OwnsInput || IsAnyOpen || SpaceConsumedThisFrame || PlayerInteraction.WorldClickConsumedThisFrame || ChatUIManager.IsChatting ||
             (local && local.movement && local.movement.viewCamera &&
              local.movement.viewCamera.TryGetComponent<PlayerCameraController>(out var dialogueCamera) && dialogueCamera.IsDialogueCameraActive) ||
             (local && (local.IsOpen || local.IsDragging || (local.ui && local.ui.IsWithdrawalOpen))) ||
@@ -85,6 +89,7 @@ public sealed class PlayerInventory : MonoBehaviour
         if (!GetComponent<SeatInteraction>()) gameObject.AddComponent<SeatInteraction>();
         movement = GetComponent<PlayerMovement>();
         interaction = GetComponent<PlayerInteraction>();
+        furniturePlacement = gameObject.AddComponent<FurniturePlacementController>();
 
         if (!GetComponent<PlayerCombat>()) gameObject.AddComponent<PlayerCombat>();
         if (!GetComponent<PropertyUseController>()) gameObject.AddComponent<PropertyUseController>();
@@ -92,6 +97,7 @@ public sealed class PlayerInventory : MonoBehaviour
         if (!GetComponent<EmployeeCardPrompt>()) gameObject.AddComponent<EmployeeCardPrompt>();
         if (!GetComponent<SeatInteraction>()) gameObject.AddComponent<SeatInteraction>();
         if (!GetComponent<FurnitureLightInteraction>()) gameObject.AddComponent<FurnitureLightInteraction>();
+        if (!GetComponent<CookingInteraction>()) gameObject.AddComponent<CookingInteraction>();
         if (!GetComponent<FridgeInteraction>()) gameObject.AddComponent<FridgeInteraction>();
         if (!GetComponent<BookReader>()) gameObject.AddComponent<BookReader>();
     }
@@ -110,7 +116,8 @@ public sealed class PlayerInventory : MonoBehaviour
 
     void Update()
     {
-        if (BookReader.BlocksInventoryInput) return;
+        if (FurniturePlacementController.OwnsInput) return;
+        if (BookReader.BlocksInventoryInput || CookingInteraction.IsOpen) return;
         // Unity can omit uGUI OnEndDrag when the pointer leaves the Canvas.
         // Finish the same drag from the actual mouse-release frame so dragging
         // outside the inventory still reaches EndDragAt/DropIntoWorld.
@@ -137,6 +144,7 @@ public sealed class PlayerInventory : MonoBehaviour
                 return;
             }
             if (ui && ui.IsWithdrawalOpen) return;
+            if (TryBeginFurniturePlacement(SelectedInventorySlot)) return;
             if (TogglePressed() && !UIEventSystem.IsEditingText()) { CloseInventory(); return; }
             if (HandleCurrencyDepositInput()) return;
             if (PickupPressed() && CanPickUpWorldItems) { TryPickUpNearest(); return; }
@@ -148,8 +156,19 @@ public sealed class PlayerInventory : MonoBehaviour
         if (PickupPressed()) { TryPickUpNearest(); return; }
         int hotbar = HotbarPressed();
         if (hotbar >= 0) SelectHotbar(hotbar);
+        if (TryBeginFurniturePlacement(Inventory?.SelectedHotbarIndex ?? -1)) return;
         if (!SpaceHeld()) HandleHotbarScrollInput();
         HandleCurrencyDepositInput();
+    }
+
+    bool TryBeginFurniturePlacement(int slot)
+    {
+        if (slot < 0 || !SpacePressed() || SpaceConsumedThisFrame || !CanUseHeldItem()) return false;
+        var stack = Inventory?.GetSlot(slot);
+        if (stack == null || stack.IsEmpty || !stack.Item.furniturePrefab) return false;
+        ConsumeSpaceThisFrame();
+        furniturePlacement.Begin(this, movement, slot, stack);
+        return true;
     }
 
     void LateUpdate()
@@ -162,7 +181,7 @@ public sealed class PlayerInventory : MonoBehaviour
 
     public bool OpenInventory()
     {
-        if (!Application.isPlaying || !isActiveAndEnabled || IsOpen || IsAnyOpen || restorePending ||
+        if (!Application.isPlaying || !isActiveAndEnabled || IsOpen || IsAnyOpen || CookingInteraction.IsOpen || FridgeInteraction.IsOpen || restorePending ||
             SceneLoadManager.IsLoading || !movement || !movement.isActiveAndEnabled || ChatUIManager.IsChatting ||
             UIEventSystem.IsEditingText() || (interaction && interaction.IsInteractionMenuOpen)) return false;
         EnsureUI();
@@ -224,7 +243,7 @@ public sealed class PlayerInventory : MonoBehaviour
     public bool CanUseHeldItem() => !PromptOwnsSpace && CanDepositCurrency() && !DialogueManager.OwnsInput &&
         !(PhoneManager.Instance && PhoneManager.Instance.IsPhoneOpen) && !(PlayerSeating.Local && PlayerSeating.Local.IsSeated);
 
-    bool CanDepositCurrency() => !SeatInteraction.HasNearbySeat && !FurnitureLightInteraction.HasNearbyLight && !FridgeInteraction.HasNearbyFridge && !FridgeInteraction.IsOpen && !DialogueManager.HasNearbyNpc && !DialogueManager.IsDialogueOpen && Application.isPlaying && isActiveAndEnabled && Inventory != null && !restorePending &&
+    bool CanDepositCurrency() => !SeatInteraction.HasNearbySeat && !FurnitureLightInteraction.HasNearbyLight && !FridgeInteraction.HasNearbyFridge && !FridgeInteraction.IsOpen && !CookingInteraction.IsOpen && !DialogueManager.HasNearbyNpc && !DialogueManager.IsDialogueOpen && Application.isPlaying && isActiveAndEnabled && Inventory != null && !restorePending &&
         closedFrame != Time.frameCount && !IsDragging && !SceneLoadManager.IsLoading && !ChatUIManager.IsChatting &&
         !UIEventSystem.IsEditingText() && !(ui && ui.IsWithdrawalOpen) && !(interaction && interaction.IsInteractionMenuOpen) &&
         (IsOpen || (movement && movement.isActiveAndEnabled));
@@ -305,6 +324,13 @@ public sealed class PlayerInventory : MonoBehaviour
     {
         if (!CanClick() || Inventory.GetSlot(index) == null) return;
         StatusMessage = string.Empty;
+        if (ContainerDeposit != null)
+        {
+            var clicked = Inventory.GetSlot(index);
+            if (!clicked.IsEmpty && ui.BagSlotAccepted(index)) ContainerDeposit(index, clicked.Count);
+            UiChanged?.Invoke();
+            return;
+        }
         // An emptied deposit slot remains selected until the player chooses a
         // different slot. Selecting that next slot should not try moving emptiness.
         if (SelectedInventorySlot >= 0 && Inventory.GetSlot(SelectedInventorySlot).IsEmpty)
@@ -312,6 +338,8 @@ public sealed class PlayerInventory : MonoBehaviour
         if (SelectedInventorySlot < 0)
         {
             if (!Inventory.GetSlot(index).IsEmpty) SelectedInventorySlot = index;
+            if (SelectedInventorySlot >= 0 && Inventory.GetSlot(index).Item.furniturePrefab)
+                StatusMessage = "Space 설치 · 휠 회전 · 좌클릭 확정";
             if (SelectedInventorySlot >= 0 && Inventory.GetSlot(index).Item.IsVehicle)
             {
                 var owner = PropertyRegistry.Instance ? PropertyRegistry.Instance.GetOwner(Inventory.GetSlot(index).OwnershipKey) : null;
@@ -360,7 +388,7 @@ public sealed class PlayerInventory : MonoBehaviour
         UiChanged?.Invoke();
     }
 
-    public bool BeginDragInventory(int index,bool single=false) => BeginDrag(Inventory.GetSlot(index), index, false, default,single);
+    public bool BeginDragInventory(int index,bool single=false) => (!ui || ui.BagSlotAccepted(index)) && BeginDrag(Inventory.GetSlot(index), index, false, default,single);
     public bool BeginDragEquipment(EquipmentSlot slot,bool single=false) => BeginDrag(Inventory.GetEquipment(slot), -1, true, slot,single);
 
     bool BeginDrag(ItemStack stack, int index, bool fromEquipment, EquipmentSlot equipmentSlot,bool single)
@@ -408,6 +436,17 @@ public sealed class PlayerInventory : MonoBehaviour
             : Inventory.TryMoveAmount(sourceIndex, targetIndex, amount, out error);
         SetStatus(error);
         return success;
+    }
+
+    public bool DropOnContainer()
+    {
+        if (!ValidDrag() || ContainerDeposit == null) { CancelDrag(); return false; }
+        int sourceIndex = dragIndex;
+        bool equipped = dragFromEquipment;
+        int amount = draggedCount;
+        CancelDrag();
+        if (equipped) { SetStatus("벗은 뒤에 보관함에 넣어 주세요."); return false; }
+        return ContainerDeposit(sourceIndex, amount);
     }
 
     public bool DropOnEquipment(EquipmentSlot targetSlot)
@@ -548,6 +587,7 @@ public sealed class PlayerInventory : MonoBehaviour
 
     void OnDisable()
     {
+        if (furniturePlacement) furniturePlacement.Cancel();
         ResetCurrencyDepositGesture();
         if (Inventory != null) Inventory.Changed -= HandleInventoryChanged;
         var combat = GetComponent<PlayerCombat>();

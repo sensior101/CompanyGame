@@ -90,6 +90,7 @@ public sealed class WorldStateSync : MonoBehaviour
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void Attach()
     {
+        FurnitureStorageRules.ClearRemote();
         names.Clear(); pending.Clear(); Array.Clear(heldSections, 0, heldSections.Length);
         world = null; remote = false; lastClock = -1; HoldSections = false; LastMessage = LastNotice = null; Results = NightsApplied = Ledgers = Overwrites = InventoryOverwrites = LayoutsSent = 0;
         sentPersonal = 0; toldNight = false; held = null; hadLedger = false; LastLedgerBankChange = 0;
@@ -130,6 +131,7 @@ public sealed class WorldStateSync : MonoBehaviour
 
     static void OnConnection(bool connected)
     {
+        FurnitureStorageRules.ClearRemote();
         names.Clear(); pending.Clear(); Array.Clear(heldSections, 0, heldSections.Length);
         lastClock = -1;
         sentPersonal = 0; toldNight = false; held = null; hadLedger = false; // the server counts per connection
@@ -238,6 +240,13 @@ public sealed class WorldStateSync : MonoBehaviour
         if (ServerLedger.Counts(kind)) sentPersonal++;
         if (kind.StartsWith("land.", StringComparison.Ordinal) || kind == "company.add") Say("처리 중…");
         return true;
+    }
+
+    internal static void OnStorage(BinaryReader r)
+    {
+        string id = SyncProtocol.ReadStr(r);
+        string json = ServerWorld.DecodeJson(SyncProtocol.ReadServerBlob(r));
+        if (json != null) FurnitureStorageRules.Receive(id, json);
     }
 
     internal static void OnOpResult(BinaryReader r)
@@ -506,6 +515,8 @@ public sealed class WorldStateSync : MonoBehaviour
     {
         switch (kind)
         {
+            case "p.storage.move": return "보관함 아이템 이동을 완료했습니다.";
+            case "p.cook": return "요리를 완성했습니다.";
             case "prop.reg": return "소유권을 등록했습니다.";
             case "prop.ab": return "소유권을 포기했습니다.";
             case "land.buy": return "땅을 구매했습니다.";

@@ -58,6 +58,20 @@ public static class GameInput
         return DigitPressed(keys, count);
     }
 
+    // Interior editor bindings are active only while its tool owns input.
+    public static bool BuildPressed => Pressed(Key.B);
+    public static bool WallToolPressed => Pressed(Key.W);
+    public static bool SelectToolPressed => Pressed(Key.V);
+    public static bool GridPressed => Pressed(Key.G);
+    public static bool EditorTopPressed => Pressed(Key.T);
+    public static bool RotateLeftPressed => Pressed(Key.Q);
+    public static bool RotateRightPressed => Pressed(Key.E);
+    public static bool DeletePressed => Pressed(Key.Delete);
+    public static bool ControlHeld => Held(Key.LeftCtrl) || Held(Key.RightCtrl);
+    public static bool UndoPressed => ControlHeld && Pressed(Key.Z);
+    public static bool RedoPressed => ControlHeld && Pressed(Key.Y);
+    public static bool PointerHeld => Mouse.current != null && Mouse.current.leftButton.isPressed;
+
     // Mouse
     public static bool AttackPressed => Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame;
     public static bool DismantleVehiclePressed => Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame;

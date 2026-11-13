@@ -645,6 +645,7 @@ public sealed class PlayerHeldItem : MonoBehaviour
             model.SetParent(parent, false);
             if (heldItem.IsBook) BuildBook(model, layer);
             else if (heldItem.IsWeapon && heldItem.weaponKind == WeaponKind.Firearm) BuildPistol(model, layer);
+            else if (heldItem.furniturePrefab) BuildMiniature(model, layer);
             else if (heldItem.icon) BuildIcon(model, layer);
             else Part(model, "Item", PrimitiveType.Cube, new Vector3(0f, .05f, 0f), new Vector3(.13f, .15f, .1f),
                 Material(new Color(.64f, .72f, .67f)), layer);
@@ -652,6 +653,17 @@ public sealed class PlayerHeldItem : MonoBehaviour
         model.localPosition = heldItem.heldLocalPosition;
         model.localRotation = Quaternion.Euler(heldItem.heldLocalEulerAngles);
         model.localScale = heldItem.heldLocalScale;
+    }
+
+    // Furniture has no hand-sized model: carry its real mesh shrunk to the size a held card would be.
+    void BuildMiniature(Transform parent, int layer)
+    {
+        const float Longest = .30f;
+        var bounds = VehicleBounds.Measure(heldItem.furniturePrefab);
+        float scale = Longest / Mathf.Max(.001f, Mathf.Max(bounds.size.x, bounds.size.y, bounds.size.z));
+        var copy = CopyRenderers(heldItem.furniturePrefab.transform, parent, layer);
+        copy.localScale = Vector3.one * scale;
+        copy.localPosition = new Vector3(0, .07f, 0) - bounds.center * scale;
     }
 
     void BuildIcon(Transform parent, int layer)

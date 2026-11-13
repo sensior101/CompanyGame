@@ -121,12 +121,14 @@ public sealed class ServerWorld : MonoBehaviour
             state.books = Books?.Capture();
             state.startDeeds = Ledger?.CaptureDeeds();
             state.library = Library?.Capture();
+            state.furnitureStorage = Ledger?.CaptureStorage();
             return Encode(WorldSave.ToJson(state));
         };
         server.ServerEvent += OnServerEvent;
         EntityId = server.SpawnServerEntity(PrefabKey, SyncProtocol.AllMaps, EntityFlags.None, new byte[SectionCount][]);
         Books = new ServerBooks(server, EntityId, saved?.books);
         Ledger = new ServerLedger(server, EntityId, Books, saved?.startDeeds);
+        Ledger.RestoreStorage(saved?.furnitureStorage);
         Drops = new ServerDrops(server, Ledger, Books);
         Combat = new ServerCombat(server, Ledger);
         Library = new ServerLibrary(Ledger, Books, saved?.library);

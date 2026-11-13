@@ -395,7 +395,7 @@ public sealed class ServerCombat
         return false;
     }
 
-    static bool TryPosition(byte[] blob, out Vector3 position, out float yaw)
+    internal static bool TryPosition(byte[] blob, out Vector3 position, out float yaw)
     {
         position = default; yaw = 0;
         if (blob == null || blob.Length != 14) return false;

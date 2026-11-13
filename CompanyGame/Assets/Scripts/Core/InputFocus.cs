@@ -17,4 +17,6 @@ public static class InputFocus
 
     /// <summary>The UI used the mouse wheel this frame.</summary>
     public static Func<bool> ScrollCaptured = () => false;
+
+    public static Func<bool> FurnitureAiming = () => false;
 }
