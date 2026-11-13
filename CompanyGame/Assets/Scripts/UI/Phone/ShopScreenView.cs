@@ -33,9 +33,17 @@ public class ShopScreenView : MonoBehaviour
         if (app != null) app.Refreshed -= Refresh;
     }
 
+    long shownBalance = -1;
+
+    private void Update()
+    {
+        if (app.IsOpen && app.GetBalance() != shownBalance) Refresh();
+    }
+
     private void Refresh()
     {
-        cashText.text = "보유 현금   " + PhoneFormat.Won(app.GetCash());
+        shownBalance = app.GetBalance();
+        cashText.text = "계좌   " + PhoneFormat.Won(shownBalance);
 
         var items = app.Items;
         while (rows.Count < items.Count)

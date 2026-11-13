@@ -135,7 +135,7 @@ public sealed partial class InventoryUI
         {
             long total = amount * quantity;
             withdrawButton.interactable = total <= CashService.BankBalance;
-            withdrawalError.text = total > CashService.BankBalance ? "지갑 잔액이 부족합니다." : "";
+            withdrawalError.text = total > CashService.BankBalance ? "계좌 잔액이 부족합니다." : "";
         }
         else
         {

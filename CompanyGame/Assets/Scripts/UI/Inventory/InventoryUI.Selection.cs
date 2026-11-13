@@ -10,7 +10,7 @@ public sealed partial class InventoryUI
     {
         var bank=Panel("BankBalanceButton",parent,new Vector2(285,51),UITheme.Sand,24,12);
         Icon("BankCoin",bank,InventoryGlyphGraphic.Glyph.Coin,new Vector2(30,30),UITheme.Selected).anchoredPosition=new Vector2(-113,0);
-        value=Label("BankBalance",bank,"지갑  0원",23,Ink,new Vector2(218,43));
+        value=Label("BankBalance",bank,"계좌  0원",23,Ink,new Vector2(218,43));
         value.fontStyle=FontStyles.Bold;AutoSize(value,12,23);value.rectTransform.anchoredPosition=new Vector2(20,0);
         return bank;
     }
