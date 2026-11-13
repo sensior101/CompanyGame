@@ -1,0 +1,3271 @@
+{
+  "schemaVersion": 1,
+  "style": "Korean urban neutral facade palette",
+  "geometryPolicy": "unchanged approved low-poly assets; only material base colors updated",
+  "items": [
+    {
+      "id": "CB_01",
+      "revision": 5,
+      "variant": "KoreanPalette",
+      "styleLabel": "콘크리트 리본 · 수직 코어",
+      "width": 12,
+      "depth": 8,
+      "floorHeights": [
+        4,
+        3.2,
+        3.2
+      ],
+      "roofSlabHeight": 10.4,
+      "triangles": 3136,
+      "sourceTriangles": 21048,
+      "triangleReductionPercent": 85.1,
+      "meshObjects": 28,
+      "exportBounds": {
+        "min": [
+          -6.31,
+          -4.45,
+          -0.12
+        ],
+        "max": [
+          6.37,
+          4.31,
+          12.455
+        ]
+      },
+      "entryClearWidth": 1.8,
+      "signs": [
+        {
+          "name": "Sign_Main_01",
+          "width": 3.7,
+          "height": 0.32,
+          "position": [
+            -3.3499999046325684,
+            -4.28000020980835,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Main_02",
+          "width": 3.7,
+          "height": 0.32,
+          "position": [
+            3.1999998092651367,
+            -4.28000020980835,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Corner",
+          "width": 1.3,
+          "height": 0.32,
+          "position": [
+            6.28000020980835,
+            -3.1500000953674316,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Side",
+          "width": 3.7,
+          "height": 0.32,
+          "position": [
+            6.28000020980835,
+            0.8000001907348633,
+            3.700000047683716
+          ]
+        }
+      ],
+      "opaqueGlazing": true,
+      "externalTextures": false,
+      "blend": "Models/CB_01_KoreanPalette.blend",
+      "fbx": "Exports/CB_01_KoreanPalette.fbx",
+      "glb": "Exports/CB_01_KoreanPalette.glb",
+      "preview": "Previews/CB_01_KoreanPalette.png",
+      "sourceDesign": "../../Designs/01_concrete_core.py",
+      "sourceDesignSHA256": "3b6717b57bcdba9cf92bc6725411dda51db5c9481545159bbc3137667292a44a",
+      "materials": [
+        {
+          "name": "CB_01_wall",
+          "color": [
+            0.4019777798321958,
+            0.386429433787049,
+            0.3467040563550296,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#aaa79f"
+        },
+        {
+          "name": "CB_01_metal",
+          "color": [
+            0.04091519690685319,
+            0.04518620438567554,
+            0.04518620438567554,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#393c3c"
+        },
+        {
+          "name": "CB_01_frame",
+          "color": [
+            0.04091519690685319,
+            0.04518620438567554,
+            0.04518620438567554,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#393c3c"
+        },
+        {
+          "name": "CB_01_glass",
+          "color": [
+            0.04817182422688942,
+            0.06847816984440017,
+            0.08021982031446832,
+            1
+          ],
+          "roughness": 0.7200000286102295,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#3e4a50"
+        },
+        {
+          "name": "CB_01_wood",
+          "color": [
+            0.1301364766903643,
+            0.08021982031446832,
+            0.046665086336880095,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#65503d"
+        },
+        {
+          "name": "CB_01_inside",
+          "color": [
+            0.162029375639111,
+            0.13286832155381798,
+            0.10461648409110419,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#70665b"
+        },
+        {
+          "name": "CB_01_floor",
+          "color": [
+            0.2232279573168085,
+            0.2195261997292692,
+            0.1946178304415758,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#82817a"
+        },
+        {
+          "name": "CB_01_roof",
+          "color": [
+            0.16826940018969075,
+            0.18116424424986022,
+            0.17788841598362912,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#727675"
+        },
+        {
+          "name": "CB_01_joint",
+          "color": [
+            0.08650046203654976,
+            0.08650046203654976,
+            0.07618538148130785,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#53534e"
+        },
+        {
+          "name": "CB_01_steel",
+          "color": [
+            0.25415209433082675,
+            0.26225065752969623,
+            0.24620132670783548,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#8a8c88"
+        },
+        {
+          "name": "CB_01_blind",
+          "color": [
+            0.23455058216100522,
+            0.20507873639031693,
+            0.1589608350608804,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#857d6f"
+        },
+        {
+          "name": "CB_01_lamp",
+          "color": [
+            0.5775804404296506,
+            0.5088813208549338,
+            0.3467040563550296,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#c8bd9f"
+        },
+        {
+          "name": "CB_01_soil",
+          "color": [
+            0.06124605423161761,
+            0.0382043715953465,
+            0.024157632448504756,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#46372b"
+        },
+        {
+          "name": "CB_01_leaf",
+          "color": [
+            0.06480326669290577,
+            0.0953074666309647,
+            0.03560131487502034,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#485735"
+        },
+        {
+          "name": "CB_01_leaf_light",
+          "color": [
+            0.1301364766903643,
+            0.1651321945016676,
+            0.06480326669290577,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#657148"
+        },
+        {
+          "name": "CB_01_sign",
+          "color": [
+            0.04091519690685319,
+            0.04518620438567554,
+            0.04518620438567554,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#393c3c"
+        },
+        {
+          "name": "CB_01_trim",
+          "color": [
+            0.4851499400560704,
+            0.467783796112159,
+            0.4178850708481375,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#b9b6ad"
+        },
+        {
+          "name": "CB_01_window_glint",
+          "color": [
+            0.13563332965520566,
+            0.1651321945016676,
+            0.162029375639111,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#677170"
+        },
+        {
+          "name": "CB_01_store_glass",
+          "color": [
+            0.08021982031446832,
+            0.10461648409110419,
+            0.10224173308810132,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#505b5a"
+        },
+        {
+          "name": "CB_01_accent",
+          "color": [
+            0.30946892281750854,
+            0.26225065752969623,
+            0.18116424424986022,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#978c76"
+        }
+      ],
+      "paletteLabel": "콘크리트 회색 · 차콜 코어",
+      "sourceApprovedBlend": "../Models/CB_01_LowPoly.blend",
+      "geometryFingerprint": "c9deffaabff00ee2e817394d79f29e983b7bc6f04df4560f88d34e913ee68d6e",
+      "geometryUnchanged": true,
+      "geometryFingerprintReport": "QA/CB_01_GeometryFingerprint.json"
+    },
+    {
+      "id": "CB_02",
+      "revision": 5,
+      "variant": "KoreanPalette",
+      "styleLabel": "아이보리 프레임 · 오크 패널",
+      "width": 12,
+      "depth": 8,
+      "floorHeights": [
+        4,
+        3.2,
+        3.2
+      ],
+      "roofSlabHeight": 10.4,
+      "triangles": 3604,
+      "sourceTriangles": 23040,
+      "triangleReductionPercent": 84.36,
+      "meshObjects": 28,
+      "exportBounds": {
+        "min": [
+          -6.31,
+          -4.45,
+          -0.12
+        ],
+        "max": [
+          6.345,
+          4.31,
+          11.885
+        ]
+      },
+      "entryClearWidth": 1.8,
+      "signs": [
+        {
+          "name": "Sign_Main_01",
+          "width": 3.7,
+          "height": 0.32,
+          "position": [
+            -3.3499999046325684,
+            -4.28000020980835,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Main_02",
+          "width": 3.7,
+          "height": 0.32,
+          "position": [
+            3.1999998092651367,
+            -4.28000020980835,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Corner",
+          "width": 1.3,
+          "height": 0.32,
+          "position": [
+            6.28000020980835,
+            -3.1500000953674316,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Side",
+          "width": 3.7,
+          "height": 0.32,
+          "position": [
+            6.28000020980835,
+            0.8000001907348633,
+            3.700000047683716
+          ]
+        }
+      ],
+      "opaqueGlazing": true,
+      "externalTextures": false,
+      "blend": "Models/CB_02_KoreanPalette.blend",
+      "fbx": "Exports/CB_02_KoreanPalette.fbx",
+      "glb": "Exports/CB_02_KoreanPalette.glb",
+      "preview": "Previews/CB_02_KoreanPalette.png",
+      "sourceDesign": "../../Designs/02_ivory_oak.py",
+      "sourceDesignSHA256": "a92e1efc74057e8ee372db7e5e3f12bb05219252aa52fd5f86d7b2e566c222aa",
+      "materials": [
+        {
+          "name": "CB_02_wall",
+          "color": [
+            0.6038273388553378,
+            0.5775804404296506,
+            0.5028864580325687,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#ccc8bc"
+        },
+        {
+          "name": "CB_02_metal",
+          "color": [
+            0.03433980680868217,
+            0.030713443732993635,
+            0.027320891639074894,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#34312e"
+        },
+        {
+          "name": "CB_02_frame",
+          "color": [
+            0.03433980680868217,
+            0.030713443732993635,
+            0.027320891639074894,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#34312e"
+        },
+        {
+          "name": "CB_02_glass",
+          "color": [
+            0.04817182422688942,
+            0.06124605423161761,
+            0.06480326669290577,
+            1
+          ],
+          "roughness": 0.7200000286102295,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#3e4648"
+        },
+        {
+          "name": "CB_02_wood",
+          "color": [
+            0.09989872824711389,
+            0.05126945837404324,
+            0.026241221894849898,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#59402d"
+        },
+        {
+          "name": "CB_02_inside",
+          "color": [
+            0.162029375639111,
+            0.13286832155381798,
+            0.10461648409110419,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#70665b"
+        },
+        {
+          "name": "CB_02_floor",
+          "color": [
+            0.2232279573168085,
+            0.2195261997292692,
+            0.1946178304415758,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#82817a"
+        },
+        {
+          "name": "CB_02_roof",
+          "color": [
+            0.16826940018969075,
+            0.18116424424986022,
+            0.17788841598362912,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#727675"
+        },
+        {
+          "name": "CB_02_joint",
+          "color": [
+            0.08650046203654976,
+            0.08650046203654976,
+            0.07618538148130785,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#53534e"
+        },
+        {
+          "name": "CB_02_steel",
+          "color": [
+            0.25415209433082675,
+            0.26225065752969623,
+            0.24620132670783548,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#8a8c88"
+        },
+        {
+          "name": "CB_02_blind",
+          "color": [
+            0.23455058216100522,
+            0.20507873639031693,
+            0.1589608350608804,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#857d6f"
+        },
+        {
+          "name": "CB_02_lamp",
+          "color": [
+            0.5775804404296506,
+            0.5088813208549338,
+            0.3467040563550296,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#c8bd9f"
+        },
+        {
+          "name": "CB_02_soil",
+          "color": [
+            0.06124605423161761,
+            0.0382043715953465,
+            0.024157632448504756,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#46372b"
+        },
+        {
+          "name": "CB_02_leaf",
+          "color": [
+            0.06480326669290577,
+            0.0953074666309647,
+            0.03560131487502034,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#485735"
+        },
+        {
+          "name": "CB_02_leaf_light",
+          "color": [
+            0.1301364766903643,
+            0.1651321945016676,
+            0.06480326669290577,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#657148"
+        },
+        {
+          "name": "CB_02_sign",
+          "color": [
+            0.03433980680868217,
+            0.030713443732993635,
+            0.027320891639074894,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#34312e"
+        },
+        {
+          "name": "CB_02_trim",
+          "color": [
+            0.6444796819705821,
+            0.6172065624196511,
+            0.5457244613701866,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#d2cec3"
+        },
+        {
+          "name": "CB_02_window_glint",
+          "color": [
+            0.13563332965520566,
+            0.1651321945016676,
+            0.162029375639111,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#677170"
+        },
+        {
+          "name": "CB_02_store_glass",
+          "color": [
+            0.08021982031446832,
+            0.10461648409110419,
+            0.10224173308810132,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#505b5a"
+        },
+        {
+          "name": "CB_02_accent",
+          "color": [
+            0.30946892281750854,
+            0.26225065752969623,
+            0.18116424424986022,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#978c76"
+        }
+      ],
+      "paletteLabel": "오프화이트 · 짙은 월넛",
+      "sourceApprovedBlend": "../Models/CB_02_LowPoly.blend",
+      "geometryFingerprint": "c7dc3016bd8b0b568a6f13b6d7b77756218533a7e7ca6bdf6ec6d9b020021adc",
+      "geometryUnchanged": true,
+      "geometryFingerprintReport": "QA/CB_02_GeometryFingerprint.json"
+    },
+    {
+      "id": "CB_03",
+      "revision": 5,
+      "variant": "KoreanPalette",
+      "styleLabel": "적벽돌 로프트 · 루프 퍼골라",
+      "width": 12,
+      "depth": 8,
+      "floorHeights": [
+        4,
+        3.2,
+        3.2
+      ],
+      "roofSlabHeight": 10.4,
+      "triangles": 3552,
+      "sourceTriangles": 22920,
+      "triangleReductionPercent": 84.5,
+      "meshObjects": 28,
+      "exportBounds": {
+        "min": [
+          -6.31,
+          -4.45,
+          -0.12
+        ],
+        "max": [
+          6.3115,
+          4.31,
+          12.46
+        ]
+      },
+      "entryClearWidth": 1.8,
+      "signs": [
+        {
+          "name": "Sign_Main_01",
+          "width": 3.7,
+          "height": 0.32,
+          "position": [
+            -3.3499999046325684,
+            -4.28000020980835,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Main_02",
+          "width": 3.7,
+          "height": 0.32,
+          "position": [
+            3.1999998092651367,
+            -4.28000020980835,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Corner",
+          "width": 1.3,
+          "height": 0.32,
+          "position": [
+            6.28000020980835,
+            -3.1500000953674316,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Side",
+          "width": 3.7,
+          "height": 0.32,
+          "position": [
+            6.28000020980835,
+            0.8000001907348633,
+            3.700000047683716
+          ]
+        }
+      ],
+      "opaqueGlazing": true,
+      "externalTextures": false,
+      "blend": "Models/CB_03_KoreanPalette.blend",
+      "fbx": "Exports/CB_03_KoreanPalette.fbx",
+      "glb": "Exports/CB_03_KoreanPalette.glb",
+      "preview": "Previews/CB_03_KoreanPalette.png",
+      "sourceDesign": "../../Designs/03_brick_loft.py",
+      "sourceDesignSHA256": "6b5b6c9562171346158e6741739c33a841c6cd3afcd08cf4ce499abdd7cbe2a5",
+      "materials": [
+        {
+          "name": "CB_03_wall",
+          "color": [
+            0.13843161503245183,
+            0.05126945837404324,
+            0.03688945040110004,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#684036"
+        },
+        {
+          "name": "CB_03_metal",
+          "color": [
+            0.02217388479338738,
+            0.02518685962736163,
+            0.026241221894849898,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#292c2d"
+        },
+        {
+          "name": "CB_03_frame",
+          "color": [
+            0.02217388479338738,
+            0.02518685962736163,
+            0.026241221894849898,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#292c2d"
+        },
+        {
+          "name": "CB_03_glass",
+          "color": [
+            0.03560131487502034,
+            0.05448027644244237,
+            0.06480326669290577,
+            1
+          ],
+          "roughness": 0.7200000286102295,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#354248"
+        },
+        {
+          "name": "CB_03_wood",
+          "color": [
+            0.09989872824711389,
+            0.05612849004960009,
+            0.03189603307301153,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#594332"
+        },
+        {
+          "name": "CB_03_inside",
+          "color": [
+            0.162029375639111,
+            0.13286832155381798,
+            0.10461648409110419,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#70665b"
+        },
+        {
+          "name": "CB_03_floor",
+          "color": [
+            0.2232279573168085,
+            0.2195261997292692,
+            0.1946178304415758,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#82817a"
+        },
+        {
+          "name": "CB_03_roof",
+          "color": [
+            0.16826940018969075,
+            0.18116424424986022,
+            0.17788841598362912,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#727675"
+        },
+        {
+          "name": "CB_03_joint",
+          "color": [
+            0.08650046203654976,
+            0.08650046203654976,
+            0.07618538148130785,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#53534e"
+        },
+        {
+          "name": "CB_03_steel",
+          "color": [
+            0.25415209433082675,
+            0.26225065752969623,
+            0.24620132670783548,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#8a8c88"
+        },
+        {
+          "name": "CB_03_blind",
+          "color": [
+            0.23455058216100522,
+            0.20507873639031693,
+            0.1589608350608804,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#857d6f"
+        },
+        {
+          "name": "CB_03_lamp",
+          "color": [
+            0.5775804404296506,
+            0.5088813208549338,
+            0.3467040563550296,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#c8bd9f"
+        },
+        {
+          "name": "CB_03_soil",
+          "color": [
+            0.06124605423161761,
+            0.0382043715953465,
+            0.024157632448504756,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#46372b"
+        },
+        {
+          "name": "CB_03_leaf",
+          "color": [
+            0.06480326669290577,
+            0.0953074666309647,
+            0.03560131487502034,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#485735"
+        },
+        {
+          "name": "CB_03_leaf_light",
+          "color": [
+            0.1301364766903643,
+            0.1651321945016676,
+            0.06480326669290577,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#657148"
+        },
+        {
+          "name": "CB_03_sign",
+          "color": [
+            0.02217388479338738,
+            0.02518685962736163,
+            0.026241221894849898,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#292c2d"
+        },
+        {
+          "name": "CB_03_trim",
+          "color": [
+            0.3662525955988395,
+            0.3277780980565422,
+            0.26225065752969623,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#a39b8c"
+        },
+        {
+          "name": "CB_03_window_glint",
+          "color": [
+            0.13563332965520566,
+            0.1651321945016676,
+            0.162029375639111,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#677170"
+        },
+        {
+          "name": "CB_03_store_glass",
+          "color": [
+            0.08021982031446832,
+            0.10461648409110419,
+            0.10224173308810132,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#505b5a"
+        },
+        {
+          "name": "CB_03_accent",
+          "color": [
+            0.30946892281750854,
+            0.26225065752969623,
+            0.18116424424986022,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#978c76"
+        }
+      ],
+      "paletteLabel": "짙은 적갈색 벽돌 · 철제 프레임",
+      "sourceApprovedBlend": "../Models/CB_03_LowPoly.blend",
+      "geometryFingerprint": "0f28d842169f74028e2cf24cb39fb965a914f0c8e8750a71638d69de216a29fd",
+      "geometryUnchanged": true,
+      "geometryFingerprintReport": "QA/CB_03_GeometryFingerprint.json"
+    },
+    {
+      "id": "CB_04",
+      "revision": 5,
+      "variant": "KoreanPalette",
+      "styleLabel": "라운드 코너 · 화이트 리본",
+      "width": 12,
+      "depth": 8,
+      "floorHeights": [
+        4,
+        3.2,
+        3.2
+      ],
+      "roofSlabHeight": 10.4,
+      "triangles": 4664,
+      "sourceTriangles": 22072,
+      "triangleReductionPercent": 78.87,
+      "meshObjects": 28,
+      "exportBounds": {
+        "min": [
+          -6.31,
+          -4.45,
+          -0.12
+        ],
+        "max": [
+          6.3115,
+          4.31,
+          12.07
+        ]
+      },
+      "entryClearWidth": 1.8,
+      "signs": [
+        {
+          "name": "Sign_Main_01",
+          "width": 3.5,
+          "height": 0.32,
+          "position": [
+            -3.5999999046325684,
+            -4.28000020980835,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Main_02",
+          "width": 3.5,
+          "height": 0.32,
+          "position": [
+            1.5999999046325684,
+            -4.28000020980835,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Corner",
+          "width": 1.3,
+          "height": 0.32,
+          "position": [
+            6.279999732971191,
+            -1.0,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Side",
+          "width": 2.8,
+          "height": 0.32,
+          "position": [
+            6.279999732971191,
+            1.999999761581421,
+            3.700000047683716
+          ]
+        }
+      ],
+      "opaqueGlazing": true,
+      "externalTextures": false,
+      "blend": "Models/CB_04_KoreanPalette.blend",
+      "fbx": "Exports/CB_04_KoreanPalette.fbx",
+      "glb": "Exports/CB_04_KoreanPalette.glb",
+      "preview": "Previews/CB_04_KoreanPalette.png",
+      "sourceDesign": "../../Designs/04_rounded_ribbon.py",
+      "sourceDesignSHA256": "3abf5db09b494d40bc3657d1eb90e3d16472b1c04c11fc6a33a2a1110c859498",
+      "materials": [
+        {
+          "name": "CB_04_wall",
+          "color": [
+            0.6307571363461468,
+            0.6172065624196511,
+            0.5647115057049292,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#d0cec6"
+        },
+        {
+          "name": "CB_04_metal",
+          "color": [
+            0.03954623527673284,
+            0.043735029256973465,
+            0.04518620438567554,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#383b3c"
+        },
+        {
+          "name": "CB_04_frame",
+          "color": [
+            0.03954623527673284,
+            0.043735029256973465,
+            0.04518620438567554,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#383b3c"
+        },
+        {
+          "name": "CB_04_glass",
+          "color": [
+            0.06480326669290577,
+            0.08650046203654976,
+            0.09989872824711389,
+            1
+          ],
+          "roughness": 0.7200000286102295,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#485359"
+        },
+        {
+          "name": "CB_04_wood",
+          "color": [
+            0.14702726649759498,
+            0.09084171118340768,
+            0.052860647023180246,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#6b5541"
+        },
+        {
+          "name": "CB_04_inside",
+          "color": [
+            0.162029375639111,
+            0.13286832155381798,
+            0.10461648409110419,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#70665b"
+        },
+        {
+          "name": "CB_04_floor",
+          "color": [
+            0.2232279573168085,
+            0.2195261997292692,
+            0.1946178304415758,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#82817a"
+        },
+        {
+          "name": "CB_04_roof",
+          "color": [
+            0.16826940018969075,
+            0.18116424424986022,
+            0.17788841598362912,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#727675"
+        },
+        {
+          "name": "CB_04_joint",
+          "color": [
+            0.08650046203654976,
+            0.08650046203654976,
+            0.07618538148130785,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#53534e"
+        },
+        {
+          "name": "CB_04_steel",
+          "color": [
+            0.25415209433082675,
+            0.26225065752969623,
+            0.24620132670783548,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#8a8c88"
+        },
+        {
+          "name": "CB_04_blind",
+          "color": [
+            0.23455058216100522,
+            0.20507873639031693,
+            0.1589608350608804,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#857d6f"
+        },
+        {
+          "name": "CB_04_lamp",
+          "color": [
+            0.5775804404296506,
+            0.5088813208549338,
+            0.3467040563550296,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#c8bd9f"
+        },
+        {
+          "name": "CB_04_soil",
+          "color": [
+            0.06124605423161761,
+            0.0382043715953465,
+            0.024157632448504756,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#46372b"
+        },
+        {
+          "name": "CB_04_leaf",
+          "color": [
+            0.06480326669290577,
+            0.0953074666309647,
+            0.03560131487502034,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#485735"
+        },
+        {
+          "name": "CB_04_leaf_light",
+          "color": [
+            0.1301364766903643,
+            0.1651321945016676,
+            0.06480326669290577,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#657148"
+        },
+        {
+          "name": "CB_04_sign",
+          "color": [
+            0.03954623527673284,
+            0.043735029256973465,
+            0.04518620438567554,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#383b3c"
+        },
+        {
+          "name": "CB_04_trim",
+          "color": [
+            0.6583748172794485,
+            0.6375968739940326,
+            0.5775804404296506,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#d4d1c8"
+        },
+        {
+          "name": "CB_04_window_glint",
+          "color": [
+            0.13563332965520566,
+            0.1651321945016676,
+            0.162029375639111,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#677170"
+        },
+        {
+          "name": "CB_04_store_glass",
+          "color": [
+            0.08021982031446832,
+            0.10461648409110419,
+            0.10224173308810132,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#505b5a"
+        },
+        {
+          "name": "CB_04_accent",
+          "color": [
+            0.30946892281750854,
+            0.26225065752969623,
+            0.18116424424986022,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#978c76"
+        }
+      ],
+      "paletteLabel": "중성 화이트 · 흑연색 프레임",
+      "sourceApprovedBlend": "../Models/CB_04_LowPoly.blend",
+      "geometryFingerprint": "737e71141a808c23073e9d446c064bb3f85435281eccea98b851d484fe7b5a64",
+      "geometryUnchanged": true,
+      "geometryFingerprintReport": "QA/CB_04_GeometryFingerprint.json"
+    },
+    {
+      "id": "CB_05",
+      "revision": 5,
+      "variant": "KoreanPalette",
+      "styleLabel": "차콜 캐노피 · 깊은 테라스",
+      "width": 12,
+      "depth": 8,
+      "floorHeights": [
+        4,
+        3.2,
+        3.2
+      ],
+      "roofSlabHeight": 10.4,
+      "triangles": 3416,
+      "sourceTriangles": 19664,
+      "triangleReductionPercent": 82.63,
+      "meshObjects": 28,
+      "exportBounds": {
+        "min": [
+          -6.34,
+          -4.45,
+          -0.12
+        ],
+        "max": [
+          6.3115,
+          4.31,
+          12.28
+        ]
+      },
+      "entryClearWidth": 1.8,
+      "signs": [
+        {
+          "name": "Sign_Main_01",
+          "width": 3.7,
+          "height": 0.32,
+          "position": [
+            -3.3499999046325684,
+            -4.28000020980835,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Main_02",
+          "width": 3.7,
+          "height": 0.32,
+          "position": [
+            3.1999998092651367,
+            -4.28000020980835,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Corner",
+          "width": 1.3,
+          "height": 0.32,
+          "position": [
+            6.28000020980835,
+            -3.1500000953674316,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Side",
+          "width": 3.7,
+          "height": 0.32,
+          "position": [
+            6.28000020980835,
+            0.8000001907348633,
+            3.700000047683716
+          ]
+        }
+      ],
+      "opaqueGlazing": true,
+      "externalTextures": false,
+      "blend": "Models/CB_05_KoreanPalette.blend",
+      "fbx": "Exports/CB_05_KoreanPalette.fbx",
+      "glb": "Exports/CB_05_KoreanPalette.glb",
+      "preview": "Previews/CB_05_KoreanPalette.png",
+      "sourceDesign": "../../Designs/05_charcoal_terrace.py",
+      "sourceDesignSHA256": "46621c2a1474fc66ba82a8797582a5762b442b43976293aa25d63aabade12677",
+      "materials": [
+        {
+          "name": "CB_05_wall",
+          "color": [
+            0.03688945040110004,
+            0.043735029256973465,
+            0.04817182422688942,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#363b3e"
+        },
+        {
+          "name": "CB_05_metal",
+          "color": [
+            0.0295568344378088,
+            0.03433980680868217,
+            0.0382043715953465,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#303437"
+        },
+        {
+          "name": "CB_05_frame",
+          "color": [
+            0.0295568344378088,
+            0.03433980680868217,
+            0.0382043715953465,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#303437"
+        },
+        {
+          "name": "CB_05_glass",
+          "color": [
+            0.046665086336880095,
+            0.06480326669290577,
+            0.07227185068231748,
+            1
+          ],
+          "roughness": 0.7200000286102295,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#3d484c"
+        },
+        {
+          "name": "CB_05_wood",
+          "color": [
+            0.162029375639111,
+            0.08021982031446832,
+            0.042311410620809675,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#70503a"
+        },
+        {
+          "name": "CB_05_inside",
+          "color": [
+            0.162029375639111,
+            0.13286832155381798,
+            0.10461648409110419,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#70665b"
+        },
+        {
+          "name": "CB_05_floor",
+          "color": [
+            0.2232279573168085,
+            0.2195261997292692,
+            0.1946178304415758,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#82817a"
+        },
+        {
+          "name": "CB_05_roof",
+          "color": [
+            0.16826940018969075,
+            0.18116424424986022,
+            0.17788841598362912,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#727675"
+        },
+        {
+          "name": "CB_05_joint",
+          "color": [
+            0.08650046203654976,
+            0.08650046203654976,
+            0.07618538148130785,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#53534e"
+        },
+        {
+          "name": "CB_05_steel",
+          "color": [
+            0.25415209433082675,
+            0.26225065752969623,
+            0.24620132670783548,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#8a8c88"
+        },
+        {
+          "name": "CB_05_blind",
+          "color": [
+            0.23455058216100522,
+            0.20507873639031693,
+            0.1589608350608804,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#857d6f"
+        },
+        {
+          "name": "CB_05_lamp",
+          "color": [
+            0.5775804404296506,
+            0.5088813208549338,
+            0.3467040563550296,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#c8bd9f"
+        },
+        {
+          "name": "CB_05_soil",
+          "color": [
+            0.06124605423161761,
+            0.0382043715953465,
+            0.024157632448504756,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#46372b"
+        },
+        {
+          "name": "CB_05_leaf",
+          "color": [
+            0.06480326669290577,
+            0.0953074666309647,
+            0.03560131487502034,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#485735"
+        },
+        {
+          "name": "CB_05_leaf_light",
+          "color": [
+            0.1301364766903643,
+            0.1651321945016676,
+            0.06480326669290577,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#657148"
+        },
+        {
+          "name": "CB_05_sign",
+          "color": [
+            0.0295568344378088,
+            0.03433980680868217,
+            0.0382043715953465,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#303437"
+        },
+        {
+          "name": "CB_05_trim",
+          "color": [
+            0.17464740365558504,
+            0.18116424424986022,
+            0.1714411007328226,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#747673"
+        },
+        {
+          "name": "CB_05_window_glint",
+          "color": [
+            0.13563332965520566,
+            0.1651321945016676,
+            0.162029375639111,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#677170"
+        },
+        {
+          "name": "CB_05_store_glass",
+          "color": [
+            0.08021982031446832,
+            0.10461648409110419,
+            0.10224173308810132,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#505b5a"
+        },
+        {
+          "name": "CB_05_accent",
+          "color": [
+            0.30946892281750854,
+            0.26225065752969623,
+            0.18116424424986022,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#978c76"
+        }
+      ],
+      "paletteLabel": "짙은 차콜 · 우드 테라스",
+      "sourceApprovedBlend": "../Models/CB_05_LowPoly.blend",
+      "geometryFingerprint": "dc47af926f108e6920da639bbb61c50fdd8d06d48e9e4669463c272ac96c6a66",
+      "geometryUnchanged": true,
+      "geometryFingerprintReport": "QA/CB_05_GeometryFingerprint.json"
+    },
+    {
+      "id": "CB_06",
+      "revision": 5,
+      "variant": "KoreanPalette",
+      "styleLabel": "샌드스톤 박스 · 루프 가든",
+      "width": 12,
+      "depth": 8,
+      "floorHeights": [
+        4,
+        3.2,
+        3.2
+      ],
+      "roofSlabHeight": 10.4,
+      "triangles": 4480,
+      "sourceTriangles": 30164,
+      "triangleReductionPercent": 85.15,
+      "meshObjects": 28,
+      "exportBounds": {
+        "min": [
+          -6.31,
+          -4.45,
+          -0.12
+        ],
+        "max": [
+          6.41,
+          4.31,
+          12.245
+        ]
+      },
+      "entryClearWidth": 1.8,
+      "signs": [
+        {
+          "name": "Sign_Main_01",
+          "width": 3.7,
+          "height": 0.32,
+          "position": [
+            -3.3499999046325684,
+            -4.28000020980835,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Main_02",
+          "width": 3.7,
+          "height": 0.32,
+          "position": [
+            3.1999998092651367,
+            -4.28000020980835,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Corner",
+          "width": 1.3,
+          "height": 0.32,
+          "position": [
+            6.28000020980835,
+            -3.1500000953674316,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Side",
+          "width": 3.7,
+          "height": 0.32,
+          "position": [
+            6.28000020980835,
+            0.8000001907348633,
+            3.700000047683716
+          ]
+        }
+      ],
+      "opaqueGlazing": true,
+      "externalTextures": false,
+      "blend": "Models/CB_06_KoreanPalette.blend",
+      "fbx": "Exports/CB_06_KoreanPalette.fbx",
+      "glb": "Exports/CB_06_KoreanPalette.glb",
+      "preview": "Previews/CB_06_KoreanPalette.png",
+      "sourceDesign": "../../Designs/06_sandstone_garden.py",
+      "sourceDesignSHA256": "df0d7ef5454af7ee408d937de0e2b9717c9acd803a99b7e2c294bd5b60da84ef",
+      "materials": [
+        {
+          "name": "CB_06_wall",
+          "color": [
+            0.4396571738409188,
+            0.3564001441459435,
+            0.2581828529215958,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#b1a18b"
+        },
+        {
+          "name": "CB_06_metal",
+          "color": [
+            0.052860647023180246,
+            0.052860647023180246,
+            0.04817182422688942,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#41413e"
+        },
+        {
+          "name": "CB_06_frame",
+          "color": [
+            0.052860647023180246,
+            0.052860647023180246,
+            0.04817182422688942,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#41413e"
+        },
+        {
+          "name": "CB_06_glass",
+          "color": [
+            0.05448027644244237,
+            0.07036009569659588,
+            0.07036009569659588,
+            1
+          ],
+          "roughness": 0.7200000286102295,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#424b4b"
+        },
+        {
+          "name": "CB_06_wood",
+          "color": [
+            0.13286832155381798,
+            0.08021982031446832,
+            0.042311410620809675,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#66503a"
+        },
+        {
+          "name": "CB_06_inside",
+          "color": [
+            0.162029375639111,
+            0.13286832155381798,
+            0.10461648409110419,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#70665b"
+        },
+        {
+          "name": "CB_06_floor",
+          "color": [
+            0.2232279573168085,
+            0.2195261997292692,
+            0.1946178304415758,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#82817a"
+        },
+        {
+          "name": "CB_06_roof",
+          "color": [
+            0.16826940018969075,
+            0.18116424424986022,
+            0.17788841598362912,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#727675"
+        },
+        {
+          "name": "CB_06_joint",
+          "color": [
+            0.08650046203654976,
+            0.08650046203654976,
+            0.07618538148130785,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#53534e"
+        },
+        {
+          "name": "CB_06_steel",
+          "color": [
+            0.25415209433082675,
+            0.26225065752969623,
+            0.24620132670783548,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#8a8c88"
+        },
+        {
+          "name": "CB_06_blind",
+          "color": [
+            0.23455058216100522,
+            0.20507873639031693,
+            0.1589608350608804,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#857d6f"
+        },
+        {
+          "name": "CB_06_lamp",
+          "color": [
+            0.5775804404296506,
+            0.5088813208549338,
+            0.3467040563550296,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#c8bd9f"
+        },
+        {
+          "name": "CB_06_soil",
+          "color": [
+            0.06124605423161761,
+            0.0382043715953465,
+            0.024157632448504756,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#46372b"
+        },
+        {
+          "name": "CB_06_leaf",
+          "color": [
+            0.06480326669290577,
+            0.0953074666309647,
+            0.03560131487502034,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#485735"
+        },
+        {
+          "name": "CB_06_leaf_light",
+          "color": [
+            0.1301364766903643,
+            0.1651321945016676,
+            0.06480326669290577,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#657148"
+        },
+        {
+          "name": "CB_06_sign",
+          "color": [
+            0.052860647023180246,
+            0.052860647023180246,
+            0.04817182422688942,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#41413e"
+        },
+        {
+          "name": "CB_06_trim",
+          "color": [
+            0.5028864580325687,
+            0.44520119451622786,
+            0.35153259950043936,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#bcb2a0"
+        },
+        {
+          "name": "CB_06_window_glint",
+          "color": [
+            0.13563332965520566,
+            0.1651321945016676,
+            0.162029375639111,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#677170"
+        },
+        {
+          "name": "CB_06_store_glass",
+          "color": [
+            0.08021982031446832,
+            0.10461648409110419,
+            0.10224173308810132,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#505b5a"
+        },
+        {
+          "name": "CB_06_accent",
+          "color": [
+            0.30946892281750854,
+            0.26225065752969623,
+            0.18116424424986022,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#978c76"
+        }
+      ],
+      "paletteLabel": "샌드 베이지 · 회색 창틀",
+      "sourceApprovedBlend": "../Models/CB_06_LowPoly.blend",
+      "geometryFingerprint": "222996c5e044e2ac1ebd5f40310f01b2ed995414330977941dc416ea4162dac0",
+      "geometryUnchanged": true,
+      "geometryFingerprintReport": "QA/CB_06_GeometryFingerprint.json"
+    },
+    {
+      "id": "CB_07",
+      "revision": 5,
+      "variant": "KoreanPalette",
+      "styleLabel": "아이보리 포털 · 엇갈린 테라스",
+      "width": 12,
+      "depth": 8,
+      "floorHeights": [
+        4,
+        3.2,
+        3.2
+      ],
+      "roofSlabHeight": 10.4,
+      "triangles": 3924,
+      "sourceTriangles": 23712,
+      "triangleReductionPercent": 83.45,
+      "meshObjects": 28,
+      "exportBounds": {
+        "min": [
+          -6.31,
+          -4.45,
+          -0.12
+        ],
+        "max": [
+          6.3115,
+          4.31,
+          12.125
+        ]
+      },
+      "entryClearWidth": 1.8,
+      "signs": [
+        {
+          "name": "Sign_Main_01",
+          "width": 3.7,
+          "height": 0.32,
+          "position": [
+            -3.3499999046325684,
+            -4.28000020980835,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Main_02",
+          "width": 3.7,
+          "height": 0.32,
+          "position": [
+            3.1999998092651367,
+            -4.28000020980835,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Corner",
+          "width": 1.3,
+          "height": 0.32,
+          "position": [
+            6.28000020980835,
+            -3.1500000953674316,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Side",
+          "width": 3.7,
+          "height": 0.32,
+          "position": [
+            6.28000020980835,
+            0.8000001907348633,
+            3.700000047683716
+          ]
+        }
+      ],
+      "opaqueGlazing": true,
+      "externalTextures": false,
+      "blend": "Models/CB_07_KoreanPalette.blend",
+      "fbx": "Exports/CB_07_KoreanPalette.fbx",
+      "glb": "Exports/CB_07_KoreanPalette.glb",
+      "preview": "Previews/CB_07_KoreanPalette.png",
+      "sourceDesign": "../../Designs/07_ivory_portals.py",
+      "sourceDesignSHA256": "c70556767c8ae3ea42f858188e5c878072c2fe53fb98e0fa3808f2b5a10cbae7",
+      "materials": [
+        {
+          "name": "CB_07_wall",
+          "color": [
+            0.6172065624196511,
+            0.5840784178911641,
+            0.5028864580325687,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#cec9bc"
+        },
+        {
+          "name": "CB_07_metal",
+          "color": [
+            0.03688945040110004,
+            0.03954623527673284,
+            0.0382043715953465,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#363837"
+        },
+        {
+          "name": "CB_07_frame",
+          "color": [
+            0.03688945040110004,
+            0.03954623527673284,
+            0.0382043715953465,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#363837"
+        },
+        {
+          "name": "CB_07_glass",
+          "color": [
+            0.05448027644244237,
+            0.07036009569659588,
+            0.07618538148130785,
+            1
+          ],
+          "roughness": 0.7200000286102295,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#424b4e"
+        },
+        {
+          "name": "CB_07_wood",
+          "color": [
+            0.13843161503245183,
+            0.08021982031446832,
+            0.04518620438567554,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#68503c"
+        },
+        {
+          "name": "CB_07_inside",
+          "color": [
+            0.162029375639111,
+            0.13286832155381798,
+            0.10461648409110419,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#70665b"
+        },
+        {
+          "name": "CB_07_floor",
+          "color": [
+            0.2232279573168085,
+            0.2195261997292692,
+            0.1946178304415758,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#82817a"
+        },
+        {
+          "name": "CB_07_roof",
+          "color": [
+            0.16826940018969075,
+            0.18116424424986022,
+            0.17788841598362912,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#727675"
+        },
+        {
+          "name": "CB_07_joint",
+          "color": [
+            0.08650046203654976,
+            0.08650046203654976,
+            0.07618538148130785,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#53534e"
+        },
+        {
+          "name": "CB_07_steel",
+          "color": [
+            0.25415209433082675,
+            0.26225065752969623,
+            0.24620132670783548,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#8a8c88"
+        },
+        {
+          "name": "CB_07_blind",
+          "color": [
+            0.23455058216100522,
+            0.20507873639031693,
+            0.1589608350608804,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#857d6f"
+        },
+        {
+          "name": "CB_07_lamp",
+          "color": [
+            0.5775804404296506,
+            0.5088813208549338,
+            0.3467040563550296,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#c8bd9f"
+        },
+        {
+          "name": "CB_07_soil",
+          "color": [
+            0.06124605423161761,
+            0.0382043715953465,
+            0.024157632448504756,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#46372b"
+        },
+        {
+          "name": "CB_07_leaf",
+          "color": [
+            0.06480326669290577,
+            0.0953074666309647,
+            0.03560131487502034,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#485735"
+        },
+        {
+          "name": "CB_07_leaf_light",
+          "color": [
+            0.1301364766903643,
+            0.1651321945016676,
+            0.06480326669290577,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#657148"
+        },
+        {
+          "name": "CB_07_sign",
+          "color": [
+            0.03688945040110004,
+            0.03954623527673284,
+            0.0382043715953465,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#363837"
+        },
+        {
+          "name": "CB_07_trim",
+          "color": [
+            0.6375968739940326,
+            0.5972017883637634,
+            0.5028864580325687,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#d1cbbc"
+        },
+        {
+          "name": "CB_07_window_glint",
+          "color": [
+            0.13563332965520566,
+            0.1651321945016676,
+            0.162029375639111,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#677170"
+        },
+        {
+          "name": "CB_07_store_glass",
+          "color": [
+            0.08021982031446832,
+            0.10461648409110419,
+            0.10224173308810132,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#505b5a"
+        },
+        {
+          "name": "CB_07_accent",
+          "color": [
+            0.30946892281750854,
+            0.26225065752969623,
+            0.18116424424986022,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#978c76"
+        }
+      ],
+      "paletteLabel": "밝은 아이보리 · 차콜",
+      "sourceApprovedBlend": "../Models/CB_07_LowPoly.blend",
+      "geometryFingerprint": "de757d923a15eccc23c2b82f2a134cc868c829beb4cab880452e66d6f632082d",
+      "geometryUnchanged": true,
+      "geometryFingerprintReport": "QA/CB_07_GeometryFingerprint.json"
+    },
+    {
+      "id": "CB_08",
+      "revision": 5,
+      "variant": "KoreanPalette",
+      "styleLabel": "그레이 조적 · 스텝드 로지아",
+      "width": 12,
+      "depth": 8,
+      "floorHeights": [
+        4,
+        3.2,
+        3.2
+      ],
+      "roofSlabHeight": 10.4,
+      "triangles": 3644,
+      "sourceTriangles": 22256,
+      "triangleReductionPercent": 83.63,
+      "meshObjects": 28,
+      "exportBounds": {
+        "min": [
+          -6.31,
+          -4.62,
+          -0.12
+        ],
+        "max": [
+          6.3115,
+          4.31,
+          12.475
+        ]
+      },
+      "entryClearWidth": 1.8,
+      "signs": [
+        {
+          "name": "Sign_Main_01",
+          "width": 3.7,
+          "height": 0.32,
+          "position": [
+            -3.3499999046325684,
+            -4.28000020980835,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Main_02",
+          "width": 3.7,
+          "height": 0.32,
+          "position": [
+            3.1999998092651367,
+            -4.28000020980835,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Corner",
+          "width": 1.3,
+          "height": 0.32,
+          "position": [
+            6.28000020980835,
+            -3.1500000953674316,
+            3.700000047683716
+          ]
+        },
+        {
+          "name": "Sign_Side",
+          "width": 3.7,
+          "height": 0.32,
+          "position": [
+            6.28000020980835,
+            0.8000001907348633,
+            3.700000047683716
+          ]
+        }
+      ],
+      "opaqueGlazing": true,
+      "externalTextures": false,
+      "blend": "Models/CB_08_KoreanPalette.blend",
+      "fbx": "Exports/CB_08_KoreanPalette.fbx",
+      "glb": "Exports/CB_08_KoreanPalette.glb",
+      "preview": "Previews/CB_08_KoreanPalette.png",
+      "sourceDesign": "../../Designs/08_stepped_masonry.py",
+      "sourceDesignSHA256": "cf08fb5c0c1baf3fab1c452caa47cf58fca5f65f1ca60b5c09de314ac793a285",
+      "materials": [
+        {
+          "name": "CB_08_wall",
+          "color": [
+            0.1714411007328226,
+            0.17788841598362912,
+            0.1651321945016676,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#737571"
+        },
+        {
+          "name": "CB_08_metal",
+          "color": [
+            0.0295568344378088,
+            0.03433980680868217,
+            0.03433980680868217,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#303434"
+        },
+        {
+          "name": "CB_08_frame",
+          "color": [
+            0.0295568344378088,
+            0.03433980680868217,
+            0.03433980680868217,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#303434"
+        },
+        {
+          "name": "CB_08_glass",
+          "color": [
+            0.05126945837404324,
+            0.07227185068231748,
+            0.08021982031446832,
+            1
+          ],
+          "roughness": 0.7200000286102295,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#404c50"
+        },
+        {
+          "name": "CB_08_wood",
+          "color": [
+            0.1301364766903643,
+            0.08021982031446832,
+            0.043735029256973465,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#65503b"
+        },
+        {
+          "name": "CB_08_inside",
+          "color": [
+            0.162029375639111,
+            0.13286832155381798,
+            0.10461648409110419,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#70665b"
+        },
+        {
+          "name": "CB_08_floor",
+          "color": [
+            0.2232279573168085,
+            0.2195261997292692,
+            0.1946178304415758,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#82817a"
+        },
+        {
+          "name": "CB_08_roof",
+          "color": [
+            0.16826940018969075,
+            0.18116424424986022,
+            0.17788841598362912,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#727675"
+        },
+        {
+          "name": "CB_08_joint",
+          "color": [
+            0.08650046203654976,
+            0.08650046203654976,
+            0.07618538148130785,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#53534e"
+        },
+        {
+          "name": "CB_08_steel",
+          "color": [
+            0.25415209433082675,
+            0.26225065752969623,
+            0.24620132670783548,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#8a8c88"
+        },
+        {
+          "name": "CB_08_blind",
+          "color": [
+            0.23455058216100522,
+            0.20507873639031693,
+            0.1589608350608804,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#857d6f"
+        },
+        {
+          "name": "CB_08_lamp",
+          "color": [
+            0.5775804404296506,
+            0.5088813208549338,
+            0.3467040563550296,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#c8bd9f"
+        },
+        {
+          "name": "CB_08_soil",
+          "color": [
+            0.06124605423161761,
+            0.0382043715953465,
+            0.024157632448504756,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#46372b"
+        },
+        {
+          "name": "CB_08_leaf",
+          "color": [
+            0.06480326669290577,
+            0.0953074666309647,
+            0.03560131487502034,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#485735"
+        },
+        {
+          "name": "CB_08_leaf_light",
+          "color": [
+            0.1301364766903643,
+            0.1651321945016676,
+            0.06480326669290577,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#657148"
+        },
+        {
+          "name": "CB_08_sign",
+          "color": [
+            0.0295568344378088,
+            0.03433980680868217,
+            0.03433980680868217,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#303434"
+        },
+        {
+          "name": "CB_08_trim",
+          "color": [
+            0.2704977910130658,
+            0.2788942634768104,
+            0.2581828529215958,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#8e908b"
+        },
+        {
+          "name": "CB_08_window_glint",
+          "color": [
+            0.13563332965520566,
+            0.1651321945016676,
+            0.162029375639111,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#677170"
+        },
+        {
+          "name": "CB_08_store_glass",
+          "color": [
+            0.08021982031446832,
+            0.10461648409110419,
+            0.10224173308810132,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#505b5a"
+        },
+        {
+          "name": "CB_08_accent",
+          "color": [
+            0.30946892281750854,
+            0.26225065752969623,
+            0.18116424424986022,
+            1
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null,
+          "srgbHex": "#978c76"
+        }
+      ],
+      "paletteLabel": "회색 석재 · 짙은 창틀",
+      "sourceApprovedBlend": "../Models/CB_08_LowPoly.blend",
+      "geometryFingerprint": "f05417a5fa1058fbd90fb2f189ad50f5373f85f821402249c4c0091f338bd612",
+      "geometryUnchanged": true,
+      "geometryFingerprintReport": "QA/CB_08_GeometryFingerprint.json"
+    }
+  ]
+}

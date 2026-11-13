@@ -156,7 +156,35 @@ namespace CompanyGame.Editor.CommercialBlocks
             }
         }
 
-        static void ImportBlock(string output, Block block, Shader shader)
+        // Reuse the same URP conversion for a reviewed single-building catalog.
+        // Does not place objects, change scenes, or overwrite an existing destination.
+        public static void ImportSingleBlock(string manifest, string output, string[] requiredNodes)
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode) throw new InvalidOperationException("Stop Play Mode first.");
+            var catalog = Newtonsoft.Json.JsonConvert.DeserializeObject<Catalog>(File.ReadAllText(manifest));
+            if (catalog?.items == null || catalog.items.Length != 1) throw new InvalidDataException("Expected one building.");
+            var block = catalog.items[0];
+            if (!Regex.IsMatch(block.id ?? "", @"^[A-Za-z0-9_]+$") || block.materials == null || block.materials.Length == 0)
+                throw new InvalidDataException("Invalid building catalog.");
+            foreach (var spec in block.materials)
+                if (!Regex.IsMatch(spec.name ?? "", @"^[A-Za-z0-9_]+$") || spec.color == null || spec.color.Length < 3 || !string.IsNullOrEmpty(spec.texture))
+                    throw new InvalidDataException("Single-building import requires named, untextured materials.");
+            var absolute = AbsoluteAssetPath(output);
+            if (!output.StartsWith("Assets/", StringComparison.Ordinal) || !IsWithin(absolute, Application.dataPath) || Directory.Exists(absolute))
+                throw new InvalidOperationException("Choose a new folder under Assets.");
+            var shader = Shader.Find(ShaderName);
+            if (shader == null) throw new InvalidOperationException("URP/Lit not found.");
+            var model = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(manifest), "../Exports/" + block.id + ".fbx"));
+            if (!File.Exists(model)) throw new FileNotFoundException("FBX missing", model);
+            foreach (var folder in new[] { "Models", "Materials", "Prefabs" }) Directory.CreateDirectory(Path.Combine(absolute, folder));
+            File.Copy(model, Path.Combine(absolute, "Models", block.id + ".fbx"));
+            File.Copy(manifest, Path.Combine(absolute, "SourceCatalog.json"));
+            AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+            ImportBlock(output, block, shader, requiredNodes);
+            AssetDatabase.SaveAssets();
+        }
+
+        static void ImportBlock(string output, Block block, Shader shader, string[] requiredNodes = null)
         {
             // Per-block materials prevent changing one sign/palette from recoloring another block.
             AssetDatabase.CreateFolder(output + "/Materials", block.id);
@@ -205,7 +233,7 @@ namespace CompanyGame.Editor.CommercialBlocks
             var model = AssetDatabase.LoadAssetAtPath<GameObject>(modelPath);
             if (model == null) throw new InvalidDataException("Imported model is unavailable: " + block.id);
             var nodes = new HashSet<string>(model.GetComponentsInChildren<Transform>(true).Select(t => t.name));
-            foreach (string required in new[] { "Sign_Main_01", "Sign_Main_02", "Sign_Corner", "Sign_Side", "Door_Leaf_01", "Door_Leaf_02", "EntryAnchor", "InteriorSpawnAnchor" })
+            foreach (string required in requiredNodes ?? new[] { "Sign_Main_01", "Sign_Main_02", "Sign_Corner", "Sign_Side", "Door_Leaf_01", "Door_Leaf_02", "EntryAnchor", "InteriorSpawnAnchor" })
                 if (!nodes.Contains(required)) throw new InvalidDataException(block.id + " is missing node " + required);
             var renderers = model.GetComponentsInChildren<MeshRenderer>(true);
             if (renderers.Length == 0 || renderers.Any(r => r.sharedMaterials.Any(m => m == null || !materials.Values.Contains(m))))
@@ -259,3 +287,4 @@ namespace CompanyGame.Editor.CommercialBlocks
     }
 }
 #endif
+
