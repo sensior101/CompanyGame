@@ -86,14 +86,16 @@ public class LandPlot : MonoBehaviour
     }
 
     /// <summary>
-    /// The price of plot <paramref name="id"/> for the server's ledger (12.10.1): the plot in the loaded scenes, else
-    /// <see cref="DefaultPrice"/> (a server process loads one scene; no map places plots yet).
+    /// The price of plot <paramref name="id"/> for the server's ledger (12.10.1): the plot in the loaded scenes, else the
+    /// real-estate agency's listing (<see cref="RealEstateCatalog"/>), else <see cref="DefaultPrice"/>
+    /// (a server process loads one scene; no map places plots yet).
     /// </summary>
     public static long PriceOf(string id)
     {
         foreach (var plot in FindObjectsByType<LandPlot>(FindObjectsSortMode.None))
             if (plot.plotId == id) return plot.price;
-        return DefaultPrice;
+        var listing = RealEstateCatalog.Find(id);
+        return listing != null && listing.price > 0 ? listing.price : DefaultPrice;
     }
 
     public LandPlotState State =>

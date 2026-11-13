@@ -1,0 +1,602 @@
+{
+  "schemaVersion": 1,
+  "style": "Original real-estate design proportionally fitted to 48 m Civic parcel",
+  "items": [
+    {
+      "id": "RE_01",
+      "assetRoot": "RE_01",
+      "revision": 3,
+      "floorCount": 1,
+      "floorHeights": [
+        13.012750455373405
+      ],
+      "floorBaseHeight": -0.0,
+      "roofSlabHeight": 13.012750455373405,
+      "width": 37.37704918032787,
+      "depth": 24.225865209471767,
+      "entryClearWidth": 6.229508196721311,
+      "doorOpeningHeight": 8.652094717668488,
+      "styleLabel": "단층 부동산 사무소",
+      "paletteLabel": "오프화이트 · 차콜 · 짙은 녹색",
+      "triangles": 1636,
+      "meshObjects": 108,
+      "exportBounds": {
+        "min": [
+          -18.999998,
+          -12.834466,
+          0.0
+        ],
+        "max": [
+          18.999998,
+          12.834467,
+          15.331511
+        ]
+      },
+      "materials": [
+        {
+          "name": "RE_01_AluminumTrim",
+          "color": [
+            0.32314321398735046,
+            0.34191441535949707,
+            0.31398871541023254,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "RE_01_BaseConcrete",
+          "color": [
+            0.30946892499923706,
+            0.31854677200317383,
+            0.2961382567882538,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "RE_01_CharcoalFrame",
+          "color": [
+            0.03560131415724754,
+            0.0423114113509655,
+            0.04373503103852272,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "RE_01_ListingInk",
+          "color": [
+            0.18782077729701996,
+            0.24228112399578094,
+            0.2015562504529953,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "RE_01_ListingPaper",
+          "color": [
+            0.7230551242828369,
+            0.6938717365264893,
+            0.5972017645835876,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "RE_01_OpaqueSmokyGlass",
+          "color": [
+            0.04817182570695877,
+            0.0802198201417923,
+            0.09084171056747437,
+            1.0
+          ],
+          "roughness": 0.46000000834465027,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "RE_01_RoofGrey",
+          "color": [
+            0.23074005544185638,
+            0.25015828013420105,
+            0.21952620148658752,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "RE_01_SignFace",
+          "color": [
+            0.022173885256052017,
+            0.06480326503515244,
+            0.04666508734226227,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "RE_01_SignLetters",
+          "color": [
+            0.8069522380828857,
+            0.7758222222328186,
+            0.68668532371521,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "RE_01_WarmOffWhite",
+          "color": [
+            0.577580451965332,
+            0.5583403706550598,
+            0.5028864741325378,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        }
+      ],
+      "opaqueGlazing": true,
+      "externalTextures": false,
+      "frontSignCount": 1,
+      "attachedSideSigns": false,
+      "attachedBlade": false,
+      "groundDecorationPresent": false,
+      "parcelSize": [
+        48,
+        48
+      ],
+      "parcelTier": "Civic",
+      "maxBuildingSide": 38,
+      "setbacks": {
+        "left": 5.0000019999999985,
+        "right": 5.0000019999999985,
+        "front": 11.165534,
+        "back": 11.165533
+      },
+      "blend": "../Models/RE_01.blend",
+      "fbx": "../Exports/RE_01.fbx",
+      "glb": "../Exports/RE_01.glb",
+      "preview": "../Previews/RE_01.png",
+      "frontPreview": "../Previews/RE_01_Front.png",
+      "parcelPreview": "../Previews/RE_01_Parcel48.png",
+      "sourceDesign": "../fit_proportionally.py",
+      "validationReport": "../QA/RE_01_ProportionalFit.json",
+      "doorAndEntryAnchors": {
+        "Door_Leaf_01": [
+          -3.1147539615631104,
+          -12.083565711975098,
+          0.48451730608940125
+        ],
+        "Door_Leaf_02": [
+          3.1147539615631104,
+          -12.083565711975098,
+          0.48451730608940125
+        ],
+        "EntryAnchor": [
+          0.0,
+          -14.263893127441406,
+          0.48451730608940125
+        ],
+        "InteriorSpawnAnchor": [
+          0.0,
+          -7.8613433837890625,
+          0.48451730608940125
+        ]
+      },
+      "signs": [
+        {
+          "name": "Sign_Main_01",
+          "board": "Sign_Main_01_Board",
+          "width": 32.80874316939891,
+          "height": 2.4225865209471764,
+          "depth": 0.34608378870673956,
+          "position": [
+            0.0,
+            -12.602691650390625,
+            11.732240676879883
+          ],
+          "rotationEulerDegrees": [
+            0,
+            0,
+            0
+          ],
+          "outwardNormal": [
+            0,
+            -1,
+            0
+          ],
+          "material": "RE_01_SignFace",
+          "boardBounds": {
+            "min": [
+              -16.404371,
+              -12.775734,
+              10.520947
+            ],
+            "max": [
+              16.404371,
+              -12.429649,
+              12.943534
+            ]
+          },
+          "uv": "Normalized 0..1",
+          "lettering": "Sign_Main_01_Lettering",
+          "letteringContent": "부동산",
+          "replacementGuidance": "Replace the board material; hide/remove the separate lettering mesh when using other artwork. Preserve anchor transform."
+        }
+      ],
+      "listingCards": [
+        {
+          "name": "ListingCard",
+          "position": [
+            -13.947176933288574,
+            -12.12509536743164,
+            4.153005599975586
+          ],
+          "bounds": {
+            "min": [
+              -15.348816,
+              -12.168356,
+              3.045537
+            ],
+            "max": [
+              -12.545538,
+              -12.081835,
+              5.260474
+            ]
+          },
+          "mount": "Attached to front of opaque storefront glazing"
+        },
+        {
+          "name": "ListingCard.001",
+          "position": [
+            -13.947176933288574,
+            -12.12509536743164,
+            7.129325866699219
+          ],
+          "bounds": {
+            "min": [
+              -15.348816,
+              -12.168356,
+              6.021858
+            ],
+            "max": [
+              -12.545538,
+              -12.081835,
+              8.236794
+            ]
+          },
+          "mount": "Attached to front of opaque storefront glazing"
+        },
+        {
+          "name": "ListingCard.002",
+          "position": [
+            -10.347905158996582,
+            -12.12509536743164,
+            4.153005599975586
+          ],
+          "bounds": {
+            "min": [
+              -11.749544,
+              -12.168356,
+              3.045537
+            ],
+            "max": [
+              -8.946266,
+              -12.081835,
+              5.260474
+            ]
+          },
+          "mount": "Attached to front of opaque storefront glazing"
+        },
+        {
+          "name": "ListingCard.003",
+          "position": [
+            -10.347905158996582,
+            -12.12509536743164,
+            7.129325866699219
+          ],
+          "bounds": {
+            "min": [
+              -11.749544,
+              -12.168356,
+              6.021858
+            ],
+            "max": [
+              -8.946266,
+              -12.081835,
+              8.236794
+            ]
+          },
+          "mount": "Attached to front of opaque storefront glazing"
+        },
+        {
+          "name": "ListingCard.004",
+          "position": [
+            -6.748633861541748,
+            -12.12509536743164,
+            4.153005599975586
+          ],
+          "bounds": {
+            "min": [
+              -8.150273,
+              -12.168356,
+              3.045537
+            ],
+            "max": [
+              -5.346994,
+              -12.081835,
+              5.260474
+            ]
+          },
+          "mount": "Attached to front of opaque storefront glazing"
+        },
+        {
+          "name": "ListingCard.005",
+          "position": [
+            -6.748633861541748,
+            -12.12509536743164,
+            7.129325866699219
+          ],
+          "bounds": {
+            "min": [
+              -8.150273,
+              -12.168356,
+              6.021858
+            ],
+            "max": [
+              -5.346994,
+              -12.081835,
+              8.236794
+            ]
+          },
+          "mount": "Attached to front of opaque storefront glazing"
+        },
+        {
+          "name": "ListingCard.006",
+          "position": [
+            6.748633861541748,
+            -12.12509536743164,
+            4.153005599975586
+          ],
+          "bounds": {
+            "min": [
+              5.346994,
+              -12.168356,
+              3.045537
+            ],
+            "max": [
+              8.150273,
+              -12.081835,
+              5.260474
+            ]
+          },
+          "mount": "Attached to front of opaque storefront glazing"
+        },
+        {
+          "name": "ListingCard.007",
+          "position": [
+            6.748633861541748,
+            -12.12509536743164,
+            7.129325866699219
+          ],
+          "bounds": {
+            "min": [
+              5.346994,
+              -12.168356,
+              6.021858
+            ],
+            "max": [
+              8.150273,
+              -12.081835,
+              8.236794
+            ]
+          },
+          "mount": "Attached to front of opaque storefront glazing"
+        },
+        {
+          "name": "ListingCard.008",
+          "position": [
+            10.347905158996582,
+            -12.12509536743164,
+            4.153005599975586
+          ],
+          "bounds": {
+            "min": [
+              8.946266,
+              -12.168356,
+              3.045537
+            ],
+            "max": [
+              11.749544,
+              -12.081835,
+              5.260474
+            ]
+          },
+          "mount": "Attached to front of opaque storefront glazing"
+        },
+        {
+          "name": "ListingCard.009",
+          "position": [
+            10.347905158996582,
+            -12.12509536743164,
+            7.129325866699219
+          ],
+          "bounds": {
+            "min": [
+              8.946266,
+              -12.168356,
+              6.021858
+            ],
+            "max": [
+              11.749544,
+              -12.081835,
+              8.236794
+            ]
+          },
+          "mount": "Attached to front of opaque storefront glazing"
+        },
+        {
+          "name": "ListingCard.010",
+          "position": [
+            13.947176933288574,
+            -12.12509536743164,
+            4.153005599975586
+          ],
+          "bounds": {
+            "min": [
+              12.545538,
+              -12.168356,
+              3.045537
+            ],
+            "max": [
+              15.348816,
+              -12.081835,
+              5.260474
+            ]
+          },
+          "mount": "Attached to front of opaque storefront glazing"
+        },
+        {
+          "name": "ListingCard.011",
+          "position": [
+            13.947176933288574,
+            -12.12509536743164,
+            7.129325866699219
+          ],
+          "bounds": {
+            "min": [
+              12.545538,
+              -12.168356,
+              6.021858
+            ],
+            "max": [
+              15.348816,
+              -12.081835,
+              8.236794
+            ]
+          },
+          "mount": "Attached to front of opaque storefront glazing"
+        }
+      ],
+      "listingCardCount": 12,
+      "sourceHelpers": [
+        "../../../CommercialBlocks/ParcelFit24_20261104/fit_parcels.py",
+        "../../../CommercialBlocks/LowPoly_20261104/KoreanPalette/recolor_existing.py",
+        "../../../CommercialBlocks/LowPoly_20261104/KoreanPalette/SignageReady/retrofit_signage.py",
+        "../../../CommercialBlocks/LowPoly_20261104/KoreanPalette/SignageReady/FrontOnly/build_front_only.py"
+      ],
+      "variant": "ProportionalFit_20261105",
+      "fitScale": 3.4608378870673953,
+      "scaleXYZ": [
+        3.4608378870673953,
+        3.4608378870673953,
+        3.4608378870673953
+      ],
+      "sourceExportBounds": {
+        "min": [
+          -5.49,
+          -3.786971,
+          0.0
+        ],
+        "max": [
+          5.49,
+          3.63,
+          4.43
+        ]
+      },
+      "sourcePivotBottomCenter": [
+        0.0,
+        -0.07848549634218216,
+        0.0
+      ],
+      "sourceFloorHeights": [
+        3.76
+      ],
+      "sourceApprovedBlend": "../../Models/RE_01.blend",
+      "sourceBlendSHA256": "f6bb27d21bea6dc58fd11c6793c1d5cafb442a5a202f5c0d32810eff87bc0765",
+      "rootTransform": "Identity; total renderer bounds bottom-center pivot",
+      "bakedUniformXYZ": true,
+      "geometryRule": "p_new = scale * (p_source - source_bounds_bottom_center); no shape exceptions",
+      "originalDesignProportionsPreserved": true,
+      "topologyUVMaterialsPreserved": true,
+      "topPreview": "../Previews/RE_01_Top48.png",
+      "parcelFitReport": "../QA/RE_01_ProportionalFit.json",
+      "doorLeafBounds": {
+        "Door_Leaf_01": {
+          "min": [
+            -3.235883,
+            -12.723821,
+            0.484517
+          ],
+          "max": [
+            0.121129,
+            -11.988393,
+            9.136612
+          ]
+        },
+        "Door_Leaf_02": {
+          "min": [
+            -0.121129,
+            -12.723821,
+            0.484517
+          ],
+          "max": [
+            3.235883,
+            -11.988393,
+            9.136612
+          ]
+        }
+      }
+    }
+  ],
+  "accessories": []
+}

@@ -37,7 +37,7 @@ public sealed class ServerLedger
     const string NoMoney = "은행 잔액이 부족합니다.";
 
     /// <summary>Requests that change the book or the bag and so are counted and answered with a Ledger (also land.buy, book.new, the library's).</summary>
-    public static bool Counts(string kind) => kind == "land.buy" || kind == "book.new" || Kinds.Contains(kind) || ServerDrops.Kinds.Contains(kind) || ServerLibrary.Kinds.Contains(kind);
+    public static bool Counts(string kind) => kind == "land.buy" || kind == "land.sell" || kind == "book.new" || Kinds.Contains(kind) || ServerDrops.Kinds.Contains(kind) || ServerLibrary.Kinds.Contains(kind);
 
     /// <summary>A speeding fine the bank could not pay: the library's penalty point (ServerLibrary.Penalty, 12.10.6).</summary>
     public Action<string> UnpaidFine;
@@ -369,6 +369,19 @@ public sealed class ServerLedger
         if (free && !wallet.CanAfford(price)) return NoMoney;
         string error = WorldOps.Apply(account, "land.buy", json); // a taken plot fails here, and nothing is charged
         if (error == null && wallet.TrySpend(price, MoneyChangeReason.Purchase)) Store(account);
+        return error;
+    }
+
+    /// <summary>
+    /// land.sell paid on the book: the real-estate agency buys my plot back (LandPlotManager.BuyBackPriceOf). Paid only
+    /// when the shared sale went through. The error, or null.
+    /// </summary>
+    public string SellLand(string account, string json)
+    {
+        var a = JsonUtility.FromJson<SharedOpArgs>(json);
+        long payout = LandPlotManager.BuyBackPriceOf(a?.a);
+        string error = WorldOps.Apply(account, "land.sell", json); // not mine, or a registered business: fails here, nothing paid
+        if (error == null && new LedgerWallet(Book(account)).AddMoney(payout, MoneyChangeReason.Sale)) Store(account);
         return error;
     }
 

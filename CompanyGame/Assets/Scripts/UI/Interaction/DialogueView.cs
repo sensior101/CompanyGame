@@ -142,7 +142,14 @@ public sealed class DialogueView : MonoBehaviour
             string id = option.id;
             button.onClick.AddListener(() => manager.Select(id));
         }
-        choicePanel.sizeDelta = new Vector2(320f, 50f + count * 42f);
+        // Longer choices (e.g. a listing with its address and price) widen the panel instead of being cut.
+        float choiceWidth = 320f;
+        for (int i = 0; i < count; i++)
+        {
+            var label = buttons[i].GetComponentInChildren<TMP_Text>();
+            choiceWidth = Mathf.Max(choiceWidth, label.GetPreferredValues(label.text).x + 48f);
+        }
+        choicePanel.sizeDelta = new Vector2(Mathf.Min(choiceWidth, 560f), 50f + count * 42f);
         choicePanel.gameObject.SetActive(count > 0);
         openedFrame = Time.frameCount;
         keyboardArmed = false;

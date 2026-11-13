@@ -41,7 +41,7 @@ public sealed class ServerWorld : MonoBehaviour
 
     /// <summary>The kinds a client may ask for (12.9). Everything else, veh.* included, is refused.</summary>
     static readonly HashSet<string> Allowed = new HashSet<string>
-        { "prop.reg", "prop.ab", "prop.lock", "prop.dis", "land.buy", "land.reg", "company.add", "sns.post", "sns.like", "report.sub" };
+        { "prop.reg", "prop.ab", "prop.lock", "prop.dis", "land.buy", "land.sell", "land.reg", "company.add", "sns.post", "sns.like", "report.sub" };
 
     public static ServerWorld Instance { get; private set; }
 
@@ -272,6 +272,7 @@ public sealed class ServerWorld : MonoBehaviour
                     : library ? Library.Apply(sender, from, kind, json)
                     : book ? Books.Apply(sender, from, kind, json)
                     : kind == "land.buy" ? Ledger.BuyLand(from, json)
+                    : kind == "land.sell" ? Ledger.SellLand(from, json)
                     : WorldOps.Apply(from, kind, kind == "sns.post" ? WithAuthorName(json, from) : json);
             }
             catch (Exception e) { Debug.LogWarning("[ServerWorld] request '" + kind + "' failed: " + e.Message); error = "요청을 처리하지 못했습니다."; }

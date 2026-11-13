@@ -66,19 +66,57 @@ public class LandPlotManager : GameSystem<LandPlotManager>
     public string GetInitials(string plotId) =>
         states.TryGetValue(plotId, out var s) ? s.initials : null;
 
-    public LandPlotResult TryPurchase(LandPlot plot)
+    public LandPlotResult TryPurchase(LandPlot plot) =>
+        plot == null ? LandPlotResult.NotFound : TryPurchase(plot.Id, plot.Price);
+
+    /// <summary>Buys plot <paramref name="plotId"/> at <paramref name="price"/> from the bank account (the real-estate agency's listings).</summary>
+    public LandPlotResult TryPurchase(string plotId, long price)
     {
-        if (plot == null || string.IsNullOrEmpty(plot.Id)) return LandPlotResult.NotFound;
-        if (GetState(plot.Id) != LandPlotState.Available) return LandPlotResult.WrongState;
+        if (string.IsNullOrEmpty(plotId) || price <= 0) return LandPlotResult.NotFound;
+        if (GetState(plotId) != LandPlotState.Available) return LandPlotResult.WrongState;
 
         var wallet = BankManager.Instance;
         if (wallet == null) return LandPlotResult.NoWallet;
-        if (!wallet.TrySpend(plot.Price, MoneyChangeReason.Purchase)) return LandPlotResult.NotEnoughMoney;
+        if (!wallet.TrySpend(price, MoneyChangeReason.Purchase)) return LandPlotResult.NotEnoughMoney;
 
         // On a server the payment is personal and made now; a lost race is refunded (WorldStateSync).
-        if (SharedWriteGate.TrySend("land.buy", new SharedOpArgs { a = plot.Id })) { pendingPayments[plot.Id] = plot.Price; return LandPlotResult.Ok; }
-        if (SharedWriteGate.SendFailed) { wallet.AddMoney(plot.Price, MoneyChangeReason.Purchase); return LandPlotResult.SendFailed; }
-        ApplyPurchase(plot.Id, GameSession.LocalPlayerId);
+        if (SharedWriteGate.TrySend("land.buy", new SharedOpArgs { a = plotId })) { pendingPayments[plotId] = price; return LandPlotResult.Ok; }
+        if (SharedWriteGate.SendFailed) { wallet.AddMoney(price, MoneyChangeReason.Purchase); return LandPlotResult.SendFailed; }
+        ApplyPurchase(plotId, GameSession.LocalPlayerId);
+        return LandPlotResult.Ok;
+    }
+
+    /// <summary>What the agency pays for plot <paramref name="plotId"/>: <see cref="RealEstateCatalog.BuyBackPercent"/>% of its price.</summary>
+    public static long BuyBackPriceOf(string plotId) => RealEstateCatalog.BuyBackPrice(LandPlot.PriceOf(plotId));
+
+    /// <summary>
+    /// Sells my plot back to the real-estate agency. Only a plot without a business registration can be sold.
+    /// On a server the server pays (land.sell); the bank changes with its Ledger.
+    /// </summary>
+    public LandPlotResult TrySell(string plotId)
+    {
+        string me = GameSession.LocalPlayerId;
+        var check = ApplySell(plotId, me, false);
+        if (check != LandPlotResult.Ok) return check;
+        if (SharedWriteGate.TrySend("land.sell", new SharedOpArgs { a = plotId })) return LandPlotResult.Ok;
+        if (SharedWriteGate.SendFailed) return LandPlotResult.SendFailed;
+        var wallet = BankManager.Instance;
+        if (wallet == null) return LandPlotResult.NoWallet;
+        ApplySell(plotId, me, true);
+        wallet.AddMoney(BuyBackPriceOf(plotId), MoneyChangeReason.Sale);
+        return LandPlotResult.Ok;
+    }
+
+    /// <summary>Validates (commit=false) or applies a sale to the agency: the plot becomes available again. No payment here.</summary>
+    public LandPlotResult ApplySell(string plotId, string actor, bool commit = true)
+    {
+        if (string.IsNullOrEmpty(plotId) || string.IsNullOrEmpty(actor)) return LandPlotResult.NotFound;
+        var state = GetState(plotId);
+        if (state == LandPlotState.Available || GetOwner(plotId) != actor) return LandPlotResult.NotOwner;
+        if (state != LandPlotState.Owned) return LandPlotResult.WrongState; // a registered business stays
+        if (!commit) return LandPlotResult.Ok;
+        states.Remove(plotId);
+        PlotChanged?.Invoke(plotId);
         return LandPlotResult.Ok;
     }
 
