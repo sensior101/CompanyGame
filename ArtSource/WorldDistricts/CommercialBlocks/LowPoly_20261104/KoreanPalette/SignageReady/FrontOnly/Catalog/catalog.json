@@ -1,0 +1,2826 @@
+{
+  "schemaVersion": 1,
+  "items": [
+    {
+      "id": "CB_01",
+      "revision": 7,
+      "variant": "FrontOnly",
+      "styleLabel": "콘크리트 리본 · 수직 코어",
+      "width": 12,
+      "depth": 8,
+      "floorHeights": [
+        4,
+        3.2,
+        3.2
+      ],
+      "roofSlabHeight": 10.4,
+      "triangles": 3200,
+      "sourceTriangles": 21048,
+      "triangleReductionPercent": 84.8,
+      "meshObjects": 30,
+      "exportBounds": {
+        "min": [
+          -6.31,
+          -4.531,
+          -0.12
+        ],
+        "max": [
+          6.37,
+          4.309999,
+          12.455
+        ]
+      },
+      "entryClearWidth": 1.8,
+      "signs": [
+        {
+          "name": "Sign_Main_01",
+          "width": 10.8,
+          "height": 0.8,
+          "depth": 0.065,
+          "position": [
+            0.0,
+            -4.480000019073486,
+            3.5999999046325684
+          ],
+          "rotationEulerDegrees": [
+            0,
+            0,
+            0
+          ],
+          "outwardNormal": [
+            0,
+            -1,
+            0
+          ],
+          "board": "Sign_Main_01_Board",
+          "material": "CB_01_Sign_Main_01_Face",
+          "uv": "UVMap normalized 0..1",
+          "artworkAspectRatio": 13.5,
+          "mountType": "ContinuousFrontFascia",
+          "boardBounds": {
+            "min": [
+              -5.4,
+              -4.5125,
+              3.2
+            ],
+            "max": [
+              5.4,
+              -4.4475,
+              4.0
+            ]
+          },
+          "mountBounds": {
+            "min": [
+              -5.45,
+              -4.531,
+              3.15
+            ],
+            "max": [
+              5.45,
+              -4.195,
+              4.05
+            ]
+          },
+          "replacementGuidance": "One uninterrupted front board. Replace only this board material with a single wide artwork image. Keep the anchor transform and size. Front faces local -Y; width is local X and height is local Z."
+        }
+      ],
+      "opaqueGlazing": true,
+      "externalTextures": false,
+      "blend": "../Models/CB_01_FrontOnly.blend",
+      "fbx": "../Exports/CB_01_FrontOnly.fbx",
+      "glb": "../Exports/CB_01_FrontOnly.glb",
+      "preview": "../Previews/CB_01_FrontOnly.png",
+      "sourceDesign": "../../../../../Designs/01_concrete_core.py",
+      "sourceDesignSHA256": "3b6717b57bcdba9cf92bc6725411dda51db5c9481545159bbc3137667292a44a",
+      "materials": [
+        {
+          "name": "CB_01_Sign_Backing",
+          "color": [
+            0.05448027700185776,
+            0.061246052384376526,
+            0.05612849071621895,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_01_Sign_Main_01_Face",
+          "color": [
+            0.019382361322641373,
+            0.023153366521000862,
+            0.022173885256052017,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_01_Sign_Trim",
+          "color": [
+            0.18447498977184296,
+            0.1946178376674652,
+            0.18116424977779388,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_01_floor",
+          "color": [
+            0.22322796285152435,
+            0.21952620148658752,
+            0.1946178376674652,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_01_frame",
+          "color": [
+            0.040915198624134064,
+            0.045186202973127365,
+            0.045186202973127365,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_01_glass",
+          "color": [
+            0.04817182570695877,
+            0.06847816705703735,
+            0.0802198201417923,
+            1.0
+          ],
+          "roughness": 0.7200000286102295,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_01_leaf_light",
+          "color": [
+            0.13013647496700287,
+            0.16513219475746155,
+            0.06480326503515244,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_01_metal",
+          "color": [
+            0.040915198624134064,
+            0.045186202973127365,
+            0.045186202973127365,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_01_roof",
+          "color": [
+            0.16826939582824707,
+            0.18116424977779388,
+            0.177888423204422,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_01_steel",
+          "color": [
+            0.2541520893573761,
+            0.2622506618499756,
+            0.2462013214826584,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_01_store_glass",
+          "color": [
+            0.0802198201417923,
+            0.10461648553609848,
+            0.10224173218011856,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_01_trim",
+          "color": [
+            0.48514994978904724,
+            0.4677838087081909,
+            0.41788506507873535,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_01_wall",
+          "color": [
+            0.4019777774810791,
+            0.38642942905426025,
+            0.34670406579971313,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_01_window_glint",
+          "color": [
+            0.13563333451747894,
+            0.16513219475746155,
+            0.16202937066555023,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_01_wood",
+          "color": [
+            0.13013647496700287,
+            0.0802198201417923,
+            0.04666508734226227,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        }
+      ],
+      "paletteLabel": "콘크리트 회색 · 차콜 코어",
+      "sourceApprovedBlend": "../../Models/CB_01_SignageReady.blend",
+      "signageModified": true,
+      "nonSignageGeometryUnchanged": true,
+      "previousRevisionTriangles": 3560,
+      "originalDesignTriangles": 21048,
+      "frontPreview": "../Previews/CB_01_FrontOnly_Front.png",
+      "nonSignageFingerprintReport": "../QA/CB_01_NonSignageFingerprint.json",
+      "attachedBlade": false,
+      "attachedSideSigns": false,
+      "frontSignCount": 1
+    },
+    {
+      "id": "CB_02",
+      "revision": 7,
+      "variant": "FrontOnly",
+      "styleLabel": "아이보리 프레임 · 오크 패널",
+      "width": 12,
+      "depth": 8,
+      "floorHeights": [
+        4,
+        3.2,
+        3.2
+      ],
+      "roofSlabHeight": 10.4,
+      "triangles": 3668,
+      "sourceTriangles": 23040,
+      "triangleReductionPercent": 84.08,
+      "meshObjects": 30,
+      "exportBounds": {
+        "min": [
+          -6.31,
+          -4.531,
+          -0.12
+        ],
+        "max": [
+          6.345,
+          4.309999,
+          11.885
+        ]
+      },
+      "entryClearWidth": 1.8,
+      "signs": [
+        {
+          "name": "Sign_Main_01",
+          "width": 10.8,
+          "height": 0.8,
+          "depth": 0.065,
+          "position": [
+            0.0,
+            -4.480000019073486,
+            3.5999999046325684
+          ],
+          "rotationEulerDegrees": [
+            0,
+            0,
+            0
+          ],
+          "outwardNormal": [
+            0,
+            -1,
+            0
+          ],
+          "board": "Sign_Main_01_Board",
+          "material": "CB_02_Sign_Main_01_Face",
+          "uv": "UVMap normalized 0..1",
+          "artworkAspectRatio": 13.5,
+          "mountType": "ContinuousFrontFascia",
+          "boardBounds": {
+            "min": [
+              -5.4,
+              -4.5125,
+              3.2
+            ],
+            "max": [
+              5.4,
+              -4.4475,
+              4.0
+            ]
+          },
+          "mountBounds": {
+            "min": [
+              -5.45,
+              -4.531,
+              3.15
+            ],
+            "max": [
+              5.45,
+              -4.195,
+              4.05
+            ]
+          },
+          "replacementGuidance": "One uninterrupted front board. Replace only this board material with a single wide artwork image. Keep the anchor transform and size. Front faces local -Y; width is local X and height is local Z."
+        }
+      ],
+      "opaqueGlazing": true,
+      "externalTextures": false,
+      "blend": "../Models/CB_02_FrontOnly.blend",
+      "fbx": "../Exports/CB_02_FrontOnly.fbx",
+      "glb": "../Exports/CB_02_FrontOnly.glb",
+      "preview": "../Previews/CB_02_FrontOnly.png",
+      "sourceDesign": "../../../../../Designs/02_ivory_oak.py",
+      "sourceDesignSHA256": "a92e1efc74057e8ee372db7e5e3f12bb05219252aa52fd5f86d7b2e566c222aa",
+      "materials": [
+        {
+          "name": "CB_02_Sign_Backing",
+          "color": [
+            0.05448027700185776,
+            0.061246052384376526,
+            0.05612849071621895,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_02_Sign_Main_01_Face",
+          "color": [
+            0.019382361322641373,
+            0.023153366521000862,
+            0.022173885256052017,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_02_Sign_Trim",
+          "color": [
+            0.18447498977184296,
+            0.1946178376674652,
+            0.18116424977779388,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_02_floor",
+          "color": [
+            0.22322796285152435,
+            0.21952620148658752,
+            0.1946178376674652,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_02_frame",
+          "color": [
+            0.03433980792760849,
+            0.03071344457566738,
+            0.027320891618728638,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_02_glass",
+          "color": [
+            0.04817182570695877,
+            0.061246052384376526,
+            0.06480326503515244,
+            1.0
+          ],
+          "roughness": 0.7200000286102295,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_02_leaf_light",
+          "color": [
+            0.13013647496700287,
+            0.16513219475746155,
+            0.06480326503515244,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_02_metal",
+          "color": [
+            0.03433980792760849,
+            0.03071344457566738,
+            0.027320891618728638,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_02_roof",
+          "color": [
+            0.16826939582824707,
+            0.18116424977779388,
+            0.177888423204422,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_02_steel",
+          "color": [
+            0.2541520893573761,
+            0.2622506618499756,
+            0.2462013214826584,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_02_store_glass",
+          "color": [
+            0.0802198201417923,
+            0.10461648553609848,
+            0.10224173218011856,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_02_trim",
+          "color": [
+            0.6444796919822693,
+            0.6172065734863281,
+            0.5457244515419006,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_02_wall",
+          "color": [
+            0.6038273572921753,
+            0.577580451965332,
+            0.5028864741325378,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_02_window_glint",
+          "color": [
+            0.13563333451747894,
+            0.16513219475746155,
+            0.16202937066555023,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_02_wood",
+          "color": [
+            0.09989872574806213,
+            0.05126945674419403,
+            0.026241222396492958,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        }
+      ],
+      "paletteLabel": "오프화이트 · 짙은 월넛",
+      "sourceApprovedBlend": "../../Models/CB_02_SignageReady.blend",
+      "signageModified": true,
+      "nonSignageGeometryUnchanged": true,
+      "previousRevisionTriangles": 4028,
+      "originalDesignTriangles": 23040,
+      "frontPreview": "../Previews/CB_02_FrontOnly_Front.png",
+      "nonSignageFingerprintReport": "../QA/CB_02_NonSignageFingerprint.json",
+      "attachedBlade": false,
+      "attachedSideSigns": false,
+      "frontSignCount": 1
+    },
+    {
+      "id": "CB_03",
+      "revision": 7,
+      "variant": "FrontOnly",
+      "styleLabel": "적벽돌 로프트 · 루프 퍼골라",
+      "width": 12,
+      "depth": 8,
+      "floorHeights": [
+        4,
+        3.2,
+        3.2
+      ],
+      "roofSlabHeight": 10.4,
+      "triangles": 3616,
+      "sourceTriangles": 22920,
+      "triangleReductionPercent": 84.22,
+      "meshObjects": 30,
+      "exportBounds": {
+        "min": [
+          -6.31,
+          -4.531,
+          -0.12
+        ],
+        "max": [
+          6.31,
+          4.309999,
+          12.46
+        ]
+      },
+      "entryClearWidth": 1.8,
+      "signs": [
+        {
+          "name": "Sign_Main_01",
+          "width": 10.8,
+          "height": 0.8,
+          "depth": 0.065,
+          "position": [
+            0.0,
+            -4.480000019073486,
+            3.5999999046325684
+          ],
+          "rotationEulerDegrees": [
+            0,
+            0,
+            0
+          ],
+          "outwardNormal": [
+            0,
+            -1,
+            0
+          ],
+          "board": "Sign_Main_01_Board",
+          "material": "CB_03_Sign_Main_01_Face",
+          "uv": "UVMap normalized 0..1",
+          "artworkAspectRatio": 13.5,
+          "mountType": "ContinuousFrontFascia",
+          "boardBounds": {
+            "min": [
+              -5.4,
+              -4.5125,
+              3.2
+            ],
+            "max": [
+              5.4,
+              -4.4475,
+              4.0
+            ]
+          },
+          "mountBounds": {
+            "min": [
+              -5.45,
+              -4.531,
+              3.15
+            ],
+            "max": [
+              5.45,
+              -4.195,
+              4.05
+            ]
+          },
+          "replacementGuidance": "One uninterrupted front board. Replace only this board material with a single wide artwork image. Keep the anchor transform and size. Front faces local -Y; width is local X and height is local Z."
+        }
+      ],
+      "opaqueGlazing": true,
+      "externalTextures": false,
+      "blend": "../Models/CB_03_FrontOnly.blend",
+      "fbx": "../Exports/CB_03_FrontOnly.fbx",
+      "glb": "../Exports/CB_03_FrontOnly.glb",
+      "preview": "../Previews/CB_03_FrontOnly.png",
+      "sourceDesign": "../../../../../Designs/03_brick_loft.py",
+      "sourceDesignSHA256": "6b5b6c9562171346158e6741739c33a841c6cd3afcd08cf4ce499abdd7cbe2a5",
+      "materials": [
+        {
+          "name": "CB_03_Sign_Backing",
+          "color": [
+            0.05448027700185776,
+            0.061246052384376526,
+            0.05612849071621895,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_03_Sign_Main_01_Face",
+          "color": [
+            0.019382361322641373,
+            0.023153366521000862,
+            0.022173885256052017,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_03_Sign_Trim",
+          "color": [
+            0.18447498977184296,
+            0.1946178376674652,
+            0.18116424977779388,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_03_floor",
+          "color": [
+            0.22322796285152435,
+            0.21952620148658752,
+            0.1946178376674652,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_03_frame",
+          "color": [
+            0.022173885256052017,
+            0.02518685907125473,
+            0.026241222396492958,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_03_glass",
+          "color": [
+            0.03560131415724754,
+            0.05448027700185776,
+            0.06480326503515244,
+            1.0
+          ],
+          "roughness": 0.7200000286102295,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_03_leaf_light",
+          "color": [
+            0.13013647496700287,
+            0.16513219475746155,
+            0.06480326503515244,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_03_metal",
+          "color": [
+            0.022173885256052017,
+            0.02518685907125473,
+            0.026241222396492958,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_03_roof",
+          "color": [
+            0.16826939582824707,
+            0.18116424977779388,
+            0.177888423204422,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_03_steel",
+          "color": [
+            0.2541520893573761,
+            0.2622506618499756,
+            0.2462013214826584,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_03_store_glass",
+          "color": [
+            0.0802198201417923,
+            0.10461648553609848,
+            0.10224173218011856,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_03_trim",
+          "color": [
+            0.366252601146698,
+            0.3277781009674072,
+            0.2622506618499756,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_03_wall",
+          "color": [
+            0.1384316086769104,
+            0.05126945674419403,
+            0.03688944876194,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_03_window_glint",
+          "color": [
+            0.13563333451747894,
+            0.16513219475746155,
+            0.16202937066555023,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_03_wood",
+          "color": [
+            0.09989872574806213,
+            0.05612849071621895,
+            0.03189603239297867,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        }
+      ],
+      "paletteLabel": "짙은 적갈색 벽돌 · 철제 프레임",
+      "sourceApprovedBlend": "../../Models/CB_03_SignageReady.blend",
+      "signageModified": true,
+      "nonSignageGeometryUnchanged": true,
+      "previousRevisionTriangles": 3976,
+      "originalDesignTriangles": 22920,
+      "frontPreview": "../Previews/CB_03_FrontOnly_Front.png",
+      "nonSignageFingerprintReport": "../QA/CB_03_NonSignageFingerprint.json",
+      "attachedBlade": false,
+      "attachedSideSigns": false,
+      "frontSignCount": 1
+    },
+    {
+      "id": "CB_04",
+      "revision": 7,
+      "variant": "FrontOnly",
+      "styleLabel": "라운드 코너 · 화이트 리본",
+      "width": 12,
+      "depth": 8,
+      "floorHeights": [
+        4,
+        3.2,
+        3.2
+      ],
+      "roofSlabHeight": 10.4,
+      "triangles": 4728,
+      "sourceTriangles": 22072,
+      "triangleReductionPercent": 78.58,
+      "meshObjects": 30,
+      "exportBounds": {
+        "min": [
+          -6.31,
+          -4.531,
+          -0.12
+        ],
+        "max": [
+          6.28,
+          4.309999,
+          12.07
+        ]
+      },
+      "entryClearWidth": 1.8,
+      "signs": [
+        {
+          "name": "Sign_Main_01",
+          "width": 9.2,
+          "height": 0.8,
+          "depth": 0.065,
+          "position": [
+            -1.100000023841858,
+            -4.480000019073486,
+            3.5999999046325684
+          ],
+          "rotationEulerDegrees": [
+            0,
+            0,
+            0
+          ],
+          "outwardNormal": [
+            0,
+            -1,
+            0
+          ],
+          "board": "Sign_Main_01_Board",
+          "material": "CB_04_Sign_Main_01_Face",
+          "uv": "UVMap normalized 0..1",
+          "artworkAspectRatio": 11.499999999999998,
+          "mountType": "ContinuousFrontFascia",
+          "boardBounds": {
+            "min": [
+              -5.7,
+              -4.5125,
+              3.2
+            ],
+            "max": [
+              3.5,
+              -4.4475,
+              4.0
+            ]
+          },
+          "mountBounds": {
+            "min": [
+              -5.75,
+              -4.531,
+              3.15
+            ],
+            "max": [
+              3.55,
+              -4.195,
+              4.05
+            ]
+          },
+          "replacementGuidance": "One uninterrupted front board. Replace only this board material with a single wide artwork image. Keep the anchor transform and size. Front faces local -Y; width is local X and height is local Z."
+        }
+      ],
+      "opaqueGlazing": true,
+      "externalTextures": false,
+      "blend": "../Models/CB_04_FrontOnly.blend",
+      "fbx": "../Exports/CB_04_FrontOnly.fbx",
+      "glb": "../Exports/CB_04_FrontOnly.glb",
+      "preview": "../Previews/CB_04_FrontOnly.png",
+      "sourceDesign": "../../../../../Designs/04_rounded_ribbon.py",
+      "sourceDesignSHA256": "3abf5db09b494d40bc3657d1eb90e3d16472b1c04c11fc6a33a2a1110c859498",
+      "materials": [
+        {
+          "name": "CB_04_Sign_Backing",
+          "color": [
+            0.05448027700185776,
+            0.061246052384376526,
+            0.05612849071621895,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_04_Sign_Main_01_Face",
+          "color": [
+            0.019382361322641373,
+            0.023153366521000862,
+            0.022173885256052017,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_04_Sign_Trim",
+          "color": [
+            0.18447498977184296,
+            0.1946178376674652,
+            0.18116424977779388,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_04_floor",
+          "color": [
+            0.22322796285152435,
+            0.21952620148658752,
+            0.1946178376674652,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_04_frame",
+          "color": [
+            0.039546236395835876,
+            0.04373503103852272,
+            0.045186202973127365,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_04_glass",
+          "color": [
+            0.06480326503515244,
+            0.08650045841932297,
+            0.09989872574806213,
+            1.0
+          ],
+          "roughness": 0.7200000286102295,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_04_leaf",
+          "color": [
+            0.06480326503515244,
+            0.09530746936798096,
+            0.03560131415724754,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_04_leaf_light",
+          "color": [
+            0.13013647496700287,
+            0.16513219475746155,
+            0.06480326503515244,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_04_metal",
+          "color": [
+            0.039546236395835876,
+            0.04373503103852272,
+            0.045186202973127365,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_04_roof",
+          "color": [
+            0.16826939582824707,
+            0.18116424977779388,
+            0.177888423204422,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_04_steel",
+          "color": [
+            0.2541520893573761,
+            0.2622506618499756,
+            0.2462013214826584,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_04_store_glass",
+          "color": [
+            0.0802198201417923,
+            0.10461648553609848,
+            0.10224173218011856,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_04_trim",
+          "color": [
+            0.6583748459815979,
+            0.637596845626831,
+            0.577580451965332,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_04_wall",
+          "color": [
+            0.6307571530342102,
+            0.6172065734863281,
+            0.5647115111351013,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_04_window_glint",
+          "color": [
+            0.13563333451747894,
+            0.16513219475746155,
+            0.16202937066555023,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_04_wood",
+          "color": [
+            0.14702726900577545,
+            0.09084171056747437,
+            0.052860647439956665,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        }
+      ],
+      "paletteLabel": "중성 화이트 · 흑연색 프레임",
+      "sourceApprovedBlend": "../../Models/CB_04_SignageReady.blend",
+      "signageModified": true,
+      "nonSignageGeometryUnchanged": true,
+      "previousRevisionTriangles": 5088,
+      "originalDesignTriangles": 22072,
+      "frontPreview": "../Previews/CB_04_FrontOnly_Front.png",
+      "nonSignageFingerprintReport": "../QA/CB_04_NonSignageFingerprint.json",
+      "attachedBlade": false,
+      "attachedSideSigns": false,
+      "frontSignCount": 1
+    },
+    {
+      "id": "CB_05",
+      "revision": 7,
+      "variant": "FrontOnly",
+      "styleLabel": "차콜 캐노피 · 깊은 테라스",
+      "width": 12,
+      "depth": 8,
+      "floorHeights": [
+        4,
+        3.2,
+        3.2
+      ],
+      "roofSlabHeight": 10.4,
+      "triangles": 3480,
+      "sourceTriangles": 19664,
+      "triangleReductionPercent": 82.3,
+      "meshObjects": 30,
+      "exportBounds": {
+        "min": [
+          -6.340001,
+          -4.531,
+          -0.12
+        ],
+        "max": [
+          6.31,
+          4.309999,
+          12.28
+        ]
+      },
+      "entryClearWidth": 1.8,
+      "signs": [
+        {
+          "name": "Sign_Main_01",
+          "width": 10.8,
+          "height": 0.8,
+          "depth": 0.065,
+          "position": [
+            0.0,
+            -4.480000019073486,
+            3.5999999046325684
+          ],
+          "rotationEulerDegrees": [
+            0,
+            0,
+            0
+          ],
+          "outwardNormal": [
+            0,
+            -1,
+            0
+          ],
+          "board": "Sign_Main_01_Board",
+          "material": "CB_05_Sign_Main_01_Face",
+          "uv": "UVMap normalized 0..1",
+          "artworkAspectRatio": 13.5,
+          "mountType": "ContinuousFrontFascia",
+          "boardBounds": {
+            "min": [
+              -5.4,
+              -4.5125,
+              3.2
+            ],
+            "max": [
+              5.4,
+              -4.4475,
+              4.0
+            ]
+          },
+          "mountBounds": {
+            "min": [
+              -5.45,
+              -4.531,
+              3.15
+            ],
+            "max": [
+              5.45,
+              -4.195,
+              4.05
+            ]
+          },
+          "replacementGuidance": "One uninterrupted front board. Replace only this board material with a single wide artwork image. Keep the anchor transform and size. Front faces local -Y; width is local X and height is local Z."
+        }
+      ],
+      "opaqueGlazing": true,
+      "externalTextures": false,
+      "blend": "../Models/CB_05_FrontOnly.blend",
+      "fbx": "../Exports/CB_05_FrontOnly.fbx",
+      "glb": "../Exports/CB_05_FrontOnly.glb",
+      "preview": "../Previews/CB_05_FrontOnly.png",
+      "sourceDesign": "../../../../../Designs/05_charcoal_terrace.py",
+      "sourceDesignSHA256": "46621c2a1474fc66ba82a8797582a5762b442b43976293aa25d63aabade12677",
+      "materials": [
+        {
+          "name": "CB_05_Sign_Backing",
+          "color": [
+            0.05448027700185776,
+            0.061246052384376526,
+            0.05612849071621895,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_05_Sign_Main_01_Face",
+          "color": [
+            0.019382361322641373,
+            0.023153366521000862,
+            0.022173885256052017,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_05_Sign_Trim",
+          "color": [
+            0.18447498977184296,
+            0.1946178376674652,
+            0.18116424977779388,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_05_floor",
+          "color": [
+            0.22322796285152435,
+            0.21952620148658752,
+            0.1946178376674652,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_05_frame",
+          "color": [
+            0.02955683507025242,
+            0.03433980792760849,
+            0.0382043719291687,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_05_glass",
+          "color": [
+            0.04666508734226227,
+            0.06480326503515244,
+            0.07227185368537903,
+            1.0
+          ],
+          "roughness": 0.7200000286102295,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_05_leaf",
+          "color": [
+            0.06480326503515244,
+            0.09530746936798096,
+            0.03560131415724754,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_05_leaf_light",
+          "color": [
+            0.13013647496700287,
+            0.16513219475746155,
+            0.06480326503515244,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_05_metal",
+          "color": [
+            0.02955683507025242,
+            0.03433980792760849,
+            0.0382043719291687,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_05_roof",
+          "color": [
+            0.16826939582824707,
+            0.18116424977779388,
+            0.177888423204422,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_05_steel",
+          "color": [
+            0.2541520893573761,
+            0.2622506618499756,
+            0.2462013214826584,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_05_store_glass",
+          "color": [
+            0.0802198201417923,
+            0.10461648553609848,
+            0.10224173218011856,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_05_trim",
+          "color": [
+            0.17464740574359894,
+            0.18116424977779388,
+            0.17144110798835754,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_05_wall",
+          "color": [
+            0.03688944876194,
+            0.04373503103852272,
+            0.04817182570695877,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_05_window_glint",
+          "color": [
+            0.13563333451747894,
+            0.16513219475746155,
+            0.16202937066555023,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_05_wood",
+          "color": [
+            0.16202937066555023,
+            0.0802198201417923,
+            0.0423114113509655,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        }
+      ],
+      "paletteLabel": "짙은 차콜 · 우드 테라스",
+      "sourceApprovedBlend": "../../Models/CB_05_SignageReady.blend",
+      "signageModified": true,
+      "nonSignageGeometryUnchanged": true,
+      "previousRevisionTriangles": 3840,
+      "originalDesignTriangles": 19664,
+      "frontPreview": "../Previews/CB_05_FrontOnly_Front.png",
+      "nonSignageFingerprintReport": "../QA/CB_05_NonSignageFingerprint.json",
+      "attachedBlade": false,
+      "attachedSideSigns": false,
+      "frontSignCount": 1
+    },
+    {
+      "id": "CB_06",
+      "revision": 7,
+      "variant": "FrontOnly",
+      "styleLabel": "샌드스톤 박스 · 루프 가든",
+      "width": 12,
+      "depth": 8,
+      "floorHeights": [
+        4,
+        3.2,
+        3.2
+      ],
+      "roofSlabHeight": 10.4,
+      "triangles": 4544,
+      "sourceTriangles": 30164,
+      "triangleReductionPercent": 84.94,
+      "meshObjects": 30,
+      "exportBounds": {
+        "min": [
+          -6.31,
+          -4.531,
+          -0.12
+        ],
+        "max": [
+          6.41,
+          4.309999,
+          12.245001
+        ]
+      },
+      "entryClearWidth": 1.8,
+      "signs": [
+        {
+          "name": "Sign_Main_01",
+          "width": 10.8,
+          "height": 0.8,
+          "depth": 0.065,
+          "position": [
+            0.0,
+            -4.480000019073486,
+            3.5999999046325684
+          ],
+          "rotationEulerDegrees": [
+            0,
+            0,
+            0
+          ],
+          "outwardNormal": [
+            0,
+            -1,
+            0
+          ],
+          "board": "Sign_Main_01_Board",
+          "material": "CB_06_Sign_Main_01_Face",
+          "uv": "UVMap normalized 0..1",
+          "artworkAspectRatio": 13.5,
+          "mountType": "ContinuousFrontFascia",
+          "boardBounds": {
+            "min": [
+              -5.4,
+              -4.5125,
+              3.2
+            ],
+            "max": [
+              5.4,
+              -4.4475,
+              4.0
+            ]
+          },
+          "mountBounds": {
+            "min": [
+              -5.45,
+              -4.531,
+              3.15
+            ],
+            "max": [
+              5.45,
+              -4.195,
+              4.05
+            ]
+          },
+          "replacementGuidance": "One uninterrupted front board. Replace only this board material with a single wide artwork image. Keep the anchor transform and size. Front faces local -Y; width is local X and height is local Z."
+        }
+      ],
+      "opaqueGlazing": true,
+      "externalTextures": false,
+      "blend": "../Models/CB_06_FrontOnly.blend",
+      "fbx": "../Exports/CB_06_FrontOnly.fbx",
+      "glb": "../Exports/CB_06_FrontOnly.glb",
+      "preview": "../Previews/CB_06_FrontOnly.png",
+      "sourceDesign": "../../../../../Designs/06_sandstone_garden.py",
+      "sourceDesignSHA256": "df0d7ef5454af7ee408d937de0e2b9717c9acd803a99b7e2c294bd5b60da84ef",
+      "materials": [
+        {
+          "name": "CB_06_Sign_Backing",
+          "color": [
+            0.05448027700185776,
+            0.061246052384376526,
+            0.05612849071621895,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_06_Sign_Main_01_Face",
+          "color": [
+            0.019382361322641373,
+            0.023153366521000862,
+            0.022173885256052017,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_06_Sign_Trim",
+          "color": [
+            0.18447498977184296,
+            0.1946178376674652,
+            0.18116424977779388,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_06_floor",
+          "color": [
+            0.22322796285152435,
+            0.21952620148658752,
+            0.1946178376674652,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_06_frame",
+          "color": [
+            0.052860647439956665,
+            0.052860647439956665,
+            0.04817182570695877,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_06_glass",
+          "color": [
+            0.05448027700185776,
+            0.07036009430885315,
+            0.07036009430885315,
+            1.0
+          ],
+          "roughness": 0.7200000286102295,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_06_leaf",
+          "color": [
+            0.06480326503515244,
+            0.09530746936798096,
+            0.03560131415724754,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_06_leaf_light",
+          "color": [
+            0.13013647496700287,
+            0.16513219475746155,
+            0.06480326503515244,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_06_metal",
+          "color": [
+            0.052860647439956665,
+            0.052860647439956665,
+            0.04817182570695877,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_06_roof",
+          "color": [
+            0.16826939582824707,
+            0.18116424977779388,
+            0.177888423204422,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_06_steel",
+          "color": [
+            0.2541520893573761,
+            0.2622506618499756,
+            0.2462013214826584,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_06_store_glass",
+          "color": [
+            0.0802198201417923,
+            0.10461648553609848,
+            0.10224173218011856,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_06_trim",
+          "color": [
+            0.5028864741325378,
+            0.44520118832588196,
+            0.35153260827064514,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_06_wall",
+          "color": [
+            0.43965718150138855,
+            0.35640013217926025,
+            0.2581828534603119,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_06_window_glint",
+          "color": [
+            0.13563333451747894,
+            0.16513219475746155,
+            0.16202937066555023,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_06_wood",
+          "color": [
+            0.13286831974983215,
+            0.0802198201417923,
+            0.0423114113509655,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        }
+      ],
+      "paletteLabel": "샌드 베이지 · 회색 창틀",
+      "sourceApprovedBlend": "../../Models/CB_06_SignageReady.blend",
+      "signageModified": true,
+      "nonSignageGeometryUnchanged": true,
+      "previousRevisionTriangles": 4904,
+      "originalDesignTriangles": 30164,
+      "frontPreview": "../Previews/CB_06_FrontOnly_Front.png",
+      "nonSignageFingerprintReport": "../QA/CB_06_NonSignageFingerprint.json",
+      "attachedBlade": false,
+      "attachedSideSigns": false,
+      "frontSignCount": 1
+    },
+    {
+      "id": "CB_07",
+      "revision": 7,
+      "variant": "FrontOnly",
+      "styleLabel": "아이보리 포털 · 엇갈린 테라스",
+      "width": 12,
+      "depth": 8,
+      "floorHeights": [
+        4,
+        3.2,
+        3.2
+      ],
+      "roofSlabHeight": 10.4,
+      "triangles": 3988,
+      "sourceTriangles": 23712,
+      "triangleReductionPercent": 83.18,
+      "meshObjects": 30,
+      "exportBounds": {
+        "min": [
+          -6.31,
+          -4.531,
+          -0.12
+        ],
+        "max": [
+          6.309999,
+          4.309999,
+          12.125
+        ]
+      },
+      "entryClearWidth": 1.8,
+      "signs": [
+        {
+          "name": "Sign_Main_01",
+          "width": 10.8,
+          "height": 0.8,
+          "depth": 0.065,
+          "position": [
+            0.0,
+            -4.480000019073486,
+            3.5999999046325684
+          ],
+          "rotationEulerDegrees": [
+            0,
+            0,
+            0
+          ],
+          "outwardNormal": [
+            0,
+            -1,
+            0
+          ],
+          "board": "Sign_Main_01_Board",
+          "material": "CB_07_Sign_Main_01_Face",
+          "uv": "UVMap normalized 0..1",
+          "artworkAspectRatio": 13.5,
+          "mountType": "ContinuousFrontFascia",
+          "boardBounds": {
+            "min": [
+              -5.4,
+              -4.5125,
+              3.2
+            ],
+            "max": [
+              5.4,
+              -4.4475,
+              4.0
+            ]
+          },
+          "mountBounds": {
+            "min": [
+              -5.45,
+              -4.531,
+              3.15
+            ],
+            "max": [
+              5.45,
+              -4.195,
+              4.05
+            ]
+          },
+          "replacementGuidance": "One uninterrupted front board. Replace only this board material with a single wide artwork image. Keep the anchor transform and size. Front faces local -Y; width is local X and height is local Z."
+        }
+      ],
+      "opaqueGlazing": true,
+      "externalTextures": false,
+      "blend": "../Models/CB_07_FrontOnly.blend",
+      "fbx": "../Exports/CB_07_FrontOnly.fbx",
+      "glb": "../Exports/CB_07_FrontOnly.glb",
+      "preview": "../Previews/CB_07_FrontOnly.png",
+      "sourceDesign": "../../../../../Designs/07_ivory_portals.py",
+      "sourceDesignSHA256": "c70556767c8ae3ea42f858188e5c878072c2fe53fb98e0fa3808f2b5a10cbae7",
+      "materials": [
+        {
+          "name": "CB_07_Sign_Backing",
+          "color": [
+            0.05448027700185776,
+            0.061246052384376526,
+            0.05612849071621895,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_07_Sign_Main_01_Face",
+          "color": [
+            0.019382361322641373,
+            0.023153366521000862,
+            0.022173885256052017,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_07_Sign_Trim",
+          "color": [
+            0.18447498977184296,
+            0.1946178376674652,
+            0.18116424977779388,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_07_floor",
+          "color": [
+            0.22322796285152435,
+            0.21952620148658752,
+            0.1946178376674652,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_07_frame",
+          "color": [
+            0.03688944876194,
+            0.039546236395835876,
+            0.0382043719291687,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_07_glass",
+          "color": [
+            0.05448027700185776,
+            0.07036009430885315,
+            0.07618538290262222,
+            1.0
+          ],
+          "roughness": 0.7200000286102295,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_07_leaf",
+          "color": [
+            0.06480326503515244,
+            0.09530746936798096,
+            0.03560131415724754,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_07_leaf_light",
+          "color": [
+            0.13013647496700287,
+            0.16513219475746155,
+            0.06480326503515244,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_07_metal",
+          "color": [
+            0.03688944876194,
+            0.039546236395835876,
+            0.0382043719291687,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_07_roof",
+          "color": [
+            0.16826939582824707,
+            0.18116424977779388,
+            0.177888423204422,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_07_steel",
+          "color": [
+            0.2541520893573761,
+            0.2622506618499756,
+            0.2462013214826584,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_07_store_glass",
+          "color": [
+            0.0802198201417923,
+            0.10461648553609848,
+            0.10224173218011856,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_07_trim",
+          "color": [
+            0.637596845626831,
+            0.5972017645835876,
+            0.5028864741325378,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_07_wall",
+          "color": [
+            0.6172065734863281,
+            0.5840784311294556,
+            0.5028864741325378,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_07_window_glint",
+          "color": [
+            0.13563333451747894,
+            0.16513219475746155,
+            0.16202937066555023,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_07_wood",
+          "color": [
+            0.1384316086769104,
+            0.0802198201417923,
+            0.045186202973127365,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        }
+      ],
+      "paletteLabel": "밝은 아이보리 · 차콜",
+      "sourceApprovedBlend": "../../Models/CB_07_SignageReady.blend",
+      "signageModified": true,
+      "nonSignageGeometryUnchanged": true,
+      "previousRevisionTriangles": 4348,
+      "originalDesignTriangles": 23712,
+      "frontPreview": "../Previews/CB_07_FrontOnly_Front.png",
+      "nonSignageFingerprintReport": "../QA/CB_07_NonSignageFingerprint.json",
+      "attachedBlade": false,
+      "attachedSideSigns": false,
+      "frontSignCount": 1
+    },
+    {
+      "id": "CB_08",
+      "revision": 7,
+      "variant": "FrontOnly",
+      "styleLabel": "그레이 조적 · 스텝드 로지아",
+      "width": 12,
+      "depth": 8,
+      "floorHeights": [
+        4,
+        3.2,
+        3.2
+      ],
+      "roofSlabHeight": 10.4,
+      "triangles": 3708,
+      "sourceTriangles": 22256,
+      "triangleReductionPercent": 83.34,
+      "meshObjects": 30,
+      "exportBounds": {
+        "min": [
+          -6.31,
+          -4.62,
+          -0.12
+        ],
+        "max": [
+          6.309999,
+          4.309999,
+          12.475
+        ]
+      },
+      "entryClearWidth": 1.8,
+      "signs": [
+        {
+          "name": "Sign_Main_01",
+          "width": 10.8,
+          "height": 0.8,
+          "depth": 0.065,
+          "position": [
+            0.0,
+            -4.480000019073486,
+            3.5999999046325684
+          ],
+          "rotationEulerDegrees": [
+            0,
+            0,
+            0
+          ],
+          "outwardNormal": [
+            0,
+            -1,
+            0
+          ],
+          "board": "Sign_Main_01_Board",
+          "material": "CB_08_Sign_Main_01_Face",
+          "uv": "UVMap normalized 0..1",
+          "artworkAspectRatio": 13.5,
+          "mountType": "ContinuousFrontFascia",
+          "boardBounds": {
+            "min": [
+              -5.4,
+              -4.5125,
+              3.2
+            ],
+            "max": [
+              5.4,
+              -4.4475,
+              4.0
+            ]
+          },
+          "mountBounds": {
+            "min": [
+              -5.45,
+              -4.531,
+              3.15
+            ],
+            "max": [
+              5.45,
+              -4.195,
+              4.05
+            ]
+          },
+          "replacementGuidance": "One uninterrupted front board. Replace only this board material with a single wide artwork image. Keep the anchor transform and size. Front faces local -Y; width is local X and height is local Z."
+        }
+      ],
+      "opaqueGlazing": true,
+      "externalTextures": false,
+      "blend": "../Models/CB_08_FrontOnly.blend",
+      "fbx": "../Exports/CB_08_FrontOnly.fbx",
+      "glb": "../Exports/CB_08_FrontOnly.glb",
+      "preview": "../Previews/CB_08_FrontOnly.png",
+      "sourceDesign": "../../../../../Designs/08_stepped_masonry.py",
+      "sourceDesignSHA256": "cf08fb5c0c1baf3fab1c452caa47cf58fca5f65f1ca60b5c09de314ac793a285",
+      "materials": [
+        {
+          "name": "CB_08_Sign_Backing",
+          "color": [
+            0.05448027700185776,
+            0.061246052384376526,
+            0.05612849071621895,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_08_Sign_Main_01_Face",
+          "color": [
+            0.019382361322641373,
+            0.023153366521000862,
+            0.022173885256052017,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_08_Sign_Trim",
+          "color": [
+            0.18447498977184296,
+            0.1946178376674652,
+            0.18116424977779388,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_08_floor",
+          "color": [
+            0.22322796285152435,
+            0.21952620148658752,
+            0.1946178376674652,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_08_frame",
+          "color": [
+            0.02955683507025242,
+            0.03433980792760849,
+            0.03433980792760849,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_08_glass",
+          "color": [
+            0.05126945674419403,
+            0.07227185368537903,
+            0.0802198201417923,
+            1.0
+          ],
+          "roughness": 0.7200000286102295,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_08_leaf",
+          "color": [
+            0.06480326503515244,
+            0.09530746936798096,
+            0.03560131415724754,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_08_leaf_light",
+          "color": [
+            0.13013647496700287,
+            0.16513219475746155,
+            0.06480326503515244,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_08_metal",
+          "color": [
+            0.02955683507025242,
+            0.03433980792760849,
+            0.03433980792760849,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_08_roof",
+          "color": [
+            0.16826939582824707,
+            0.18116424977779388,
+            0.177888423204422,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_08_steel",
+          "color": [
+            0.2541520893573761,
+            0.2622506618499756,
+            0.2462013214826584,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_08_store_glass",
+          "color": [
+            0.0802198201417923,
+            0.10461648553609848,
+            0.10224173218011856,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_08_trim",
+          "color": [
+            0.27049779891967773,
+            0.2788942754268646,
+            0.2581828534603119,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_08_wall",
+          "color": [
+            0.17144110798835754,
+            0.177888423204422,
+            0.16513219475746155,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_08_window_glint",
+          "color": [
+            0.13563333451747894,
+            0.16513219475746155,
+            0.16202937066555023,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "CB_08_wood",
+          "color": [
+            0.13013647496700287,
+            0.0802198201417923,
+            0.04373503103852272,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        }
+      ],
+      "paletteLabel": "회색 석재 · 짙은 창틀",
+      "sourceApprovedBlend": "../../Models/CB_08_SignageReady.blend",
+      "signageModified": true,
+      "nonSignageGeometryUnchanged": true,
+      "previousRevisionTriangles": 4068,
+      "originalDesignTriangles": 22256,
+      "frontPreview": "../Previews/CB_08_FrontOnly_Front.png",
+      "nonSignageFingerprintReport": "../QA/CB_08_NonSignageFingerprint.json",
+      "attachedBlade": false,
+      "attachedSideSigns": false,
+      "frontSignCount": 1
+    }
+  ],
+  "accessories": [
+    {
+      "id": "OptionalBladeSign",
+      "assetType": "OptionalWallMountedBlankLogo",
+      "revision": 1,
+      "blend": "../Models/OptionalBladeSign.blend",
+      "fbx": "../Exports/OptionalBladeSign.fbx",
+      "glb": "../Exports/OptionalBladeSign.glb",
+      "preview": "../Previews/OptionalBladeSign.png",
+      "triangles": 96,
+      "meshObjects": 8,
+      "exportBounds": {
+        "min": [
+          0.0,
+          -0.13,
+          -0.75
+        ],
+        "max": [
+          1.42,
+          0.13,
+          0.75
+        ]
+      },
+      "materials": [
+        {
+          "name": "Blade_Face",
+          "color": [
+            0.019382361322641373,
+            0.023153366521000862,
+            0.022173885256052017,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "Blade_Mount",
+          "color": [
+            0.05448027700185776,
+            0.061246052384376526,
+            0.05612849071621895,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        },
+        {
+          "name": "Blade_Trim",
+          "color": [
+            0.18447498977184296,
+            0.1946178376674652,
+            0.18116424977779388,
+            1.0
+          ],
+          "roughness": 0.8600000143051147,
+          "metallic": 0.0,
+          "surface": "Opaque",
+          "unitySurface": "Opaque",
+          "unityAlpha": 1,
+          "texture": null
+        }
+      ],
+      "pivot": {
+        "object": "OptionalBladeSign",
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "wallPlane": "X=0",
+        "outwardNormal": [
+          1,
+          0,
+          0
+        ],
+        "up": [
+          0,
+          0,
+          1
+        ]
+      },
+      "mountAnchor": "WallAttachmentAnchor",
+      "boardAnchor": "Sign_Blade",
+      "board": "Sign_Blade_Board",
+      "panelWidth": 0.9,
+      "panelHeight": 1.4,
+      "doubleSidedArtwork": true,
+      "boardPosition": [
+        0.9200000762939453,
+        -0.02500009536743164,
+        0.0
+      ],
+      "placementGuidance": "Separate optional model, not included in any building. Place its origin / WallAttachmentAnchor on a wall, rotate +X outward and keep +Z upright. Assign artwork only to Blade_Face. Player placement controls are not implemented.",
+      "sourceApprovedBlend": "../../Models/CB_01_SignageReady.blend",
+      "validationReport": "../QA/OptionalBladeSign_Validation.json"
+    }
+  ],
+  "style": "Continuous front-only signs; optional blade model packaged separately"
+}
