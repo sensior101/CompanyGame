@@ -402,6 +402,9 @@ public sealed class InventoryState
 
     /// <summary>Moves a whole or partial stack after destination capacity is confirmed.</summary>
     public bool TryTransferTo(InventoryState destination, int sourceIndex, int count, out string error)
+        => TryTransferTo(destination, sourceIndex, count, out error, null);
+
+    public bool TryTransferTo(InventoryState destination, int sourceIndex, int count, out string error, long? expiresOverride)
     {
         error = null;
         if (destination == null || ReferenceEquals(this, destination) || !IsSlot(sourceIndex) || count <= 0 ||
@@ -414,7 +417,7 @@ public sealed class InventoryState
             if (moving.BookData.IsLibraryLoan) return Fail("대여한 책은 양도할 수 없습니다. 도서관에서 반납해 주세요.", out error);
             if (count != 1 || !destinationDraft.TryAddBookInstance(moving.Item, moving.InstanceId, moving.BookData, out error)) return false;
         }
-        else if (!destinationDraft.TryAdd(moving.Item, count, out error, moving.InstanceId, moving.ExpiresAt, moving.MadeDay)) return false;
+        else if (!destinationDraft.TryAdd(moving.Item, count, out error, moving.InstanceId, expiresOverride ?? moving.ExpiresAt, moving.MadeDay)) return false;
         if (!sourceDraft.TryRemove(sourceIndex, count, out error)) return false;
         ReplaceWith(sourceDraft);
         destination.ReplaceWith(destinationDraft);

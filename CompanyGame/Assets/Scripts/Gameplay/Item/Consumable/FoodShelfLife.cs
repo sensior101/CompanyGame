@@ -31,8 +31,7 @@ public static class FoodShelfLife
     {
         var stack = from?.GetSlot(slot);
         if (stack == null || stack.IsEmpty || !IsPerishable(stack.Item) || fridge == null) { error = "냉장고에는 음식만 넣을 수 있어요."; return false; }
-        long expires = stack.IsSpoiled ? stack.ExpiresAt : new GameTime(stack.MadeDay + FridgeDaysOf(stack.Item), GameTime.DayStartHour).TotalMinutes;
-        return Move(from, slot, fridge, expires, out error);
+        return Move(from, slot, fridge, TransferExpiry(stack, true), out error);
     }
 
     /// <summary>Takes a whole stack out; outside the fridge it spoils the next morning (or sooner, if the fridge date is sooner).</summary>
@@ -40,16 +39,17 @@ public static class FoodShelfLife
     {
         var stack = fridge?.GetSlot(slot);
         if (stack == null || stack.IsEmpty || to == null) { error = "꺼낼 음식을 선택해 주세요."; return false; }
-        long expires = stack.ExpiresAt > 0 ? System.Math.Min(stack.ExpiresAt, ExpiresAt(stack.Item, Now, false)) : 0;
-        return Move(fridge, slot, to, expires, out error);
+        return Move(fridge, slot, to, TransferExpiry(stack, false), out error);
     }
+
+    public static long TransferExpiry(ItemStack stack, bool intoFridge) => intoFridge
+        ? stack.IsSpoiled ? stack.ExpiresAt : new GameTime(stack.MadeDay + FridgeDaysOf(stack.Item), GameTime.DayStartHour).TotalMinutes
+        : stack.ExpiresAt > 0 ? System.Math.Min(stack.ExpiresAt, ExpiresAt(stack.Item, Now, false)) : 0;
 
     static bool Move(InventoryState from, int slot, InventoryState to, long expires, out string error)
     {
         var stack = from.GetSlot(slot);
-        ItemData item = stack.Item; int count = stack.Count, made = stack.MadeDay;
-        if (!to.TryAdd(item, count, out error, null, expires, made)) return false;
-        return from.TryRemove(slot, count, out error);
+        return from.TryTransferTo(to, slot, stack.Count, out error, expires);
     }
 
     /// <summary>Now on the running clock, or day 0 when no clock is up (editor tools, tests).</summary>
