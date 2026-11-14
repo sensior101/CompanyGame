@@ -64,6 +64,13 @@ public static class CitizenInfo
         new Color(.28f, .50f, .58f), new Color(.75f, .45f, .20f), new Color(.40f, .32f, .26f), new Color(.64f, .70f, .78f),
     };
 
+    // Trousers: denim, navy, charcoal, khaki, brown, black.
+    static readonly Color[] Bottoms =
+    {
+        new Color(.22f, .30f, .45f), new Color(.16f, .19f, .28f), new Color(.24f, .24f, .26f), new Color(.55f, .48f, .34f),
+        new Color(.36f, .27f, .20f), new Color(.10f, .10f, .11f),
+    };
+
     static readonly int BaseColor = Shader.PropertyToID("_BaseColor");
 
     /// <summary>Stable FNV-1a (string.GetHashCode is not stable across runs).</summary>
@@ -79,12 +86,14 @@ public static class CitizenInfo
     public static string LineFor(int mapHash, int index) => Lines[(mapHash / 7 + index * 3) % Lines.Length];
     public static string LineFor(string[] table, int mapHash, int index) => table[(mapHash / 7 + index) % table.Length];
 
-    /// <summary>Tints skin (submesh 0) and clothes (other submeshes) per citizen without creating materials.</summary>
+    /// <summary>Tints skin (submesh 0), underwear (other submeshes) and the outfit's top and trousers per citizen without creating materials.</summary>
     public static void Dress(GameObject citizen, int seed)
     {
         var skin = citizen.GetComponentInChildren<SkinnedMeshRenderer>(true);
         if (!skin) return;
         var rng = new System.Random(seed);
+        var outfit = citizen.GetComponentInChildren<AvatarOutfit>(true);
+        if (outfit) outfit.SetColors(Clothes[rng.Next(Clothes.Length)], Bottoms[rng.Next(Bottoms.Length)]);
         var block = new MaterialPropertyBlock();
         for (int m = 0; m < skin.sharedMaterials.Length; m++)
         {

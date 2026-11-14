@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 3425941835508442447}
   - component: {fileID: 1933469628791764449}
+  - component: {fileID: 2610675189407926108}
   m_Layer: 0
   m_Name: MaleVisual
   m_TagString: Untagged
@@ -43,7 +44,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 91401102d6810094c8f021ee4ac31105, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CompanyGame.Daldongne.DaldongneAvatarMotion
   hips: {fileID: 8221388927534605377}
   leftArm: {fileID: 6540787454555262835}
@@ -64,6 +65,30 @@ MonoBehaviour:
   strideScale: 1
   liftScale: 1
   swayScale: 1
+  Punch_Jab: {fileID: 0}
+  Punch_Straight: {fileID: 0}
+  Punch_Hook: {fileID: 0}
+  Hit_Face: {fileID: 0}
+  Hit_Body: {fileID: 0}
+  Hit_Heavy: {fileID: 0}
+  Knockdown: {fileID: 0}
+  GetUp: {fileID: 0}
+--- !u!114 &2610675189407926108
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2846952649118563003}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e203e35458383224abe9c2a1a5da51e5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: CompanyGame.World::AvatarOutfit
+  outfit: {fileID: 11400000, guid: 7ac3552a98782bf49a3f098dfb4441d8, type: 2}
+  tint: 0
+  top: {r: 1, g: 1, b: 1, a: 1}
+  bottom: {r: 1, g: 1, b: 1, a: 1}
 --- !u!1001 &753020207458471575
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -138,11 +163,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -5331438168480973328, guid: 3fd708a7b75346d4e903aadc277838c7, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
-      value:
+      value: 
       objectReference: {fileID: 2100000, guid: 4a593408fcc224c4083e465c330b62db, type: 2}
     - target: {fileID: -5331438168480973328, guid: 3fd708a7b75346d4e903aadc277838c7, type: 3}
       propertyPath: 'm_Materials.Array.data[1]'
-      value:
+      value: 
       objectReference: {fileID: 2100000, guid: a9c94e8ba9e055d4ebe7e5b0e6298000, type: 2}
     - target: {fileID: -3407315707877539356, guid: 3fd708a7b75346d4e903aadc277838c7, type: 3}
       propertyPath: m_LocalRotation.w

@@ -1,6 +1,35 @@
-"""Assemble deterministic Unity gait frames into portable GIF previews."""
+"""Assemble Unity gait or explicitly supplied Blender frames into GIF previews."""
 from pathlib import Path
 from PIL import Image, ImageDraw
+import argparse
+import sys
+
+def encode_sequence(folder, output, fps=24, expected=None):
+    """Encode existing render frames; does not regenerate or retouch the images."""
+    paths=sorted(Path(folder).glob('frame_*.png'))
+    if not paths or (expected is not None and len(paths)!=expected):
+        raise RuntimeError(f'Unexpected render count: {len(paths)}; expected {expected}')
+    frames=[]
+    for path in paths:
+        with Image.open(path) as source:
+            frame=source.convert('RGB');frame.thumbnail((480,540),Image.Resampling.LANCZOS);frames.append(frame)
+    # A palette sampled across the clip prevents colors appearing late from
+    # being quantized against only the first static frame.
+    sample=Image.new('RGB',(frames[0].width*4,frames[0].height))
+    for i in range(4):sample.paste(frames[round(i*(len(frames)-1)/3)],(frames[0].width*i,0))
+    palette=sample.quantize(colors=256)
+    indexed=[frame.quantize(palette=palette,dither=Image.Dither.NONE) for frame in frames]
+    durations=[10*(round((i+1)*100/fps)-round(i*100/fps)) for i in range(len(frames))]
+    indexed[0].save(output,save_all=True,append_images=indexed[1:],duration=durations,loop=0,disposal=2,optimize=False)
+    print('GIF_SEQUENCE',len(frames),sum(durations),'ms',output)
+
+if '--frames' in sys.argv:
+    parser=argparse.ArgumentParser()
+    parser.add_argument('--frames',required=True);parser.add_argument('--output',required=True)
+    parser.add_argument('--fps',type=int,default=24);parser.add_argument('--expected',type=int)
+    options=parser.parse_args()
+    encode_sequence(options.frames,options.output,options.fps,options.expected)
+    sys.exit(0)
 
 HERE = Path(__file__).resolve().parent
 FPS = 24

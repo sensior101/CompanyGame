@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 7107671686943808101}
   - component: {fileID: 6461040396171615682}
+  - component: {fileID: 4417469531214344773}
   m_Layer: 0
   m_Name: FemaleVisual
   m_TagString: Untagged
@@ -43,7 +44,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 91401102d6810094c8f021ee4ac31105, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CompanyGame.Daldongne.DaldongneAvatarMotion
   hips: {fileID: 7704041358158698721}
   leftArm: {fileID: 1611628362700338478}
@@ -64,6 +65,30 @@ MonoBehaviour:
   strideScale: 1
   liftScale: 1
   swayScale: 1
+  Punch_Jab: {fileID: 0}
+  Punch_Straight: {fileID: 0}
+  Punch_Hook: {fileID: 0}
+  Hit_Face: {fileID: 0}
+  Hit_Body: {fileID: 0}
+  Hit_Heavy: {fileID: 0}
+  Knockdown: {fileID: 0}
+  GetUp: {fileID: 0}
+--- !u!114 &4417469531214344773
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1932167399368239221}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e203e35458383224abe9c2a1a5da51e5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: CompanyGame.World::AvatarOutfit
+  outfit: {fileID: 11400000, guid: f68bd4707d2912340aeaabd9171ed758, type: 2}
+  tint: 0
+  top: {r: 1, g: 1, b: 1, a: 1}
+  bottom: {r: 1, g: 1, b: 1, a: 1}
 --- !u!1001 &5060019638545461587
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -174,11 +199,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4052402442342166585, guid: b93fcb7e8b75aba43a62079b782a77a4, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
-      value:
+      value: 
       objectReference: {fileID: 2100000, guid: 0c3ff619e84542a4597b0472740e1ce4, type: 2}
     - target: {fileID: 4052402442342166585, guid: b93fcb7e8b75aba43a62079b782a77a4, type: 3}
       propertyPath: 'm_Materials.Array.data[1]'
-      value:
+      value: 
       objectReference: {fileID: 2100000, guid: c411df38805077a4da70256ee845364b, type: 2}
     - target: {fileID: 5866666021909216657, guid: b93fcb7e8b75aba43a62079b782a77a4, type: 3}
       propertyPath: m_Enabled
