@@ -183,6 +183,12 @@ public static partial class EconomySyncQA
             "with the money the plot is the fake's and its price came off the ledger");
         a = await LedgerOp(fake, "land.buy", new SharedOpArgs { a = "qa-ledger-plot" });
         Check(a.error == "이미 다른 플레이어가 구매한 땅입니다." && ledger.Book(LedgerFake).bankBalance == left, "a plot already taken is not charged");
+        long buyBack = RealEstateCatalog.BuyBackPrice(LandPlot.DefaultPrice);
+        a = await LedgerOp(fake, "land.sell", new SharedOpArgs { a = "qa-ledger-plot" });
+        Check(a.error == "" && LandPlotManager.Instance.GetState("qa-ledger-plot") == LandPlotState.Available && ledger.Book(LedgerFake).bankBalance == left + buyBack && a.bank == left + buyBack,
+            "land.sell: the agency buys the plot back for " + buyBack + " (80%) on the ledger and it is free again");
+        a = await LedgerOp(fake, "land.sell", new SharedOpArgs { a = "qa-ledger-plot" });
+        Check(a.error == "내가 가진 매물이 아니어서 팔 수 없습니다." && ledger.Book(LedgerFake).bankBalance == left + buyBack, "selling a plot that is not mine pays nothing: " + a.error);
 
         Section("refused personal requests");
         long now = ledger.Book(LedgerFake).bankBalance;
@@ -422,7 +428,7 @@ public static partial class EconomySyncQA
         }
     }
 
-    // The phone's bank app (통장 잔액) on the screen.
+    // The phone's bank app (계좌 · 현금) on the screen.
     static async Task BankShot(string file)
     {
         PhoneManager.Instance.OpenPhone();

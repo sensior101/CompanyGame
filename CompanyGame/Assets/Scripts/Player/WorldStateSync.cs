@@ -519,7 +519,8 @@ public sealed class WorldStateSync : MonoBehaviour
             case "p.cook": return "요리를 완성했습니다.";
             case "prop.reg": return "소유권을 등록했습니다.";
             case "prop.ab": return "소유권을 포기했습니다.";
-            case "land.buy": return "땅을 구매했습니다.";
+            case "land.buy": return "부동산을 구매했습니다.";
+            case "land.sell": return "부동산을 중개소에 팔았습니다.";
             case "land.reg": return "사업자 등록을 완료했습니다.";
             case "company.add": return "회사를 설립했습니다.";
             case "sns.post": return "게시했습니다.";

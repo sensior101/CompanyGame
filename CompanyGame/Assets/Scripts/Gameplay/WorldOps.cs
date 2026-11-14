@@ -45,6 +45,7 @@ public static class WorldOps
             case "prop.lock": return Fail(PropertyRegistry.Instance && PropertyRegistry.Instance.TrySetVehicleLocked(a.a, a.b, a.f), "잠금 상태를 바꿀 수 없습니다.");
             case "prop.dis": return Fail(PropertyRegistry.Instance && PropertyRegistry.Instance.TrySetVehicleDismantleUnlocked(a.a, a.b, a.f), "해체 허용 상태를 바꿀 수 없습니다.");
             case "land.buy": return Fail(LandPlotManager.Instance && LandPlotManager.Instance.ApplyPurchase(a.a, from), "이미 다른 플레이어가 구매한 땅입니다.");
+            case "land.sell": return SellMessage(LandPlotManager.Instance ? LandPlotManager.Instance.ApplySell(a.a, from) : LandPlotResult.NotFound);
             case "land.reg": return LandMessage(LandPlotManager.Instance ? LandPlotManager.Instance.ApplyRegisterBusiness(a.a, a.b, a.c, true, from) : LandPlotResult.NotFound);
             case "company.add": return CreateCompany(a);
             case "sns.post": return PostMessage(SnsManager.Instance ? SnsManager.Instance.PostAs(a.b, a.c, a.a) : SnsPostResult.EmptyText);
@@ -69,6 +70,11 @@ public static class WorldOps
         var result = ReportManager.Instance.Service.Submit(a.c, a.a, (CrimeType)type, a.b, System.Math.Min(System.Math.Max(a.n, 0L), 1000000000L), out _);
         return result == ReportSubmitResult.Submitted ? null : "신고를 접수하지 못했습니다. 잠시 후 다시 시도해 주세요.";
     }
+
+    static string SellMessage(LandPlotResult r) =>
+        r == LandPlotResult.Ok ? null
+        : r == LandPlotResult.WrongState ? "사업자 등록을 한 곳은 팔 수 없습니다."
+        : "내가 가진 매물이 아니어서 팔 수 없습니다.";
 
     static string LandMessage(LandPlotResult r)
     {

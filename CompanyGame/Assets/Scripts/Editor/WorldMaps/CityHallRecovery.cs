@@ -262,6 +262,12 @@ public static class CityHallRecovery
     }
 
     public static string TrimOldOfficeDetails()
+        => TrimParcelDetails("CivicDistrict_DistrictOffice", "CivicDistrict:CivicDistrict_DistrictOffice", Art, "Civic_CityHallTrim_");
+
+    // Shared civic detail meshes contain several buildings. Clone and trim only one parcel.
+    // Existing city-hall entry point and its behaviour remain available.
+    public static string TrimParcelDetails(string buildingNode, string parcelId, string outputArt,
+        string meshPrefix, string[] colliderNames = null, string sourceGroup = "CivicDistrict_UrbanDetail", Bounds? region = null)
     {
         if (EditorApplication.isPlaying) throw new Exception("Edit mode required");
         var scene = SceneManager.GetSceneByPath(Outside);
@@ -270,13 +276,13 @@ public static class CityHallRecovery
         try
         {
             var all = scene.GetRootGameObjects().SelectMany(g => g.GetComponentsInChildren<Transform>(true)).ToArray();
-            var office = all.Single(t => t.name == "CivicDistrict_DistrictOffice" && !t.GetComponent<MapParcel>());
+            var office = all.Single(t => t.name == buildingNode && !t.GetComponent<MapParcel>());
             var bounds = office.GetComponentsInChildren<MeshRenderer>(true).Select(r => r.bounds).Aggregate((a, b) => { a.Encapsulate(b); return a; });
             bounds.Expand(.8f);
-            var parcel = all.Select(t => t.GetComponent<MapParcel>()).Single(p => p && p.parcelId == "CivicDistrict:CivicDistrict_DistrictOffice");
-            bounds = new Bounds(new Vector3(parcel.Center.x, 50, parcel.Center.z), new Vector3(parcel.size.x, 110, parcel.size.y));
-            var details = all.Single(t => t.name == "CivicDistrict_UrbanDetail");
-            Directory.CreateDirectory(Art + "/SceneMeshes"); AssetDatabase.Refresh();
+            var parcel = all.Select(t => t.GetComponent<MapParcel>()).Single(p => p && p.parcelId == parcelId);
+            bounds = region ?? new Bounds(new Vector3(parcel.Center.x, 50, parcel.Center.z), new Vector3(parcel.size.x, 110, parcel.size.y));
+            var details = all.Single(t => t.name == sourceGroup);
+            Directory.CreateDirectory(outputArt + "/SceneMeshes"); AssetDatabase.Refresh();
             int removed = 0, changed = 0, disabled = 0;
             foreach (var filter in details.GetComponentsInChildren<MeshFilter>(true))
             {
@@ -295,8 +301,8 @@ public static class CityHallRecovery
                     clone.SetTriangles(keep, sub, false);
                 }
                 if (count == 0) { Object.DestroyImmediate(clone); continue; }
-                clone.RecalculateBounds(); clone.name = "Civic_CityHallTrim_" + filter.name;
-                var path = Art + "/SceneMeshes/" + clone.name + ".asset";
+                clone.RecalculateBounds(); clone.name = meshPrefix + filter.name;
+                var path = outputArt + "/SceneMeshes/" + clone.name + ".asset";
                 var existing = AssetDatabase.LoadAssetAtPath<Mesh>(path);
                 if (existing) { EditorUtility.CopySerialized(clone, existing); for (int sub = 0; sub < clone.subMeshCount; sub++) existing.SetTriangles(clone.GetTriangles(sub), sub, false); existing.RecalculateBounds(); existing.UploadMeshData(false); EditorUtility.SetDirty(existing); Object.DestroyImmediate(clone); clone = existing; }
                 else AssetDatabase.CreateAsset(clone, path);
@@ -306,7 +312,8 @@ public static class CityHallRecovery
             }
             var generated = all.FirstOrDefault(t => t.name == "Colliders_Generated");
             if (generated) foreach (var c in generated.GetComponentsInChildren<Collider>())
-                if (c.enabled && c.bounds.max.y > bounds.min.y + .8f && bounds.Contains(c.bounds.min) && bounds.Contains(c.bounds.max))
+                if (c.enabled && (colliderNames == null || colliderNames.Contains(c.name)) &&
+                    c.bounds.max.y > bounds.min.y + .8f && bounds.Contains(c.bounds.min) && bounds.Contains(c.bounds.max))
                 { c.enabled = false; disabled++; }
             EditorSceneManager.MarkSceneDirty(scene); EditorSceneManager.SaveScene(scene); AssetDatabase.SaveAssets();
             return "Old office detail triangles removed=" + removed + ", copied meshes=" + changed + ", old colliders disabled=" + disabled;
