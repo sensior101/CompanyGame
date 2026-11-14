@@ -1,0 +1,2055 @@
+[
+  {
+    "id": "Armchair",
+    "label": "1인용 안락의자",
+    "category": "거실",
+    "placement": "Floor",
+    "function": "Seating",
+    "note": "",
+    "dimensions": [
+      1.2999999523162842,
+      1.0499999523162842,
+      1.0
+    ],
+    "bounds_min": [
+      -0.6499999761581421,
+      -0.5249999761581421,
+      0.0
+    ],
+    "bounds_max": [
+      0.6499999761581421,
+      0.5249999761581421,
+      1.0
+    ],
+    "triangles": 3360,
+    "meshes": 6,
+    "roles": [
+      "Fabric",
+      "Wood"
+    ],
+    "geometry_sha256": "77d98be02c71ef96cb693abe492302b3d0b70921b6af2759aa65eca9e123da0b",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "BarChair",
+    "label": "바 의자",
+    "category": "의자",
+    "placement": "Floor",
+    "function": "Seating",
+    "note": "",
+    "dimensions": [
+      0.6000000238418579,
+      0.5699999928474426,
+      1.1500000953674316
+    ],
+    "bounds_min": [
+      -0.30000001192092896,
+      -0.2849999964237213,
+      0.0
+    ],
+    "bounds_max": [
+      0.30000001192092896,
+      0.2849999964237213,
+      1.1500000953674316
+    ],
+    "triangles": 1192,
+    "meshes": 5,
+    "roles": [
+      "Body",
+      "Fabric",
+      "Metal"
+    ],
+    "geometry_sha256": "2f6164b253e9225fe8e0b9f5213eda21ce04594ba77b3f3f17f11f9d8638e149",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "BathroomMirror",
+    "label": "화장실 거울",
+    "category": "욕실",
+    "placement": "Wall",
+    "function": "Decoration",
+    "note": "",
+    "dimensions": [
+      0.800000011920929,
+      0.12749999947845936,
+      0.949999988079071
+    ],
+    "bounds_min": [
+      -0.4000000059604645,
+      -0.10999999940395355,
+      0.0
+    ],
+    "bounds_max": [
+      0.4000000059604645,
+      0.017500000074505806,
+      0.949999988079071
+    ],
+    "triangles": 132,
+    "meshes": 3,
+    "roles": [
+      "Body",
+      "Metal"
+    ],
+    "geometry_sha256": "b2be42a10a71348a15994cbbc0d31387b833bda0f9cb010759f2e51c5f8727cb",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "Bathtub",
+    "label": "욕조",
+    "category": "욕실",
+    "placement": "Floor",
+    "function": "WaterSource",
+    "note": "",
+    "dimensions": [
+      0.949999988079071,
+      2.0,
+      0.8500000238418579
+    ],
+    "bounds_min": [
+      -0.4749999940395355,
+      -1.0,
+      0.0
+    ],
+    "bounds_max": [
+      0.4749999940395355,
+      1.0,
+      0.8500000238418579
+    ],
+    "triangles": 296,
+    "meshes": 8,
+    "roles": [
+      "Body",
+      "Dark",
+      "Metal",
+      "White"
+    ],
+    "geometry_sha256": "b57278c8f654cecb61482e821c5a409347e3adf46337579a594868987e9591ad",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "Bookcase",
+    "label": "책장",
+    "category": "수납",
+    "placement": "Floor",
+    "function": "Storage",
+    "note": "",
+    "dimensions": [
+      1.1999999284744263,
+      0.41999998688697815,
+      2.1999998092651367
+    ],
+    "bounds_min": [
+      -0.5999999642372131,
+      -0.20999999344348907,
+      0.0
+    ],
+    "bounds_max": [
+      0.5999999642372131,
+      0.20999999344348907,
+      2.1999998092651367
+    ],
+    "triangles": 440,
+    "meshes": 10,
+    "roles": [
+      "Body",
+      "Wood"
+    ],
+    "geometry_sha256": "c40a40a09d51786ac10a9de716e25d0307f23862facb540256cc959a7df5294f",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "CornerSofa",
+    "label": "고급 코너형 소파",
+    "category": "거실",
+    "placement": "Floor",
+    "function": "Seating",
+    "note": "",
+    "dimensions": [
+      2.700000286102295,
+      2.100000023841858,
+      0.9800000190734863
+    ],
+    "bounds_min": [
+      -1.3500001430511475,
+      -1.562987208366394,
+      0.0
+    ],
+    "bounds_max": [
+      1.3500001430511475,
+      0.5370128154754639,
+      0.9800000190734863
+    ],
+    "triangles": 792,
+    "meshes": 18,
+    "roles": [
+      "Accent",
+      "Body",
+      "Fabric",
+      "Wood"
+    ],
+    "geometry_sha256": "f29e5362cac52e5ac375b062281953cc7f63ffc6ffb35fcd284619f6a00d9c2c",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "DesktopSet",
+    "label": "데스크톱 컴퓨터 세트",
+    "category": "가전",
+    "placement": "Surface",
+    "function": "Display",
+    "note": "Monitor, tower, keyboard and mouse are separately named meshes",
+    "dimensions": [
+      0.9499999284744263,
+      0.5800000429153442,
+      0.6299999952316284
+    ],
+    "bounds_min": [
+      -0.34337347745895386,
+      -0.3158416152000427,
+      0.0
+    ],
+    "bounds_max": [
+      0.6066264510154724,
+      0.2641584277153015,
+      0.6299999952316284
+    ],
+    "triangles": 2800,
+    "meshes": 60,
+    "roles": [
+      "Accent",
+      "Body",
+      "Dark",
+      "Metal",
+      "Screen",
+      "White"
+    ],
+    "geometry_sha256": "48a3c953ac7650cb9a0b7ac86680a5b08623c08db7e34df547d90cdf87d1ffb7",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "DisplayCabinet",
+    "label": "피규어 진열장",
+    "category": "수납",
+    "placement": "Floor",
+    "function": "Storage, Display",
+    "note": "Clear glass door, four usable shelves; no figures included",
+    "dimensions": [
+      1.0499999523162842,
+      0.5499999970197678,
+      2.0
+    ],
+    "bounds_min": [
+      -0.5249999761581421,
+      -0.31190475821495056,
+      0.0
+    ],
+    "bounds_max": [
+      0.5249999761581421,
+      0.2380952388048172,
+      2.0
+    ],
+    "triangles": 668,
+    "meshes": 17,
+    "roles": [
+      "Body",
+      "Glass",
+      "Metal",
+      "White",
+      "Wood"
+    ],
+    "geometry_sha256": "67bc55e3c5c9d86b38afac389696bd368b904bcac861751136c23279ee71b29c",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "DoubleBed",
+    "label": "더블침대",
+    "category": "침실",
+    "placement": "Floor",
+    "function": "Sleep",
+    "note": "",
+    "dimensions": [
+      1.850000023841858,
+      2.399999737739563,
+      0.9800000190734863
+    ],
+    "bounds_min": [
+      -0.925000011920929,
+      -1.1971696615219116,
+      0.0
+    ],
+    "bounds_max": [
+      0.925000011920929,
+      1.2028300762176514,
+      0.9800000190734863
+    ],
+    "triangles": 1212,
+    "meshes": 15,
+    "roles": [
+      "Accent",
+      "Fabric",
+      "White",
+      "Wood"
+    ],
+    "geometry_sha256": "f95dee709f4c88332b4a89b81c7a7acefc80aebb22da1ea7852e00ec9264c006",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "Drawer3",
+    "label": "3단 서랍장",
+    "category": "수납",
+    "placement": "Floor",
+    "function": "Storage",
+    "note": "",
+    "dimensions": [
+      1.0500000715255737,
+      0.6000000238418579,
+      0.949999988079071
+    ],
+    "bounds_min": [
+      -0.5250000357627869,
+      -0.33225154876708984,
+      0.0
+    ],
+    "bounds_max": [
+      0.5250000357627869,
+      0.26774847507476807,
+      0.949999988079071
+    ],
+    "triangles": 780,
+    "meshes": 21,
+    "roles": [
+      "Body",
+      "Metal",
+      "Wood"
+    ],
+    "geometry_sha256": "0bdd20eea344e437e5098616a0f500d6d214af6419f551e2231bcfc8cd82055b",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "DryingRack",
+    "label": "빨래건조대",
+    "category": "생활",
+    "placement": "Floor",
+    "function": "Decoration",
+    "note": "",
+    "dimensions": [
+      1.2000000476837158,
+      0.8499999940395355,
+      1.199999988079071
+    ],
+    "bounds_min": [
+      -0.6000000238418579,
+      -0.42500001192092896,
+      5.960464477539063e-08
+    ],
+    "bounds_max": [
+      0.6000000238418579,
+      0.42499998211860657,
+      1.2000000476837158
+    ],
+    "triangles": 508,
+    "meshes": 17,
+    "roles": [
+      "Body",
+      "Metal"
+    ],
+    "geometry_sha256": "027c317d2342d745729fad4a9d402ab0135ab8d4da2eee6552d2124bf7a075ab",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "Fan",
+    "label": "선풍기",
+    "category": "가전",
+    "placement": "Floor",
+    "function": "Decoration",
+    "note": "",
+    "dimensions": [
+      0.6499999761581421,
+      0.550000011920929,
+      1.3999998569488525
+    ],
+    "bounds_min": [
+      -0.32499998807907104,
+      -0.2750000059604645,
+      0.0
+    ],
+    "bounds_max": [
+      0.32499998807907104,
+      0.2750000059604645,
+      1.3999998569488525
+    ],
+    "triangles": 1060,
+    "meshes": 22,
+    "roles": [
+      "Accent",
+      "Body",
+      "Metal"
+    ],
+    "geometry_sha256": "64005bf6036cdd54364b6a39678b4f5c9bb9bacf96bcd5ba5abe4f21c6578b98",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "FloorMattress",
+    "label": "바닥용 매트리스",
+    "category": "침실",
+    "placement": "Floor",
+    "function": "Sleep",
+    "note": "",
+    "dimensions": [
+      1.2000000476837158,
+      2.299999952316284,
+      0.30000001192092896
+    ],
+    "bounds_min": [
+      -0.6000000238418579,
+      -1.149999976158142,
+      0.0
+    ],
+    "bounds_max": [
+      0.6000000238418579,
+      1.149999976158142,
+      0.30000001192092896
+    ],
+    "triangles": 176,
+    "meshes": 4,
+    "roles": [
+      "Accent",
+      "Fabric",
+      "White"
+    ],
+    "geometry_sha256": "913fed07ed9386a6f15dfa1d2a747b59bdfdb5f0cfbdf1e32b8a752b74bf2585",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "Fridge",
+    "label": "기본 냉장고",
+    "category": "가전",
+    "placement": "Floor",
+    "function": "Storage",
+    "note": "",
+    "dimensions": [
+      0.9000000357627869,
+      0.8499999642372131,
+      2.0
+    ],
+    "bounds_min": [
+      -0.45000001788139343,
+      -0.466239869594574,
+      0.0
+    ],
+    "bounds_max": [
+      0.45000001788139343,
+      0.38376009464263916,
+      2.0
+    ],
+    "triangles": 344,
+    "meshes": 10,
+    "roles": [
+      "Body",
+      "Metal",
+      "Screen"
+    ],
+    "geometry_sha256": "2d8f7b2ac16ba171f92659524319bc585aa86ceb72af658b6272a2b2e22a3461",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "FullMirror",
+    "label": "전신거울",
+    "category": "침실",
+    "placement": "Floor",
+    "function": "Decoration",
+    "note": "",
+    "dimensions": [
+      0.699999988079071,
+      0.6000000052154064,
+      1.9500001668930054
+    ],
+    "bounds_min": [
+      -0.3499999940395355,
+      -0.054744523018598557,
+      0.0
+    ],
+    "bounds_max": [
+      0.3499999940395355,
+      0.5452554821968079,
+      1.9500001668930054
+    ],
+    "triangles": 216,
+    "meshes": 6,
+    "roles": [
+      "Body",
+      "Metal",
+      "Wood"
+    ],
+    "geometry_sha256": "543503c03debf9af2e63293656133628b63f506162467e1463ce64e908c8af0f",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "GamingChair",
+    "label": "컴퓨터용 의자",
+    "category": "의자",
+    "placement": "Floor",
+    "function": "Seating",
+    "note": "",
+    "dimensions": [
+      0.8499999642372131,
+      0.8799999952316284,
+      1.4499999284744263
+    ],
+    "bounds_min": [
+      -0.42499998211860657,
+      -0.38948947191238403,
+      0.0
+    ],
+    "bounds_max": [
+      0.42499998211860657,
+      0.4905105233192444,
+      1.4499999284744263
+    ],
+    "triangles": 9322,
+    "meshes": 38,
+    "roles": [
+      "Dark",
+      "Fabric",
+      "Metal",
+      "Rubber"
+    ],
+    "geometry_sha256": "dc6b5097c6152a916d884380d1f41938c05d04af75620429aec731c1c6a61dae",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "GamingDeskLift",
+    "label": "컴퓨터 책상 03 높이조절형",
+    "category": "책상",
+    "placement": "Floor",
+    "function": "Surface",
+    "note": "Desk only; static height-adjustable design",
+    "dimensions": [
+      1.899999976158142,
+      0.9000000059604645,
+      1.0000001192092896
+    ],
+    "bounds_min": [
+      -0.949999988079071,
+      -0.4547703266143799,
+      0.0
+    ],
+    "bounds_max": [
+      0.949999988079071,
+      0.4452296793460846,
+      1.0000001192092896
+    ],
+    "triangles": 624,
+    "meshes": 13,
+    "roles": [
+      "Accent",
+      "Body",
+      "Dark",
+      "Metal"
+    ],
+    "geometry_sha256": "ef38b93e395052929559de930e18d8233e97b6b226e7fca4e35fa8059024fe82",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "GamingDeskT",
+    "label": "컴퓨터 책상 01 T프레임",
+    "category": "책상",
+    "placement": "Floor",
+    "function": "Surface",
+    "note": "Desk only, no computer",
+    "dimensions": [
+      1.75,
+      0.8500000238418579,
+      0.8000000715255737
+    ],
+    "bounds_min": [
+      -0.875,
+      -0.42500001192092896,
+      0.0
+    ],
+    "bounds_max": [
+      0.875,
+      0.42500001192092896,
+      0.8000000715255737
+    ],
+    "triangles": 448,
+    "meshes": 9,
+    "roles": [
+      "Accent",
+      "Dark",
+      "Metal"
+    ],
+    "geometry_sha256": "683d788d26da85f2dd3d3c55580b99eec2fc46b948901eea4a6ed3ec5aba1784",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "GamingDeskZ",
+    "label": "컴퓨터 책상 02 Z프레임",
+    "category": "책상",
+    "placement": "Floor",
+    "function": "Surface",
+    "note": "Desk only, no computer",
+    "dimensions": [
+      1.75,
+      0.8500000238418579,
+      0.8000000715255737
+    ],
+    "bounds_min": [
+      -0.875,
+      -0.42500001192092896,
+      0.0
+    ],
+    "bounds_max": [
+      0.875,
+      0.42500001192092896,
+      0.8000000715255737
+    ],
+    "triangles": 472,
+    "meshes": 11,
+    "roles": [
+      "Accent",
+      "Body",
+      "Dark",
+      "Metal"
+    ],
+    "geometry_sha256": "5e947f200d82d9e25498b0e353cbf13842df47f9ef395de51e81721fc9c25ed4",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "Induction",
+    "label": "인덕션",
+    "category": "주방",
+    "placement": "Surface",
+    "function": "Cooking",
+    "note": "Place root at countertop height 0.90m",
+    "dimensions": [
+      0.7199999690055847,
+      0.6000000238418579,
+      0.04999999701976776
+    ],
+    "bounds_min": [
+      -0.35999998450279236,
+      -0.30000001192092896,
+      0.0
+    ],
+    "bounds_max": [
+      0.35999998450279236,
+      0.30000001192092896,
+      0.04999999701976776
+    ],
+    "triangles": 892,
+    "meshes": 9,
+    "roles": [
+      "Accent",
+      "Body",
+      "Dark",
+      "Metal"
+    ],
+    "geometry_sha256": "5e6ee15ce92558fd0abb8d5ac630f3c85e04d94535ed4c65b90bfb1269d92cab",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "IslandTable",
+    "label": "아일랜드 식탁",
+    "category": "주방",
+    "placement": "Floor",
+    "function": "Surface",
+    "note": "",
+    "dimensions": [
+      1.9499999284744263,
+      1.0,
+      1.0199999809265137
+    ],
+    "bounds_min": [
+      -0.9749999642372131,
+      -0.5,
+      0.0
+    ],
+    "bounds_max": [
+      0.9749999642372131,
+      0.5,
+      1.0199999809265137
+    ],
+    "triangles": 672,
+    "meshes": 4,
+    "roles": [
+      "Metal",
+      "White",
+      "Wood"
+    ],
+    "geometry_sha256": "d13b029bd85d6762b9741441ade4f4095ee7914770b8e8bbb3fd23c5d2f63506",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "KitchenBase",
+    "label": "주방 하부장",
+    "category": "주방",
+    "placement": "Floor",
+    "function": "Storage, Surface",
+    "note": "",
+    "dimensions": [
+      1.0,
+      0.8299999833106995,
+      1.0000001192092896
+    ],
+    "bounds_min": [
+      -0.5,
+      -0.4494323134422302,
+      0.0
+    ],
+    "bounds_max": [
+      0.5,
+      0.38056766986846924,
+      1.0000001192092896
+    ],
+    "triangles": 564,
+    "meshes": 15,
+    "roles": [
+      "Body",
+      "Dark",
+      "Metal",
+      "White"
+    ],
+    "geometry_sha256": "c6efada5a9ad1b98ee6f935eeb9255c56ed464b12b0365ad163d4010288c219d",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "KitchenUpper",
+    "label": "주방 상부장",
+    "category": "주방",
+    "placement": "Wall",
+    "function": "Storage",
+    "note": "",
+    "dimensions": [
+      0.9599999785423279,
+      0.49000005424022675,
+      0.8400000333786011
+    ],
+    "bounds_min": [
+      -0.47999998927116394,
+      -0.28781557083129883,
+      0.0
+    ],
+    "bounds_max": [
+      0.47999998927116394,
+      0.20218448340892792,
+      0.8400000333786011
+    ],
+    "triangles": 520,
+    "meshes": 14,
+    "roles": [
+      "Body",
+      "Metal"
+    ],
+    "geometry_sha256": "0c1f16e46f8e018fc6eb2151bf66fa8f1d68cf7f51921e1cb14c55d57207f10b",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "Laptop",
+    "label": "노트북",
+    "category": "가전",
+    "placement": "Surface",
+    "function": "Display",
+    "note": "",
+    "dimensions": [
+      0.3999999761581421,
+      0.3099999874830246,
+      0.26999998092651367
+    ],
+    "bounds_min": [
+      -0.19999998807907104,
+      -0.13715307414531708,
+      0.0
+    ],
+    "bounds_max": [
+      0.19999998807907104,
+      0.17284691333770752,
+      0.26999998092651367
+    ],
+    "triangles": 1540,
+    "meshes": 35,
+    "roles": [
+      "Accent",
+      "Body",
+      "Dark",
+      "Screen",
+      "White"
+    ],
+    "geometry_sha256": "878eeaa0440bfeb995a0359653b1c186cf233b7e9e40c60d63ae5adeb112da4b",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "LaundryBasket",
+    "label": "빨래바구니",
+    "category": "생활",
+    "placement": "Floor",
+    "function": "Storage",
+    "note": "",
+    "dimensions": [
+      0.6499999761581421,
+      0.4699999988079071,
+      0.5499999523162842
+    ],
+    "bounds_min": [
+      -0.32499998807907104,
+      -0.23499999940395355,
+      0.0
+    ],
+    "bounds_max": [
+      0.32499998807907104,
+      0.23499999940395355,
+      0.5499999523162842
+    ],
+    "triangles": 3812,
+    "meshes": 3,
+    "roles": [
+      "Body"
+    ],
+    "geometry_sha256": "6029017449b77e50807e8e469645ef0ffffa1da975cbe41bd74ebaf3b5e1a8f7",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "LowTable",
+    "label": "좌식 테이블",
+    "category": "거실",
+    "placement": "Floor",
+    "function": "Surface",
+    "note": "",
+    "dimensions": [
+      1.399999976158142,
+      0.800000011920929,
+      0.41999998688697815
+    ],
+    "bounds_min": [
+      -0.699999988079071,
+      -0.4000000059604645,
+      0.0
+    ],
+    "bounds_max": [
+      0.699999988079071,
+      0.4000000059604645,
+      0.41999998688697815
+    ],
+    "triangles": 220,
+    "meshes": 5,
+    "roles": [
+      "Wood"
+    ],
+    "geometry_sha256": "228e35d1d9136d2cf27f9e2babe3f0009804240c96c27217be603c314d3ab5f3",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "MassageChair",
+    "label": "안마의자",
+    "category": "의자",
+    "placement": "Floor",
+    "function": "Seating",
+    "note": "",
+    "dimensions": [
+      1.149999976158142,
+      1.5000000596046448,
+      1.3300000429153442
+    ],
+    "bounds_min": [
+      -0.574999988079071,
+      -0.9378024935722351,
+      0.0
+    ],
+    "bounds_max": [
+      0.574999988079071,
+      0.5621975660324097,
+      1.3300000429153442
+    ],
+    "triangles": 528,
+    "meshes": 12,
+    "roles": [
+      "Accent",
+      "Body",
+      "Dark",
+      "Fabric"
+    ],
+    "geometry_sha256": "89faffebc5e61c789bf367db65473d9040978757bdf7ed15f8a741623009c5ff",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "Microwave",
+    "label": "전자레인지",
+    "category": "주방",
+    "placement": "Surface",
+    "function": "Cooking",
+    "note": "",
+    "dimensions": [
+      0.5799999833106995,
+      0.5199999809265137,
+      0.3499999940395355
+    ],
+    "bounds_min": [
+      -0.28999999165534973,
+      -0.2947072386741638,
+      0.0
+    ],
+    "bounds_max": [
+      0.28999999165534973,
+      0.22529274225234985,
+      0.3499999940395355
+    ],
+    "triangles": 348,
+    "meshes": 9,
+    "roles": [
+      "Body",
+      "Dark",
+      "Metal",
+      "Screen"
+    ],
+    "geometry_sha256": "c167ee7b10f9be1e5387cb17c927f223a5daa8d5176ab81f9ad50da7c9439a34",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "MiniFridge",
+    "label": "소형 냉장고",
+    "category": "가전",
+    "placement": "Floor",
+    "function": "Storage",
+    "note": "",
+    "dimensions": [
+      0.5999999642372131,
+      0.6500000059604645,
+      0.949999988079071
+    ],
+    "bounds_min": [
+      -0.29999998211860657,
+      -0.36739131808280945,
+      0.0
+    ],
+    "bounds_max": [
+      0.29999998211860657,
+      0.28260868787765503,
+      0.949999988079071
+    ],
+    "triangles": 172,
+    "meshes": 5,
+    "roles": [
+      "Body",
+      "Metal"
+    ],
+    "geometry_sha256": "973f69ba061d23bfea9584028f7a5226b8ba195428cb59360cc84555824e0b54",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "MobileTV",
+    "label": "이동형 TV",
+    "category": "가전",
+    "placement": "Floor",
+    "function": "Display",
+    "note": "",
+    "dimensions": [
+      0.949999988079071,
+      0.6499999761581421,
+      1.5999999046325684
+    ],
+    "bounds_min": [
+      -0.4749999940395355,
+      -0.32499998807907104,
+      0.0
+    ],
+    "bounds_max": [
+      0.4749999940395355,
+      0.32499998807907104,
+      1.5999999046325684
+    ],
+    "triangles": 424,
+    "meshes": 10,
+    "roles": [
+      "Body",
+      "Metal",
+      "Rubber",
+      "Screen"
+    ],
+    "geometry_sha256": "a83e2b421b2bed8486c151899c622644a229c80409cec57ce86735cd331547a5",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "Nightstand",
+    "label": "침대 옆 협탁",
+    "category": "침실",
+    "placement": "Floor",
+    "function": "Storage, Surface",
+    "note": "",
+    "dimensions": [
+      0.5799999833106995,
+      0.5499999970197678,
+      0.6200000047683716
+    ],
+    "bounds_min": [
+      -0.28999999165534973,
+      -0.3071743845939636,
+      0.0
+    ],
+    "bounds_max": [
+      0.28999999165534973,
+      0.24282561242580414,
+      0.6200000047683716
+    ],
+    "triangles": 568,
+    "meshes": 14,
+    "roles": [
+      "Body",
+      "Metal",
+      "Wood"
+    ],
+    "geometry_sha256": "00ab6f0b6ae91b18fc985a42b3788fdc85aa271cd28134cd57142148551efcec",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "OfficeChair",
+    "label": "사무용 의자",
+    "category": "의자",
+    "placement": "Floor",
+    "function": "Seating",
+    "note": "",
+    "dimensions": [
+      0.8000000715255737,
+      0.800000011920929,
+      1.0799999237060547
+    ],
+    "bounds_min": [
+      -0.3983611464500427,
+      -0.4000000059604645,
+      0.0
+    ],
+    "bounds_max": [
+      0.401638925075531,
+      0.4000000059604645,
+      1.0799999237060547
+    ],
+    "triangles": 640,
+    "meshes": 18,
+    "roles": [
+      "Dark",
+      "Fabric",
+      "Metal",
+      "Rubber"
+    ],
+    "geometry_sha256": "f8d14de9575fcc9d9e26fa4f552022305211ba419b736d911f7313072258e5ea",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "Oven",
+    "label": "오븐",
+    "category": "가전",
+    "placement": "Surface",
+    "function": "Cooking",
+    "note": "",
+    "dimensions": [
+      0.7199999690055847,
+      0.7699999809265137,
+      0.7099999785423279
+    ],
+    "bounds_min": [
+      -0.35999998450279236,
+      -0.43417444825172424,
+      0.0
+    ],
+    "bounds_max": [
+      0.35999998450279236,
+      0.33582553267478943,
+      0.7099999785423279
+    ],
+    "triangles": 348,
+    "meshes": 9,
+    "roles": [
+      "Body",
+      "Dark",
+      "Metal",
+      "Screen"
+    ],
+    "geometry_sha256": "19f02fc4f6c736e9083ed828afe5e497b244db6e652fd0df62260f594545d579",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "PlainDesk",
+    "label": "일반 책상",
+    "category": "책상",
+    "placement": "Floor",
+    "function": "Surface",
+    "note": "",
+    "dimensions": [
+      1.7999999523162842,
+      0.9000000357627869,
+      0.7800000309944153
+    ],
+    "bounds_min": [
+      -0.8999999761581421,
+      -0.45000001788139343,
+      0.0
+    ],
+    "bounds_max": [
+      0.8999999761581421,
+      0.45000001788139343,
+      0.7800000309944153
+    ],
+    "triangles": 264,
+    "meshes": 6,
+    "roles": [
+      "Body",
+      "Wood"
+    ],
+    "geometry_sha256": "e5e25a78a4102280ad3c58574b202817f88a4a1e2136073bd17b4afb070b94e0",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "PlasticChair",
+    "label": "플라스틱 의자",
+    "category": "의자",
+    "placement": "Floor",
+    "function": "Seating",
+    "note": "",
+    "dimensions": [
+      0.5499999523162842,
+      0.5400000214576721,
+      0.9600000381469727
+    ],
+    "bounds_min": [
+      -0.2749999761581421,
+      -0.27000001072883606,
+      0.0
+    ],
+    "bounds_max": [
+      0.2749999761581421,
+      0.27000001072883606,
+      0.9600000381469727
+    ],
+    "triangles": 440,
+    "meshes": 10,
+    "roles": [
+      "Body"
+    ],
+    "geometry_sha256": "6433e3251e59afe96102a38ab8529a15f64538c55cf128b74de9318e6fc898b2",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "RangeHood",
+    "label": "레인지 후드",
+    "category": "주방",
+    "placement": "Wall",
+    "function": "Decoration",
+    "note": "",
+    "dimensions": [
+      0.8400000333786011,
+      0.5900000035762787,
+      0.7200000286102295
+    ],
+    "bounds_min": [
+      -0.42000001668930054,
+      -0.29983606934547424,
+      0.0
+    ],
+    "bounds_max": [
+      0.42000001668930054,
+      0.29016393423080444,
+      0.7200000286102295
+    ],
+    "triangles": 352,
+    "meshes": 8,
+    "roles": [
+      "Body",
+      "Dark",
+      "Metal",
+      "White"
+    ],
+    "geometry_sha256": "4403ee6d185fea11c708259374777b68941b14dedac6d344514217eb0e68c299",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "RecyclingBins",
+    "label": "분리수거함",
+    "category": "생활",
+    "placement": "Floor",
+    "function": "Storage",
+    "note": "",
+    "dimensions": [
+      1.070000171661377,
+      0.44999998807907104,
+      0.6599999666213989
+    ],
+    "bounds_min": [
+      -0.5350000858306885,
+      -0.22499999403953552,
+      0.0
+    ],
+    "bounds_max": [
+      0.5350000858306885,
+      0.22499999403953552,
+      0.6599999666213989
+    ],
+    "triangles": 660,
+    "meshes": 15,
+    "roles": [
+      "Accent",
+      "Body",
+      "Dark",
+      "White"
+    ],
+    "geometry_sha256": "6a185169852cd892a0076cece79b23f6be4f9476d7f3abe49234a9e3a755e570",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "RoundStool",
+    "label": "원형 스툴",
+    "category": "의자",
+    "placement": "Floor",
+    "function": "Seating",
+    "note": "",
+    "dimensions": [
+      0.5200000405311584,
+      0.5200000405311584,
+      0.5
+    ],
+    "bounds_min": [
+      -0.2600000202655792,
+      -0.2600000202655792,
+      0.0
+    ],
+    "bounds_max": [
+      0.2600000202655792,
+      0.2600000202655792,
+      0.5
+    ],
+    "triangles": 288,
+    "meshes": 5,
+    "roles": [
+      "Body",
+      "Wood"
+    ],
+    "geometry_sha256": "c4aa315ee6cd2bde142306d7bfb41f9e46a700b78412c9b49d90153b04a49457",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "ShoeCabinet",
+    "label": "신발장",
+    "category": "수납",
+    "placement": "Floor",
+    "function": "Storage",
+    "note": "",
+    "dimensions": [
+      1.0,
+      0.5,
+      1.2500001192092896
+    ],
+    "bounds_min": [
+      -0.5,
+      -0.2916666567325592,
+      0.0
+    ],
+    "bounds_max": [
+      0.5,
+      0.2083333432674408,
+      1.2500001192092896
+    ],
+    "triangles": 608,
+    "meshes": 16,
+    "roles": [
+      "Body",
+      "Metal",
+      "Wood"
+    ],
+    "geometry_sha256": "f9d8857987fece677b6511c49fc1da080fbc9e233d97d3303789544ad69c615f",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "ShowerBooth",
+    "label": "샤워부스",
+    "category": "욕실",
+    "placement": "Floor",
+    "function": "Decoration",
+    "note": "",
+    "dimensions": [
+      1.100000023841858,
+      1.0999999642372131,
+      2.25
+    ],
+    "bounds_min": [
+      -0.550000011920929,
+      -0.5656810402870178,
+      0.0
+    ],
+    "bounds_max": [
+      0.550000011920929,
+      0.5343189239501953,
+      2.25
+    ],
+    "triangles": 844,
+    "meshes": 25,
+    "roles": [
+      "Glass",
+      "Metal",
+      "White"
+    ],
+    "geometry_sha256": "9ec57f09ed5d84546fae4adb9523c1334cf4232f6205cd942a9040f163246fac",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "SingleBed",
+    "label": "싱글침대",
+    "category": "침실",
+    "placement": "Floor",
+    "function": "Sleep",
+    "note": "Approved SingleBed geometry reused",
+    "dimensions": [
+      1.2999999523162842,
+      2.399999737739563,
+      0.9800000190734863
+    ],
+    "bounds_min": [
+      -0.6499999761581421,
+      -1.1971696615219116,
+      0.0
+    ],
+    "bounds_max": [
+      0.6499999761581421,
+      1.2028300762176514,
+      0.9800000190734863
+    ],
+    "triangles": 1152,
+    "meshes": 14,
+    "roles": [
+      "Accent",
+      "Fabric",
+      "White",
+      "Wood"
+    ],
+    "geometry_sha256": "b90f6a6f5b8a869fc601451e8040f92855c0fe977c9c526b9e0abe49c9cad022",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "Sink",
+    "label": "싱크대",
+    "category": "주방",
+    "placement": "Surface",
+    "function": "WaterSource",
+    "note": "Root is counter insertion plane; basin extends down 0.20m. Fits SinkBase at z=0.90m.",
+    "dimensions": [
+      0.7399999499320984,
+      0.64000004529953,
+      0.5000000149011612
+    ],
+    "bounds_min": [
+      -0.3699999749660492,
+      -0.27169811725616455,
+      -0.22123892605304718
+    ],
+    "bounds_max": [
+      0.3699999749660492,
+      0.3683019280433655,
+      0.278761088848114
+    ],
+    "triangles": 260,
+    "meshes": 7,
+    "roles": [
+      "Dark",
+      "Metal"
+    ],
+    "geometry_sha256": "8d9be488e0bc2a3c76055d64e4c821a62c8f9749e34e43f8483e160db38ca954",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "SinkBase",
+    "label": "싱크대 결합용 타공 하부장",
+    "category": "주방",
+    "placement": "Floor",
+    "function": "Storage, Surface",
+    "note": "Additional assembly variant; actual 0.58 x 0.41m through-opening",
+    "dimensions": [
+      1.0,
+      0.8299999833106995,
+      1.0000001192092896
+    ],
+    "bounds_min": [
+      -0.5,
+      -0.4494323134422302,
+      0.0
+    ],
+    "bounds_max": [
+      0.5,
+      0.38056766986846924,
+      1.0000001192092896
+    ],
+    "triangles": 696,
+    "meshes": 18,
+    "roles": [
+      "Body",
+      "Dark",
+      "Metal",
+      "White"
+    ],
+    "geometry_sha256": "6d88a25a62f45fc453535e2c9501ef517be2c21a714ea96fa5129f8b400152b4",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "Sofa2",
+    "label": "2인용 소파",
+    "category": "거실",
+    "placement": "Floor",
+    "function": "Seating",
+    "note": "",
+    "dimensions": [
+      1.899999976158142,
+      1.0499999523162842,
+      0.9800000190734863
+    ],
+    "bounds_min": [
+      -0.949999988079071,
+      -0.5232282280921936,
+      0.0
+    ],
+    "bounds_max": [
+      0.949999988079071,
+      0.5267717242240906,
+      0.9800000190734863
+    ],
+    "triangles": 528,
+    "meshes": 12,
+    "roles": [
+      "Accent",
+      "Body",
+      "Fabric",
+      "Wood"
+    ],
+    "geometry_sha256": "3ce9f2b4e112fc1aa7f93e9a4502b4f36aff64ee8de5d8c4905a7d61c8de224b",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "Sofa3",
+    "label": "3인용 소파",
+    "category": "거실",
+    "placement": "Floor",
+    "function": "Seating",
+    "note": "",
+    "dimensions": [
+      2.700000286102295,
+      1.0499999523162842,
+      0.9800000190734863
+    ],
+    "bounds_min": [
+      -1.3500001430511475,
+      -0.5232282280921936,
+      0.0
+    ],
+    "bounds_max": [
+      1.3500001430511475,
+      0.5267717242240906,
+      0.9800000190734863
+    ],
+    "triangles": 616,
+    "meshes": 14,
+    "roles": [
+      "Accent",
+      "Body",
+      "Fabric",
+      "Wood"
+    ],
+    "geometry_sha256": "340a0e9f4684ee41d234ac233a8d327d19da088bd1d77a44c09c3048fe7b3dfa",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "StandingAC",
+    "label": "스탠드 에어컨",
+    "category": "가전",
+    "placement": "Floor",
+    "function": "Decoration",
+    "note": "",
+    "dimensions": [
+      0.550000011920929,
+      0.45000001788139343,
+      2.0
+    ],
+    "bounds_min": [
+      -0.2750000059604645,
+      -0.25055402517318726,
+      0.0
+    ],
+    "bounds_max": [
+      0.2750000059604645,
+      0.19944599270820618,
+      2.0
+    ],
+    "triangles": 716,
+    "meshes": 11,
+    "roles": [
+      "Body",
+      "Dark",
+      "Metal",
+      "Screen"
+    ],
+    "geometry_sha256": "fd412c36f8d8ba90cb71cb9c4e2f10a6b5c6b288f9714b833d6670f1d769a895",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "StudyDeskHutch",
+    "label": "책장 딸린 공부용 책상",
+    "category": "책상",
+    "placement": "Floor",
+    "function": "Surface, Storage",
+    "note": "",
+    "dimensions": [
+      1.5,
+      0.7500000298023224,
+      1.6999999284744263
+    ],
+    "bounds_min": [
+      -0.75,
+      -0.3951876163482666,
+      0.0
+    ],
+    "bounds_max": [
+      0.75,
+      0.3548124134540558,
+      1.6999999284744263
+    ],
+    "triangles": 656,
+    "meshes": 16,
+    "roles": [
+      "Body",
+      "Metal",
+      "Wood"
+    ],
+    "geometry_sha256": "b21c76abd54260f02f6954f3d437762cf211f662bdba577a3ffd7669d4839682",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "Toilet",
+    "label": "변기",
+    "category": "욕실",
+    "placement": "Floor",
+    "function": "Seating, WaterSource",
+    "note": "",
+    "dimensions": [
+      0.48000001907348633,
+      0.8200000524520874,
+      0.9199999570846558
+    ],
+    "bounds_min": [
+      -0.24000000953674316,
+      -0.43309861421585083,
+      0.0
+    ],
+    "bounds_max": [
+      0.24000000953674316,
+      0.3869014382362366,
+      0.9199999570846558
+    ],
+    "triangles": 652,
+    "meshes": 7,
+    "roles": [
+      "Body",
+      "Metal",
+      "White"
+    ],
+    "geometry_sha256": "853c96c25bcac555fa91a4ae3247ddddf6fbd94e246b58aa479ac04eef772422",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "TowelRail",
+    "label": "수건걸이",
+    "category": "욕실",
+    "placement": "Wall",
+    "function": "Decoration",
+    "note": "",
+    "dimensions": [
+      0.7999999523162842,
+      0.09750001132488251,
+      0.09000000357627869
+    ],
+    "bounds_min": [
+      -0.3999999761581421,
+      -0.08300001174211502,
+      0.0
+    ],
+    "bounds_max": [
+      0.3999999761581421,
+      0.014499999582767487,
+      0.09000000357627869
+    ],
+    "triangles": 172,
+    "meshes": 5,
+    "roles": [
+      "Body",
+      "Metal"
+    ],
+    "geometry_sha256": "de8b044fa8b7c99615c7d0733b10808a006217a3eab1657eab751f3d119a835a",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "TrashBin",
+    "label": "쓰레기통",
+    "category": "생활",
+    "placement": "Floor",
+    "function": "Storage",
+    "note": "",
+    "dimensions": [
+      0.42000001668930054,
+      0.4599999934434891,
+      0.5
+    ],
+    "bounds_min": [
+      -0.21000000834465027,
+      -0.25205478072166443,
+      0.0
+    ],
+    "bounds_max": [
+      0.21000000834465027,
+      0.20794521272182465,
+      0.5
+    ],
+    "triangles": 232,
+    "meshes": 3,
+    "roles": [
+      "Accent",
+      "Body",
+      "Metal"
+    ],
+    "geometry_sha256": "b4e3bf260b1712f2bf6ae11dfabdd26879e6c1de8c5d870cbac4de31cd532625",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "TV",
+    "label": "TV",
+    "category": "가전",
+    "placement": "Surface",
+    "function": "Display",
+    "note": "",
+    "dimensions": [
+      1.5,
+      0.3500000089406967,
+      0.9999999925494194
+    ],
+    "bounds_min": [
+      -0.75,
+      -0.18131208419799805,
+      7.450580596923828e-09
+    ],
+    "bounds_max": [
+      0.75,
+      0.16868792474269867,
+      1.0
+    ],
+    "triangles": 244,
+    "meshes": 7,
+    "roles": [
+      "Body",
+      "Dark",
+      "Screen"
+    ],
+    "geometry_sha256": "ecec7487dee22be8f782ee5c374e8c5cd47c4c96958b99a9b78bd3fdb30548df",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "TVStand",
+    "label": "낮은 TV장",
+    "category": "거실",
+    "placement": "Floor",
+    "function": "Storage, Surface",
+    "note": "",
+    "dimensions": [
+      2.1000001430511475,
+      0.6000000238418579,
+      0.5199999809265137
+    ],
+    "bounds_min": [
+      -1.0500000715255737,
+      -0.33858922123908997,
+      0.0
+    ],
+    "bounds_max": [
+      1.0500000715255737,
+      0.26141080260276794,
+      0.5199999809265137
+    ],
+    "triangles": 784,
+    "meshes": 20,
+    "roles": [
+      "Body",
+      "Metal",
+      "Wood"
+    ],
+    "geometry_sha256": "764440556ba5372a8d1a0ea974a6954c3ade510d29238cf2533025019eb88f4b",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "Vanity",
+    "label": "소형 화장대와 거울",
+    "category": "침실",
+    "placement": "Floor",
+    "function": "Storage, Surface",
+    "note": "",
+    "dimensions": [
+      1.149999976158142,
+      0.5499999821186066,
+      1.4999999105930328
+    ],
+    "bounds_min": [
+      -0.574999988079071,
+      -0.28214284777641296,
+      -2.9802322387695312e-08
+    ],
+    "bounds_max": [
+      0.574999988079071,
+      0.2678571343421936,
+      1.4999998807907104
+    ],
+    "triangles": 864,
+    "meshes": 13,
+    "roles": [
+      "Body",
+      "Metal",
+      "Wood"
+    ],
+    "geometry_sha256": "da63c317a63e056f2cccf794dd10836e8fd16f1f45b2ad91d907c97fa4d7a665",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "WallAC",
+    "label": "벽걸이 에어컨",
+    "category": "가전",
+    "placement": "Wall",
+    "function": "Decoration",
+    "note": "",
+    "dimensions": [
+      1.0999999046325684,
+      0.3200000077486038,
+      0.3499999940395355
+    ],
+    "bounds_min": [
+      -0.5499999523162842,
+      -0.185011625289917,
+      0.0
+    ],
+    "bounds_max": [
+      0.5499999523162842,
+      0.13498838245868683,
+      0.3499999940395355
+    ],
+    "triangles": 264,
+    "meshes": 6,
+    "roles": [
+      "Accent",
+      "Body",
+      "Dark",
+      "White"
+    ],
+    "geometry_sha256": "de4b473ffd4747cfee79ccc6f907d39504c204dd002f0e8726f8e501275c6925",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "WallCabinet",
+    "label": "벽 부착 수납장",
+    "category": "수납",
+    "placement": "Wall",
+    "function": "Storage",
+    "note": "",
+    "dimensions": [
+      1.100000023841858,
+      0.42000000178813934,
+      0.7199999690055847
+    ],
+    "bounds_min": [
+      -0.550000011920929,
+      -0.25295454263687134,
+      0.0
+    ],
+    "bounds_max": [
+      0.550000011920929,
+      0.167045459151268,
+      0.7199999690055847
+    ],
+    "triangles": 520,
+    "meshes": 14,
+    "roles": [
+      "Body",
+      "Metal",
+      "Wood"
+    ],
+    "geometry_sha256": "691ab4837e7c6b909a9c3a091749fee5aa348ca841cb46fd53170a846fa3136a",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "WallShower",
+    "label": "벽 부착 샤워기",
+    "category": "욕실",
+    "placement": "Wall",
+    "function": "WaterSource",
+    "note": "",
+    "dimensions": [
+      0.3500000238418579,
+      0.4500000327825546,
+      1.3499999064952135
+    ],
+    "bounds_min": [
+      -0.14394031465053558,
+      -0.37800002098083496,
+      -1.862645149230957e-09
+    ],
+    "bounds_max": [
+      0.20605970919132233,
+      0.07200001180171967,
+      1.3499999046325684
+    ],
+    "triangles": 636,
+    "meshes": 21,
+    "roles": [
+      "Dark",
+      "Metal",
+      "White"
+    ],
+    "geometry_sha256": "b0d9b90b0608e321f551409705c38157bed2a028f49636c464c0cea5e3494613",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "Wardrobe",
+    "label": "큰 옷장",
+    "category": "수납",
+    "placement": "Floor",
+    "function": "Storage",
+    "note": "",
+    "dimensions": [
+      2.0,
+      0.800000011920929,
+      2.4000000953674316
+    ],
+    "bounds_min": [
+      -1.0,
+      -0.44285714626312256,
+      0.0
+    ],
+    "bounds_max": [
+      1.0,
+      0.3571428656578064,
+      2.4000000953674316
+    ],
+    "triangles": 892,
+    "meshes": 25,
+    "roles": [
+      "Body",
+      "Metal",
+      "Wood"
+    ],
+    "geometry_sha256": "97bbc5da64702bbc7619ebcd062afed6af199a371c8b562042ae2d5b0fc3dbd0",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "Washbasin",
+    "label": "세면대",
+    "category": "욕실",
+    "placement": "Floor",
+    "function": "WaterSource",
+    "note": "",
+    "dimensions": [
+      0.6800000071525574,
+      0.5199999809265137,
+      1.1200001239776611
+    ],
+    "bounds_min": [
+      -0.3400000035762787,
+      -0.25999999046325684,
+      0.0
+    ],
+    "bounds_max": [
+      0.3400000035762787,
+      0.25999999046325684,
+      1.1200001239776611
+    ],
+    "triangles": 296,
+    "meshes": 8,
+    "roles": [
+      "Dark",
+      "Metal",
+      "White"
+    ],
+    "geometry_sha256": "c296f3fa436d3ce763a2642536869a6e2113409bdb032d0a3bfedf3187dbd7f2",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "Washer",
+    "label": "세탁기",
+    "category": "가전",
+    "placement": "Floor",
+    "function": "Decoration",
+    "note": "",
+    "dimensions": [
+      0.7199999690055847,
+      0.7799999713897705,
+      0.9999999403953552
+    ],
+    "bounds_min": [
+      -0.35999998450279236,
+      -0.41999998688697815,
+      0.0
+    ],
+    "bounds_max": [
+      0.35999998450279236,
+      0.35999998450279236,
+      0.9999999403953552
+    ],
+    "triangles": 680,
+    "meshes": 8,
+    "roles": [
+      "Body",
+      "Dark",
+      "Metal",
+      "Screen",
+      "White"
+    ],
+    "geometry_sha256": "186ae61528516dca5d4748a24fa2b4c03701a81e7e73cfb39eec8e0c05504703",
+    "palettes": [
+      "Cream"
+    ]
+  },
+  {
+    "id": "WoodChair",
+    "label": "기본 목제 의자",
+    "category": "의자",
+    "placement": "Floor",
+    "function": "Seating",
+    "note": "",
+    "dimensions": [
+      0.5499999523162842,
+      0.5300000309944153,
+      1.0
+    ],
+    "bounds_min": [
+      -0.2749999761581421,
+      -0.26500001549720764,
+      0.0
+    ],
+    "bounds_max": [
+      0.2749999761581421,
+      0.26500001549720764,
+      1.0
+    ],
+    "triangles": 396,
+    "meshes": 9,
+    "roles": [
+      "Body",
+      "Wood"
+    ],
+    "geometry_sha256": "9a6bc623ea87c928221ad0fb378cb03014738c45bce852cbceaebc7cd3ef9c18",
+    "palettes": [
+      "Cream"
+    ]
+  }
+]

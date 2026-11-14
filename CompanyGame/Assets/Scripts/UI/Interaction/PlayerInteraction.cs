@@ -96,6 +96,12 @@ public class PlayerInteraction : MonoBehaviour
 
     void Update()
     {
+        if (FurniturePlacementController.OwnsInput)
+        {
+            ClearVehicleHover();
+            if (ui) ui.HidePrompt();
+            return;
+        }
         if (SceneLoadManager.IsLoading)
         {
             if (IsVehicleMenuOpen) CloseVehicleMenu();

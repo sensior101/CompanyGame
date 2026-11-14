@@ -135,7 +135,7 @@ public sealed partial class InventoryUI
         view.number.rectTransform.anchorMin = view.number.rectTransform.anchorMax = new Vector2(0f, 1f);
         view.number.rectTransform.pivot = new Vector2(0f, 1f);
         view.number.rectTransform.anchoredPosition = new Vector2(8f, -4f);
-        view.emptyLabel = Label("Empty", rect, "+", size < 80 ? 20f : 28f, UITheme.A(UITheme.Brown, .6f), new Vector2(size - 10f, Mathf.Min(size - 10f, 64f)));
+        view.emptyLabel = Label("Empty", rect, "", size < 80 ? 20f : 28f, UITheme.A(UITheme.Brown, .6f), new Vector2(size - 10f, Mathf.Min(size - 10f, 64f)));
         return view;
     }
 

@@ -11,7 +11,7 @@ using System.IO;
 /// </summary>
 public sealed class WorldSection : NetBehaviour
 {
-    public const byte OpEvent = 1, OpResultEvent = 2, LedgerEvent = 3, BookTextEvent = 4, NoticeEvent = 5, ChatEvent = 6;
+    public const byte OpEvent = 1, OpResultEvent = 2, LedgerEvent = 3, BookTextEvent = 4, NoticeEvent = 5, ChatEvent = 6, StorageEvent = 7;
 
     /// <summary>Section number (the order on the template, the same everywhere).</summary>
     public int index;
@@ -36,5 +36,6 @@ public sealed class WorldSection : NetBehaviour
         else if (id == BookTextEvent) WorldStateSync.OnBookText(r);
         else if (id == NoticeEvent) WorldStateSync.OnNotice(r);
         else if (id == ChatEvent) WorldStateSync.OnChat(r);
+        else if (id == StorageEvent) WorldStateSync.OnStorage(r);
     }
 }

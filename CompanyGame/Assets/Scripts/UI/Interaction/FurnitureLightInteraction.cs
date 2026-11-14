@@ -19,13 +19,15 @@ public sealed class FurnitureLightInteraction : MonoBehaviour
     void Update()
     {
         HasNearbyLight = false;
-        if (!movement || !movement.isActiveAndEnabled || SceneLoadManager.IsLoading ||
+        if (CookingInteraction.IsOpen || CookingInteraction.HasNearbyStation || !movement || !movement.isActiveAndEnabled || SceneLoadManager.IsLoading ||
             SeatInteraction.HasNearbySeat || (PlayerSeating.Local && PlayerSeating.Local.IsSeated) ||
             DialogueManager.HasNearbyNpc || DialogueManager.IsDialogueOpen || DialogueManager.OwnsInput ||
             PlayerInventory.IsAnyOpen || ChatUIManager.IsChatting || UIEventSystem.IsEditingText() ||
             (PhoneManager.Instance && PhoneManager.Instance.IsPhoneOpen) ||
             (PlayerInteraction.Local && PlayerInteraction.Local.IsInteractionMenuOpen)) { Hide(); return; }
         var lamp = FurnitureLight.FindNearest(transform);
+        var storage = FridgeStorage.FindNearest(transform);
+        if (lamp && storage && (storage.transform.position - transform.position).sqrMagnitude < (lamp.transform.position - transform.position).sqrMagnitude) lamp = null;
         HasNearbyLight = lamp;
         if (!lamp) { Hide(); return; }
         if (GameInput.InteractPressed && !PlayerInventory.SpaceConsumedThisFrame)

@@ -53,7 +53,7 @@ public sealed class PauseMenu : MonoBehaviour
     // Decided after every other Update: ESC that other UI used this frame must not open (or double-close) this menu.
     void LateUpdate()
     {
-        if (!GameInput.CancelPressed) return;
+        if (FurniturePlacementController.OwnsInput || !GameInput.CancelPressed) return;
         if (open) Close();
         else if (wasFree) Open();
     }

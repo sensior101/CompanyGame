@@ -176,7 +176,7 @@ public class PlayerCameraController : MonoBehaviour
 
         mouseDelta = GameInput.PointerDelta;
         bool cameraInputAllowed = menuInputLocks == 0 && !dialogueReturning && !InputFocus.GameplayBlocked();
-        orbit = GameInput.OrbitHeld && cameraInputAllowed;
+        orbit = menuInputLocks == 0 && !dialogueReturning && (InputFocus.FurnitureAiming() || (GameInput.OrbitHeld && cameraInputAllowed));
         wheel = GameInput.Scroll;
         switchView = GameInput.ViewTogglePressed && cameraInputAllowed;
 

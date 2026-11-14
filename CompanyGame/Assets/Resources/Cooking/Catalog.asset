@@ -1,0 +1,1504 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aeba3b86a9ab7c040abeafa8f6cb8cb3, type: 3}
+  m_Name: Catalog
+  m_EditorClassIdentifier: CompanyGame.Gameplay::CookingCatalog
+  recipes:
+  - id: TriangleGimbap
+    output: {fileID: 11400000, guid: 83a340db72d076240954969fafd599c9, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 2a8b1255bf2783f4abf7e6a12897551a, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 6bef45fd3b7398249bc908c1cafefdb8, type: 2}
+      count: 1
+    unlockRequired: 1
+  - id: CupRamen
+    output: {fileID: 11400000, guid: 9f12de7de8dcb054fa1c153dbece17a8, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 1687d6ace3db2e944a7a2885f81233bb, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 44ef929df0df1e8449290ce0fcbbd7e2, type: 2}
+      count: 1
+    unlockRequired: 1
+  - id: LunchBox
+    output: {fileID: 11400000, guid: c8b0b85506947b147ae01ee0f2f636be, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 2a8b1255bf2783f4abf7e6a12897551a, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: f4818a98a33c0db4085b3589ce8ebad8, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: ef1733126edd77a49855dd9f0f1040f1, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: e44c8ef7b03a9a7479525143eab272a1, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: d8674aa9d53803341afd309c0e34a23a, type: 2}
+      count: 1
+    unlockRequired: 1
+  - id: EnergyDrink
+    output: {fileID: 11400000, guid: 20cbc627810a10b4aa18af115b0c953a, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 152ac2a86cc1c9c4a84c91cfda339548, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 44ef929df0df1e8449290ce0fcbbd7e2, type: 2}
+      count: 1
+    unlockRequired: 1
+  - id: EnergyBar
+    output: {fileID: 11400000, guid: 5a57b6f2ee0581b4a81be811af90bafa, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: c1e60949bbf80514a9c67d32214996a7, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: d989efff7b461364e8422137280aca08, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    unlockRequired: 1
+  - id: Water
+    output: {fileID: 11400000, guid: 44ef929df0df1e8449290ce0fcbbd7e2, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 44ef929df0df1e8449290ce0fcbbd7e2, type: 2}
+      count: 2
+    unlockRequired: 1
+  - id: Cola
+    output: {fileID: 11400000, guid: 4776f37a218daff4789e76a28dd29d1b, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 44ef929df0df1e8449290ce0fcbbd7e2, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 1687d6ace3db2e944a7a2885f81233bb, type: 2}
+      count: 1
+    unlockRequired: 1
+  - id: Chips
+    output: {fileID: 11400000, guid: 15cfa7e89325a73459256817ad93a0d3, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: bf5c598cf99f949439668f22b26d989d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: c1e60949bbf80514a9c67d32214996a7, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    unlockRequired: 1
+  - id: Chocolate
+    output: {fileID: 11400000, guid: d989efff7b461364e8422137280aca08, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: d989efff7b461364e8422137280aca08, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    unlockRequired: 1
+  - id: Jelly
+    output: {fileID: 11400000, guid: 3ca7176db3499e3409554a3095172a15, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: bcefe63bf243ded4da47ab21beb1765e, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 44ef929df0df1e8449290ce0fcbbd7e2, type: 2}
+      count: 1
+    unlockRequired: 1
+  - id: KimchiStew
+    output: {fileID: 11400000, guid: 767bb78a0590ff046881be7544439adf, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: d8674aa9d53803341afd309c0e34a23a, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: f4818a98a33c0db4085b3589ce8ebad8, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: c1058af130b3f2f4ab8effa9109b05ab, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: DoenjangStew
+    output: {fileID: 11400000, guid: 323aa7df525282345ace7670eec75493, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 6bef45fd3b7398249bc908c1cafefdb8, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: c1058af130b3f2f4ab8effa9109b05ab, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 0d482bbda44e7a04eb968f6bb66b21c9, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: SpicyPork
+    output: {fileID: 11400000, guid: 0c662fd17c7210346ab389036a70e0ed, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: f4818a98a33c0db4085b3589ce8ebad8, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 1687d6ace3db2e944a7a2885f81233bb, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 6bef45fd3b7398249bc908c1cafefdb8, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: e44c8ef7b03a9a7479525143eab272a1, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: StoneBibimbap
+    output: {fileID: 11400000, guid: c1bfce81856d2dc4888f4fa274e8da5d, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 2a8b1255bf2783f4abf7e6a12897551a, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 394a4622b1c7b2145ba48df6db29ba5d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: e44c8ef7b03a9a7479525143eab272a1, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: d8674aa9d53803341afd309c0e34a23a, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: ef1733126edd77a49855dd9f0f1040f1, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Bossam
+    output: {fileID: 11400000, guid: e2d2deee7922f5e49b37f357fe25e9df, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: f4818a98a33c0db4085b3589ce8ebad8, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: d8674aa9d53803341afd309c0e34a23a, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 6bef45fd3b7398249bc908c1cafefdb8, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Jokbal
+    output: {fileID: 11400000, guid: 6b1538cde3792db418470ad4ad43626d, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: f4818a98a33c0db4085b3589ce8ebad8, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 6bef45fd3b7398249bc908c1cafefdb8, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 1687d6ace3db2e944a7a2885f81233bb, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: ChickenFeet
+    output: {fileID: 11400000, guid: e8e6cd09abd19234e9d67e863e11a925, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 4fca630a673f8d44ebd8f1bfe398084a, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 1687d6ace3db2e944a7a2885f81233bb, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Samgyetang
+    output: {fileID: 11400000, guid: 2d5a86ef0d726f24eb3c05565ef5ff0c, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 4fca630a673f8d44ebd8f1bfe398084a, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 2a8b1255bf2783f4abf7e6a12897551a, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 756208235068d3c4dbc462892a74db85, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 44ef929df0df1e8449290ce0fcbbd7e2, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: PorkSoup
+    output: {fileID: 11400000, guid: 6f4794631b924c34482cce8d91e9aa97, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: f4818a98a33c0db4085b3589ce8ebad8, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 2a8b1255bf2783f4abf7e6a12897551a, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 6bef45fd3b7398249bc908c1cafefdb8, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 44ef929df0df1e8449290ce0fcbbd7e2, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Samgyeopsal
+    output: {fileID: 11400000, guid: 39c91356032853b4f83027d9c9be92b6, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: f4818a98a33c0db4085b3589ce8ebad8, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 0d482bbda44e7a04eb968f6bb66b21c9, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: ColdNoodles
+    output: {fileID: 11400000, guid: 36c107f09aa3f1241b0847a957c8be87, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 8b9c420aa3544cb4a9679becaded84be, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 44ef929df0df1e8449290ce0fcbbd7e2, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: SpicyColdNoodles
+    output: {fileID: 11400000, guid: 36726ca93d0199b4aac9bd2934336e3d, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 8b9c420aa3544cb4a9679becaded84be, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 1687d6ace3db2e944a7a2885f81233bb, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Tteokbokki
+    output: {fileID: 11400000, guid: 35a012faf71a593408afa5875c72573a, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 2a8b1255bf2783f4abf7e6a12897551a, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 1687d6ace3db2e944a7a2885f81233bb, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Gimbap
+    output: {fileID: 11400000, guid: ebf42fc6b5cf4fb4fa4c54c15407ff0a, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 2a8b1255bf2783f4abf7e6a12897551a, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: ef1733126edd77a49855dd9f0f1040f1, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: e44c8ef7b03a9a7479525143eab272a1, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 8b9c420aa3544cb4a9679becaded84be, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Sundae
+    output: {fileID: 11400000, guid: 73eca639745efbb4f8ed69f4e5671166, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: f4818a98a33c0db4085b3589ce8ebad8, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 2a8b1255bf2783f4abf7e6a12897551a, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 6bef45fd3b7398249bc908c1cafefdb8, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: SeafoodPancake
+    output: {fileID: 11400000, guid: 34e4b1488eb07f540b75892b37e7add2, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 50f59d35a480baa44b3afa128af4d546, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: d8674aa9d53803341afd309c0e34a23a, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: ef1733126edd77a49855dd9f0f1040f1, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: SteamedEgg
+    output: {fileID: 11400000, guid: b8bb0aada4339cd48aeda8f0527b0354, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: ef1733126edd77a49855dd9f0f1040f1, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 44ef929df0df1e8449290ce0fcbbd7e2, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: TomatoPasta
+    output: {fileID: 11400000, guid: 19ff5cf10e61c474cbd66832e7d78d05, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 1687d6ace3db2e944a7a2885f81233bb, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: c0af7b9c1a7945d45ae70e8274517286, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: CreamPasta
+    output: {fileID: 11400000, guid: 0f4e998b8cf9b3041bbe6776b506b3b9, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 52c6ceed5ef37684e93e6a23bf6b21a6, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 0d482bbda44e7a04eb968f6bb66b21c9, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Risotto
+    output: {fileID: 11400000, guid: da35e7b1c69aa5d49a0f4b8692698d4f, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 2a8b1255bf2783f4abf7e6a12897551a, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 52c6ceed5ef37684e93e6a23bf6b21a6, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 0d482bbda44e7a04eb968f6bb66b21c9, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 604c26a1fcec7ff48830ed79ff414023, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Pizza
+    output: {fileID: 11400000, guid: 410df0b5170b90949ae423bc9bf99489, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 604c26a1fcec7ff48830ed79ff414023, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 1687d6ace3db2e944a7a2885f81233bb, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: c0af7b9c1a7945d45ae70e8274517286, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Steak
+    output: {fileID: 11400000, guid: a73eee82c3e11de459572f732de18674, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 394a4622b1c7b2145ba48df6db29ba5d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 0d482bbda44e7a04eb968f6bb66b21c9, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 6bef45fd3b7398249bc908c1cafefdb8, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: c0af7b9c1a7945d45ae70e8274517286, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Hamburger
+    output: {fileID: 11400000, guid: b7fab353fc8eb1d479dd10827139842b, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 394a4622b1c7b2145ba48df6db29ba5d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: d8674aa9d53803341afd309c0e34a23a, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 1687d6ace3db2e944a7a2885f81233bb, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Cheeseburger
+    output: {fileID: 11400000, guid: cb0064d5fb40c2d4aa969fa7edda6f81, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 394a4622b1c7b2145ba48df6db29ba5d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: d8674aa9d53803341afd309c0e34a23a, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 1687d6ace3db2e944a7a2885f81233bb, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 604c26a1fcec7ff48830ed79ff414023, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: HotDog
+    output: {fileID: 11400000, guid: 48f438da0be4cc449a0776244ca5012e, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: f4818a98a33c0db4085b3589ce8ebad8, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 1687d6ace3db2e944a7a2885f81233bb, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: MozzarellaCornDog
+    output: {fileID: 11400000, guid: 4288719d83e4cf842ba8028ef946d46b, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: f4818a98a33c0db4085b3589ce8ebad8, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 604c26a1fcec7ff48830ed79ff414023, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Sandwich
+    output: {fileID: 11400000, guid: af62c04a109dea9419551e9f26b7cbad, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: ef1733126edd77a49855dd9f0f1040f1, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: d8674aa9d53803341afd309c0e34a23a, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 8b9c420aa3544cb4a9679becaded84be, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Salad
+    output: {fileID: 11400000, guid: b74a6145c54a0d046b943663dee0c6e9, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: d8674aa9d53803341afd309c0e34a23a, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 8b9c420aa3544cb4a9679becaded84be, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: e44c8ef7b03a9a7479525143eab272a1, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: MushroomSoup
+    output: {fileID: 11400000, guid: f1258616225069e409518e912c0a3fca, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 0d482bbda44e7a04eb968f6bb66b21c9, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 52c6ceed5ef37684e93e6a23bf6b21a6, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 44ef929df0df1e8449290ce0fcbbd7e2, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: FishAndChips
+    output: {fileID: 11400000, guid: fac92b429e149e54087f694c59516d14, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: a5e56a2422520d64fb203d357a6b5855, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: bf5c598cf99f949439668f22b26d989d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 1687d6ace3db2e944a7a2885f81233bb, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: BBQRibs
+    output: {fileID: 11400000, guid: d9ce6fc7518f69f499b3ee00abc1f3e1, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: f4818a98a33c0db4085b3589ce8ebad8, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 6bef45fd3b7398249bc908c1cafefdb8, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 1687d6ace3db2e944a7a2885f81233bb, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: c1e60949bbf80514a9c67d32214996a7, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: FrenchFries
+    output: {fileID: 11400000, guid: 71b4a17971e41424cb071a496fafab19, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: bf5c598cf99f949439668f22b26d989d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 1687d6ace3db2e944a7a2885f81233bb, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: SalmonSushi
+    output: {fileID: 11400000, guid: 9475300d98741fe42a4cd9fd5ad7f2b3, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 04031d46a07d2dc46a4b627db542c23c, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 2a8b1255bf2783f4abf7e6a12897551a, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: TunaSushi
+    output: {fileID: 11400000, guid: 045a347f733947b4a8b08cdeac8f2872, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 230d4799ac2f6114497d1a991234138e, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 2a8b1255bf2783f4abf7e6a12897551a, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: ShrimpSushi
+    output: {fileID: 11400000, guid: 4e123b3fadc9ba14ea26517e169c0876, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 50f59d35a480baa44b3afa128af4d546, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 2a8b1255bf2783f4abf7e6a12897551a, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: EggSushi
+    output: {fileID: 11400000, guid: a4158aa76c1271140925b89dfc50ffdd, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: ef1733126edd77a49855dd9f0f1040f1, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 2a8b1255bf2783f4abf7e6a12897551a, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Ramen
+    output: {fileID: 11400000, guid: 2421ccbc35b87cc48b5bdeeadd4d2b81, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: f4818a98a33c0db4085b3589ce8ebad8, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: ef1733126edd77a49855dd9f0f1040f1, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 6bef45fd3b7398249bc908c1cafefdb8, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 44ef929df0df1e8449290ce0fcbbd7e2, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: ColdSoba
+    output: {fileID: 11400000, guid: e5ca189d0ad4a5642a66ca526e8cf45b, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 6bef45fd3b7398249bc908c1cafefdb8, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 8b9c420aa3544cb4a9679becaded84be, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Udon
+    output: {fileID: 11400000, guid: e8afcbd938ea9224ba701ec3c6b0c5fa, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 6bef45fd3b7398249bc908c1cafefdb8, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 44ef929df0df1e8449290ce0fcbbd7e2, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Okonomiyaki
+    output: {fileID: 11400000, guid: e13730244a0abde44b845e99e4461812, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: d8674aa9d53803341afd309c0e34a23a, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: ef1733126edd77a49855dd9f0f1040f1, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: f4818a98a33c0db4085b3589ce8ebad8, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Takoyaki
+    output: {fileID: 11400000, guid: de8b50400f70df94faefb320e198c376, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 50f59d35a480baa44b3afa128af4d546, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: ef1733126edd77a49855dd9f0f1040f1, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 6bef45fd3b7398249bc908c1cafefdb8, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: ShrimpTempura
+    output: {fileID: 11400000, guid: 186bda3883a121e4cb4403b50ed47398, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 50f59d35a480baa44b3afa128af4d546, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: ef1733126edd77a49855dd9f0f1040f1, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: PorkCutlet
+    output: {fileID: 11400000, guid: 8ab01806d001ec143958a1c857ddf3d2, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: f4818a98a33c0db4085b3589ce8ebad8, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: ef1733126edd77a49855dd9f0f1040f1, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 1687d6ace3db2e944a7a2885f81233bb, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: CheeseCutlet
+    output: {fileID: 11400000, guid: 4852957f2d5801344bb408e95c5c9b74, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: f4818a98a33c0db4085b3589ce8ebad8, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: ef1733126edd77a49855dd9f0f1040f1, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 1687d6ace3db2e944a7a2885f81233bb, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 604c26a1fcec7ff48830ed79ff414023, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Omurice
+    output: {fileID: 11400000, guid: 3707f9683f55bee4a824fef1edb6d7f0, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 2a8b1255bf2783f4abf7e6a12897551a, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: ef1733126edd77a49855dd9f0f1040f1, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 4fca630a673f8d44ebd8f1bfe398084a, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 1687d6ace3db2e944a7a2885f81233bb, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: TokyoCurry
+    output: {fileID: 11400000, guid: 341c04c9899622045a131844802ecd36, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 2a8b1255bf2783f4abf7e6a12897551a, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 394a4622b1c7b2145ba48df6db29ba5d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: bf5c598cf99f949439668f22b26d989d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 1687d6ace3db2e944a7a2885f81233bb, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: EelRice
+    output: {fileID: 11400000, guid: d69178ce04dd00b41a84adfe84a93061, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 8ab08f5be57468f49be1c1103d211c25, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 2a8b1255bf2783f4abf7e6a12897551a, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 6bef45fd3b7398249bc908c1cafefdb8, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Tendon
+    output: {fileID: 11400000, guid: 64b02f53f10b13142bd0c265fd121288, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 2a8b1255bf2783f4abf7e6a12897551a, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 50f59d35a480baa44b3afa128af4d546, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: ef1733126edd77a49855dd9f0f1040f1, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 1687d6ace3db2e944a7a2885f81233bb, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Jajangmyeon
+    output: {fileID: 11400000, guid: 9db2023bba0d3fd448491d4d54d478b7, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 6bef45fd3b7398249bc908c1cafefdb8, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: f4818a98a33c0db4085b3589ce8ebad8, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Jjamppong
+    output: {fileID: 11400000, guid: 06e56cc725b43ce4cad15ead6292d1ca, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 50f59d35a480baa44b3afa128af4d546, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: d8674aa9d53803341afd309c0e34a23a, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 1687d6ace3db2e944a7a2885f81233bb, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 44ef929df0df1e8449290ce0fcbbd7e2, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Tangsuyuk
+    output: {fileID: 11400000, guid: c90d17ce13bf56d41a17b89958428ed8, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: f4818a98a33c0db4085b3589ce8ebad8, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 8237f37fa47939647ad624b78ceaf5c2, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Guobaorou
+    output: {fileID: 11400000, guid: c0261bc2470dd7e44bb5ec33e56452bd, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: f4818a98a33c0db4085b3589ce8ebad8, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b462e41aa7fcd4b4d9d63317f528e8ae, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: ChiliShrimp
+    output: {fileID: 11400000, guid: 78ff4f93fc5ce794e9aaff9981b58af9, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 50f59d35a480baa44b3afa128af4d546, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 1687d6ace3db2e944a7a2885f81233bb, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 8237f37fa47939647ad624b78ceaf5c2, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Malatang
+    output: {fileID: 11400000, guid: 7bbb0c9dabe89f64fb8b068449847028, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 1687d6ace3db2e944a7a2885f81233bb, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: d8674aa9d53803341afd309c0e34a23a, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 0d482bbda44e7a04eb968f6bb66b21c9, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: c1058af130b3f2f4ab8effa9109b05ab, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 394a4622b1c7b2145ba48df6db29ba5d, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: MalaXiangguo
+    output: {fileID: 11400000, guid: cb5c96ddcf73cdb41bef0b1b5c5246a8, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 1687d6ace3db2e944a7a2885f81233bb, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 50f59d35a480baa44b3afa128af4d546, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 394a4622b1c7b2145ba48df6db29ba5d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 0d482bbda44e7a04eb968f6bb66b21c9, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: d8674aa9d53803341afd309c0e34a23a, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: MapoTofu
+    output: {fileID: 11400000, guid: e3766499bca05514a99fab4ada6657e5, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: c1058af130b3f2f4ab8effa9109b05ab, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: f4818a98a33c0db4085b3589ce8ebad8, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 6bef45fd3b7398249bc908c1cafefdb8, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 1687d6ace3db2e944a7a2885f81233bb, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Yuringi
+    output: {fileID: 11400000, guid: db5aef676d6406c4d9c21423df450475, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 4fca630a673f8d44ebd8f1bfe398084a, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 6bef45fd3b7398249bc908c1cafefdb8, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 8237f37fa47939647ad624b78ceaf5c2, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Laziji
+    output: {fileID: 11400000, guid: 12d17770d2d186f4abdd5ffce229cd64, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 4fca630a673f8d44ebd8f1bfe398084a, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 1687d6ace3db2e944a7a2885f81233bb, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 6bef45fd3b7398249bc908c1cafefdb8, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 0d482bbda44e7a04eb968f6bb66b21c9, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Yangjangpi
+    output: {fileID: 11400000, guid: d0d01201c7e6ff748816aa400bfec6ba, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 8b9c420aa3544cb4a9679becaded84be, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 50f59d35a480baa44b3afa128af4d546, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: f4818a98a33c0db4085b3589ce8ebad8, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 1687d6ace3db2e944a7a2885f81233bb, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: DongpoPork
+    output: {fileID: 11400000, guid: 60adb0fe5881ca442b246901614e5a9c, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: f4818a98a33c0db4085b3589ce8ebad8, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 6bef45fd3b7398249bc908c1cafefdb8, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 0d482bbda44e7a04eb968f6bb66b21c9, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: e44c8ef7b03a9a7479525143eab272a1, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: DimSum
+    output: {fileID: 11400000, guid: 0620bc98470d8204289d5d90ffe835b9, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: f4818a98a33c0db4085b3589ce8ebad8, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 50f59d35a480baa44b3afa128af4d546, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: d8674aa9d53803341afd309c0e34a23a, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Pho
+    output: {fileID: 11400000, guid: 2c532726127575f4c9e955fb83d4069b, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 394a4622b1c7b2145ba48df6db29ba5d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: c0af7b9c1a7945d45ae70e8274517286, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 44ef929df0df1e8449290ce0fcbbd7e2, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: SpringRolls
+    output: {fileID: 11400000, guid: ea7f4bde9313edb4b973977fbd93f88e, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 50f59d35a480baa44b3afa128af4d546, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: d8674aa9d53803341afd309c0e34a23a, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 8b9c420aa3544cb4a9679becaded84be, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: e44c8ef7b03a9a7479525143eab272a1, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: TomYum
+    output: {fileID: 11400000, guid: 460d8b7cabb48304db7b5e8c63829e19, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 50f59d35a480baa44b3afa128af4d546, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 8237f37fa47939647ad624b78ceaf5c2, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 1687d6ace3db2e944a7a2885f81233bb, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 0d482bbda44e7a04eb968f6bb66b21c9, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 44ef929df0df1e8449290ce0fcbbd7e2, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: CrabCurry
+    output: {fileID: 11400000, guid: 18fa6e0b85efb34469d2c2a75cc93b14, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 50f59d35a480baa44b3afa128af4d546, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 1687d6ace3db2e944a7a2885f81233bb, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: ef1733126edd77a49855dd9f0f1040f1, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 52c6ceed5ef37684e93e6a23bf6b21a6, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 0d482bbda44e7a04eb968f6bb66b21c9, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: GreenCurry
+    output: {fileID: 11400000, guid: e670cc0232f84bb49b039d9e2783534c, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 4fca630a673f8d44ebd8f1bfe398084a, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 1687d6ace3db2e944a7a2885f81233bb, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 52c6ceed5ef37684e93e6a23bf6b21a6, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 0d482bbda44e7a04eb968f6bb66b21c9, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: c0af7b9c1a7945d45ae70e8274517286, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: TandooriChicken
+    output: {fileID: 11400000, guid: eb846938a65d08f43b0a17e1151bb801, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 4fca630a673f8d44ebd8f1bfe398084a, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 1687d6ace3db2e944a7a2885f81233bb, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 52c6ceed5ef37684e93e6a23bf6b21a6, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 8237f37fa47939647ad624b78ceaf5c2, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Naan
+    output: {fileID: 11400000, guid: 07c3b83d6681bcd45938b2eaa27f1d45, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 52c6ceed5ef37684e93e6a23bf6b21a6, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Kebab
+    output: {fileID: 11400000, guid: c263454cb1ad4f34fa83c4fbea0eef02, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 394a4622b1c7b2145ba48df6db29ba5d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: d8674aa9d53803341afd309c0e34a23a, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 8b9c420aa3544cb4a9679becaded84be, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 1687d6ace3db2e944a7a2885f81233bb, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Taco
+    output: {fileID: 11400000, guid: e57a9c7883942324a983e64fd109095e, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: c1e60949bbf80514a9c67d32214996a7, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 394a4622b1c7b2145ba48df6db29ba5d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: d8674aa9d53803341afd309c0e34a23a, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 1687d6ace3db2e944a7a2885f81233bb, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Nachos
+    output: {fileID: 11400000, guid: a1db92394364540419504f9c88716b02, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: c1e60949bbf80514a9c67d32214996a7, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 604c26a1fcec7ff48830ed79ff414023, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 1687d6ace3db2e944a7a2885f81233bb, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: NasiGoreng
+    output: {fileID: 11400000, guid: d941818ebdc90184f930683c5f34d99b, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 2a8b1255bf2783f4abf7e6a12897551a, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 4fca630a673f8d44ebd8f1bfe398084a, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: ef1733126edd77a49855dd9f0f1040f1, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 6bef45fd3b7398249bc908c1cafefdb8, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 1687d6ace3db2e944a7a2885f81233bb, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: MieGoreng
+    output: {fileID: 11400000, guid: 587864f241f35ca41979a8f072ba9912, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 4fca630a673f8d44ebd8f1bfe398084a, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: ef1733126edd77a49855dd9f0f1040f1, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 6bef45fd3b7398249bc908c1cafefdb8, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: d8674aa9d53803341afd309c0e34a23a, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: StrawberryCake
+    output: {fileID: 11400000, guid: 86045bceb083ba44fa29bcdc95619939, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: ef1733126edd77a49855dd9f0f1040f1, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 52c6ceed5ef37684e93e6a23bf6b21a6, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: bcefe63bf243ded4da47ab21beb1765e, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: ChocolateCake
+    output: {fileID: 11400000, guid: 43e64d9b9e0e00245ab7fc7990bba1e3, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: ef1733126edd77a49855dd9f0f1040f1, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 52c6ceed5ef37684e93e6a23bf6b21a6, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: d989efff7b461364e8422137280aca08, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Cheesecake
+    output: {fileID: 11400000, guid: 23bd7dbcfecd64142a5671b4c039d8e0, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 604c26a1fcec7ff48830ed79ff414023, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: ef1733126edd77a49855dd9f0f1040f1, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Tiramisu
+    output: {fileID: 11400000, guid: bc8b81d2ac947fd4aa6e03e4b2cc333e, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 152ac2a86cc1c9c4a84c91cfda339548, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 604c26a1fcec7ff48830ed79ff414023, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 52c6ceed5ef37684e93e6a23bf6b21a6, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Waffle
+    output: {fileID: 11400000, guid: f0116e245be048c4eaeace2a50d3c927, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: ef1733126edd77a49855dd9f0f1040f1, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 52c6ceed5ef37684e93e6a23bf6b21a6, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Macaron
+    output: {fileID: 11400000, guid: 5f4bf96519fde474dbe858523e02f3c8, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: ef1733126edd77a49855dd9f0f1040f1, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 756208235068d3c4dbc462892a74db85, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Financier
+    output: {fileID: 11400000, guid: 581b44f28b780bc4f944d3f0b242f610, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: ef1733126edd77a49855dd9f0f1040f1, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 604c26a1fcec7ff48830ed79ff414023, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: EggTart
+    output: {fileID: 11400000, guid: 7a06a03deadceb4428a0fcadce366115, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: ef1733126edd77a49855dd9f0f1040f1, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 52c6ceed5ef37684e93e6a23bf6b21a6, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 756208235068d3c4dbc462892a74db85, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Croissant
+    output: {fileID: 11400000, guid: 4908056dba24d0045824663489b48cea, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 52c6ceed5ef37684e93e6a23bf6b21a6, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 604c26a1fcec7ff48830ed79ff414023, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: SaltBread
+    output: {fileID: 11400000, guid: cc5e3406a61f3d4479d61ac686aa88d9, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 52c6ceed5ef37684e93e6a23bf6b21a6, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 6bef45fd3b7398249bc908c1cafefdb8, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: ChocolateChipCookie
+    output: {fileID: 11400000, guid: 90ee41d841e012a4f8f61432d17d16ae, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: d989efff7b461364e8422137280aca08, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: ef1733126edd77a49855dd9f0f1040f1, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Scone
+    output: {fileID: 11400000, guid: fcc938cdaf09a5c45b8bcbec327777f5, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 52c6ceed5ef37684e93e6a23bf6b21a6, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Brownie
+    output: {fileID: 11400000, guid: 1c1af63e58e442540bffc1be0742456b, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: d989efff7b461364e8422137280aca08, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: ef1733126edd77a49855dd9f0f1040f1, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 52c6ceed5ef37684e93e6a23bf6b21a6, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Pretzel
+    output: {fileID: 11400000, guid: b217fc55b0b3d4c45b6e45ee1559f0cd, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 6bef45fd3b7398249bc908c1cafefdb8, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Donut
+    output: {fileID: 11400000, guid: 28db2f6b5972f244ba04209fcabcda09, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 52c6ceed5ef37684e93e6a23bf6b21a6, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: c1e60949bbf80514a9c67d32214996a7, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Pudding
+    output: {fileID: 11400000, guid: 3a8675d6bf05ce64fbd298bc655246ad, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 52c6ceed5ef37684e93e6a23bf6b21a6, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: ef1733126edd77a49855dd9f0f1040f1, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Churros
+    output: {fileID: 11400000, guid: d8537e65aad06d2468194cf73a01cb6a, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 1687d6ace3db2e944a7a2885f81233bb, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: StrawberryBingsu
+    output: {fileID: 11400000, guid: ffbfa27a16d112f429104b30739907ba, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 44ef929df0df1e8449290ce0fcbbd7e2, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 52c6ceed5ef37684e93e6a23bf6b21a6, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: bcefe63bf243ded4da47ab21beb1765e, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: MangoBingsu
+    output: {fileID: 11400000, guid: 76383d4a7cd322e468ddb514252d2b0e, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 44ef929df0df1e8449290ce0fcbbd7e2, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 52c6ceed5ef37684e93e6a23bf6b21a6, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 183b0c56207815f4c892b37915b59630, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: ChocolateBingsu
+    output: {fileID: 11400000, guid: 207a173a29033e5409dfbfddd338c45d, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 44ef929df0df1e8449290ce0fcbbd7e2, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 52c6ceed5ef37684e93e6a23bf6b21a6, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: d989efff7b461364e8422137280aca08, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: MatchaBingsu
+    output: {fileID: 11400000, guid: 6e75d29b1d331af4e9f261ed24fafbfe, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 44ef929df0df1e8449290ce0fcbbd7e2, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 52c6ceed5ef37684e93e6a23bf6b21a6, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: d8322712f01f3a8429eb714254e54612, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: BlueberryBingsu
+    output: {fileID: 11400000, guid: d63efe069198f8b439b3b07e15120564, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 44ef929df0df1e8449290ce0fcbbd7e2, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 52c6ceed5ef37684e93e6a23bf6b21a6, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: bcefe63bf243ded4da47ab21beb1765e, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 756208235068d3c4dbc462892a74db85, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: StrawberrySoftServe
+    output: {fileID: 11400000, guid: 2d8a958d9e3c0284393e80fb93983668, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 52c6ceed5ef37684e93e6a23bf6b21a6, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: bcefe63bf243ded4da47ab21beb1765e, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: MangoSoftServe
+    output: {fileID: 11400000, guid: b716c3fdbb92c654798c6900d7c7010f, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 52c6ceed5ef37684e93e6a23bf6b21a6, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 183b0c56207815f4c892b37915b59630, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: VanillaSoftServe
+    output: {fileID: 11400000, guid: bd27bce222987264da13cfda7b5ba854, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 52c6ceed5ef37684e93e6a23bf6b21a6, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 756208235068d3c4dbc462892a74db85, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: ChocolateSoftServe
+    output: {fileID: 11400000, guid: e286228531ed7e94e807b7ac9d427c8e, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 52c6ceed5ef37684e93e6a23bf6b21a6, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: d989efff7b461364e8422137280aca08, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: MatchaSoftServe
+    output: {fileID: 11400000, guid: 0b54c5d7b1795b84d92d57dfedbb6874, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 52c6ceed5ef37684e93e6a23bf6b21a6, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: d8322712f01f3a8429eb714254e54612, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: OrangeSoftServe
+    output: {fileID: 11400000, guid: dbbd5a78875b78c49b0de20c4525789c, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 52c6ceed5ef37684e93e6a23bf6b21a6, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b462e41aa7fcd4b4d9d63317f528e8ae, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: GreekYogurt
+    output: {fileID: 11400000, guid: 98e3bd28d4a1eb641b363a13a53f8965, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 52c6ceed5ef37684e93e6a23bf6b21a6, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: bcefe63bf243ded4da47ab21beb1765e, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 37eaf40be4a673f418fd8f6a2e2491e0, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: IcedAmericano
+    output: {fileID: 11400000, guid: 170e136055eaaee4199d30aa0217d266, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 152ac2a86cc1c9c4a84c91cfda339548, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 44ef929df0df1e8449290ce0fcbbd7e2, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: HotAmericano
+    output: {fileID: 11400000, guid: b9dadae9ca3c4aa43978b79f2d454828, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 152ac2a86cc1c9c4a84c91cfda339548, type: 2}
+      count: 2
+    unlockRequired: 0
+  - id: CafeLatte
+    output: {fileID: 11400000, guid: a5dccf163ae2cc641909f8443eba0705, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 152ac2a86cc1c9c4a84c91cfda339548, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 52c6ceed5ef37684e93e6a23bf6b21a6, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: StrawberryLatte
+    output: {fileID: 11400000, guid: c9a4cc38704abbe4b9074038d581e2e0, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 52c6ceed5ef37684e93e6a23bf6b21a6, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: bcefe63bf243ded4da47ab21beb1765e, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 756208235068d3c4dbc462892a74db85, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: ChocolateLatte
+    output: {fileID: 11400000, guid: 260ea64479cc25c41bce1e3d58013a17, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 52c6ceed5ef37684e93e6a23bf6b21a6, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: d989efff7b461364e8422137280aca08, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 152ac2a86cc1c9c4a84c91cfda339548, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: SweetPotatoLatte
+    output: {fileID: 11400000, guid: 4c08791abc2843845b097105b09d910c, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 52c6ceed5ef37684e93e6a23bf6b21a6, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: cc061e802531e4442ba97c4ebf67ea02, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: MatchaLatte
+    output: {fileID: 11400000, guid: 49ef8310e4534ba4b900d729f02ebf2b, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 52c6ceed5ef37684e93e6a23bf6b21a6, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: d8322712f01f3a8429eb714254e54612, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 756208235068d3c4dbc462892a74db85, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: MilkTea
+    output: {fileID: 11400000, guid: ce0010ab7dca6c84e9cca96abe3b1930, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: d63072fcb1b94d64787d648b2901eddf, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 52c6ceed5ef37684e93e6a23bf6b21a6, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 756208235068d3c4dbc462892a74db85, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: StrawberrySmoothie
+    output: {fileID: 11400000, guid: e302d847c7a5e83418ffe23fb6442949, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: bcefe63bf243ded4da47ab21beb1765e, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 52c6ceed5ef37684e93e6a23bf6b21a6, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 44ef929df0df1e8449290ce0fcbbd7e2, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: MangoSmoothie
+    output: {fileID: 11400000, guid: 059233251481e6b4b9b1a55c0d90efcb, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 183b0c56207815f4c892b37915b59630, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 52c6ceed5ef37684e93e6a23bf6b21a6, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 44ef929df0df1e8449290ce0fcbbd7e2, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: KiwiSmoothie
+    output: {fileID: 11400000, guid: 7ace42fd152f51047a2659ab862c8ecd, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 37eaf40be4a673f418fd8f6a2e2491e0, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b462e41aa7fcd4b4d9d63317f528e8ae, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 44ef929df0df1e8449290ce0fcbbd7e2, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: CookiesCreamSmoothie
+    output: {fileID: 11400000, guid: 9446c8276325d2b4196dab1a03f6bbde, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: d989efff7b461364e8422137280aca08, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 0c3d4caf1eb4ae64f8902c80d60e379d, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 52c6ceed5ef37684e93e6a23bf6b21a6, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 44ef929df0df1e8449290ce0fcbbd7e2, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: BlueberrySmoothie
+    output: {fileID: 11400000, guid: d39dc188ac351a643bb681eae88a04e9, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: bcefe63bf243ded4da47ab21beb1765e, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 52c6ceed5ef37684e93e6a23bf6b21a6, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 152ac2a86cc1c9c4a84c91cfda339548, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: YogurtSmoothie
+    output: {fileID: 11400000, guid: 6afe3700bbeaced498915416d1e86428, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 52c6ceed5ef37684e93e6a23bf6b21a6, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 756208235068d3c4dbc462892a74db85, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 44ef929df0df1e8449290ce0fcbbd7e2, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: PeachIcedTea
+    output: {fileID: 11400000, guid: 38d5209a826403443a7e10eac33d6fb0, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: d63072fcb1b94d64787d648b2901eddf, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b462e41aa7fcd4b4d9d63317f528e8ae, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 44ef929df0df1e8449290ce0fcbbd7e2, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: YujaTea
+    output: {fileID: 11400000, guid: 0e5a6cdefdc67e643a09a685c0fbc1c0, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 8237f37fa47939647ad624b78ceaf5c2, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: Chamomile
+    output: {fileID: 11400000, guid: 0b1da6cb85ae1b54ea5c4307d7ac1fad, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: d63072fcb1b94d64787d648b2901eddf, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 756208235068d3c4dbc462892a74db85, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: EarlGrey
+    output: {fileID: 11400000, guid: 487559d6b753a2b4d860d9e3e791b11f, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: d63072fcb1b94d64787d648b2901eddf, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 8237f37fa47939647ad624b78ceaf5c2, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: GreenTea
+    output: {fileID: 11400000, guid: 07e38cd186031744b9b6111d5edb1913, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: d8322712f01f3a8429eb714254e54612, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 44ef929df0df1e8449290ce0fcbbd7e2, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: BlackTea
+    output: {fileID: 11400000, guid: 85c1ad801a88e3b4cb7b13a151838fb5, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: d63072fcb1b94d64787d648b2901eddf, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 44ef929df0df1e8449290ce0fcbbd7e2, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: LemonAde
+    output: {fileID: 11400000, guid: 219e1acdaea42734e9552e2a98733ed9, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: 8237f37fa47939647ad624b78ceaf5c2, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 44ef929df0df1e8449290ce0fcbbd7e2, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: GrapefruitAde
+    output: {fileID: 11400000, guid: bada36705ff4a6b4183938c39c66bfa4, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: b54ba8986f3dca342a6a0997f565e344, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 44ef929df0df1e8449290ce0fcbbd7e2, type: 2}
+      count: 1
+    unlockRequired: 0
+  - id: GreenGrapeAde
+    output: {fileID: 11400000, guid: a98d58eb0d074ba4fb42b7fa5eaceb29, type: 2}
+    ingredients:
+    - item: {fileID: 11400000, guid: b462e41aa7fcd4b4d9d63317f528e8ae, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: b30b84a2bfbec5f42a6a14677bbc824e, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 44ef929df0df1e8449290ce0fcbbd7e2, type: 2}
+      count: 1
+    unlockRequired: 0
+  allowUnlockRecipes: 1

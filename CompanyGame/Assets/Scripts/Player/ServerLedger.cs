@@ -31,7 +31,7 @@ public sealed class ServerLedger
     public static readonly HashSet<string> Kinds = new HashSet<string>
     {
         "p.stock.buy", "p.stock.sell", "p.shop.buy", "p.fine", "p.night.select",
-        "p.trade", "p.cash.withdraw", "p.cash.deposit", "p.eat", "p.bag", "p.inv.layout", "p.grant"
+        "p.trade", "p.cash.withdraw", "p.cash.deposit", "p.eat", "p.bag", "p.inv.layout", "p.grant", "p.storage.open", "p.storage.move", "p.cook"
     };
 
     const string NoMoney = "은행 잔액이 부족합니다.";
@@ -53,6 +53,84 @@ public sealed class ServerLedger
     readonly ServerBooks bodies;
     readonly Dictionary<string, PersonalSaveData> books = new Dictionary<string, PersonalSaveData>();
     readonly Dictionary<string, InventoryState> bags = new Dictionary<string, InventoryState>();
+    readonly Dictionary<string, InventoryState> storage = new Dictionary<string, InventoryState>();
+    readonly Dictionary<uint, string> storageViewers = new Dictionary<uint, string>();
+    readonly Dictionary<string, FurnitureStorageRules.Location> storageLocations = new Dictionary<string, FurnitureStorageRules.Location>();
+    bool storageCatalogLoaded;
+
+    public List<FurnitureStorageRules.Saved> CaptureStorage()
+    {
+        var result = new List<FurnitureStorageRules.Saved>();
+        foreach (var pair in storage) result.Add(new FurnitureStorageRules.Saved { id = pair.Key, inventory = InventorySnapshot.Export(pair.Value, false) });
+        return result;
+    }
+    public void RestoreStorage(List<FurnitureStorageRules.Saved> saved)
+    {
+        storage.Clear(); storageViewers.Clear();
+        if (saved == null) return;
+        foreach (var row in saved)
+        {
+            if (row == null || string.IsNullOrEmpty(row.id)) continue;
+            var state = new InventoryState();
+            if (InventorySnapshot.Import(state, row.inventory)) storage[row.id] = state;
+        }
+    }
+    bool CanReachStorage(uint connection, FurnitureStorageRules.Location place)
+    {
+        if (place == null || server.MapOf(connection) != place.map) return false;
+        foreach (ulong id in server.EntityIds)
+        {
+            if (!server.TryGetEntity(id, out string key, out string map, out uint owner, out _, out var blobs) ||
+                key != AvatarSync.PrefabKey || owner != connection || map != place.map || blobs == null || blobs.Length == 0 ||
+                !ServerCombat.TryPosition(blobs[0], out Vector3 position, out _)) continue;
+            Vector3 delta = position - place.position;
+            float radius = Mathf.Clamp(place.radius, .5f, 3f) + .25f;
+            return Mathf.Abs(delta.y) < 1.5f && new Vector2(delta.x, delta.z).sqrMagnitude <= radius * radius;
+        }
+        return false;
+    }
+    void SendStorage(uint connection, string id, InventoryState state)
+        => server.SendServerEvent(entity, 0, WorldSection.StorageEvent, connection, ServerWorld.Bytes(w =>
+        {
+            SyncProtocol.WriteStr(w, id);
+            SyncProtocol.WriteServerBlob(w, ServerWorld.Encode(InventorySnapshot.Export(state, false)));
+        }));
+    void LoadFurnitureLocations()
+    {
+        if (!storageCatalogLoaded)
+        {
+            storageCatalogLoaded = true;
+            var text = Resources.Load<TextAsset>("Furniture/StorageLocations");
+            var catalog = text ? JsonUtility.FromJson<FurnitureStorageRules.Locations>(text.text) : null;
+            if (catalog?.items != null) foreach (var location in catalog.items)
+                if (location != null && !string.IsNullOrEmpty(location.id)) storageLocations[location.id] = location;
+        }
+    }
+    string Cook(uint connection, SharedOpArgs a, InventoryState bag)
+    {
+        LoadFurnitureLocations();
+        if(string.IsNullOrEmpty(a.a)||!storageLocations.TryGetValue(a.a,out var place)||(place.functions & FurnitureFunction.Cooking)==0||!CanReachStorage(connection,place))return "조리기구 가까이에서 다시 시도해 주세요.";
+        if(!CookingCatalog.Current)return "레시피를 불러올 수 없어요.";
+        CookingCatalog.Selection selection;
+        try { selection=JsonUtility.FromJson<CookingCatalog.Selection>(a.c); } catch {return "재료를 다시 확인해 주세요.";}
+        return CookingCatalog.Current.TryCook(bag,a.b,selection,out string error)?null:error;
+    }
+    string Storage(uint connection, string kind, SharedOpArgs a, InventoryState bag)
+    {
+        LoadFurnitureLocations();
+        if (string.IsNullOrEmpty(a.a) || !storageLocations.TryGetValue(a.a, out var place) || place.type == StorageType.None || !CanReachStorage(connection, place))
+            return "보관함 가까이에서 다시 시도해 주세요.";
+        if (!storage.TryGetValue(a.a, out var state)) storage[a.a] = state = new InventoryState();
+        storageViewers[connection] = a.a;
+        if (kind == "p.storage.open") { SendStorage(connection, a.a, state); return null; }
+        if (!int.TryParse(a.c, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int slot) ||
+            a.n <= 0 || a.n > int.MaxValue || string.IsNullOrEmpty(a.b)) return "아이템과 수량을 확인해 주세요.";
+        if (!FurnitureStorageRules.Transfer(place.type, place.refrigerated, a.f, bag, state, slot, (int)a.n, a.b, out string error))
+        { SendStorage(connection, a.a, state); return error; }
+        foreach (var viewer in storageViewers)
+            if (viewer.Value == a.a && CanReachStorage(viewer.Key, place)) SendStorage(viewer.Key, a.a, state);
+        return null;
+    }
     readonly Dictionary<uint, uint> done = new Dictionary<uint, uint>(); // per connection: its numbers are never reused
     readonly Dictionary<uint, NightActivityKind> nights = new Dictionary<uint, NightActivityKind>();
     readonly Dictionary<string, string> deeds = new Dictionary<string, string>(); // account → the goshiwon room the server gave it
@@ -181,6 +259,13 @@ public sealed class ServerLedger
         string error;
         switch (kind)
         {
+            case "p.cook":
+                error = Cook(connection, a, bag);
+                break;
+            case "p.storage.open":
+            case "p.storage.move":
+                error = Storage(connection, kind, a, bag);
+                break;
             case "p.trade":
                 var lines = InventoryLedgerRules.ParseLines(a.a);
                 var offers = TradeCatalog.Offers(a.b);

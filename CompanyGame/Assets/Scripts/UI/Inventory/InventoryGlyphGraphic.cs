@@ -4,13 +4,16 @@ using UnityEngine;
 [RequireComponent(typeof(CanvasRenderer))]
 public sealed class InventoryGlyphGraphic : UnityEngine.UI.MaskableGraphic
 {
-    public enum Glyph { Person, Top, Bottom, Socks, Shoes, Pet, Bag, Coin, Heart, Energy, Stress }
+    public enum Glyph { Person, Top, Bottom, Socks, Shoes, Pet, Bag, Coin, Heart, Energy, Stress, Fire }
     public Glyph kind;
     protected override void OnPopulateMesh(UnityEngine.UI.VertexHelper mesh)
     {
         mesh.Clear();
         switch (kind)
         {
+            case Glyph.Fire:
+                Polygon(mesh,new[]{V(.5f,.98f),V(.8f,.65f),V(.7f,.5f),V(.89f,.38f),V(.87f,.19f),V(.7f,.06f),V(.47f,.02f),V(.23f,.1f),V(.12f,.29f),V(.2f,.57f),V(.32f,.43f),V(.42f,.69f)});
+                break;
             case Glyph.Person:
                 Oval(mesh, .5f, .73f, .22f, .22f);
                 Polygon(mesh, new[] { V(.12f,.05f), V(.17f,.39f), V(.31f,.52f), V(.69f,.52f), V(.83f,.39f), V(.88f,.05f) });

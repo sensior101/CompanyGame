@@ -23,6 +23,8 @@ public sealed class DialogueManager : GameSystem<DialogueManager>
     // Future systems supply state queries; dialogue never owns construction or property state.
     public Func<bool> HasActiveConstruction = () => false;
     public Func<int> OwnedBuildingCount = () => 0;
+    /// <summary>True when another interaction closer to the player than this NPC should own Space (e.g. a cabinet behind a desk clerk).</summary>
+    public Func<Transform, DialogueData, bool> YieldTo = (_, __) => false;
     public event Action Changed;
     public event Action Closed;
     public event Action<DialogueData, string> OptionSelected;
@@ -66,6 +68,7 @@ public sealed class DialogueManager : GameSystem<DialogueManager>
         if (SceneLoadManager.IsLoading || !player || !CanStart() || consumedFrame == Time.frameCount)
         { Nearby = null; return; }
         Nearby = FindNearest(player.transform);
+        if (Nearby && YieldTo(player.transform, Nearby)) Nearby = null;
         if (Nearby && GameInput.InteractPressed) Begin(Nearby);
     }
 

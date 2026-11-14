@@ -18,6 +18,59 @@ using UnityEngine.Rendering.Universal;
 /// </summary>
 public static class FoodItemBuilder
 {
+    [Serializable] public class RecipeSource { public RecipeRow[] items; }
+    [Serializable] public class RecipeRow { public string id,name,recipe;public bool recipeUnlockRequired; }
+    static readonly Dictionary<string,string> IngredientIcons=new()
+    {
+        ["감자"]="Potato",["고구마"]="SweetPotato",["광어"]="Fish",["녹차잎"]="GreenTea",["달걀"]="Egg",["닭고기"]="ChickenLeg",
+        ["당근"]="Carrot",["돼지고기"]="Bacon",["두부"]="Tofu",["레몬"]="Lemon",["망고"]="Mango",["물"]="Water",["밀가루"]="Flour",
+        ["바나나"]="Banana",["바닐라"]="Vanilla",["바질"]="Basil",["배추"]="Cabbage",["버섯"]="Mushroom",["블루베리"]="Blueberry",
+        ["새우"]="Shrimp",["설탕"]="Sugar",["소고기"]="Steak",["쌀"]="Rice",["연어"]="Salmon",["오렌지"]="Orange",["오이"]="Cucumber",
+        ["옥수수"]="Corn",["우유"]="Milk",["자몽"]="Grapefruit",["장류"]="SoySauce",["장어"]="Eel",["참치"]="Tuna",["초콜릿"]="Chocolate",
+        ["치즈"]="Cheese",["커피"]="Coffee",["향신료"]="Spice",["홍차잎"]="BlackTea"
+    };
+    [MenuItem("CompanyGame/Setup/Build Cooking Recipes")]
+    public static string BuildCooking()
+    {
+        const string folder="Assets/Resources/Inventory/Ingredients";const string catalogFolder="Assets/Resources/Cooking";
+        Directory.CreateDirectory(folder);Directory.CreateDirectory(catalogFolder);AssetDatabase.Refresh();
+        string source=Path.GetFullPath(Path.Combine(Application.dataPath,"../../ArtSource/Items/Food/Crafted_20261012/menu.json"));
+        var rows=JsonUtility.FromJson<RecipeSource>("{\"items\":"+File.ReadAllText(source)+"}").items;
+        var foods=Resources.LoadAll<ItemData>("Inventory").Concat(TradeCatalog.Items()).Distinct().ToArray();
+        var ingredients=new Dictionary<string,ItemData>();var recipes=new List<CookingCatalog.Recipe>();var missing=new List<string>();
+        foreach(var row in rows)
+        {
+            var output=foods.FirstOrDefault(i=>FoodMenu.TryGet(i,out var entry)&&entry.id==row.id);
+            if(!output){missing.Add(row.id);continue;}
+            var parts=new List<CookingCatalog.Ingredient>();
+            foreach(string part in row.recipe.Split('+'))
+            {
+                var match=Regex.Match(part.Trim(),@"^(.*?)(?:\s*×\s*(\d+))?$");string label=match.Groups[1].Value.Trim();int count=match.Groups[2].Success?int.Parse(match.Groups[2].Value):1;
+                if(!ingredients.TryGetValue(label,out var item))
+                {
+                    string key=IngredientIcons[label];
+                    item=label=="물"?InventorySnapshot.Find("food:water"):label=="초콜릿"?InventorySnapshot.Find("food:chocolate"):null;
+                    if(!item)
+                    {
+                        string path=folder+"/"+key+".asset";item=AssetDatabase.LoadAssetAtPath<ItemData>(path);
+                        if(!item){item=ScriptableObject.CreateInstance<ItemData>();AssetDatabase.CreateAsset(item,path);}
+                        item.category=ItemCategory.Food;item.itemId="ingredient:"+Kebab(key);item.displayName=label;item.maxStack=20;item.consumableType=label=="우유"?ConsumableType.Drink:ConsumableType.Food;item.shelfLifeHours=72;
+                        string iconPath="Assets/Art/Items/Food/Food_"+key+".png";
+                        if(File.Exists(iconPath))item.icon=ImportIcon(iconPath);
+                        EditorUtility.SetDirty(item);
+                    }
+                    ingredients[label]=item;
+                }
+                parts.Add(new CookingCatalog.Ingredient{item=item,count=count});
+            }
+            recipes.Add(new CookingCatalog.Recipe{id=row.id,output=output,ingredients=parts.ToArray(),unlockRequired=row.recipeUnlockRequired});
+        }
+        if(missing.Count>0)throw new InvalidOperationException("Missing cooked food items: "+string.Join(",",missing));
+        const string catalogPath=catalogFolder+"/Catalog.asset";var catalog=AssetDatabase.LoadAssetAtPath<CookingCatalog>(catalogPath);
+        if(!catalog){catalog=ScriptableObject.CreateInstance<CookingCatalog>();AssetDatabase.CreateAsset(catalog,catalogPath);}
+        catalog.recipes=recipes.ToArray();catalog.allowUnlockRecipes=true;EditorUtility.SetDirty(catalog);AssetDatabase.SaveAssets();
+        return $"Recipes: {recipes.Count}; ingredients: {ingredients.Count}; all recipes enabled.";
+    }
     const string IconFolder = "Assets/Art/Items/FoodLibrary/Icons";
     const string TextureFolder = "Assets/Art/Items/FoodLibrary/Textures";
     const string MaterialFolder = "Assets/Art/Items/FoodLibrary/Materials";

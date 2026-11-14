@@ -1,0 +1,214 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &6465175205496052005
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7127850104503373753}
+  - component: {fileID: 3302650835468137345}
+  m_Layer: 0
+  m_Name: BathroomMirror
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &7127850104503373753
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6465175205496052005}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 3314485671955508836}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3302650835468137345
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6465175205496052005}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b6258306fc943fd46b944b54869e6964, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: CompanyGame.World::WorldObject
+  objectType: 0
+  functions: 512
+  furnitureItem: {fileID: 11400000, guid: 4fd29923320d8d4418d7b74fec5c697a, type: 2}
+--- !u!1001 &3059582784864176527
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 7127850104503373753}
+    m_Modifications:
+    - target: {fileID: -8679921383154817045, guid: 55f83c0ac7b255f42a78918e1aa65069, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 55f83c0ac7b255f42a78918e1aa65069, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 55f83c0ac7b255f42a78918e1aa65069, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 55f83c0ac7b255f42a78918e1aa65069, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.7071067
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 55f83c0ac7b255f42a78918e1aa65069, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0.7071068
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 55f83c0ac7b255f42a78918e1aa65069, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 55f83c0ac7b255f42a78918e1aa65069, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 55f83c0ac7b255f42a78918e1aa65069, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 55f83c0ac7b255f42a78918e1aa65069, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 55f83c0ac7b255f42a78918e1aa65069, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8564127398380820565, guid: 55f83c0ac7b255f42a78918e1aa65069, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 0c1e083662768e943a6dc4a1e97b1e0b, type: 2}
+    - target: {fileID: -4897732323685117858, guid: 55f83c0ac7b255f42a78918e1aa65069, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 90315e30157dc964dbc35ac773ac843d, type: 2}
+    - target: {fileID: 750737998102332184, guid: 55f83c0ac7b255f42a78918e1aa65069, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 90315e30157dc964dbc35ac773ac843d, type: 2}
+    - target: {fileID: 919132149155446097, guid: 55f83c0ac7b255f42a78918e1aa65069, type: 3}
+      propertyPath: m_Name
+      value: BathroomMirror_ChicBlack
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 5336384420488134916, guid: 55f83c0ac7b255f42a78918e1aa65069, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 6884948218286565923}
+    - targetCorrespondingSourceObject: {fileID: -3111565609762313623, guid: 55f83c0ac7b255f42a78918e1aa65069, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 3890723403314212737}
+    - targetCorrespondingSourceObject: {fileID: 8093904995948005384, guid: 55f83c0ac7b255f42a78918e1aa65069, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 296286960537437535}
+  m_SourcePrefab: {fileID: 100100000, guid: 55f83c0ac7b255f42a78918e1aa65069, type: 3}
+--- !u!4 &3314485671955508836 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 55f83c0ac7b255f42a78918e1aa65069, type: 3}
+  m_PrefabInstance: {fileID: 3059582784864176527}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &6496022315854676359 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 8093904995948005384, guid: 55f83c0ac7b255f42a78918e1aa65069, type: 3}
+  m_PrefabInstance: {fileID: 3059582784864176527}
+  m_PrefabAsset: {fileID: 0}
+--- !u!64 &296286960537437535
+MeshCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6496022315854676359}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: -2723260613333405795, guid: 55f83c0ac7b255f42a78918e1aa65069, type: 3}
+--- !u!1 &6952281353746712715 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 5336384420488134916, guid: 55f83c0ac7b255f42a78918e1aa65069, type: 3}
+  m_PrefabInstance: {fileID: 3059582784864176527}
+  m_PrefabAsset: {fileID: 0}
+--- !u!64 &6884948218286565923
+MeshCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6952281353746712715}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 5605303975567672198, guid: 55f83c0ac7b255f42a78918e1aa65069, type: 3}
+--- !u!1 &9125609807962792934 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: -3111565609762313623, guid: 55f83c0ac7b255f42a78918e1aa65069, type: 3}
+  m_PrefabInstance: {fileID: 3059582784864176527}
+  m_PrefabAsset: {fileID: 0}
+--- !u!64 &3890723403314212737
+MeshCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9125609807962792934}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: -6360558719573625917, guid: 55f83c0ac7b255f42a78918e1aa65069, type: 3}
