@@ -1,0 +1,85 @@
+{
+  "interior": [
+    26,
+    16.4,
+    3.3
+  ],
+  "wall_thickness": 0.2,
+  "wall_frames": {
+    "Front": {
+      "width": 26.4,
+      "origin": [
+        0,
+        -8.3,
+        0
+      ],
+      "yaw": 0
+    },
+    "Back": {
+      "width": 26.4,
+      "origin": [
+        0,
+        8.3,
+        0
+      ],
+      "yaw": 3.141592653589793
+    },
+    "Left": {
+      "width": 16.4,
+      "origin": [
+        -13.1,
+        0,
+        0
+      ],
+      "yaw": -1.5707963267948966
+    },
+    "Right": {
+      "width": 16.4,
+      "origin": [
+        13.1,
+        0,
+        0
+      ],
+      "yaw": 1.5707963267948966
+    }
+  },
+  "default_windows": [],
+  "door": {
+    "id": "Entrance",
+    "wall": "Front",
+    "u": 0,
+    "sill": 0,
+    "width": 2.1,
+    "height": 2.6
+  },
+  "door_slide_distance": 1.03,
+  "demo_windows": [
+    {
+      "id": "Window01",
+      "wall": "Front",
+      "u": 4.0,
+      "sill": 0.9,
+      "width": 2.0,
+      "height": 1.4
+    },
+    {
+      "id": "Window02",
+      "wall": "Back",
+      "u": -4.0,
+      "sill": 1.0,
+      "width": 1.8,
+      "height": 1.4
+    },
+    {
+      "id": "Window03",
+      "wall": "Right",
+      "u": 1.0,
+      "sill": 0.9,
+      "width": 2.4,
+      "height": 1.5
+    }
+  ],
+  "source": "C:\\서현\\프로젝트\\companyGame\\ArtSource\\WorldDistricts\\ShopInteriorConcept_20261105\\ShopInterior_Empty.blend",
+  "source_sha256": "c3f54fe73376cefdc0d855d0815ac6d32c740d2663daf6e605b44cd2250b44f1",
+  "scope": "Blender authoring only; runtime installation, persistence and networking pending"
+}
