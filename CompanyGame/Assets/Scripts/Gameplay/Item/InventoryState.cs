@@ -116,7 +116,7 @@ public sealed class InventoryState
         if (item.IsCurrency)
         {
             try { checked { long after = CashService.CarriedTotal(this) + item.CurrencyValue * count; } }
-            catch (OverflowException) { return Fail("소지 화폐 금액이 처리 가능한 범위를 초과합니다.", out error); }
+            catch (OverflowException) { return Fail("현금 금액이 처리 가능한 범위를 초과합니다.", out error); }
         }
         return true;
     }
@@ -175,7 +175,7 @@ public sealed class InventoryState
         if (incoming.Item.IsCurrency)
         {
             try { checked { long total = CashService.CarriedTotal(this) + incoming.Item.CurrencyValue * amount; } }
-            catch (OverflowException) { return Fail("소지 화폐 금액이 처리 가능한 범위를 초과합니다.", out error); }
+            catch (OverflowException) { return Fail("현금 금액이 처리 가능한 범위를 초과합니다.", out error); }
         }
         if (target.IsEmpty)
         {

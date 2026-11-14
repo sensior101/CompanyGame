@@ -219,9 +219,9 @@ public static class PhoneUIBuilder
     private static PhoneAppBase BuildBank(RectTransform appsRoot, RectTransform body, List<GameObject> screens)
     {
         var screen = NewScreen("BankScreen", body, "은행", screens);
-        var cash = NewText("CashText", screen, "보유 현금", 26, TextMain);
+        var cash = NewText("CashText", screen, "현금", 26, TextMain);
         Layout(cash, prefH: 42);
-        var bank = NewText("BankText", screen, "통장 잔액", 26, TextMain);
+        var bank = NewText("BankText", screen, "계좌", 26, TextMain);
         Layout(bank, prefH: 42);
         var amount = NewInput("AmountInput", screen, "금액 입력", TMP_InputField.ContentType.IntegerNumber, 56);
 
@@ -263,7 +263,7 @@ public static class PhoneUIBuilder
     private static PhoneAppBase BuildShop(RectTransform appsRoot, RectTransform body, List<GameObject> screens)
     {
         var screen = NewScreen("ShopScreen", body, "상점", screens);
-        var cash = NewText("CashText", screen, "보유 현금", 26, TextMain);
+        var cash = NewText("CashText", screen, "현금", 26, TextMain);
         Layout(cash, prefH: 42);
 
         NewScrollList("ItemList", screen, 0f, 1f, out var content);

@@ -25,7 +25,8 @@ public class ShopApplication : PhoneAppBase
 
     protected override void OnOpened() => Refreshed?.Invoke();
 
-    public long GetCash() => wallet.Balance;
+    /// <summary>The shop pays from the bank account, so this is the account balance, not carried cash.</summary>
+    public long GetBalance() => wallet.Balance;
 
     public bool CanAfford(long price) => wallet.CanAfford(price);
 

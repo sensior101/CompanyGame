@@ -263,7 +263,7 @@ public static partial class CashService
         if (available < amount)
         {
             return Fail(
-                "소지 화폐가 부족합니다. 지갑에서 먼저 출금해 주세요.",
+                "현금이 부족합니다. 계좌에서 먼저 출금해 주세요.",
                 out error);
         }
 

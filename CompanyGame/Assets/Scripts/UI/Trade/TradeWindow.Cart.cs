@@ -189,7 +189,7 @@ public sealed partial class TradeWindow
         bool valid=TryWithdrawValues(out long amount,out int quantity,out string error);
         bool affordable=valid && amount*quantity<=CashService.BankBalance;
         withdrawConfirm.interactable=affordable;
-        withdrawError.text=!valid ? (string.IsNullOrEmpty(amountInput.text)?"":error) : affordable ? "" : "지갑 잔액이 부족합니다.";
+        withdrawError.text=!valid ? (string.IsNullOrEmpty(amountInput.text)?"":error) : affordable ? "" : "계좌 잔액이 부족합니다.";
     }
     void SubmitWithdraw()
     {
@@ -204,7 +204,7 @@ public sealed partial class TradeWindow
         if(!cartView)return;
         var s=Session;
         cartLabel.text=s.CartItemCount+"개 · "+s.CartTotal.ToString("N0")+"원";
-        walletLabel.text="지갑  "+CashService.BankBalance.ToString("N0")+"원";
+        walletLabel.text="계좌  "+CashService.BankBalance.ToString("N0")+"원";
         cartButtonImage.color=cartView.gameObject.activeSelf?UITheme.Slate:UITheme.Sand;
         if(Time.unscaledTime>statusUntil && statusLabel.text.Length>0)statusLabel.text="";
         if(cartView.gameObject.activeSelf)RefreshCartView();
@@ -221,9 +221,9 @@ public sealed partial class TradeWindow
         }
         emptyLabel.gameObject.SetActive(s.Cart.Count==0);
         totalLabel.text="합계 "+total.ToString("N0")+"원";
-        carriedLabel.text="소지 현금 "+carried.ToString("N0")+"원";
-        walletInfoLabel.text="지갑 "+CashService.BankBalance.ToString("N0")+"원";
-        shortfallLabel.text=shortfall>0?"부족 "+shortfall.ToString("N0")+"원 (지갑에서 꺼내 주세요)":"";
+        carriedLabel.text="현금 "+carried.ToString("N0")+"원";
+        walletInfoLabel.text="계좌 "+CashService.BankBalance.ToString("N0")+"원";
+        shortfallLabel.text=shortfall>0?"부족 "+shortfall.ToString("N0")+"원 (계좌에서 출금해 주세요)":"";
         checkoutButton.interactable=s.Cart.Count>0 && carried>=total;
     }
 }

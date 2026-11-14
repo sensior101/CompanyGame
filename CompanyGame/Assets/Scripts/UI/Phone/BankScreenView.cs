@@ -25,10 +25,19 @@ public class BankScreenView : MonoBehaviour
         if (app != null) app.Refreshed -= Refresh;
     }
 
+    long shownCash = -1, shownBank = -1;
+
+    // Purchases, inventory withdrawals and server answers change the money while the app is open.
+    private void Update()
+    {
+        if (app.IsOpen && (app.GetCash() != shownCash || app.GetBankBalance() != shownBank)) Refresh();
+    }
+
     private void Refresh()
     {
-        cashText.text = "보유 현금   " + PhoneFormat.Won(app.GetCash());
-        bankText.text = "통장 잔액   " + PhoneFormat.Won(app.GetBankBalance());
+        shownCash = app.GetCash(); shownBank = app.GetBankBalance();
+        cashText.text = "현금   " + PhoneFormat.Won(shownCash);
+        bankText.text = "계좌   " + PhoneFormat.Won(shownBank);
     }
 
     private void OnDeposit()
@@ -39,7 +48,7 @@ public class BankScreenView : MonoBehaviour
             return;
         }
 
-        messageText.text = app.Deposit(amount) ? "입금했습니다." : "입금할 수 없습니다. (현금 부족)";
+        messageText.text = app.Deposit(amount, out string error) ? "입금했습니다." : "입금할 수 없습니다. " + error;
         amountInput.text = string.Empty;
         Refresh();
     }
@@ -52,7 +61,7 @@ public class BankScreenView : MonoBehaviour
             return;
         }
 
-        messageText.text = app.Withdraw(amount) ? "출금했습니다." : "출금할 수 없습니다. (잔액 부족)";
+        messageText.text = app.Withdraw(amount, out string error) ? "출금했습니다." : "출금할 수 없습니다. " + error;
         amountInput.text = string.Empty;
         Refresh();
     }

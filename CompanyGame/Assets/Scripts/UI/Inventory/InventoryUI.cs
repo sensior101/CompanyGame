@@ -236,7 +236,7 @@ public sealed partial class InventoryUI : MonoBehaviour
         if (bank != lastBank)
         {
             lastBank = bank;
-            bankLabel.text = "지갑  " + bank.ToString("N0") + "원";
+            bankLabel.text = "계좌  " + bank.ToString("N0") + "원";
             if (IsWithdrawalOpen) ValidateWithdrawal();
         }
     }

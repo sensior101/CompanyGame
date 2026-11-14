@@ -4,7 +4,7 @@ using UnityEngine;
 
 public static partial class CashService
 {
-    // 지갑 → 인벤토리 출금
+    // 계좌 → 인벤토리(현금) 출금
     public static bool TryWithdraw(
         InventoryState inventory,
         long faceValue,
@@ -45,7 +45,7 @@ public static partial class CashService
         if (!bank || inventory == null)
         {
             return Fail(
-                "지갑 또는 인벤토리를 찾을 수 없습니다.",
+                "계좌 또는 인벤토리를 찾을 수 없습니다.",
                 out error);
         }
 
@@ -63,7 +63,7 @@ public static partial class CashService
         if (total > 0 && !bank.CanAfford(total))
         {
             return Fail(
-                "지갑 잔액이 부족합니다.",
+                "계좌 잔액이 부족합니다.",
                 out error);
         }
 
@@ -74,7 +74,7 @@ public static partial class CashService
             if (total > 0 && !bank.TryDebitSilently(total))
             {
                 return Fail(
-                    "지갑 잔액이 부족합니다.",
+                    "계좌 잔액이 부족합니다.",
                     out error);
             }
 
@@ -93,7 +93,7 @@ public static partial class CashService
         }
     }
 
-    // 인벤토리 → 지갑 입금
+    // 인벤토리(현금) → 계좌 입금
     public static bool TryDeposit(
         InventoryState inventory,
         int sourceIndex,
@@ -155,7 +155,7 @@ public static partial class CashService
         if (!bank || inventory == null)
         {
             return Fail(
-                "지갑 또는 인벤토리를 찾을 수 없습니다.",
+                "계좌 또는 인벤토리를 찾을 수 없습니다.",
                 out error);
         }
 
@@ -208,7 +208,7 @@ public static partial class CashService
             if (total > 0 && !bank.TryCreditSilently(total))
             {
                 return Fail(
-                "지갑에 입금할 수 있는 금액을 초과합니다.",
+                "계좌에 입금할 수 있는 금액을 초과합니다.",
                     out error);
             }
 
@@ -243,7 +243,7 @@ public static partial class CashService
         if (inventory == null)
         {
             return Fail(
-                "지갑 또는 인벤토리를 찾을 수 없습니다.",
+                "계좌 또는 인벤토리를 찾을 수 없습니다.",
                 out error);
         }
 
@@ -286,11 +286,11 @@ public static partial class CashService
         out string error)
     {
         if (wallet == null)
-            return Fail("지갑 또는 인벤토리를 찾을 수 없습니다.", out error);
+            return Fail("계좌 또는 인벤토리를 찾을 수 없습니다.", out error);
         if (!PlanWithdraw(inventory, faceValue, quantity, out InventoryState draft, out long total, out error))
             return false;
         if (total > 0 && !wallet.TrySpend(total, MoneyChangeReason.Withdrawal))
-            return Fail("지갑 잔액이 부족합니다.", out error);
+            return Fail("계좌 잔액이 부족합니다.", out error);
         inventory.ReplaceWith(draft);
         return true;
     }
@@ -318,7 +318,7 @@ public static partial class CashService
         if (!PlanPayment(inventory, total, out InventoryState draft, out error))
             return false;
         if (total > 0 && !wallet.AddMoney(total, MoneyChangeReason.Deposit))
-            return Fail("지갑에 입금할 수 있는 금액을 초과합니다.", out error);
+            return Fail("계좌에 입금할 수 있는 금액을 초과합니다.", out error);
         inventory.ReplaceWith(draft);
         error = null;
         return true;
